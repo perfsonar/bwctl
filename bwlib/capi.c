@@ -1022,8 +1022,8 @@ IPFSessionRequest(
 	struct addrinfo		*sai=NULL;
 	IPFTestSession		tsession = NULL;
 	int			rc=0;
-	IPFAddr			receiver;
-	IPFAddr			sender;
+	IPFAddr			receiver=NULL;
+	IPFAddr			sender=NULL;
 	int			socktype;
 
 	*err_ret = IPFErrOK;
