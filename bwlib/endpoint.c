@@ -696,6 +696,7 @@ IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"ipf_term=%d",ipf_term);
 				"Unable to setup SID for endpoint: %M");
 		goto end;
 	}
+	(void)IPFContextConfigDelete(ctx,IPFCheckControlPolicy);
 
 	/*
 	 * Set a timer - if we have not established a connection with
