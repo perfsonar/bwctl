@@ -1352,8 +1352,33 @@ AGAIN:
 					 */
 					I2ErrLog(eh,
 						"SessionRequest: Server busy. (Try -L flag)");
+					/*
+					 * Reset other servers reservation if
+					 * needed.
+					 */
+					if(s[q]->tspec.req_time.tstamp !=
+							zero64){
+						/*
+						 * zero request time is a
+						 * reservation cancellation.
+						 */
+						s[q]->tspec.req_time.tstamp =
+							zero64;
+						if(!BWLSessionRequest(
+								s[q]->cntrl,
+								s[q]->send,
+								&s[q]->tspec,
+								&req_time,
+								&recv_port,
+								sid,
+								&err_ret)){
+							goto sess_req_err;
+						}
+					}
+						
 					goto next_test;
 				}
+sess_req_err:
 				/*
 				 * TODO: Differentiate failure from not allowed.
 				 * (? Does it make a difference ?)

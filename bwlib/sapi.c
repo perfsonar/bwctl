@@ -703,19 +703,31 @@ BWLProcessTestRequest(
 	}
 
 	/*
-	 * If this is a "new" receiver session, create a SID for it.
+	 * Initialize reservation time.
 	 */
-	if((tsession != cntrl->tests) && tsession->conf_receiver &&
-						(_BWLCreateSID(tsession) != 0)){
+	tsession->reserve_time = BWLULongToNum64(0);
+
+	/*
+	 * Update of current reservation.
+	 */
+	if(tsession == cntrl->tests){
+		/*
+		 * If req_time is 0, client is cancelling.
+		 */
+		if(tsession->req_time.tstamp == 0){
+			err_ret = BWLErrINFO;
+			acceptval = BWL_CNTRL_REJECT;
+			goto error;
+		}
+	}
+	/*
+	 * If this "new" session is a receiver session, create a SID for it.
+	 */
+	else if(tsession->conf_receiver && (_BWLCreateSID(tsession) != 0)){
 		err_ret = BWLErrWARNING;
 		acceptval = BWL_CNTRL_FAILURE;
 		goto error;
 	}
-
-	/*
-	 * Initialize reservation time.
-	 */
-	tsession->reserve_time = BWLULongToNum64(0);
 
 	/*
 	 * compute "fuzz" time.

@@ -1116,11 +1116,12 @@ BWLSessionRequest(
 	BWLAddr			receiver=NULL;
 	BWLAddr			sender=NULL;
 	int			socktype;
+	BWLNum64		zero64 BWLULongToNum64(0);
 
 	*err_ret = BWLErrOK;
 
-	/* TODO: set to non-zero if request params ok */
-	avail_time_ret->tstamp = BWLULongToNum64(0);
+	/* will be set to non-zero if request params ok */
+	avail_time_ret->tstamp = zero64;
 
 	/*
 	 * Check cntrl state is appropriate for this call.
@@ -1135,7 +1136,7 @@ BWLSessionRequest(
 	}
 
 	/*
-	 * TODO: Look for existing TestSession with this SID!
+	 * Look for existing TestSession with this SID!
 	 */
 	if(cntrl->tests){
 		if(memcmp(sid,cntrl->tests->sid,sizeof(BWLSID))){
@@ -1146,6 +1147,11 @@ BWLSessionRequest(
 		tsession = cntrl->tests;
 		tsession->test_spec.req_time = test_spec->req_time;
 		tsession->test_spec.latest_time = test_spec->latest_time;
+		/*
+		 * If req_time == 0, this is a reservation cancellation.
+		 */
+		if(test_spec->req_time.tstamp == zero64)
+			goto cancel;
 	}else{
 
 		/*
@@ -1257,9 +1263,7 @@ BWLSessionRequest(
 		goto error;
 	}
 
-	if(avail_time_ret){
-		avail_time_ret->tstamp = tsession->reserve_time;
-	}
+	avail_time_ret->tstamp = tsession->reserve_time;
 	if(recv_port){
 		*recv_port = tsession->recv_port;
 	}
@@ -1282,22 +1286,43 @@ BWLSessionRequest(
 
 	return True;
 
-error:
-	if(tsession){
-		_BWLTestSessionFree(tsession,BWL_CNTRL_FAILURE);
-		if(cntrl->tests == tsession)
-			cntrl->tests = NULL;
-	}
-	else{
-		/*
-		 * If tsession exists - the addr's will be free'd as part
-		 * of it - otherwise, do it here.
-		 */
-		BWLAddrFree(receiver);
-		BWLAddrFree(sender);
-	}
+	{
+		BWLAcceptType	acceptval = BWL_CNTRL_FAILURE;
+		BWLBoolean	retval = False;
+cancel:
+		retval = True;
 
-	return False;
+		if(_BWLWriteTestRequest(cntrl,tsession) < BWLErrOK){
+			goto error;
+		}
+		if(_BWLReadTestAccept(cntrl,&acceptval,tsession) < BWLErrOK){
+			goto error;
+		}
+
+		if(acceptval != BWL_CNTRL_REJECT){
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+					"Reservation Cancellation Error");
+			_BWLFailControlSession(cntrl,BWLErrFATAL);
+		}
+
+error:
+		if(tsession){
+			_BWLTestSessionFree(tsession,acceptval);
+			if(cntrl->tests == tsession){
+				cntrl->tests = NULL;
+			}
+		}
+		else{
+			/*
+			 * If tsession exists - the addr's will be free'd as
+			 * part of it - otherwise, do it here.
+			 */
+			BWLAddrFree(receiver);
+			BWLAddrFree(sender);
+		}
+
+		return retval;
+	}
 }
 
 /*
