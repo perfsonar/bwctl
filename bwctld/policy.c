@@ -288,9 +288,7 @@ static struct limdesc	limkeys[] = {
 {BWLDLimParent,		"parent",		LIMNOT,		0},
 {BWLDLimBandwidth,	"bandwidth",		LIMFIXEDINT,	0},
 {BWLDLimPending,	"pending",		LIMINT,		0},
-#if	NOTYET
 {BWLDLimEventHorizon,	"event_horizon",	LIMFIXEDINT,	0},
-#endif
 {BWLDLimDuration,	"duration",		LIMFIXEDINT,	0},
 {BWLDLimAllowOpenMode,	"allow_open_mode",	LIMBOOL,	1},
 {BWLDLimAllowTCP,	"allow_tcp",		LIMBOOL,	1},
@@ -1463,7 +1461,9 @@ BWLDGetFixedLimit(
 	}
 
 	BWLError(node->policy->ctx,BWLErrFATAL,BWLErrINVALID,
-				"BWLDResourceDemand: Invalid limit kind.");
+			"BWLDResourceDemand: Invalid limit kind: "
+			"node(%s),limname(%d),limkind(%d)",
+			node->nodename,limname,limkind);
 	return False;
 }
 
