@@ -2006,7 +2006,7 @@ BWLDReservationQuery(
 	memcpy(&buf[10],&last_time,8);
 	memcpy(&buf[12],&duration,4);
 	memcpy(&buf[13],&rtt_time,8);
-	memcpy(&buf[15],&port,2);
+	memcpy(&buf[15],port,2);
 
 	if(I2Writeni(policy->fd,buf,68,intr) != 68){
 		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
