@@ -1221,6 +1221,16 @@ main(
     memset(&first,0,sizeof(first));
     memset(&second,0,sizeof(second));
 
+    /*
+     * Fix getopt for brain-dead linux
+     */
+    static char *posixly_correct="POSIXLY_CORRECT";
+    static char *posix_getopt="True";
+    if(setenv(posixly_correct,posix_getopt,0) != 0){
+        fprintf(stderr,"Unable to set POSIXLY_CORRECT getopt mode");
+        exit(1);
+    }
+
     opterr = 0;
     while((ch = getopt(argc, argv, optstring)) != -1){
         int fac;

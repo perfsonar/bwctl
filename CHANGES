@@ -1,5 +1,9 @@
 $Id$
 
+version 1.1b
+* bwctl now sets POSIXLY_CORRECT env var before calling getopt because
+  Linux is too brain-dead to have a POSIX compliant getopt without it.
+  (And I was too brain-dead to test it propely before releasing 1.1a.)
 version 1.1a
 * Added 3-party support.
 * Added server-less client support.
