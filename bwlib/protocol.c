@@ -801,7 +801,7 @@ AddrBySAddrRef(
  *	16|                          Latest Time                          |
  *	20|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	24|        Time Error Estimate    |            Unused             |
+ *	24|        Time Error Estimate    |         Recv Port             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	28|                        Sender Address                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -839,15 +839,16 @@ AddrBySAddrRef(
 IPFErrSeverity
 _IPFWriteTestRequest(
 	IPFControl	cntrl,
-	IPFSID		sid,
-	IPFTestSpec	*tspec
+	IPFTestSession	tsession
 )
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	u_int8_t	version;
+	IPFTestSpec	*tspec = &tsession->test_spec;
 	IPFTimeStamp	tstamp;
 	IPFAddr		sender;
 	IPFAddr		receiver;
+	u_int8_t	version;
+
 	/*
 	 * Ensure cntrl is in correct state.
 	 */
@@ -898,8 +899,8 @@ _IPFWriteTestRequest(
 	if(tspec->udp){	/* udp */
 		buf[1] |= 0x10;
 	}
-	buf[2] = (tspec->conf_sender)?1:0;
-	buf[3] = (tspec->conf_receiver)?1:0;
+	buf[2] = (tsession->conf_sender)?1:0;
+	buf[3] = (tsession->conf_receiver)?1:0;
 
 	/*
 	 * slots and npackets... convert to network byte order.
@@ -913,6 +914,7 @@ _IPFWriteTestRequest(
 					"Invalid req_time time errest");
 		return IPFErrFATAL;
 	}
+	*(u_int16_t*)&buf[26] = htons(tsession->recv_port);
 
 	/*
 	 * Now set addr values. (sockaddr vars will already have
@@ -952,9 +954,7 @@ _IPFWriteTestRequest(
 			break;
 	}
 
-	if(sid)
-		memcpy(&buf[48],sid,16);
-
+	memcpy(&buf[48],tsession->sid,16);
 	*(u_int32_t*)&buf[76] = htonl(tspec->bandwidth);
 	*(u_int32_t*)&buf[80] = htonl(tspec->len_buffer);
 	*(u_int32_t*)&buf[84] = htonl(tspec->window_size);
@@ -1021,6 +1021,9 @@ _IPFReadTestRequest(
 	IPFTestSession	tsession;
 	int		ival=0;
 	int		*intr=&ival;
+	u_int16_t	recv_port;
+	IPFBoolean	conf_sender;
+	IPFBoolean	conf_receiver;
 
 	if(!_IPFStateIs(_IPFStateTestRequest,cntrl)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
@@ -1077,6 +1080,7 @@ _IPFReadTestRequest(
 	}
 	_IPFDecodeTimeStamp(&tstamp,&buf[16]);
 	tspec.latest_time = tstamp.ipftime;
+	recv_port = ntohs(*(u_int16_t*)&buf[26]);
 
 	/*
 	 * copy sid (will be ignored if this is an initial receive request)
@@ -1092,6 +1096,9 @@ _IPFReadTestRequest(
 		}
 		tsession->test_spec.req_time = tspec.req_time;
 		tsession->test_spec.latest_time = tspec.latest_time;
+		if(!tsession->conf_receiver){
+			tsession->recv_port = recv_port;
+		}
 	}
 	else{
 		/*
@@ -1107,24 +1114,24 @@ _IPFReadTestRequest(
 
 		switch(buf[2]){
 			case 0:
-				tspec.conf_sender = False;
+				conf_sender = False;
 				break;
 			case 1:
 			default:
-				tspec.conf_sender = True;
+				conf_sender = True;
 				break;
 		}
 		switch(buf[3]){
 			case 0:
-				tspec.conf_receiver = False;
+				conf_receiver = False;
 				break;
 			case 1:
 			default:
-				tspec.conf_receiver = True;
+				conf_receiver = True;
 				break;
 		}
 
-		if(tspec.conf_sender == tspec.conf_receiver){
+		if(conf_sender == conf_receiver){
 			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
 				"_IPFReadTestRequest: Invalid req(send/recv?)");
 			goto error;
@@ -1213,8 +1220,8 @@ _IPFReadTestRequest(
 		/*
 		 * Allocate a record for this test.
 		 */
-		if( !(tsession = _IPFTestSessionAlloc(cntrl,SendAddr,
-					RecvAddr,&tspec))){
+		if( !(tsession = _IPFTestSessionAlloc(cntrl,conf_sender,
+					SendAddr,RecvAddr,recv_port,&tspec))){
 			err_ret = IPFErrWARNING;
 			*accept_ret = IPF_CNTRL_FAILURE;
 			goto error;
@@ -1227,6 +1234,7 @@ _IPFReadTestRequest(
 		memcpy(tsession->sid,&buf[48],16);
 
 	}
+
 
 	*test_session = tsession;
 	*accept_ret = IPF_CNTRL_ACCEPT;
@@ -1269,9 +1277,10 @@ error:
  *	12|                                                               |
  *	16|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	20|                                                               |
- *	24|                      Zero Padding (12 octets)                 |
- *	28|                                                               |
+ *	20|                       Reservation Time                        |
+ *	24|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	28|                      Zero Padding (4 octets)                  |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
@@ -1280,11 +1289,11 @@ _IPFWriteTestAccept(
 	IPFControl	cntrl,
 	int		*intr,
 	IPFAcceptType	acceptval,
-	u_int16_t	port,
-	IPFSID		sid
+	IPFTestSession	tsession
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	IPFTimeStamp	tstamp;
 
 	if(!_IPFStateIs(_IPFStateTestAccept,cntrl)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
@@ -1292,11 +1301,15 @@ _IPFWriteTestAccept(
 		return IPFErrFATAL;
 	}
 
+	memset(buf,0,32);
+
 	buf[0] = acceptval & 0xff;
-	*(u_int16_t *)&buf[2] = htons(port);
-	if(sid)
-		memcpy(&buf[4],sid,16);
-	memset(&buf[20],0,12);
+	if(tsession->conf_receiver){
+		*(u_int16_t *)&buf[2] = htons(tsession->recv_port);
+	}
+	memcpy(&buf[4],tsession->sid,16);
+	tstamp.ipftime = tsession->reserve_time;
+	_IPFEncodeTimeStamp(&buf[20],&tstamp);
 
 	if(_IPFSendBlocksIntr(cntrl,buf,2,intr) != 2){
 		cntrl->state = _IPFStateInvalid;
@@ -1312,11 +1325,11 @@ IPFErrSeverity
 _IPFReadTestAccept(
 	IPFControl	cntrl,
 	IPFAcceptType	*acceptval,
-	u_int16_t	*port,
-	IPFSID		sid
+	IPFTestSession	tsession
 	)
 {
-	u_int8_t		*buf = (u_int8_t*)cntrl->msg;
+	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	IPFTimeStamp	tstamp;
 
 	if(!_IPFStateIs(_IPFStateTestAccept,cntrl)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
@@ -1337,7 +1350,7 @@ _IPFReadTestAccept(
 	/*
 	 * Check zero padding first.
 	 */
-	if(memcmp(&buf[20],cntrl->zero,12)){
+	if(memcmp(&buf[28],cntrl->zero,4)){
 		cntrl->state = _IPFStateInvalid;
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
 				"Invalid Accept-Session message received");
@@ -1350,11 +1363,13 @@ _IPFReadTestAccept(
 		return IPFErrFATAL;
 	}
 
-	if(port)
-		*port = ntohs(*(u_int16_t*)&buf[2]);
+	if(tsession->conf_receiver){
+		tsession->recv_port = ntohs(*(u_int16_t*)&buf[2]);
+		memcpy(tsession->sid,&buf[4],16);
+	}
 
-	if(sid)
-		memcpy(sid,&buf[4],16);
+	_IPFDecodeTimeStamp(&tstamp,&buf[20]);
+	tsession->reserve_time = tstamp.ipftime;
 
 	cntrl->state &= ~_IPFStateTestAccept;
 

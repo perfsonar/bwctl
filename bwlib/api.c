@@ -476,8 +476,10 @@ _IPFFailControlSession(
 IPFTestSession
 _IPFTestSessionAlloc(
 	IPFControl	cntrl,
+	IPFBoolean	send,
 	IPFAddr		sender,
 	IPFAddr		receiver,
+	u_int16_t	recv_port,
 	IPFTestSpec	*test_spec
 )
 {
@@ -509,6 +511,18 @@ _IPFTestSessionAlloc(
 	 */
 	test->test_spec.sender = sender;
 	test->test_spec.receiver = receiver;
+
+	test->conf_receiver = !send;
+	test->conf_sender = !test->conf_receiver;
+
+	if(send){
+		test->conf_sender = True;
+		test->recv_port = recv_port;
+	}
+	else{
+		test->conf_receiver = True;
+		test->recv_port = 0;
+	}
 
 	return test;
 }
@@ -548,7 +562,7 @@ _IPFTestSessionFree(
 	}
 
 	if(tsession->endpoint){
-		(void)_IPFEndpointStop(tsession->endpoint,aval,&err);
+		(void)_IPFEndpointStop(tsession,aval,&err);
 	}
 
 	if(tsession->closure){
@@ -797,7 +811,7 @@ IPFSessionStatus(
 		return False;
 
 	if(tsession->endpoint){
-		return _IPFEndpointStatus(tsession->endpoint,aval,&err);
+		return _IPFEndpointStatus(tsession,aval,&err);
 	}
 
 	return False;
@@ -819,7 +833,7 @@ IPFSessionsActive(
 
 	tsession = cntrl->tests;
 	if(tsession && tsession->endpoint &&
-			_IPFEndpointStatus(tsession->endpoint,laval,&err) &&
+			_IPFEndpointStatus(tsession,laval,&err) &&
 			(*laval < 0))
 		return 1;
 	return 0;

@@ -574,12 +574,7 @@ _IPFCallCheckControlPolicy(
 IPFBoolean
 _IPFCallCheckTestPolicy(
 	IPFControl	cntrl,		/* control handle		*/
-	IPFBoolean	local_sender,	/* Is local send or recv	*/
-	struct sockaddr	*local,		/* local endpoint		*/
-	struct sockaddr	*remote,	/* remote endpoint		*/
-	socklen_t	sa_len,		/* saddr lens			*/
-	IPFTestSpec	*test_spec,	/* test requested		*/
-	void		**closure,
+	IPFTestSession	tsession,
 	IPFErrSeverity	*err_ret	/* error - return		*/
 )
 {
@@ -596,8 +591,13 @@ _IPFCallCheckTestPolicy(
 		return True;
 	}
 
+#if	TODO
 	return func(cntrl,local_sender,local,remote,sa_len,test_spec,
 			closure,err_ret);
+#else
+	if(!tsession) return False;
+	return True;
+#endif
 }
 
 /*

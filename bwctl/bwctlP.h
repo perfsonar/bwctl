@@ -104,6 +104,7 @@ typedef struct{
 	IPFControl	cntrl;
 	IPFNum64	rttbound;
 	IPFNum64	waketime;
+	IPFBoolean	send;
 	IPFTestSpec	tspec;
 } ipsess_trec, *ipsess_t;
 

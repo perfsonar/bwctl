@@ -666,8 +666,6 @@ IPFProcessTestRequest(
 {
 	IPFTestSession	tsession = cntrl->tests;
 	IPFErrSeverity	err_ret=IPFErrOK;
-	u_int32_t	offset;
-	u_int16_t	port;
 	int		rc;
 	IPFAcceptType	acceptval = IPF_CNTRL_FAILURE;
 	int		ival=0;
@@ -695,86 +693,31 @@ IPFProcessTestRequest(
 	}
 
 	/*
-	 * Determine how to decode the socket addresses.
+	 * If this is a "new" receiver session, create a SID for it.
 	 */
-	switch (tsession->sender->saddr->sa_family){
-#ifdef	AF_INET6
-		case AF_INET6:
-			/* compute offset of port field */
-			offset =
-			(((char*)&(((struct sockaddr_in6*)NULL)->sin6_port)) -
-				((char*)NULL));
-
-			break;
-#endif
-		case AF_INET:
-			/* compute offset of port field */
-			offset =
-			(((char*)&(((struct sockaddr_in*)NULL)->sin_port)) -
-				((char*)NULL));
-			break;
-		default:
-			/* shouldn't really happen... */
-			acceptval = IPF_CNTRL_UNSUPPORTED;
-			goto error;
-			break;
-	}
-
-	if(tsession->conf_receiver && (_IPFCreateSID(tsession) != 0)){
+	if((tsession != cntrl->tests) && tsession->conf_receiver &&
+						(_IPFCreateSID(tsession) != 0)){
 		err_ret = IPFErrWARNING;
 		acceptval = IPF_CNTRL_FAILURE;
 		goto error;
 	}
 
 	/*
-	 * if conf_receiver - open port and get SID.
+	 * Initialize reservation time.
 	 */
-	if(tsession->conf_receiver){
-		if(tsession->conf_sender){
-			/*
-			 * NOTE:
-			 * This implementation only configures "local" test
-			 * endpoints. For a more distributed implementation
-			 * where a single control server could manage multiple
-			 * endpoints - this check would be removed, and
-			 * conf_sender and conf_receiver could make
-			 * sense together.
-			 */
-			acceptval = IPF_CNTRL_UNSUPPORTED;
-			err_ret = IPFErrWARNING;
-			goto error;
-		}
+	tsession->reserve_time = IPFULongToNum64(0);
 
-		if(!_IPFCallCheckTestPolicy(cntrl,False,
-				tsession->receiver->saddr,
-				tsession->sender->saddr,
-				tsession->sender->saddrlen,
-				&tsession->test_spec,&tsession->closure,
-				&err_ret)){
-			if(err_ret < IPFErrOK)
-				goto error;
-			IPFError(cntrl->ctx,IPFErrINFO,IPFErrPOLICY,
-							"Test not allowed");
-			acceptval = IPF_CNTRL_REJECT;
-			err_ret = IPFErrINFO;
-			goto error;
-		}
-
-		/* receiver first (sid comes from there) */
-		if(!_IPFEndpointInit(cntrl,tsession,tsession->receiver,NULL,
-								&err_ret)){
-			err_ret = IPFErrWARNING;
-			acceptval = IPF_CNTRL_FAILURE;
-			goto error;
-		}
-	}
-
-	if(tsession->conf_sender){
+	/*
+	 * Is this request allowed? Is there time (a reservation slot) for it?
+	 */
+#if	NOT
 		/*
 		 * Check for possible DoS as advised in Section 7 of owdp
 		 * spec.
 		 * (control-client MUST be receiver if openmode.)
+		 * TODO: Move this into _IPFCallCheckTestPolicy.
 		 */
+	if(tsession->conf_sender){
 		if(!(cntrl->mode & IPF_MODE_DOCIPHER) &&
 				(I2SockAddrEqual(cntrl->remote_addr->saddr,
 					 cntrl->remote_addr->saddrlen,
@@ -789,60 +732,30 @@ IPFProcessTestRequest(
 			err_ret = IPFErrINFO;
 			goto error;
 		}
-
-		if(!_IPFCallCheckTestPolicy(cntrl,True,
-					tsession->sender->saddr,
-					tsession->receiver->saddr,
-					tsession->receiver->saddrlen,
-					&tsession->test_spec,
-					&tsession->closure,&err_ret)){
-			if(err_ret < IPFErrOK)
-				goto error;
-			IPFError(cntrl->ctx, IPFErrINFO, IPFErrPOLICY,
-				 "Test not allowed");
-			acceptval = IPF_CNTRL_REJECT;
-			err_ret = IPFErrINFO;
+	}
+#endif
+	if(!_IPFCallCheckTestPolicy(cntrl,tsession,&err_ret)){
+		if(err_ret < IPFErrOK)
 			goto error;
-		}
-		if(!_IPFEndpointInit(cntrl,tsession,tsession->sender,NULL,
-								&err_ret)){
-			err_ret = IPFErrWARNING;
-			acceptval = IPF_CNTRL_FAILURE;
-			goto error;
-		}
-		if(!_IPFEndpointInitHook(cntrl,tsession,&err_ret)){
-			err_ret = IPFErrWARNING;
-			acceptval = IPF_CNTRL_FAILURE;
-			goto error;
-		}
-		/*
-		 * set port to the port number fetched from the saddr.
-		 * (This ugly code decodes the network ordered port number
-		 * from the saddr using the port "offset" computed earlier.
-		 */
-		port = ntohs(*(u_int16_t*)
-				((u_int8_t*)tsession->sender->saddr+offset)
-				);
+		IPFError(cntrl->ctx,IPFErrINFO,IPFErrPOLICY,
+							"Test not allowed");
+		acceptval = IPF_CNTRL_REJECT;
+		err_ret = IPFErrINFO;
+		goto error;
 	}
 
-	if(tsession->conf_receiver){
-		if(!_IPFEndpointInitHook(cntrl,tsession,&err_ret)){
-			err_ret = IPFErrWARNING;
-			acceptval = IPF_CNTRL_FAILURE;
-			goto error;
-		}
-		/*
-		 * set port to the port number fetched from the saddr.
-		 * (This ugly code decodes the network ordered port number
-		 * from the saddr using the port "offset" computed earlier.
-		 */
-		port = ntohs(*(u_int16_t*)
-				((u_int8_t*)tsession->receiver->saddr+offset)
-				);
+	/*
+	 * If tsession is new, setup communication and fork then wait.
+	 * If !new, then notify forked child of new start time/port number.
+	 */
+	if(!_IPFEndpointInit(cntrl,tsession,&err_ret)){
+		err_ret = IPFErrWARNING;
+		acceptval = IPF_CNTRL_FAILURE;
+		goto error;
 	}
 
-	if( (rc = _IPFWriteTestAccept(cntrl,intr,IPF_CNTRL_ACCEPT,
-				      port,tsession->sid)) < IPFErrOK){
+	if( (rc = _IPFWriteTestAccept(cntrl,intr,IPF_CNTRL_ACCEPT,tsession))
+								< IPFErrOK){
 		err_ret = (IPFErrSeverity)rc;
 		goto err2;
 	}
@@ -860,7 +773,7 @@ error:
 	 * send negative accept.
 	 */
 	if(err_ret >= IPFErrWARNING)
-		(void)_IPFWriteTestAccept(cntrl,intr,acceptval,0,NULL);
+		(void)_IPFWriteTestAccept(cntrl,intr,acceptval,tsession);
 
 err2:
 	if(tsession)
@@ -903,8 +816,7 @@ IPFProcessStartSession(
 	)
 {
 	int		rc;
-	IPFTestSession	tsession;
-	IPFErrSeverity	err,err2=IPFErrOK;
+	IPFErrSeverity	err=IPFErrOK;
 	int		ival=0;
 	int		*intr = &ival;
 
@@ -915,19 +827,14 @@ IPFProcessStartSession(
 	if( (rc = _IPFReadStartSession(cntrl,intr)) < IPFErrOK)
 		return _IPFFailControlSession(cntrl,rc);
 
+	if(!_IPFEndpointStart(cntrl->tests,&err)){
+		(void)_IPFWriteControlAck(cntrl,intr,IPF_CNTRL_FAILURE);
+		return _IPFFailControlSession(cntrl,err);
+	}
+
 	if( (rc = _IPFWriteControlAck(cntrl,intr,IPF_CNTRL_ACCEPT)) < IPFErrOK)
 		return _IPFFailControlSession(cntrl,rc);
 
-	for(tsession = cntrl->tests;tsession;tsession = tsession->next){
-		if(tsession->endpoint){
-			if(!_IPFEndpointStart(tsession->endpoint,&err)){
-				(void)_IPFWriteStopSession(cntrl,intr,
-							    IPF_CNTRL_FAILURE);
-				return _IPFFailControlSession(cntrl,err);
-			}
-			err2 = MIN(err,err2);
-		}
-	}
 
-	return err2;
+	return IPFErrOK;
 }

@@ -836,73 +836,22 @@ error:
 static int
 _IPFClientRequestTestReadResponse(
 	IPFControl	cntrl,
-	IPFBoolean	sender,
-	IPFTestSpec	*test_spec,
-	IPFTimeStamp	*avail_time_ret,
-	IPFSID		sid,		/* ret iff conf_receiver else set */
+	IPFTestSession	tsession,
 	IPFErrSeverity	*err_ret
 	)
 {
 	int		rc;
 	IPFAcceptType	acceptval;
-	struct sockaddr	*set_addr=NULL;
-	u_int16_t	port_ret=NULL;
-	u_int8_t	*sid_ret=NULL;
 
-	if((rc = _IPFWriteTestRequest(cntrl,sender,sid,test_spec)) < IPFErrOK){
-		*err_ret = (IPFErrSeverity)rc;
-		return 1;
-	}
-HERE
-
-	/*
-	 * Figure out if the server will be returning Port field.
-	 * If so - set set_addr to the sockaddr that needs to be set.
-	 */
-	if(server_conf_sender && !server_conf_receiver)
-		set_addr = sender->saddr;
-	else if(!server_conf_sender && server_conf_receiver)
-		set_addr = receiver->saddr;
-
-	if(server_conf_receiver)
-		sid_ret = sid;
-
-	if((rc = _IPFReadTestAccept(cntrl,&acceptval,&port_ret,sid_ret)) <
-								IPFErrOK){
+	if((rc = _IPFWriteTestRequest(cntrl,tsession)) < IPFErrOK){
 		*err_ret = (IPFErrSeverity)rc;
 		return 1;
 	}
 
-	/*
-	 * If it was determined that the server returned a port,
-	 * figure out the correct offset into set_addr for the type
-	 * of sockaddr, and set  the port in the saddr to the
-	 * port_ret value.
-	 * (Don't you just love the joy's of supporting multiple AF's?)
-	 */
-	if(set_addr){
-		switch(set_addr->sa_family){
-			struct sockaddr_in	*saddr4;
-#ifdef	AF_INET6
-			struct sockaddr_in6	*saddr6;
-
-			case AF_INET6:
-				saddr6 = (struct sockaddr_in6*)set_addr;
-				saddr6->sin6_port = htons(port_ret);
-				break;
-#endif
-			case AF_INET:
-				saddr4 = (struct sockaddr_in*)set_addr;
-				saddr4->sin_port = htons(port_ret);
-				break;
-			default:
-				IPFError(cntrl->ctx,
-						IPFErrFATAL,IPFErrINVALID,
-						"Invalid address family");
-				return 1;
-		}
+	if((rc = _IPFReadTestAccept(cntrl,&acceptval,tsession)) < IPFErrOK){
+		*err_ret = (IPFErrSeverity)rc;
+		return 1;
 	}
-
 
 	if(acceptval == IPF_CNTRL_ACCEPT)
 		return 0;
@@ -1055,6 +1004,7 @@ IPFSessionRequest(
 	IPFBoolean	send,
 	IPFTestSpec	*test_spec,
 	IPFTimeStamp	*avail_time_ret,
+	u_int16_t	*recv_port,
 	IPFSID		sid,
 	IPFErrSeverity	*err_ret
 )
@@ -1084,13 +1034,6 @@ IPFSessionRequest(
 		goto error;
 	}
 
-	if(!test_spec->conf_sender == !test_spec->conf_receiver){
-		*err_ret = IPFErrFATAL;
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"IPFSessionRequest: Invalid test specification");
-		goto error;
-	}
-
 	/*
 	 * TODO: Look for existing TestSession with this SID!
 	 */
@@ -1110,7 +1053,7 @@ IPFSessionRequest(
 		 */
 		if(test_spec->receiver){
 			receiver = _IPFAddrCopy(test_spec->receiver);
-		}else if(test_spec->conf_receiver){
+		}else if(!send){
 			receiver = IPFAddrByNode(cntrl->ctx,"localhost");
 		}else{
 			receiver = IPFAddrByLocalControl(cntrl);
@@ -1123,7 +1066,7 @@ IPFSessionRequest(
 		 */
 		if(test_spec->sender){
 			sender = _IPFAddrCopy(test_spec->sender);
-		}else if(test_spec->conf_sender){
+		}else if(send){
 			sender = IPFAddrByNode(cntrl->ctx,"localhost");
 		}else{
 			sender = IPFAddrByLocalControl(cntrl);
@@ -1133,27 +1076,27 @@ IPFSessionRequest(
 	
 		/*
 		 * Get addrinfo for address spec's so we can choose between
-		 * the different address possiblities in the next step. (These
-		 * ai will be SOCK_DGRAM unless an fd was passed in directly, in
-		 * which case we trust the application knows what it is doing...)
+		 * the different address possiblities in the next step.
 		 */
 		socktype = (test_spec->udp)? SOCK_DGRAM: SOCK_STREAM;
 		if(!SetEndpointAddrInfo(cntrl,receiver,socktype,err_ret) ||
-				!SetEndpointAddrInfo(cntrl,sender,socktype,err_ret))
+				!SetEndpointAddrInfo(cntrl,sender,socktype,
+								err_ret))
 			goto error;
 	
 		/*
 		 * Determine proper address specifications for send/recv.
 		 * Loop on ai values to find a match and use that.
-		 * (We prefer IPV6 over others, so loop over IPv6 addrs first...)
-		 * We only support AF_INET and AF_INET6.
+		 * (We prefer IPV6 over others, so loop over IPv6 addrs
+		 * first...) Only supports AF_INET and AF_INET6.
 		 */
 	#ifdef	AF_INET6
 		for(rai = receiver->ai;rai;rai = rai->ai_next){
 			if(rai->ai_family != AF_INET6) continue;
 			for(sai = sender->ai;sai;sai = sai->ai_next){
 				if(rai->ai_family != sai->ai_family) continue;
-				if(rai->ai_socktype != sai->ai_socktype) continue;
+				if(rai->ai_socktype != sai->ai_socktype)
+					continue;
 				goto foundaddr;
 			}
 		}
@@ -1162,7 +1105,8 @@ IPFSessionRequest(
 			if(rai->ai_family != AF_INET) continue;
 			for(sai = sender->ai;sai;sai = sai->ai_next){
 				if(rai->ai_family != sai->ai_family) continue;
-				if(rai->ai_socktype != sai->ai_socktype) continue;
+				if(rai->ai_socktype != sai->ai_socktype)
+					continue;
 				goto foundaddr;
 			}
 		}
@@ -1192,22 +1136,29 @@ IPFSessionRequest(
 		 * Create a structure to store the stuff we need to keep for
 		 * later calls.
 		 */
-		if( !(tsession = _IPFTestSessionAlloc(cntrl,sender,receiver,
-								test_spec)))
+		if( !(tsession = _IPFTestSessionAlloc(cntrl,send,sender,
+						receiver,*recv_port,test_spec)))
 			goto error;
 	}
+
+	if(tsession->conf_receiver)
+		*recv_port = 0;
 
 	/*
 	 * Request the server create the receiver & possibly the
 	 * sender.
 	 */
-	if((rc = _IPFClientRequestTestReadResponse(cntrl,sender,
-					&tsession->test_spec,*avail_time_ret,
-					tsession->sid,err_ret)) != 0){
+	if((rc = _IPFClientRequestTestReadResponse(cntrl,tsession,err_ret))
+									!= 0){
 		goto error;
 	}
 
-	tsession->test_spec.req_time.ipftime = avail_time_ret->ipftime;
+	if(avail_time_ret){
+		avail_time_ret->ipftime = tsession->reserve_time;
+	}
+	if(recv_port){
+		*recv_port = tsession->recv_port;
+	}
 
 	/*
 	 * Server accepted our request, and we were able to initialize this
@@ -1221,7 +1172,7 @@ IPFSessionRequest(
 	/*
 	 * return the SID for this session to the caller.
 	 */
-	memcpy(sid_ret,tsession->sid,sizeof(IPFSID));
+	memcpy(sid,tsession->sid,sizeof(IPFSID));
 
 	return True;
 
@@ -1262,8 +1213,6 @@ IPFStartSession(
 )
 {
 	int		rc;
-	IPFErrSeverity	err,err2=IPFErrOK;
-	IPFTestSession	tsession;
 	IPFAcceptType	acceptval;
 
 	/*
@@ -1283,20 +1232,6 @@ IPFStartSession(
 	}
 
 	/*
-	 * Small optimization... - start local receivers while waiting for
-	 * the server to respond. (should not start senders - don't want
-	 * to send packets unless control-ack comes back positive.)
-	 */
-	for(tsession = cntrl->tests;tsession;tsession = tsession->next){
-		if(tsession->endpoint && !tsession->endpoint->send){
-			if(!_IPFEndpointStart(tsession->endpoint,&err)){
-				return _IPFFailControlSession(cntrl,err);
-			}
-			err2 = MIN(err,err2);
-		}
-	}
-
-	/*
 	 * Read the server response.
 	 */
 	if(((rc = _IPFReadControlAck(cntrl,&acceptval)) < IPFErrOK) ||
@@ -1304,19 +1239,7 @@ IPFStartSession(
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	}
 
-	/*
-	 * Now start local senders.
-	 */
-	for(tsession = cntrl->tests;tsession;tsession = tsession->next){
-		if(tsession->endpoint && tsession->endpoint->send){
-			if(!_IPFEndpointStart(tsession->endpoint,&err)){
-				return _IPFFailControlSession(cntrl,err);
-			}
-			err2 = MIN(err,err2);
-		}
-	}
-
-	return err2;
+	return IPFErrOK;
 }
 
 /*

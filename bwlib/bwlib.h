@@ -293,9 +293,7 @@ typedef u_int8_t	IPFKey[16];
 typedef u_int32_t	IPFSessionMode;
 
 typedef struct{
-	IPFBoolean	conf_sender;
 	IPFAddr		sender;
-	IPFBoolean	conf_receiver;
 	IPFAddr		receiver;
 	IPFTimeStamp	req_time;
 	IPFNum64	latest_time;
@@ -746,6 +744,7 @@ IPFSessionRequest(
 	IPFBoolean	sender,
 	IPFTestSpec	*test_spec,
 	IPFTimeStamp	*avail_time_ret,
+	u_int16_t	*recv_port,
 	IPFSID		sid_ret,
 	IPFErrSeverity	*err_ret
 );

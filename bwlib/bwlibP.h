@@ -217,6 +217,7 @@ struct IPFLostPacketRec{
 };
 
 
+#if	NOT
 /*
  * This type holds all the information needed for an endpoint to be
  * managed.
@@ -253,25 +254,23 @@ typedef struct IPFEndpointRec{
 	I2Table			lost_packet_buffer;
 
 } IPFEndpointRec, *IPFEndpoint;
+#endif
 
 #define _IPFSLOT_BUFSIZE	10
 struct IPFTestSessionRec{
 	IPFControl			cntrl;
 	IPFSID				sid;
-	IPFNum64			res_time;
+	IPFNum64			reserve_time;
 	IPFNum64			latest_time;
+	u_int16_t			recv_port;
 
+	IPFBoolean			conf_sender;
+	IPFBoolean			conf_receiver;
 	IPFTestSpec			test_spec;
 
-	/*
-	 * TODO: Remove IPFEndpoint structure completely
-	 * 	There is no reason this record can't be used, is there?
-	 */
 	/* only used on server side */
-	IPFEndpoint			endpoint;
-	u_int16_t			recv_port;
+	IPFBoolean			endpoint;
 	void				*closure; /* per/test app data */
-
 };
 
 /*
@@ -290,8 +289,10 @@ _IPFAddrCopy(
 extern IPFTestSession
 _IPFTestSessionAlloc(
 	IPFControl	cntrl,
+	IPFBoolean	send,
 	IPFAddr		sender,
 	IPFAddr		receiver,
+	u_int16_t	recv_port,
 	IPFTestSpec	*test_spec
 	);
 
@@ -477,8 +478,7 @@ _IPFReadTimeResponse(
 extern IPFErrSeverity
 _IPFWriteTestRequest(
 	IPFControl	cntrl,
-	IPFSID		sid,
-	IPFTestSpec	*test_spec
+	IPFTestSession	tsession
 );
 
 /*
@@ -502,16 +502,14 @@ _IPFWriteTestAccept(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
 	IPFAcceptType	acceptval,
-	u_int16_t	port,
-	IPFSID		sid
+	IPFTestSession	tsession
 	);
 
 extern IPFErrSeverity
 _IPFReadTestAccept(
 	IPFControl	cntrl,
 	IPFAcceptType	*acceptval,
-	u_int16_t	*port,
-	IPFSID		sid
+	IPFTestSession	tsession
 	);
 
 extern IPFErrSeverity
@@ -583,12 +581,7 @@ _IPFCallCheckControlPolicy(
 extern IPFBoolean
 _IPFCallCheckTestPolicy(
 	IPFControl	cntrl,		/* control handle		*/
-	IPFBoolean	local_sender,	/* Is local send or recv	*/
-	struct sockaddr	*local,		/* local endpoint		*/
-	struct sockaddr	*remote,	/* remote endpoint		*/
-	socklen_t	sa_len,		/* saddr sizes			*/
-	IPFTestSpec	*test_spec,	/* test requested		*/
-	void		**closure,	/* app data/per test		*/
+	IPFTestSession	tsession,	/* test session description	*/
 	IPFErrSeverity	*err_ret	/* error - return		*/
 );
 
@@ -621,43 +614,34 @@ _IPFCallCloseFile(
 /* endpoint.c */
 
 /*
- * The endpoint init function is responsible for opening a socket, and
- * allocating a local port number.
- * If this is a recv endpoint, it is also responsible for allocating a
- * session id.
+ * The endpoint init function is responsible for opening a socketpair for
+ * parent/child communication, and for forking off the child.
+ * The child process will wait for "reserve_timeout" before exiting unless
+ * it gets further instructions via signal/socket.
  */
 extern IPFBoolean
 _IPFEndpointInit(
 	IPFControl	cntrl,
 	IPFTestSession	tsession,
-	IPFAddr		localaddr,
-	FILE		*fp,
 	IPFErrSeverity	*err_ret
 );
 
 extern IPFBoolean
-_IPFEndpointInitHook(
-        IPFControl      cntrl,
-	IPFTestSession	tsession,
-	IPFErrSeverity  *err_ret
-);
-
-extern IPFBoolean
 _IPFEndpointStart(
-	IPFEndpoint	ep,
+	IPFTestSession	tsession,
 	IPFErrSeverity	*err_ret
 	);
 
 extern IPFBoolean
 _IPFEndpointStatus(
-	IPFEndpoint	ep,
+	IPFTestSession	tsession,
 	IPFAcceptType	*aval,
 	IPFErrSeverity	*err_ret
 	);
 
 extern IPFBoolean
 _IPFEndpointStop(
-	IPFEndpoint	ep,
+	IPFTestSession	tsession,
 	IPFAcceptType	aval,
 	IPFErrSeverity	*err_ret
 	);

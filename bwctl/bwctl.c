@@ -60,6 +60,7 @@ static	ipsess_trec		local;
 static	ipsess_trec		remote;
 static	IPFNum64		zero64;
 static	IPFSID			sid;
+static	u_int16_t		recv_port;
 static	ipsess_t		s[2];	/* receiver == 0, sender == 1 */
 
 static void
@@ -640,12 +641,7 @@ main(
 	/* s[0] == reciever, s[1] == sender */
 	s[0] = (app.opt.send)? &remote: &local;
 	s[1] = (!app.opt.send)? &remote: &local;
-
-	/*
-	 * Set "conf" variables for tspecs
-	 */
-	s[0]->tspec.conf_receiver = True;
-	s[1]->tspec.conf_sender = True;
+	s[1]->send = True;
 
 	/*
 	 * TODO: Fix this.
@@ -772,6 +768,7 @@ main(
 					IPFNum64Add(req_time.ipftime, latest64);
 		s[1]->tspec.req_time.ipftime = zero64;
 		memset(sid,0,sizeof(sid));
+		recv_port = 0;
 
 		p=0;q=0;
 		while(1){
@@ -781,7 +778,7 @@ main(
 			 * q is the "other" one.
 			 * (Logic is started so the first time through this loop
 			 * we are talking to the "receiver". That is required
-			 * to initialize the sid.)
+			 * to initialize the sid and recv_port.)
 			 */
 			p = q++;
 			q %= 2;
@@ -789,10 +786,9 @@ main(
 			s[p]->tspec.req_time.ipftime = req_time.ipftime;
 
 			/* TODO: do something with return values.
-			 * 	open tempfile instead of stdout
 			 */
-			if(!IPFSessionRequest(s[p]->cntrl,False,
-					&s[p]->tspec,&req_time,
+			if(!IPFSessionRequest(s[p]->cntrl,s[p]->send,
+					&s[p]->tspec,&req_time,&recv_port,
 					sid,&err_ret)){
 				if((err_ret == IPFErrOK) &&
 						(IPFNum64Cmp(req_time.ipftime,

@@ -251,8 +251,6 @@ IPFBoolean
 _IPFEndpointInit(
 	IPFControl	cntrl,
 	IPFTestSession	tsession,
-	IPFAddr		localaddr,
-	FILE		*fp,
 	IPFErrSeverity	*err_ret
 )
 {
