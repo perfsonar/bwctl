@@ -901,6 +901,14 @@ select:
 						!ipf_term){
 					FD_ZERO(&readfds);
 					exceptfds = readfds;
+					/*
+					 * If SIG_CHLD happened while we
+					 * were reading the StopSession
+					 * message, we are done, otherwise
+					 * wait in select for child to finish.
+					 */
+					if(ipf_chld)
+						goto end;
 					goto select;
 				}
 			}
