@@ -1,3 +1,10 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="Author" content="Jeff W. Boote">
+   <meta name="GENERATOR" content="Mozilla/4.79 [en] (Windows NT 5.0; U) [Netscape]">
+   <title>BWCTL</title>
 <!--									-->
 <!--	$Id$	-->
 <!--									-->
@@ -19,12 +26,6 @@
 <!--	Description:							-->
 <!--	Overview documentation for bwctl.				-->
 <!--									-->
-<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
-<html>
-<head>
-   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-   <meta name="Author" content="Jeff W. Boote">
-   <title>BWCTL</title>
 </head>
 <body>
 
@@ -32,10 +33,13 @@
 <h1>
 BWCTL Version 1.0b <font color="#FF0000">(beta)</font></h1></center>
 
-<center><a href="http://e2epi.internet2.edu/bwctl">http://e2epi.internet2.edu/bwctl/</a>
-<br>(<b>B</b>and<b>w</b>idth <b>C</b>on<b>t</b>ro<b>l</b>)</center>
+<center>(<b>B</b>and<b>w</b>idth <b>C</b>on<b>t</b>ro<b>l</b>)
+<br><a href="http://e2epi.internet2.edu/bwctl">http://e2epi.internet2.edu/bwctl/</a></center>
 
-<p><i>BWCTL</i> is a command line client application and a scheduling and
+<center>
+<h3>
+$Date$</h3></center>
+<i>BWCTL</i> is a command line client application and a scheduling and
 policy daemon that wraps <b><a href="http://dast.nlanr.net/Projects/Iperf/">iperf</a></b>.
 Currently <i>BWCTL</i> wraps iperf by actually executing <b>iperf</b> on
 the system. The application works by contacting a <b>bwctld</b> process
@@ -88,8 +92,8 @@ to charactorize the test streams more easily.</li>
 <li>
 Limits the types of <b>iperf</b> tests that can be run. Simultaneous connections
 are not supported. Sending a set amount of data is not supported because
-<i>BWCTL</i> needs to know how long the test will take before the test
-is started.</li>
+<i>BWCTL</i>
+needs to know how long the test will take before the test is started.</li>
 
 <li>
 Supports dynamic TCP window size determination. (Currently this is limited
