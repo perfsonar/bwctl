@@ -11,13 +11,11 @@ distributed with a pre-built "configure" script - so the "autoconf" tools should
 not be needed. (gnumake may be required... I have not tried using other versions
 of make.)
 
-The bwctld daemon does require a reasonably synchronized clock. (It is
+BWCTL does require a reasonably synchronized clock. (It is
 scheduling tests and needs to be sure it has the same general concept of
 when a test should take place as the peer system the test is being done with.)
 Therefore bwctl requires ntp be installed and used to synchronize the system
 clock.
-
-The way bwctl currently works is that it contacts a bwctld on 
 
 The simple build procedure would be:
 
@@ -79,10 +77,12 @@ To get the list of available options use:
 
 To run the client:
 
-	% bwctl [options] [-c|-s] host.running.bwctld
+	% bwctl [options] [-c catchhost] [-s sendhost]
 
 At least a -c or a -s must be specified to indicate the direction of the
-test. [-c == local sender, -s == local receiver]
+test. If only one of them is specified, the local host is assumed to be
+the other one. If a local bwctld is not running, then bwctl will
+execute the bwctld functionality required to run the test.
 
 To get the list of available options use:
 

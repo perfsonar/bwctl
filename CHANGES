@@ -1,5 +1,20 @@
 $Id$
 
+version 1.1a
+* Added 3-party support.
+* Added server-less client support.
+* Enhanced auth model.
+* Configurable ports for peer connections.
+* Split access logging from error logging in bwctld.
+* Support for TOS bits in tests.
+* Modified scheduling algorithm to be more resilient to diverse
+  delays from the client to the two servers. (Initial assumptions
+  assumed the client was on one of the end-hosts - this is no
+  longer the case.)
+* Lots of internal clean-up - especially of the BWLAddr abstraction.
+* Modified srcnode options to allow only a port specified. Now the port
+  can be set while still wildcarding the address to all interfaces.
+
 version 1.0e
 * Corrected AES identity specified policies.
 * Fixed bwctl -q flag.
@@ -7,13 +22,13 @@ version 1.0e
   (only one user can be specified per line.)
 * Relaxed synchronization requirement and also added a syncfuzz option to
   the daemon to allow the sysadmin to relax the requirement even further.
-* Lots of documentation edits for proper "english".
+* Lots of documentation edits for proper "English".
 
 version 1.0c
 * Fixed an optimization bug.
 * Added more information to error messages if NTP state does not look correct.
-* Modified timestamp fetch routine to use the "offset" as reported by NTP.
-* Added a small fixed offset so clocks don't have to be sync'd quite as close.
+* Modified time-stamp fetch routine to use the "offset" as reported by NTP.
+* Added a small fixed offset so clocks don't have to be synced quite as close.
 
 version 1.0b
 * initial public release

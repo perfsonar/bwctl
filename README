@@ -7,10 +7,11 @@ bwctl [iperf control program/daemon]
 It is organized as follows:
 
 config/		holds autoconf junk.
-I2util/		convienient utility functions... Error reporting, hash funcs...
+I2util/		Convenient utility functions. Error reporting, hash funcs...
 bwlib		directory for api - a high level abstraction for
 		speaking the bwctl protocol.
 bwctld/		Server implementation (schedules resources and executes tests).
 bwctl/		A command line bwctl client. (Takes *most* iperf args.)
+doc/		documentation
 
 For more details see the "doc" subdirectory.
