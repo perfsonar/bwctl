@@ -2044,7 +2044,7 @@ IPFDReadTestComplete(
 	if(buf[5] != IPFDMESGMARK)
 		return False;
 
-	memcpy(sid,&buf[2],16);
+	memcpy(sid,&buf[0],16);
 	*aval = buf[4];
 
 	*err = 0;
