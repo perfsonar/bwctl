@@ -787,11 +787,6 @@ _BWLEndpointStart(
 	(void)BWLContextConfigDelete(ctx,BWLProcessResults);
 
 	/*
-	 * TODO: If ctx variable for client-side retn_on_intr gets
-	 * added - change the ctx variable here!
-	 */
-
-	/*
 	 * Set a timer - if we have not established a connection with
 	 * the remote endpoint before the time the test should start,
 	 * exit.

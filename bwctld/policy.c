@@ -38,9 +38,8 @@
  * Function:	parsekeys
  *
  * Description:	
- * 	Read a single line from the keys file of the format:
- * 		"\s*username\s+key\n"
- * 	skipping blank lines, comment lines, trailing comments
+ * 		Read all keys from the keyfile and populate the
+ * 		keys hash with the mappings from users to keys.
  *
  * In Args:	
  *
