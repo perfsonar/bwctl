@@ -33,7 +33,6 @@
 typedef struct {
 
 	I2Boolean	verbose;
-	I2Boolean	allowunsync;
 	I2Boolean	help;
 
 	char		cwd[MAXPATHLEN];

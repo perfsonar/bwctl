@@ -587,7 +587,7 @@ main(
 	static char		*conn_opts = "A:B:k:U:K";
 	static char		*out_opts = "pxd:I:R:n:L:e:rvV";
 	static char		*test_opts = "i:l:uw:W:P:S:b:t:cs";
-	static char		*gen_opts = "hWY";
+	static char		*gen_opts = "hW";
 
 	char			dirpath[PATH_MAX];
 	struct flock		flk;
@@ -835,9 +835,6 @@ main(
 				exit(1);
 			}
 			break;
-		case 'Y':
-			app.opt.allowunsync = True;
-			break;
 		/* Generic options.*/
 		case 'h':
 		case '?':
@@ -904,7 +901,7 @@ main(
 	/*
 	 * Initialize library with configuration functions.
 	 */
-	if( !(ctx = BWLContextCreate(eh,app.opt.allowunsync))){
+	if( !(ctx = BWLContextCreate(eh))){
 		I2ErrLog(eh, "Unable to initialize BWL library.");
 		exit(1);
 	}
@@ -1256,13 +1253,13 @@ AGAIN:
 		}
 
 		/*
-		 * req_time.tstamp += (4*round-trip-bound)
-		 * (4) -- 1 test_req, 1 start session, 2 for server-2-server
+		 * req_time.tstamp += (5*round-trip-bound)
+		 * (5) -- 1 test_req, 1 start session, 3 for server-2-server
 		 * connection.
 		 */
 		remote.rttbound = BWLGetRTTBound(remote.cntrl);
 		req_time.tstamp = BWLNum64Add(req_time.tstamp,
-			BWLNum64Mult(remote.rttbound,BWLULongToNum64(4)));
+			BWLNum64Mult(remote.rttbound,BWLULongToNum64(5)));
 
 		/*
 		 * Get current time (used to verify local server time)
@@ -1301,13 +1298,13 @@ AGAIN:
 			BWLGetTimeStampError(&remote.tspec.req_time));
 
 		/*
-		 * req_time.tstamp += (3*round-trip-bound)
-		 * (4) -- 1 test_req, 1 start session, 2 for server-2-server
+		 * req_time.tstamp += (5*round-trip-bound)
+		 * (5) -- 1 test_req, 1 start session, 3 for server-2-server
 		 * connection.
 		 */
 		local.rttbound = BWLGetRTTBound(local.cntrl);
 		req_time.tstamp = BWLNum64Add(req_time.tstamp,
-			BWLNum64Mult(local.rttbound,BWLULongToNum64(4)));
+			BWLNum64Mult(local.rttbound,BWLULongToNum64(5)));
 
 		/*
 		 * Add a small constant value to this... Will need to experiment

@@ -627,6 +627,8 @@ _BWLEndpointStart(
 	sigset_t		osigs;
 	struct sigaction	act;
 	BWLTimeStamp		currtime;
+	BWLTimeStamp		rtime;
+	BWLTimeStamp		currtime2;
 	BWLNum64		reltime;
 	struct itimerval	itval;
 	BWLAcceptType		aval;
@@ -971,8 +973,57 @@ ACCEPT:
 	if(ipf_term)
 		goto end;
 
+	if(tsess->conf_receiver){
+		BWLErrSeverity	rc;
+
+		if(BWLReadReqType(ep->rcntrl,&ipf_term) != BWLReqTime){
+			BWLError(ctx,BWLErrFATAL,errno,
+					"Invalid message from peer");
+			goto end;
+		}
+
+		if(BWLProcessTimeRequest(ep->rcntrl,&ipf_term) != BWLErrOK){
+			BWLError(ctx,BWLErrFATAL,errno,
+				"Unable to process time request for peer");
+			goto end;
+		}
+	}else{
+		/*
+		 * Make sure two clocks are synchronized enough that
+		 * sessions will start when they should.
+		 */
+
+		BWLTimeStamp	rtime;
+		double		t1,t2,tr;
+		double		e1,e2,er;
+
+		if(BWLControlTimeCheck(ep->rcntrl,&rtime) != BWLErrOK){
+			BWLError(ctx,BWLErrFATAL,errno,
+					"BWLControlTimeCheck(): %M");
+			goto end;
+		}
+		if(!BWLGetTimeStamp(ctx,&currtime2)){
+			BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+				"BWLGetTimeStamp(): %M");
+			goto end;
+		}
+
+		t1 = BWLNum64ToDouble(currtime.tstamp);
+		t2 = BWLNum64ToDouble(currtime2.tstamp);
+		tr = BWLNum64ToDouble(rtime.tstamp);
+		e1 = BWLNum64ToDouble(BWLGetTimeStampError(&currtime));
+		e2 = BWLNum64ToDouble(BWLGetTimeStampError(&currtime2));
+		er = BWLNum64ToDouble(BWLGetTimeStampError(&rtime));
+
+		if((t1-e1) > (tr+er) || (tr-er) > (t2+e2)){
+			BWLError(ctx,BWLErrFATAL,errno,
+					"Remote server timestamp invalid!");
+			goto end;
+		}
+	}
+
 	/*
-	 * Fake lcntrl socket into "test" mode and set it up to trade results.
+	 * Fake rcntrl socket into "test" mode and set it up to trade results.
 	 */
 	ep->rcntrl->tests = tsess;
 	tsess->cntrl = ep->rcntrl;

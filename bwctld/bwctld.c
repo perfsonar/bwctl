@@ -1217,9 +1217,6 @@ LoadConfig(
 		else if(!strncasecmp(key,"verbose",8)){
 			opts.verbose = True;
 		}
-		else if(!strncasecmp(key,"allowunsync",12)){
-			opts.allowunsync = True;
-		}
 		else if(!strncasecmp(key,"authmode",9)){
 			if(!(opts.authmode = strdup(val))) {
 				fprintf(stderr,"strdup(): %s\n",
@@ -1328,9 +1325,9 @@ main(int argc, char *argv[])
 	sigset_t		sigs;
 
 #ifndef NDEBUG
-	char *optstring = "hvc:d:R:a:S:e:ZU:G:Yw";
+	char *optstring = "hvc:d:R:a:S:e:ZU:G:w";
 #else	
-	char *optstring = "hvc:d:R:a:S:e:ZU:G:Y";
+	char *optstring = "hvc:d:R:a:S:e:ZU:G:";
 #endif
 
 	/*
@@ -1472,9 +1469,6 @@ main(int argc, char *argv[])
 				exit(1);
 			}
 			break;
-		case 'Y':
-			opts.allowunsync = True;
-			break;
 		case 'c':
 		case 'e':
 		case 'Z':
@@ -1606,7 +1600,7 @@ main(int argc, char *argv[])
 	 * Initialize the context. (Set the error handler to the app defined
 	 * one.)
 	 */
-	if(!(ctx = BWLContextCreate(errhand,opts.allowunsync))){
+	if(!(ctx = BWLContextCreate(errhand))){
 		exit(1);
 	}
 

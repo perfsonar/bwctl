@@ -69,8 +69,7 @@ notmuch(
  */
 BWLContext
 BWLContextCreate(
-	I2ErrHandle	eh,
-	I2Boolean	allowunsync
+	I2ErrHandle	eh
 )
 {
 	struct sigaction	act;
@@ -103,7 +102,7 @@ BWLContextCreate(
 		ctx->eh = eh;
 	}
 
-	if(_BWLInitNTP(ctx,allowunsync) != 0){
+	if(_BWLInitNTP(ctx) != 0){
 		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"Unable to initialize clock interface.");
 		BWLContextFree(ctx);

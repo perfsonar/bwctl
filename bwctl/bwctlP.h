@@ -76,7 +76,6 @@ typedef	struct {
 		char		*keyfile;	/* -k */
 		I2Boolean	passphrase;	/* -K */
 
-		I2Boolean	allowunsync;	/* -Y */
 #ifndef	NDEBUG
 		I2Boolean	childwait;	/* -W */
 #endif
