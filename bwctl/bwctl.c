@@ -1220,8 +1220,6 @@ main(
 		FILE		*recvfp = NULL;
 		FILE		*sendfp = NULL;
 		struct timespec	tspec;
-		aeskey_auth	auth;
-
 
 AGAIN:
 		if(sig_check()) exit(1);
