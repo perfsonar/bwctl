@@ -606,6 +606,14 @@ _IPFEndpointStart(
 	{
 		int	waitfor = (int)IPFContextConfigGet(ctx,IPFChildWait);
 
+		/*
+		 * Syslog will print the PID making it easier to 'attach'
+		 * from a debugger.
+		 */
+		if(waitfor){
+			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"waitfor!");
+		}
+
 		while(waitfor);
 	}
 #endif
