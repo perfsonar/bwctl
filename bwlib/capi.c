@@ -1116,7 +1116,7 @@ BWLSessionRequest(
 	BWLAddr			receiver=NULL;
 	BWLAddr			sender=NULL;
 	int			socktype;
-	BWLNum64		zero64 BWLULongToNum64(0);
+	BWLNum64		zero64=BWLULongToNum64(0);
 
 	*err_ret = BWLErrOK;
 

@@ -1138,7 +1138,7 @@ LoadConfig(
 		}
 		else if(!strncasecmp(key,"iperfport",10)){
 			char		*hpstr = NULL;
-			u_int16_t	lport,hport,tsrt;
+			u_int16_t	lport,hport;
 			char		*end=NULL;
 			u_int32_t	tlng;
 

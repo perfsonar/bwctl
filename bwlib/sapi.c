@@ -714,7 +714,7 @@ BWLProcessTestRequest(
 		/*
 		 * If req_time is 0, client is cancelling.
 		 */
-		if(tsession->req_time.tstamp == 0){
+		if(tsession->test_spec.req_time.tstamp == 0){
 			err_ret = BWLErrINFO;
 			acceptval = BWL_CNTRL_REJECT;
 			goto error;

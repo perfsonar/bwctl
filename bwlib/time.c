@@ -670,7 +670,7 @@ _BWLGetTimespec(
 			 */
 			syncfuzz = *dbptr * 1000000;
 		}
-		dbptr = 1; /* not a valid pointer - just non-null */
+		dbptr = (void*)1; /* not a valid pointer - just non-null */
 	}
 
 	/*
