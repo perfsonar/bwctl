@@ -1615,7 +1615,7 @@ main(int argc, char *argv[])
 	 */
 	if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
 					opts.iperfcmd,&ipfd_exit,
-					opts.bottleneckcapacity,
+					&opts.bottleneckcapacity,
 					&lbuf,&lbuf_max))){
 		I2ErrLog(errhand, "PolicyInit failed. Exiting...");
 		exit(1);
