@@ -178,13 +178,13 @@ bwctld.limits
 bwctld.keys
 .SH SEE ALSO
 There are more details on configuring the \fBbwctld\fR daemon in the
-\fBbwctld.conf(5)\fR manual page. Details on configuring the policy
-is in the \fBbwctld.limits(5)\fR and \fBbwctld.keys(5)\fR manual pages.
-Information on the client is in the \fBbwctl(1)\fR manual page.
+bwctld.conf(5) manual page. Details on configuring the policy
+is in the bwctld.limits(5) and bwctld.keys(5) manual pages.
+Information on the client is in the bwctl(1) manual page.
 For more of an overview of the full functionality and architecture see
-the \fBhttp://e2epi.internet2.edu/bwctl/\fR web site.
+the http://e2epi.internet2.edu/bwctl/ web site.
 .PP
-For details on \fBIperf\fR, see the \fBhttp://dast.nlanr.net/Projects/Iperf/\fR
+For details on \fBIperf\fR, see the http://dast.nlanr.net/Projects/Iperf/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

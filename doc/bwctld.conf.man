@@ -25,14 +25,14 @@
 bwctld.conf \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
 \fBd\fRaemon configuration file
 .SH DESCRIPTION
-The \fBbwctld.conf\fR file is the configuration file for the \fBbwctld(8)\fR
+The \fBbwctld.conf\fR file is the configuration file for the bwctld(8)
 program. It is used to configure the basic operation of the server. For
 example, what addresses and ports it should listen on and where it should
 send error messages and where it should save files.
 .PP
 The policy rules for \fBbwctld\fR are configured using the \fBbwctld.limits\fR
 file and the details for configuring those policies are described in
-the \fBbwctld.limits(5)\fR manual page.
+the bwctld.limits(5) manual page.
 .PP
 The format of this file is as follows:
 .RS
@@ -180,10 +180,10 @@ the bottleneck.) If this option is not specified, the dynamic window
 calculation requested by the \fB-W\fR option to \fBbwctl\fR is not
 done and the advisory value is used.
 .SH SEE ALSO
-\fBbwctl(1)\fR, \fBbwctld(8)\fR, \fBbwctld.limits(5)\fR, \fBbwctld.keys(5)\fR
-and the \fBhttp://e2epi.internet2.edu/bwctl/\fR web site.
+bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5)
+and the http://e2epi.internet2.edu/bwctl/ web site.
 .PP
-For details on \fBIperf\fR, see the \fBhttp://dast.nlanr.net/Projects/Iperf/\fR
+For details on \fBIperf\fR, see the http://dast.nlanr.net/Projects/Iperf/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

@@ -304,10 +304,10 @@ the \fBbadguys\fR subnet). All other connections would match the
 \fIassign default\fR rule and get the limits associated with the \fBopen\fR
 \fIuserclass\fR.
 .SH SEE ALSO
-\fBbwctl(1)\fR, \fBbwctld(8)\fR, \fBbwctld.limits(5)\fR, \fBbwctld.keys(5)\fR
-and the \fBhttp://e2epi.internet2.edu/bwctl/\fR web site.
+bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5)
+and the http://e2epi.internet2.edu/bwctl/ web site.
 .PP
-For details on \fBIperf\fR, see the \fBhttp://dast.nlanr.net/Projects/Iperf/\fR
+For details on \fBIperf\fR, see the http://dast.nlanr.net/Projects/Iperf/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
