@@ -903,7 +903,10 @@ ACCEPT:
 	if(ipf_term)
 		goto end;
 
-	if(tsess->test_spec.dynamic_window_size){
+	/*
+	 * Setup dynamic window if tcp test.
+	 */
+	if(!tsess->test_spec.udp && tsess->test_spec.dynamic_window_size){
 		/*
 		 * HERE:
 		 * 	gets bottleneck capacity from context (set via config)
