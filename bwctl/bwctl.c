@@ -1169,6 +1169,8 @@ main(
     static char         *out_opts = "pxd:I:R:n:L:e:qrvV";
     static char         *test_opts = "i:l:uw:W:P:S:b:t:c:s:S:";
     static char         *gen_opts = "hW";
+    static char         *posixly_correct="POSIXLY_CORRECT";
+    static char         *posix_getopt="True";
 
     char                dirpath[PATH_MAX];
     struct flock        flk;
@@ -1224,8 +1226,6 @@ main(
     /*
      * Fix getopt for brain-dead linux
      */
-    static char *posixly_correct="POSIXLY_CORRECT";
-    static char *posix_getopt="True";
     if(setenv(posixly_correct,posix_getopt,0) != 0){
         fprintf(stderr,"Unable to set POSIXLY_CORRECT getopt mode");
         exit(1);
