@@ -311,8 +311,9 @@ ChldReservationDemand(
 	 * allocated to this test.
 	 */
 	res->start = BWLNum64Sub(rtime,ftime);
-	res->start = BWLNum64Max(BWLNum64Add(currtime.tstamp,rtttime),
-								res->start);
+	res->start = BWLNum64Max(BWLNum64Add(currtime.tstamp,
+					BWLNum64Add(rtttime,ftime)),
+				res->start);
 	res->restime = BWLNum64Add(res->start,ftime);
 	dtime = BWLNum64Add(BWLULongToNum64(duration),ftime);
 	res->end = BWLNum64Add(res->restime,dtime);
