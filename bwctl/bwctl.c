@@ -1032,7 +1032,7 @@ AGAIN:
 		 * TODO: Come up with a *real* value here!
 		 */
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-						IPFULongToNum64(3));
+						IPFULongToNum64(2));
 
 		/*
 		 * Wait this long after a test should be complete before
@@ -1174,6 +1174,7 @@ AGAIN:
 				/*
 				 * Send TerminateSession
 				 */
+				fprintf(stdout,"SENDER START\n");
 				/* sender session to 'null' */
 				if( (err_ret = IPFEndSession(s[1]->cntrl,
 							&ip_intr,stdout))
@@ -1181,14 +1182,19 @@ AGAIN:
 					CloseSessions();
 					goto next_test;
 				}
+				fprintf(stdout,"SENDER END\n");
+				fflush(stdout);
 				if(sig_check()) exit(1);
 				/* receiver session to STDOUT (for now) */
+				fprintf(stdout,"RECEIVER START\n");
 				if( (err_ret =IPFEndSession(s[0]->cntrl,
 							&ip_intr,stdout))
 							< IPFErrWARNING){
 					CloseSessions();
 					goto next_test;
 				}
+				fprintf(stdout,"RECEIVER END\n");
+				fflush(stdout);
 				if(sig_check()) exit(1);
 				break;
 			}

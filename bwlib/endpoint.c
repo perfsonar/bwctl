@@ -381,8 +381,10 @@ run_iperf(
 	ipargs[a++] = "-f";
 	ipargs[a++] = "b";
 
-	ipargs[a++] = "-l";
-	ipargs[a++] = uint32dup(ctx,tsess->test_spec.len_buffer);
+	if(tsess->test_spec.len_buffer){
+		ipargs[a++] = "-l";
+		ipargs[a++] = uint32dup(ctx,tsess->test_spec.len_buffer);
+	}
 
 	ipargs[a++] = "-m";
 
@@ -393,8 +395,10 @@ run_iperf(
 		ipargs[a++] = "-u";
 	}
 
-	ipargs[a++] = "-w";
-	ipargs[a++] = uint32dup(ctx,tsess->test_spec.window_size);
+	if(tsess->test_spec.window_size){
+		ipargs[a++] = "-w";
+		ipargs[a++] = uint32dup(ctx,tsess->test_spec.window_size);
+	}
 
 	ipargs[a++] = "-t";
 	ipargs[a++] = uint32dup(ctx,tsess->test_spec.duration);
