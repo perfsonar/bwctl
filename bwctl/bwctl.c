@@ -870,7 +870,7 @@ main(
 		 */
 		u_int32_t	r;
 
-		if(I2RandomBytes(rsrc,&r,4) != 0){
+		if(I2RandomBytes(rsrc,(u_int8_t*)&r,4) != 0){
 			exit(1);
 		}
 
@@ -886,6 +886,7 @@ main(
 		u_int16_t	dataport;
 		IPFBoolean	stop;
 
+AGAIN:
 		if(sig_check()) exit(1);
 
 		/* Open remote connection */
@@ -969,16 +970,15 @@ main(
 		/*
 		 * Check if the test should run yet...
 		 */
-		if(IPFNum64Cmp(wake.ipftime,currtime.ipftime) < 0){
+		if(IPFNum64Cmp(wake.ipftime,currtime.ipftime) > 0){
 			struct timespec	tspec;
-			IPFTimeStamp	rel;
+			IPFNum64	rel;
 
-			rel.ipftime = IPFNum64Sub(currtime.ipftime,
-					wake.ipftime);
-			(void)IPFTimeStampToTimespec(&tspec,&rel);
+			rel = IPFNum64Sub(currtime.ipftime,wake.ipftime);
+			IPFNum64ToTimespec(&tspec,rel);
 			if((nanosleep(&tspec,NULL) == 0) ||
 					(errno == EINTR)){
-				continue;
+				goto AGAIN;
 			}
 
 			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
