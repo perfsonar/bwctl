@@ -347,8 +347,7 @@ ChldReservationDemand(
 		 * it.
 		 */
 		if(IPFNum64Cmp(res->start,tres->end) > 0){
-			rptr = &(*rptr)->next;
-			continue;
+			goto next_slot;
 		}
 
 		/*
@@ -372,6 +371,9 @@ ChldReservationDemand(
 		 */
 		if(ltime && (IPFNum64Cmp(res->restime,ltime) > 0))
 			goto denied;
+
+next_slot:
+		rptr = &(*rptr)->next;
 	}
 
 	/*
