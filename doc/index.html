@@ -143,7 +143,7 @@ Please report any build problems to <a href="mailto:bwctl-users@internet2.edu">b
 <hr WIDTH="100%">Configuring <i>bwctld</i></h3>
 The basic procedure to configure <b>bwctld</b> is to create a <a href="bwctld.conf.man.html">bwctld.conf</a>
 and optionally a <a href="bwctld.limits.man.html">bwctld.limits</a> and
-<a href="bwctld.keys.man.html">bwctld.keys</a>
+bwctld.keys
 file. These files need to be installed in the same directory. The recommended
 directory is <i>/inst/root/etc</i>. (The <i>etc</i> directory below your
 install root.) There are examples of these files in the <i>bwctl-$VERS/conf&nbsp;</i>
@@ -162,6 +162,9 @@ must pass the limit restrictions of the assigned class as well as all parent
 classes. For a detailed description of the options available see the
 <a href="bwctld.conf.man.html">bwctld.conf</a>
 man page.
+<p><b>bwctl.keys:</b>
+<br>Used to associate identities with AES keys. These identites are then
+mapped to a class by the <b>bwctld.limits</b> file.
 <h3>
 
 <hr WIDTH="100%">Running <i>bwctld</i></h3>
