@@ -753,12 +753,12 @@ ACCEPT:
 			struct sockaddr_in6	*saddr6;
 
 			case AF_INET6:
-				saddr6 = (struct sockaddr_in6 *)saddr;
+				saddr6 = (struct sockaddr_in6 *)remote->saddr;
 				saddr6->sin6_port = ntohs(*dataport);
 				break;
 #endif
 			case AF_INET:
-				saddr4 = (struct sockaddr_in *)saddr;
+				saddr4 = (struct sockaddr_in *)remote->saddr;
 				saddr4->sin_port = ntohs(*dataport);
 				break;
 			default:
@@ -875,6 +875,7 @@ AGAIN:
 			else{
 				ep->acceptval = IPF_CNTRL_FAILURE;
 			}
+		}
 	}
 
 	*err_ret = IPFErrOK;

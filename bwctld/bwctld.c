@@ -395,7 +395,7 @@ static IPFBoolean
 ChldReservationComplete(
 	ChldState	cstate,
 	IPFSID		sid,
-	IPFAcceptType	aval,
+	IPFAcceptType	aval	__attribute__((unused)),
 	int		*err)
 {
 	*err = 1;
@@ -708,6 +708,25 @@ CleanPipes(
 	I2HashIterate(fdtable,CheckFD,&cpargs);
 
 	return;
+}
+
+static I2Boolean
+ClosePipes(
+	I2Datum	key,
+	I2Datum	value,
+	void	*app_data	__attribute__((unused))
+	)
+{
+	ChldState	cstate = value.dptr;
+
+	while((close(cstate->fd) < 0) && (errno == EINTR));
+	if(I2HashDelete(fdtable,key) != 0){
+		IPFError(cstate->policy->ctx,IPFErrWARNING,IPFErrUNKNOWN,
+					"fd(%d) not in fdtable!?!",cstate->fd);
+	}
+	cstate->fd = -1;
+
+	return True;
 }
 
 /*
@@ -1026,25 +1045,6 @@ FindMaxFD(
 	if((*maxfd < 0) || ((int)key.dsize > *maxfd)){
 		*maxfd = (int)key.dsize;
 	}
-
-	return True;
-}
-
-static I2Boolean
-ClosePipes(
-	I2Datum	key,
-	I2Datum	value,
-	void	*app_data	__attribute__((unused))
-	)
-{
-	ChldState	cstate = value.dptr;
-
-	while((close(cstate->fd) < 0) && (errno == EINTR));
-	if(I2HashDelete(fdtable,key) != 0){
-		IPFError(cstate->policy->ctx,IPFErrWARNING,IPFErrUNKNOWN,
-					"fd(%d) not in fdtable!?!",cstate->fd);
-	}
-	cstate->fd = -1;
 
 	return True;
 }
@@ -1408,8 +1408,6 @@ main(int argc, char *argv[])
 	 * Now deal with "all" cmdline options.
 	 */
 	while ((ch = getopt(argc, argv, optstring)) != -1){
-		unsigned long	tint;
-		char		*endptr;
 
 		switch (ch) {
 		/* Connection options. */
