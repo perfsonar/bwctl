@@ -2008,7 +2008,7 @@ BWLDReservationQuery(
 	memcpy(&buf[13],&rtt_time,8);
 	memcpy(&buf[15],&port,2);
 
-	if(I2Writeni(policy->fd,buf,64,intr) != 64){
+	if(I2Writeni(policy->fd,buf,68,intr) != 68){
 		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 			"BWLDQuery: Unable to contact parent");
 		return BWLDMESGINVALID;
