@@ -320,7 +320,7 @@ typedef struct IPFScheduleContextRec	*IPFScheduleContext;
 IPFScheduleContext
 IPFScheduleContextCreate(
 		IPFContext	ctx,
-		IPFSID		sid,
+		u_int8_t	seed[16],
 		u_int32_t	mean
 		);
 
@@ -332,8 +332,8 @@ IPFScheduleContextFree(
 IPFErrSeverity
 IPFScheduleContextReset(
 	IPFScheduleContext	sctx,
-		IPFSID		sid,
-		u_int32_t	mean
+	u_int8_t		seed[16],
+	u_int32_t		mean
 		);
 
 IPFNum64

@@ -64,7 +64,21 @@ typedef	struct {
 
 		char		*savedir;	/* -d */
 		u_int32_t	seriesInterval;	/* -I (seconds) */
+		u_int32_t	nIntervals;	/* -n */
+		I2Boolean	continuous;	/* == !nIntervals && seriesI */
 		u_int32_t	seriesWindow;	/* -L (seconds) */
+						/* Determines how far into
+						 * a seriesInterval a test
+						 * should be allowed to start.
+						 * If seriesInterval is in
+						 * place, default ensures test
+						 * will complete before next
+						 * interval, but no later than
+						 * 50% of seriesInterval.
+						 * If seriesInterval is not
+						 * being used, than defaults
+						 * to 2xtest duration.
+						 */
 		I2Boolean	printfiles;	/* -p */
 		int		facility;	/* -e */
 						/* -r stderr too */

@@ -102,6 +102,7 @@ print_output_args()
 "              [Output Args]\n\n"
 "   -d dir         directory to save session file in (only if -p)\n"
 "   -I Interval    time between IPF test sessions(seconds)\n"
+"   -n nIntervals  number of tests to perform (default: continuous)\n"
 "   -L LatestDelay latest time into an interval to run test(seconds)\n"
 "   -p             print completed filenames to stdout - not session data\n"
 "   -h             print this message and exit\n"
@@ -427,7 +428,7 @@ main(
 	char                    *endptr = NULL;
 	char                    optstring[128];
 	static char		*conn_opts = "A:B:k:U:";
-	static char		*out_opts = "d:I:L:pe:rv";
+	static char		*out_opts = "d:I:n:L:pe:rv";
 	static char		*test_opts = "i:l:uw:P:S:b:t:cs";
 	static char		*gen_opts = "hW";
 
@@ -436,6 +437,9 @@ main(
 	struct sigaction	act;
 	IPFNum64		latest64;
 	u_int32_t		p,q;
+	I2RandomSource		rsrc;
+	IPFScheduleContext	sctx;
+	IPFTimeStamp		wake;
 
 	progname = (progname = strrchr(argv[0], '/')) ? ++progname : *argv;
 
@@ -524,6 +528,14 @@ main(
 			break;
 		case 'I':
 			app.opt.seriesInterval =strtoul(optarg, &endptr, 10);
+			if (*endptr != '\0') {
+				usage(progname, 
+				"Invalid value. Positive integer expected");
+				exit(1);
+			}
+			break;
+		case 'n':
+			app.opt.nIntervals =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
 				usage(progname, 
 				"Invalid value. Positive integer expected");
@@ -672,14 +684,47 @@ main(
 	}
 
 	/*
+	 * Initialize library with configuration functions.
+	 */
+	if( !(ctx = IPFContextCreate(eh))){
+		I2ErrLog(eh, "Unable to initialize IPF library.");
+		exit(1);
+	}
+
+	/*
 	 * If seriesInterval is in use, verify the args and pick a
 	 * resonable default for seriesWindow if needed.
 	 */
 	if(app.opt.seriesInterval){
+		u_int8_t	seed[16];
+
 		if(app.opt.seriesInterval <
 				(app.opt.timeDuration + SETUP_ESTIMATE)){
 			usage(progname,"-I: interval too small relative to -t");
 			exit(1);
+		}
+
+		if( !(rsrc = I2RandomSourceInit(eh,I2RAND_DEV,NULL))){
+			I2ErrLog(eh,"Failed to initialize Random Numbers");
+			exit(1);
+		}
+		if(I2RandomBytes(rsrc,seed,16) != 0){
+			exit(1);
+		}
+
+		/*
+		 * Setup the pseudoPoisson generator...
+		 */
+		if( !(sctx = IPFScheduleContextCreate(ctx,seed,
+				(double)app.opt.seriesInterval))){
+			exit(1);
+		}
+
+		/*
+		 * If nIntervals not set, continuous tests are requested.
+		 */
+		if(!app.opt.nIntervals){
+			app.opt.continuous = True;
 		}
 		/*
 		 * Make sure tests start before 50% of the 'interval' is
@@ -697,6 +742,13 @@ main(
 		 */
 		if(!app.opt.seriesWindow){
 			app.opt.seriesWindow = app.opt.timeDuration * 2;
+		}
+		/*
+		 * If nIntervals not set, and seriesInterval not set
+		 * a single test is requested.
+		 */
+		if(!app.opt.nIntervals){
+			app.opt.nIntervals = 1;
 		}
 	}
 	latest64 = IPFULongToNum64(app.opt.seriesWindow);
@@ -744,14 +796,6 @@ main(
 	}
 	file_offset = strlen(dirpath);
 	ext_offset = file_offset + TSTAMPCHARS;
-
-	/*
-	 * Initialize library with configuration functions.
-	 */
-	if( !(ctx = IPFContextCreate(eh))){
-		I2ErrLog(eh, "Unable to initialize IPF library.");
-		exit(1);
-	}
 
 	/*
 	 * Initialize session records
@@ -808,15 +852,33 @@ main(
 		exit(1);
 	}
 
-
 	/*
-	 * TODO
-	 * If doing sessionInterval:
-	 * 	create a pseudo-poisson context
-	 * 	sleep for rand([0,1])*sessionInterval (spread out start time)
-	 * 	create loop for the remainder of main() that sets up a test
-	 * 	every sessionInterval*pseudo-poisson
+	 * Initialize wake time to current time. If this is a single test,
+	 * this will indicate an immediate test. If seriesInterval is set,
+	 * this time will be adjusted to spread start times out.
 	 */
+	if(!IPFGetTimeStamp(ctx,&wake)){
+		I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
+		exit(1);
+	}
+
+	if(app.opt.seriesInterval){
+		/*
+		 * sleep for rand([0,1])*sessionInterval
+		 * (spread out start time)
+		 * Use a random 32 bit integer and normalize.
+		 */
+		u_int32_t	r;
+
+		if(I2RandomBytes(rsrc,&r,4) != 0){
+			exit(1);
+		}
+
+		wake.ipftime = IPFNum64Add(wake.ipftime,
+			IPFDoubleToNum64((double)app.opt.seriesInterval*
+				r/0xffffffff));
+	}
+
 	do{
 		IPFTimeStamp	req_time;
 		IPFTimeStamp	currtime;
@@ -895,6 +957,35 @@ main(
 			goto next_test;
 		}
 		if(sig_check()) exit(1);
+
+		/*
+		 * Get current time.
+		 */
+		if(!IPFGetTimeStamp(ctx,&currtime)){
+			I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
+			exit(1);
+		}
+
+		/*
+		 * Check if the test should run yet...
+		 */
+		if(IPFNum64Cmp(wake.ipftime,currtime.ipftime) < 0){
+			struct timespec	tspec;
+			IPFTimeStamp	rel;
+
+			rel.ipftime = IPFNum64Sub(currtime.ipftime,
+					wake.ipftime);
+			(void)IPFTimeStampToTimespec(&tspec,&rel);
+			if((nanosleep(&tspec,NULL) == 0) ||
+					(errno == EINTR)){
+				continue;
+			}
+
+			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+					"nanosleep(): %M");
+			exit(1);
+		}
+
 		/*
 		 * req_time.ipftime += (3*round-trip-bound)
 		 * (3) -- 1 test_req, 1 start session, 1 for server-2-server
@@ -938,10 +1029,6 @@ main(
 		 * time from 'now' that a test could be held. Get the current
 		 * time and add to make that an 'absolute' value.
 		 */
-		if(!IPFGetTimeStamp(ctx,&currtime)){
-			I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
-			exit(1);
-		}
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
 							currtime.ipftime);
 		/*
@@ -1122,7 +1209,7 @@ next_test:
 
 		if(sig_check()) exit(1);
 
-	}while(0); /* TODO: test for "next" interval time */
+	}while(app.opt.continuous || --app.opt.nIntervals);
 
 
 	exit(0);

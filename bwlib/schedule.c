@@ -288,7 +288,7 @@ IPFScheduleContextFree(
 IPFScheduleContext
 IPFScheduleContextCreate(
 	IPFContext	ctx,
-	IPFSID		sid,
+	u_int8_t	seed[16],
 	u_int32_t	mean
 	)
 {
@@ -303,11 +303,11 @@ IPFScheduleContextCreate(
 	sctx->ctx = ctx;
 
 	/*
-	 * Initialize Key with sid.
+	 * Initialize Key with seed.
 	 * (This is only needed for Exponential random numbers, but just
 	 * do it.)
 	 */
-	bytes2Key(&sctx->key, sid);
+	bytes2Key(&sctx->key, seed);
 
 	memset(sctx->out,0,16);
 	memset(sctx->counter,0,16);
@@ -322,7 +322,7 @@ IPFScheduleContextCreate(
  *
  * Description:	
  * 	This function resets the sctx so the Delta generation can be
- * 	restarted. Additionally, if sid and tspec are non-NULL, then
+ * 	restarted. Additionally, if seed and tspec are non-NULL, then
  * 	then the sctx is reset to generate delta's for the distribution
  * 	defined by those values.
  *
@@ -337,21 +337,21 @@ IPFScheduleContextCreate(
 IPFErrSeverity
 IPFScheduleContextReset(
 	IPFScheduleContext	sctx,
-	IPFSID			sid,
+	u_int8_t		seed[16],
 	u_int32_t		mean
 		)
 {
 	memset(sctx->out,0,16);
 	memset(sctx->counter,0,16);
 
-	if(sid && mean){
+	if(seed && mean){
 
 		/*
-		 * Initialize Key with sid.
+		 * Initialize Key with seed.
 		 * (This is only needed for Exponential random numbers, but just
 		 * do it.)
 		 */
-		bytes2Key(&sctx->key, sid);
+		bytes2Key(&sctx->key, seed);
 		sctx->mean = mean;
 
 	}
