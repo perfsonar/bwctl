@@ -80,7 +80,7 @@ based upon a user name and AES key combination or alternatively based
 upon an IP/netmask.
 Once the connection is classified, the \fBbwctld\fR can determine the
 exact type and intensities of \fBIperf\fR tests that will be allowed.
-More information on the policy controls can be found in the \fBbwctld(8)\fR
+More information on the policy controls can be found in the bwctld(8)
 man page.
 .SH OPTIONS
 .TP
@@ -231,7 +231,7 @@ Unspecified (wild-card address selection).
 \fB\-k\fR \fIkeyfile\fR
 Indicates that \fBbwctl\fR should use the AES key in \fIkeyfile\fR for
 \fIusername\fB. \fIusername\fR must have a valid key in \fIkeyfile\fR.
-\fIkeyfile\fR should have been generated using the \fBaespasswd(1)\fR
+\fIkeyfile\fR should have been generated using the aespasswd(1)
 application.
 .RS
 .IP Default:
@@ -321,8 +321,8 @@ the localhost.
 Run the default 10 second TCP \fBIperf\fR test. Authenticate using
 the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a \fIpassphrase\fR.
 .SH SEE ALSO
-bwctld(8) and the http://e2epi.internet2.edu/bwctl/ and
-http://dast.nlanr.net/Projects/Iperf/ web sites.
+bwctld(8) and the http://e2epi.internet2.edu/bwctl/
+and http://dast.nlanr.net/Projects/Iperf/ web sites.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
 Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
