@@ -1000,7 +1000,7 @@ ACCEPT:
 
 		double		t1,t2,tr;
 		double		e1,e2,er;
-		double		sync_fuzz = 0.020; /* 20 msec fuzz */
+		double		sync_fuzz = BWL_DEFAULT_SYNCFUZZ;
 
 		if(BWLControlTimeCheck(ep->rcntrl,&rtime) != BWLErrOK){
 			BWLError(ctx,BWLErrFATAL,errno,

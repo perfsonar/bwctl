@@ -1109,7 +1109,7 @@ main(
 		FILE		*recvfp = NULL;
 		FILE		*sendfp = NULL;
 		BWLTimeStamp	time1,time2;
-		double		t1,e1,t2,e2,tr,er;
+		double		t1,e1,t2,e2,tr,er,sync_fuzz;
 		struct timespec	tspec;
 
 
@@ -1231,6 +1231,10 @@ AGAIN:
 		 * (The time will be over-written later, we only need it
 		 * to verify the time for now. The errest will continue
 		 * to be used to determine "fuzz" space between sessions.)
+		 *
+		 * Using the "local" tspec to hold this because I need to
+		 * pass the error estimate for the "opposite" end of the
+		 * test on in the request.
 		 */
 		if(BWLControlTimeCheck(remote.cntrl,&local.tspec.req_time) !=
 								BWLErrOK){
@@ -1255,9 +1259,18 @@ AGAIN:
 		e2 = BWLNum64ToDouble(BWLGetTimeStampError(&time2));
 		er = BWLNum64ToDouble(
 			BWLGetTimeStampError(&local.tspec.req_time));
+		sync_fuzz = BWL_DEFAULT_SYNCFUZZ;
 
-		if((t1-e1) > (tr+er) || (tr-er) > (t2+e2)){
-			I2ErrLogP(eh,errno,"Remote server timestamp invalid!");
+		if((t1-e1) > (tr+er + sync_fuzz)){
+			I2ErrLog(eh,"Remote clock is at least %f(secs) "
+				"ahead of client, time error = %f(secs)",
+				t1-tr,e1+er);
+			exit(1);
+		}
+		else if((tr-er) > (t2+e2 + sync_fuzz)){
+			I2ErrLog(eh,"Remote clock is at least %f(secs) "
+				"behind client, time error = %f(secs)",
+				tr-t2,e2+er);
 			exit(1);
 		}
 
@@ -1270,6 +1283,12 @@ AGAIN:
 		req_time.tstamp = BWLNum64Add(req_time.tstamp,
 			BWLNum64Mult(remote.rttbound,BWLULongToNum64(5)));
 
+		/********************************************************
+		 * Leaving check for "local" time in because local/	*
+		 * remote will mean something very different once three	*
+		 * party interaction is enabled.			*
+		 ********************************************************/
+
 		/*
 		 * Get current time (used to verify local server time)
 		 */
@@ -1277,10 +1296,15 @@ AGAIN:
 			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
 			exit(1);
 		}
+
 		/*
 		 * Query local time error and update round-trip bound.
 		 * (The time will be over-written later, we really only
 		 * care about the errest portion of the timestamp.)
+		 *
+		 * Using the "remote" tspec to hold this because I need to
+		 * pass the error estimate for the "opposite" end of the
+		 * test on in the request.
 		 */
 		if(BWLControlTimeCheck(local.cntrl,&remote.tspec.req_time) !=
 								BWLErrOK){
@@ -1305,6 +1329,20 @@ AGAIN:
 		e2 = BWLNum64ToDouble(BWLGetTimeStampError(&time2));
 		er = BWLNum64ToDouble(
 			BWLGetTimeStampError(&remote.tspec.req_time));
+		sync_fuzz = BWL_DEFAULT_SYNCFUZZ;
+
+		if((t1-e1) > (tr+er + sync_fuzz)){
+			I2ErrLog(eh,"Local clock is at least %f(secs) "
+				"ahead of client, time error = %f(secs)",
+				t1-tr,e1+er);
+			exit(1);
+		}
+		else if((tr-er) > (t2+e2 + sync_fuzz)){
+			I2ErrLog(eh,"Local clock is at least %f(secs) "
+				"behind client, time error = %f(secs)",
+				tr-t2,e2+er);
+			exit(1);
+		}
 
 		/*
 		 * req_time.tstamp += (5*round-trip-bound)

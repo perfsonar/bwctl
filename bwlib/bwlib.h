@@ -112,6 +112,9 @@
 /* Default mode offered by the server */
 #define BWL_DEFAULT_OFFERED_MODE 	(BWL_MODE_OPEN|BWL_MODE_AUTHENTICATED|BWL_MODE_ENCRYPTED)
 
+/* Default accepted synchronization "fuzz" */
+#define BWL_DEFAULT_SYNCFUZZ	0.020
+
 /*
  * TODO: 4822 should eventually be replaced by an IANA blessed service name.
  */
