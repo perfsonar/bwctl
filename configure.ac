@@ -161,6 +161,5 @@ AC_CHECK_DECLS([fseeko])
 # AC_CONFIG_FILES([Makefile owamp/Makefile])
 
 AC_SUBST(ac_aux_dir)
-AC_OUTPUT([Makefile bwlib/Makefile bwctld/Makefile bwctl/Makefile conf/Makefile ],
+AC_OUTPUT([Makefile bwlib/Makefile bwctld/Makefile bwctl/Makefile conf/Makefile doc/Makefile],
 	[test -z "$CONFIG_HEADERS" || echo timestamp > bwlib/stamp-h.in])
-
