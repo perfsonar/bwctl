@@ -727,7 +727,7 @@ BWLProcessTestRequest(
 	tsession->fuzz = BWLNum64Add(tsession->fuzz,
 				BWLNum64Max(one64,
 				BWLGetTimeStampError(&tsession->localtime)));
-	tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLULongToNum64(1));
+	tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLULongToNum64(2));
 
 	/*
 	 * TODO:

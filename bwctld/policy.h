@@ -350,6 +350,7 @@ BWLDReadReservationQuery(
 	BWLNum64	*last_time,
 	u_int32_t	*duration,
 	BWLNum64	*rtt_time,
+	u_int16_t	*port,
 	int		*err
 	);
 

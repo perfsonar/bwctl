@@ -76,6 +76,8 @@ usage(
 		"   -c confidr        Configuration directory\n"
 		"   -d datadir        Data directory\n"
 		"   -a authmode       Default supported authmodes:[E]ncrypted,[A]uthenticated,[O]pen\n"
+			);
+		fprintf(stderr,
 	        "   -S nodename:port  Srcaddr to bind to\n"
 		"      -U/-G options only used if run as root\n"
 		"   -U user           Run as user \"user\" :-uid also valid\n"

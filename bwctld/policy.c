@@ -1988,7 +1988,7 @@ BWLDReservationQuery(
 	u_int32_t	duration,
 	BWLNum64	rtt_time,
 	BWLNum64	*reservation_ret,
-	u_int16_t	*port_ret
+	u_int16_t	*port
 	)
 {
 	BWLDMesgT	buf[17];
@@ -2015,7 +2015,7 @@ BWLDReservationQuery(
 	}
 
 	return BWLDReadReservationResponse(policy->fd,intr,reservation_ret,
-			port_ret);
+			port);
 }
 
 /*

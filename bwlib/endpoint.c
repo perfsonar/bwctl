@@ -162,12 +162,14 @@ tfile(
 		return NULL;
 	}
 
+#if	TODO
 	if(unlink(fname) != 0){
 		BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
 					"unlink(%s): %M",fname);
 		while((fclose(fp) != 0) && (errno == EINTR));
 		return NULL;
 	}
+#endif
 
 	return fp;
 }
@@ -360,6 +362,7 @@ run_iperf(
 	char			*ipargs[_BWL_MAX_IPERFARGS*2];
 	char			*iperf = (char*)BWLContextConfigGet(ctx,
 								BWLIperfCmd);
+	FILE			*nstdout;
 
 #if	NOT
 	{
@@ -436,19 +439,6 @@ run_iperf(
 	ipargs[a++] = NULL;
 
 	/*
-	 * Reset ignored signals to default
-	 * (exec will reset set signals to default)
-	 */
-	memset(&act,0,sizeof(act));
-	act.sa_handler = SIG_DFL;
-	sigemptyset(&act.sa_mask);
-	if(	(sigaction(SIGPIPE,&act,NULL) != 0) ||
-		(sigaction(SIGALRM,&act,NULL) != 0)){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
-		exit(BWL_CNTRL_FAILURE);
-	}
-
-	/*
 	 * Open /dev/null to dup to stdin before the exec.
 	 */
 	if( (nullfd = open(_BWL_DEV_NULL,O_RDONLY)) < 0){
@@ -460,6 +450,24 @@ run_iperf(
 			(dup2(outfd,STDOUT_FILENO) < 0) ||
 			(dup2(outfd,STDERR_FILENO) < 0)){
 		BWLError(ctx,BWLErrFATAL,errno,"dup2(): %M");
+		exit(BWL_CNTRL_FAILURE);
+	}
+
+	if(!(nstdout = fdopen(STDOUT_FILENO,"a"))){
+		BWLError(ctx,BWLErrFATAL,errno,"fdopen(STDOUT): %M");
+		exit(BWL_CNTRL_FAILURE);
+	}
+
+	/*
+	 * Reset ignored signals to default
+	 * (exec will reset set signals to default)
+	 */
+	memset(&act,0,sizeof(act));
+	act.sa_handler = SIG_DFL;
+	sigemptyset(&act.sa_mask);
+	if(	(sigaction(SIGPIPE,&act,NULL) != 0) ||
+		(sigaction(SIGALRM,&act,NULL) != 0)){
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
 		exit(BWL_CNTRL_FAILURE);
 	}
 
@@ -509,6 +517,14 @@ run_iperf(
 	/*
 	 * Now run iperf!
 	 */
+	BWLGetTimeStamp(ctx,&currtime);
+	fprintf(nstdout,"%f:",BWLNum64ToDouble(currtime.tstamp));
+	for(a=0;ipargs[a];a++){
+		fprintf(nstdout," %s",ipargs[a]);
+	}
+	fprintf(nstdout,"\n");
+	fflush(nstdout);
+
 	execv(iperf,ipargs);
 
 	BWLError(ctx,BWLErrFATAL,errno,"execv(): %M");
@@ -833,6 +849,8 @@ ACCEPT:
 	reltime = BWLNum64Add(reltime,tsess->fuzz);
 	reltime = BWLNum64Add(reltime,
 			BWLULongToNum64(tsess->test_spec.duration));
+	/* TODO: remove after debugging */
+	reltime = BWLNum64Add(reltime,BWLULongToNum64(5));
 
 	memset(&itval,0,sizeof(itval));
 	BWLNum64ToTimeval(&itval.it_value,reltime);
@@ -925,6 +943,14 @@ end:
 	}
 
 	if(do_read && !ipf_term){
+#if	NOT
+	{
+		int	waitfor=1;
+
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Waiting!!!:ipf_term=%d",ipf_term);
+		while(waitfor);
+	}
+#endif
 		msgtype = BWLReadRequestType(ep->rcntrl,&ipf_term);
 		if(msgtype == 0){
 			BWLError(ctx,BWLErrFATAL,errno,
@@ -933,8 +959,8 @@ end:
 		}
 		else if(msgtype != 3){
 			BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-				"Invalid protocol message from test peer: %d",
-				msgtype);
+				"Invalid protocol message from test peer: %d,ipf_term=%d",
+				msgtype,ipf_term);
 			aval = BWL_CNTRL_FAILURE;
 		}
 		else{
