@@ -752,7 +752,8 @@ BWLProcessTestRequest(
 	if(!(cntrl->mode & BWL_MODE_DOCIPHER) &&
 			(I2SockAddrEqual(cntrl->remote_addr->saddr,
 					 cntrl->remote_addr->saddrlen,
-					 raddr->saddr,raddr->saddrlen,
+					 raddr->saddr,
+					 raddr->saddrlen,
 					 I2SADDR_ADDR) <= 0) &&
 			(I2SockAddrEqual(cntrl->remote_addr->saddr,
 					 cntrl->remote_addr->saddrlen,
@@ -762,6 +763,10 @@ BWLProcessTestRequest(
 		BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,
 		"Test Denied: OpenMode remote_addr(%s) != control_client(%s)",
 					raddr->node,cntrl->remote_addr->node);
+		BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,
+		"Test Denied: OpenMode local_addr(%s) != control_client(%s)",
+					cntrl->local_addr->node,
+					cntrl->remote_addr->node);
 		acceptval = BWL_CNTRL_REJECT;
 		err_ret = BWLErrINFO;
 		goto error;
