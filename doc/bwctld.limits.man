@@ -186,7 +186,7 @@ an invalid \fIsubnet\fR due to the bit set in the forth octet.
 Assign a specific list of one or more \fIusers\fR to a given \fIuserclass\fR.
 The \fIusers\fR are defined in the \fBbwctld.keys\fR file.
 .SH AUTHENTICATION PROCESS
-\fBbwctld\fR determines if the daemon should allow a connection from
+\fBbwctld\fR determines if it should allow a connection from
 the client based upon the authentication mode of the request and the source
 IP address of the connection. If the client connection is in authenticated or
 encrypted mode, the daemon does not do any filtering based upon the
@@ -204,7 +204,8 @@ lines in the \fBbwctld.limits\fR file.
 .SH EXAMPLES
 An initial \fIlimit\fR line might look like:
 .RS
-.IP "limit root with \\"
+.HP
+limit root with \\
 .br
 bandwidth=900m, \\
 .br
@@ -227,7 +228,8 @@ successfully authenticate using an AES key.
 If an administrator also wants to create a \fIuserclass\fR that is used
 to deny all requests, they might add:
 .RS
-.IP "limit jail with \\"
+.HP
+limit jail with \\
 .br
 parent=root, \\
 .br
@@ -250,7 +252,8 @@ file.
 If the administrator wanted to allow a limited amount of open tests, they
 could define a \fIuserclass\fR like:
 .RS
-.IP "limit open with \\"
+.HP
+limit open with \\
 .br
 allow_open_mode=on, \\
 .br
