@@ -1530,6 +1530,35 @@ main(int argc, char *argv[])
 	}
 
 	/*
+	 * Initialize the context. (Set the error handler to the app defined
+	 * one.)
+	 */
+	if(!(ctx = BWLContextCreate(errhand))){
+		exit(1);
+	}
+
+	/*
+	 * Install policy for "ctx" - and return policy record.
+	 */
+	if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
+					opts.iperfcmd,
+					&opts.bottleneckcapacity,
+					&ipfd_exit,
+					&lbuf,&lbuf_max))){
+		I2ErrLog(errhand, "PolicyInit failed. Exiting...");
+		exit(1);
+	};
+
+	/*
+	 * Done with the line buffer. (reset to 0 for consistancy.)
+	 */
+	if(lbuf){
+		free(lbuf);
+	}
+	lbuf = NULL;
+	lbuf_max = 0;
+
+	/*
 	 * If running as root warn if the -U/-G flags not set.
 	 */
 	if(!geteuid()){
@@ -1595,35 +1624,6 @@ main(int argc, char *argv[])
 		}
 
 	}
-
-	/*
-	 * Initialize the context. (Set the error handler to the app defined
-	 * one.)
-	 */
-	if(!(ctx = BWLContextCreate(errhand))){
-		exit(1);
-	}
-
-	/*
-	 * Install policy for "ctx" - and return policy record.
-	 */
-	if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
-					opts.iperfcmd,
-					&opts.bottleneckcapacity,
-					&ipfd_exit,
-					&lbuf,&lbuf_max))){
-		I2ErrLog(errhand, "PolicyInit failed. Exiting...");
-		exit(1);
-	};
-
-	/*
-	 * Done with the line buffer. (reset to 0 for consistancy.)
-	 */
-	if(lbuf){
-		free(lbuf);
-	}
-	lbuf = NULL;
-	lbuf_max = 0;
 
 	/*
 	 * Setup the "default_mode".
