@@ -601,6 +601,14 @@ IPFAddr
 IPFAddrByLocalControl(
 	IPFControl	cntrl
 	);
+/*
+ * Return the address for the remote side of the control connection.
+ * (getpeername)
+ */
+IPFAddr
+IPFAddrByControl(
+		IPFControl	cntrl
+		);
 
 void
 IPFAddrNodeName(

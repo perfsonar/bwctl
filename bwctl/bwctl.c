@@ -812,23 +812,6 @@ main(
 	local.tspec.report_interval = app.opt.reportInterval;
 
 	/*
-	 * TODO:
-	 * make remote connection here so the addresses used for the
-	 * connection can be pulled back in and used as test endpoint
-	 * addresses.
-	 */
-
-	/*
-	 * Setup addresses of test endpoints.
-	 */
-	local.tspec.sender = (app.opt.send)?
-				IPFAddrByNode(ctx,app.opt.srcaddr):
-					IPFAddrByNode(ctx,app.remote_test);
-	local.tspec.receiver = (!app.opt.send)?
-				IPFAddrByNode(ctx,app.opt.srcaddr):
-					IPFAddrByNode(ctx,app.remote_test);
-
-	/*
 	 * copy local tspec to remote record.
 	 */
 	memcpy(&remote,&local,sizeof(local));
@@ -910,6 +893,34 @@ AGAIN:
 				goto next_test;
 			}
 			remote.sockfd = IPFControlFD(remote.cntrl);
+
+			/*
+			 * Setup addresses of test endpoints.
+			 * (Must have initialized remote communication first.)
+			 */
+			if(!local.tspec.sender){
+				local.tspec.sender = (app.opt.send)?
+					IPFAddrByLocalControl(remote.cntrl):
+						IPFAddrByControl(remote.cntrl);
+				if(!local.tspec.sender){
+					I2ErrLog(eh,
+					"Unable to determine send address: %M");
+					exit(1);
+				}
+				remote.tspec.sender = local.tspec.sender;
+			}
+
+			if(!local.tspec.receiver){
+				local.tspec.receiver = (!app.opt.send)?
+					IPFAddrByLocalControl(remote.cntrl):
+						IPFAddrByControl(remote.cntrl);
+				if(!local.tspec.receiver){
+					I2ErrLog(eh,
+					"Unable to determine recv address: %M");
+					exit(1);
+				}
+				remote.tspec.receiver = local.tspec.receiver;
+			}
 		}
 		/* Open local connection */
 		if(!local.cntrl){

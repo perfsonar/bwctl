@@ -871,6 +871,97 @@ _IPFClientRequestTestReadResponse(
 }
 
 /*
+ * Function:	IPFAddrByControl
+ *
+ * Description:	
+ * 	Create an IPFAddr record for the remote address based upon the
+ * 	control socket connection. (wrapper for getpeername)
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ */
+IPFAddr
+IPFAddrByControl(
+		   IPFControl	cntrl
+		   )
+{
+	struct addrinfo		*ai=NULL;
+	IPFAddr			addr;
+	struct sockaddr_storage	saddr_rec;
+	struct sockaddr		*oaddr=(struct sockaddr*)&saddr_rec;
+	socklen_t		len;
+
+	/*
+	 * copy current socketaddr into saddr_rec
+	 */
+	if(cntrl->remote_addr && cntrl->remote_addr->saddr){
+		len = cntrl->remote_addr->saddrlen;
+		memcpy(&saddr_rec,cntrl->remote_addr->saddr,len);
+	}else{
+		memset(&saddr_rec,0,sizeof(saddr_rec));
+		len = sizeof(saddr_rec);
+		if(getpeername(cntrl->sockfd,oaddr,&len) != 0){
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+					"getpeername():%M");
+			return NULL;
+		}
+	}
+
+	/*
+	 * If copy was unsuccessful return error.
+	 */
+	if(!len)
+		return NULL;
+
+	/*
+	 * Allocate an IPFAddr record to assign the data into.
+	 */
+	if( !(addr = _IPFAddrAlloc(cntrl->ctx)))
+		return NULL;
+
+	if( !(ai = calloc(1,sizeof(struct addrinfo))) ||
+					!(addr->saddr = calloc(1,len))){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,"malloc():%M");
+		goto error;
+	}
+
+	/*
+	 * Assign all the fields.
+	 */
+	memcpy(addr->saddr,oaddr,len);
+	ai->ai_addr = addr->saddr;
+	addr->saddrlen = len;
+	ai->ai_addrlen = len;
+
+	ai->ai_flags = 0;
+	ai->ai_family = oaddr->sa_family;
+	ai->ai_socktype = SOCK_STREAM;
+	ai->ai_protocol = IPPROTO_IP;	/* reasonable default */
+	ai->ai_canonname = NULL;
+	ai->ai_next = NULL;
+
+	addr->ai = ai;
+	addr->ai_free = True;
+	addr->so_type = SOCK_STREAM;
+	addr->so_protocol = IPPROTO_IP;
+
+	return addr;
+
+error:
+	if(addr)
+		IPFAddrFree(addr);
+	if(ai)
+		free(ai);
+
+	return NULL;
+}
+
+/*
  * Function:	IPFAddrByLocalControl
  *
  * Description:	

@@ -824,6 +824,9 @@ ACCEPT:
 		 * TODO: Close all open file descriptors not needed by this
 		 * child.
 		 */
+		while((close(new_pipe[0]) < 0) && (errno == EINTR));
+		while((close(listenfd) < 0) && (errno == EINTR));
+		I2HashIterate(fdtable,ClosePipes,NULL);
 
 		/*
 		 * check/set signal vars.

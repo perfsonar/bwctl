@@ -867,8 +867,14 @@ AGAIN:
 			*err_ret = IPFErrWARNING;
 			return False;
 		}
-		else if(p > 0)
-		       ep->acceptval = (IPFAcceptType)WEXITSTATUS(childstatus);
+		else if(p > 0){
+			if(WIFEXITED(childstatus)){
+				ep->acceptval =
+					(IPFAcceptType)WEXITSTATUS(childstatus);
+			}
+			else{
+				ep->acceptval = IPF_CNTRL_FAILURE;
+			}
 	}
 
 	*err_ret = IPFErrOK;
