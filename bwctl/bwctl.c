@@ -1634,7 +1634,9 @@ sess_req_err:
 				goto next_test;
 			}
 			if(sig_check()) exit(1);
+#if	NOT
 I2ErrLog(eh,"Res(%s): %24.10f",s[p]->host,BWLNum64ToDouble(req_time.tstamp));
+#endif
 			
 			if(BWLNum64Cmp(req_time.tstamp,
 						s[p]->tspec.latest_time) > 0){
