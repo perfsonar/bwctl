@@ -902,14 +902,12 @@ AGAIN:
 			}
 			else{
 				ep->acceptval = IPF_CNTRL_FAILURE;
+				*err_ret = IPFErrWARNING;
 			}
 		}
-		else{
-			/*
-			 * Process still running just fine.
-			 */
-			return True;
-		}
+		/*
+		 * if(p==0) process still running just fine - fall through.
+		 */
 	}
 
 	*aval = ep->acceptval;
