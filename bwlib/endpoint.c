@@ -285,11 +285,15 @@ getsidaeskey(
 	return True;
 }
 
+int	signo_caught;
+
 static void
 sig_catch(
 		int	signo
 		)
 {
+	signo_caught = signo;
+
 	switch(signo){
 		case SIGTERM:
 		case SIGINT:
@@ -814,8 +818,15 @@ ACCEPT:
 				remote,tsess->cntrl->mode,"endpoint",NULL,
 				err_ret);
 	}
-	if(!ep->rcntrl)
+	if(!ep->rcntrl){
+		BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"Endpoint: Unable to connect to Peer!: %M");
+		if(ipf_intr){
+			BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"Endpoint: Signal = %d",signo_caught);
+		}
 		goto end;
+	}
 	if(ipf_term)
 		goto end;
 

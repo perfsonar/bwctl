@@ -459,6 +459,7 @@ main(
 	sigaddset(&sigs,SIGINT);
 	sigaddset(&sigs,SIGHUP);
 	sigaddset(&sigs,SIGALRM);
+	sigaddset(&sigs,SIGCHLD);
 	if(sigprocmask(SIG_UNBLOCK,&sigs,NULL) != 0){
 		I2ErrLog(eh,"sigprocmask(): %M");
 		exit(1);
