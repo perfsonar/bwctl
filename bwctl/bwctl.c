@@ -61,14 +61,12 @@ static	int		first_set = False;
 static	int		second_set = False;
 static	ipsess_trec	first;
 static	ipsess_trec	second;
-static	aeskey_auth	first_auth;
-static	aeskey_auth	second_auth;
+static	aeskey_auth	current_auth=NULL;
 static	BWLNum64	zero64;
 static	BWLNum64	fuzz64;
 static	BWLSID		sid;
 static	u_int16_t	recv_port;
 static	ipsess_t	s[2];	/* receiver == 0, sender == 1 */
-static	u_int8_t	aesbuff[16];
 
 static void
 print_conn_args()
@@ -163,147 +161,216 @@ usage(const char *progname, const char *msg)
 static BWLBoolean
 getclientkey(
 	BWLContext	ctx __attribute__((unused)),
-	const BWLUserID	userid	__attribute__((unused)),
+	const BWLUserID	userid,
 	BWLKey		key_ret,
-	BWLErrSeverity	*err_ret __attribute__((unused))
+	BWLErrSeverity	*err_ret
 	)
 {
-	memcpy(key_ret,aesbuff,sizeof(aesbuff));
+	if(!current_auth){
+		/*
+		 * Function shouldn't be called if identity wasn't passed in...
+		 */
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+				"GetKey: auth method unknown");
+		*err_ret = BWLErrFATAL;
+		return False;
+	}
+
+	if(strncmp(current_auth->identity,userid,sizeof(BWLUserID))){
+		/*
+		 * If identity doesn't match, there are auth problems...
+		 */
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+				"GetKey: auth identity mismatch");
+		*err_ret = BWLErrFATAL;
+		return False;
+	}
+	memcpy(key_ret,current_auth->aesbuff,sizeof(current_auth->aesbuff));
 
 	return True;
 }
 
 /*
-** Initialize authentication and policy data (used by owping and owfetch)
-*/
-void
-ip_set_auth(
-	BWLContext	ctx,
-	char		*progname,
-	ipapp_trec	*pctx
-	)
+ * Function:	parse_auth_args
+ *
+ * Description:	
+ * 		parses authentication style args using argv,argc,optind.
+ *
+ * In Args:	
+ * 		I2ErrHandle	eh
+ *
+ * Out Args:	
+ * 		aeskey_auth	*auth_ret
+ * 			return a pointer to the structure that holds the
+ * 			authentication information.
+ *
+ * Scope:	
+ * Returns:	0 on success
+ * Side Effect:	
+ * 		updates optind so getopt is set to grab the next non-auth
+ * 		opt from the commandline.
+ */
+static int
+parse_auth_args(
+	I2ErrHandle	eh,
+	aeskey_auth	*auth_ret
+	       )
 {
-	if(pctx->opt.identity){
-		u_int8_t	*aes = NULL;
+	aeskey_auth	auth;
+	char		*s;
+	u_int32_t	auth_mode = 0;
+	FILE		*fp;
+	int		rc = 0;
+	char		*lbuf=NULL;
+	size_t		lbuf_max=0;
 
-		/*
-		 * If keyfile specified, attempt to get key from there.
-		 */
-		if(pctx->opt.keyfile){
-			/* keyfile */
-			FILE	*fp;
-			int	rc = 0;
-			char	*lbuf=NULL;
-			size_t	lbuf_max=0;
 
-			if(!(fp = fopen(pctx->opt.keyfile,"r"))){
-				I2ErrLog(eh,"Unable to open %s: %M",
-						pctx->opt.keyfile);
-				goto DONE;
-			}
-
-			rc = I2ParseKeyFile(eh,fp,0,&lbuf,&lbuf_max,NULL,
-					pctx->opt.identity,NULL,aesbuff);
-			if(lbuf){
-				free(lbuf);
-			}
-			lbuf = NULL;
-			lbuf_max = 0;
-			fclose(fp);
-
-			if(rc > 0){
-				aes = aesbuff;
-			}
-			else{
-				I2ErrLog(eh,
-			"Unable to find key for id=\"%s\" from keyfile=\"%s\"",
-					pctx->opt.identity,pctx->opt.keyfile);
-			}
-		}else{
-			/*
-			 * Do passphrase:
-			 * 	open tty and get passphrase.
-			 *	(md5 the passphrase to create an aes key.)
-			 */
-			char		*passphrase;
-			char		ppbuf[MAX_PASSPHRASE];
-			char		prompt[MAX_PASSPROMPT];
-			I2MD5_CTX	mdc;
-			size_t		pplen;
-
-			if(snprintf(prompt,MAX_PASSPROMPT,
-					"Enter passphrase for identity '%s': ",
-					pctx->opt.identity) >= MAX_PASSPROMPT){
-				I2ErrLog(eh,"ip_set_auth: Invalid identity");
-				goto DONE;
-			}
-
-			if(!(passphrase = I2ReadPassPhrase(prompt,ppbuf,
-						sizeof(ppbuf),I2RPP_ECHO_OFF))){
-				I2ErrLog(eh,"I2ReadPassPhrase(): %M");
-				goto DONE;
-			}
-			pplen = strlen(passphrase);
-
-			I2MD5Init(&mdc);
-			I2MD5Update(&mdc,(unsigned char *)passphrase,pplen);
-			I2MD5Final(aesbuff,&mdc);
-			aes = aesbuff;
-		}
-DONE:
-		if(aes){
-			/*
-			 * install getaeskey func (key is in aesbuff)
-			 */
-			BWLGetAESKeyFunc	getaeskey = getclientkey;
-
-			if(!BWLContextConfigSet(ctx,BWLGetAESKey,
-						(void*)getaeskey)){
-				I2ErrLog(eh,
-					"Unable to set AESKey for context: %M");
-				aes = NULL;
-				goto DONE;
-			}
-		}
-		else{
-			free(pctx->opt.identity);
-			pctx->opt.identity = NULL;
-		}
-	}
-
+	*auth_ret = NULL;
 
 	/*
 	 * Verify/decode auth options.
 	 */
-	if(pctx->opt.authmode){
-		char	*s = pctx->opt.authmode;
-		pctx->auth_mode = 0;
-		while(*s != '\0'){
-			switch (toupper(*s)){
-				case 'O':
-				pctx->auth_mode |= BWL_MODE_OPEN;
-				break;
-				case 'A':
-				pctx->auth_mode |= BWL_MODE_AUTHENTICATED;
-				break;
-				case 'E':
-				pctx->auth_mode |= BWL_MODE_ENCRYPTED;
-				break;
-				default:
-				I2ErrLogP(eh,EINVAL,"Invalid -authmode %c",*s);
-				usage(progname, NULL);
-				exit(1);
+	s = argv[optind];
+	while(*s != '\0'){
+		switch (toupper(*s)){
+		case 'O':
+			auth_mode |= BWL_MODE_OPEN;
+			break;
+		case 'A':
+			auth_mode |= BWL_MODE_AUTHENTICATED;
+			break;
+		case 'E':
+			auth_mode |= BWL_MODE_ENCRYPTED;
+			break;
+		default:
+			/*
+			 * arg doesn't match a autmode string,
+			 * return 0 and let getopt grab this arg.
+			 */
+			return 0;
+
+		}
+		s++;
+	}
+
+	/*
+	 * This was an auth_mode argument - move the optind past it.
+	 */
+	optind++;
+
+	if(!(auth = (aeskey_auth)calloc(1,sizeof(aeskey_auth_rec)))){
+		I2ErrLog(eh,"malloc:%M");
+		return 1;
+	}
+	*auth_ret = auth;
+	auth->auth_mode = auth_mode;
+
+	/*
+	 * If there are no more options, then return success.
+	 */
+	if(optind >= argc)
+		return 0;
+
+	/*
+	 * See if the AESKEY authscheme is selected. In the future, will
+	 * need to check for multiple scheme's, and may even need to turn
+	 * the aeskey_auth_rec into a union or something like that, but for
+	 * now it is simple enough to just look for AESKEY. :)
+	 */
+	if(strncasecmp(argv[optind],"aeskey",7)){
+		/*
+		 * If strncasecmp != 0, then argv[optind] is not what
+		 * we are looking for.
+		 */
+		return 0;
+	}
+	optind++;
+
+	/*
+	 * The remainder of this function pulls AESKEY scheme options out.
+	 */
+	if(optind >= argc){
+		I2ErrLog(eh,"Invalid AESKEY schemeopts");
+		return 1;
+	}
+
+	if(!(auth->identity = strdup(argv[optind]))){
+		I2ErrLog(eh,"malloc: %m");
+		return 1;
+	}
+	optind++;
+
+	/* If there are no more args, or the next arg starts with '-'
+	 * it is assumed that the optional keyfile is not being specified.
+	 */
+	if(optind < argc){
+		s = argv[optind];
+		if(s[0] != '-'){
+			if(!(auth->keyfile = strdup(argv[optind]))){
+				I2ErrLog(eh,"malloc: %m");
+				return 1;
 			}
-			s++;
+			optind++;
+		}
+	}
+
+	/*
+	 * keyfile specified, attempt to get key from there.
+	 */
+	if(auth->keyfile){
+		if(!(fp = fopen(auth->keyfile,"r"))){
+			I2ErrLog(eh,"Unable to open %s: %M",auth->keyfile);
+			goto DONE;
+		}
+
+		rc = I2ParseKeyFile(eh,fp,0,&lbuf,&lbuf_max,NULL,
+					auth->identity,NULL,auth->aesbuff);
+		if(lbuf){
+			free(lbuf);
+		}
+		lbuf = NULL;
+		lbuf_max = 0;
+		fclose(fp);
+
+		if(rc <= 0){
+			I2ErrLog(eh,
+			"Unable to find key for id=\"%s\" from keyfile=\"%s\"",
+					auth->identity,auth->keyfile);
+			return 1;
 		}
 	}else{
 		/*
-		 * Default to all modes.
-		 * If identity not set - library will ignore A/E.
+		 * Do passphrase:
+		 * 	open tty and get passphrase.
+		 *	(md5 the passphrase to create an aes key.)
 		 */
-		pctx->auth_mode = BWL_MODE_OPEN|BWL_MODE_AUTHENTICATED|
-							BWL_MODE_ENCRYPTED;
+		char		*passphrase;
+		char		ppbuf[MAX_PASSPHRASE];
+		char		prompt[MAX_PASSPROMPT];
+		I2MD5_CTX	mdc;
+		size_t		pplen;
+
+		if(snprintf(prompt,MAX_PASSPROMPT,
+				"Enter passphrase for identity '%s': ",
+					auth->identity) >= MAX_PASSPROMPT){
+			I2ErrLog(eh,"Invalid identity");
+			return 1;
+		}
+
+		if(!(passphrase = I2ReadPassPhrase(prompt,ppbuf,
+						sizeof(ppbuf),I2RPP_ECHO_OFF))){
+			I2ErrLog(eh,"I2ReadPassPhrase(): %M");
+			return 1;
+		}
+		pplen = strlen(passphrase);
+
+		I2MD5Init(&mdc);
+		I2MD5Update(&mdc,(unsigned char *)passphrase,pplen);
+		I2MD5Final(auth->aesbuff,&mdc);
 	}
+	auth->aeskey = auth->aesbuff;
+
+	return 0;
 }
 
 static void
@@ -592,7 +659,7 @@ main(
 	int			ch;
 	char                    *endptr = NULL;
 	char                    optstring[128];
-	static char		*conn_opts = "A:B:";
+	static char		*conn_opts = "AB:";
 	static char		*out_opts = "pxd:I:R:n:L:e:qrvV";
 	static char		*test_opts = "i:l:uw:W:P:S:b:t:c:s:";
 	static char		*gen_opts = "hW";
@@ -708,7 +775,12 @@ main(
 		switch (ch) {
 		/* Connection options. */
 		case 'A':
-			app.def_auth = parse_next_args_set_optind(...);
+			/* TODO: parse auth! */
+			if((parse_auth_args(eh,&app.def_auth) != 0) ||
+					!app.def_auth){
+				I2ErrLog(eh,"invalid default authentication");
+				exit(1);
+			}
 			break;
 		case 'B':
 			if (!(app.opt.srcaddr = strdup(optarg))) {
@@ -731,7 +803,11 @@ main(
 			}
 			app.recv_sess->host = optarg;
 
-			app.recv_sess->auth = parse_next_args_set_optind(...);
+			if(parse_auth_args(eh,&app.recv_sess->auth) != 0){
+				I2ErrLog(eh,
+					"invalid \'receiver\' authentication");
+				exit(1);
+			}
 			break;
 		case 's':
 			if(app.send_sess){
@@ -749,7 +825,11 @@ main(
 			app.send_sess->send = True;
 			app.send_sess->host = optarg;
 
-			app.send_sess->auth = parse_next_args_set_optind(...);
+			if(parse_auth_args(eh,&app.send_sess->auth) != 0){
+				I2ErrLog(eh,
+					"invalid \'sender\' authentication");
+				exit(1);
+			}
 			break;
 
 		/* OUTPUT OPTIONS */
@@ -956,6 +1036,14 @@ main(
 	}
 
 	/*
+	 * install getaeskey func (key is in aesbuff)
+	 */
+	if(!BWLContextConfigSet(ctx,BWLGetAESKey,(void*)getclientkey)){
+		I2ErrLog(eh,"Unable to set GetAESKey function for context: %M");
+		return 1;
+	}
+
+	/*
 	 * If seriesInterval is in use, verify the args and pick a
 	 * resonable default for seriesWindow if needed.
 	 */
@@ -1139,6 +1227,7 @@ main(
 		FILE		*recvfp = NULL;
 		FILE		*sendfp = NULL;
 		struct timespec	tspec;
+		aeskey_auth	auth;
 
 
 AGAIN:
@@ -1188,10 +1277,14 @@ AGAIN:
 
 		/* Open first connection */
 		if(!first.cntrl){
+			current_auth = (first.auth?first.auth:def_auth);
 			first.cntrl = BWLControlOpen(ctx,
 				BWLAddrByNode(ctx,app.opt.srcaddr),
 				BWLAddrByNode(ctx,first.host),
-				first.auth->auth_mode,first.auth->identity,
+				((current_auth)?
+					current_auth->auth_mode:BWL_MODE_OPEN),
+				((current_auth)?
+					current_auth->identity:NULL),
 				NULL,&err_ret);
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
@@ -1227,6 +1320,7 @@ AGAIN:
 			 * 	use it. If not, and if "client_test"
 			 * 	option is set, then fork of a client tester.
 			 */
+			current_auth = (second.auth?second.auth:def_auth);
 			if(second_set){
 				/*
 				 * If second host is specified, a bwctld
@@ -1235,8 +1329,11 @@ AGAIN:
 				second.cntrl = BWLControlOpen(ctx,
 					BWLAddrByNode(ctx,app.opt.srcaddr),
 					BWLAddrByNode(ctx,second.host),
-					second.auth->auth_mode,
-					second.auth->identity,
+					((current_auth)?
+						current_auth->auth_mode:
+						BWL_MODE_OPEN),
+					((current_auth)?
+						current_auth->identity:NULL),
 					NULL,&err_ret);
 			}else{
 				/*
@@ -1245,17 +1342,24 @@ AGAIN:
 				second.cntrl = BWLControlOpen(ctx,
 					NULL,
 					BWLAddrByLocalControl(first.cntrl),
-					app.auth_mode,app.opt.identity,
+					((current_auth)?
+						current_auth->auth_mode:
+						BWL_MODE_OPEN),
+					((current_auth)?
+						current_auth->identity:NULL),
 					NULL,&err_ret);
-				if(!second.cntrl && errno=ECONNREFUSED){
+				if(!second.cntrl && (errno==ECONNREFUSED)){
 					/*
-					 * TODO: check for failure here. If no
+					 * TODO: FAKE DAEMON
+					 * check for failure here. If no
 					 * listening server, then fork and exec
 					 * something to speak bwctl protocol
 					 * (that will allow anything).
 					 * ENOTAVAIL?
 					 */
 					fake_daemon = True;
+					perror("Local daemon not available!");
+					exit(1);
 				}
 			}
 			/* TODO: deal with temporary failures */

@@ -64,7 +64,6 @@ typedef struct {
 	/*
 	 * mode var
 	 */
-	char		*authmode;
 	u_int32_t	auth_mode;
 
 	/*
@@ -72,6 +71,8 @@ typedef struct {
 	 */
 	char		*identity;
 	char		*keyfile;
+	u_int8_t	*aeskey;
+	u_int8_t	aesbuff[16];
 } aeskey_auth_rec, *aeskey_auth;
 
 typedef struct{
