@@ -321,8 +321,8 @@ the localhost.
 Run the default 10 second TCP \fBIperf\fR test. Authenticate using
 the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a \fIpassphrase\fR.
 .SH SEE ALSO
-bwctld(8) and the http://e2epi.internet2.edu/bwctl/
-and http://dast.nlanr.net/Projects/Iperf/ web sites.
+bwctld(8) and the \%http://e2epi.internet2.edu/bwctl/
+and \%http://dast.nlanr.net/Projects/Iperf/ web sites.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
 Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
