@@ -848,7 +848,7 @@ _BWLEndpointStart(
 				mode |= BWL_MODE_ENCRYPTED;
 				break;
 			default:
-				BWLError(tsession->cntrl->ctx,BWLErrFATAL,
+				BWLError(tsess->cntrl->ctx,BWLErrFATAL,
 						BWLErrINVALID,
 					"Endpoint: Invalid session mode");
 		}

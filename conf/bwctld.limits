@@ -66,3 +66,7 @@ assign net 127.0.0.1/32 ami
 # nmslan networks
 assign net 2001:468::/40 ami
 assign net 198.32.10.0/23 ami
+assign net 207.75.164.0/24 ami
+
+# testing
+assign user boote ami
