@@ -905,16 +905,16 @@ IPFSessionsActive(
 		)
 {
 	IPFTestSession	tsession;
-	IPFAcceptType	laval_mem = 0;
-	IPFAcceptType	*laval = &laval_mem;
+	IPFAcceptType	laval = 0;
 	IPFErrSeverity	err;
 
-	if(aval)
-		laval = aval;
-
 	tsession = cntrl->tests;
-	if(tsession && _IPFEndpointStatus(tsession,laval,&err) && (*laval < 0))
+	if(tsession && _IPFEndpointStatus(tsession,&laval,&err) && (laval < 0))
 		return 1;
+
+	if(aval)
+		*aval = laval;
+
 	return 0;
 }
 
