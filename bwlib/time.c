@@ -572,9 +572,10 @@ _IPFInitNTP(
 		return 1;
 	}
 
-	if(!allowunsync && (ntp_conf.status & STA_UNSYNC)){
+	if(ntp_conf.status & STA_UNSYNC){
 		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"NTP: Status UNSYNC!");
-		return 1;
+		if(!allowunsync)
+			return 1;
 	}
 
 #ifdef	STA_NANO
