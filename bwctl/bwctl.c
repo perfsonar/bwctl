@@ -72,9 +72,7 @@ print_conn_args()
 	fprintf(stderr,"              [Connection Args]\n\n"
 "   -A authmode    requested modes: [A]uthenticated, [E]ncrypted, [O]pen\n"
 "   -U username    username to use with Authenticated/Encrypted modes\n"
-"   -K             Prompt for \"passphrase\" (used to generate AES key)\n"
 "   -k keyfile     AES keyfile to use with Authenticated/Encrypted modes\n"
-"                  (only one of -K/-k allowed)\n"
 "   -B srcaddr     use this as a local address for control connection and tests\n"
 	);
 }
@@ -177,36 +175,9 @@ ip_set_auth(
 		u_int8_t	*aes = NULL;
 
 		/*
-		 * If passphrase requested, open tty and get passphrase.
-		 * (md5 the passphrase to create an aes key.)
+		 * If keyfile specified, attempt to get key from there.
 		 */
-		if(pctx->opt.passphrase){
-			char		*passphrase;
-			char		ppbuf[MAX_PASSPHRASE];
-			char		prompt[MAX_PASSPROMPT];
-			I2MD5_CTX	mdc;
-			size_t		pplen;
-
-			if(snprintf(prompt,MAX_PASSPROMPT,
-					"Enter passphrase for identity '%s': ",
-					pctx->opt.identity) >= MAX_PASSPROMPT){
-				I2ErrLog(eh,"ip_set_auth: Invalid identity");
-				goto DONE;
-			}
-
-			if(!(passphrase = I2ReadPassPhrase(prompt,ppbuf,
-						sizeof(ppbuf),I2RPP_ECHO_OFF))){
-				I2ErrLog(eh,"I2ReadPassPhrase(): %M");
-				goto DONE;
-			}
-			pplen = strlen(passphrase);
-
-			I2MD5Init(&mdc);
-			I2MD5Update(&mdc,(unsigned char *)passphrase,pplen);
-			I2MD5Final(aesbuff,&mdc);
-			aes = aesbuff;
-		}
-		else if(pctx->opt.keyfile){
+		if(pctx->opt.keyfile){
 			/* keyfile */
 			FILE	*fp;
 			int	rc = 0;
@@ -237,9 +208,35 @@ ip_set_auth(
 					pctx->opt.identity,pctx->opt.keyfile);
 			}
 		}else{
-			I2ErrLog(eh,
-		"Ignoring identity '%s', key not specified. (See -k/-K)",
-						pctx->opt.identity);
+			/*
+			 * Do passphrase:
+			 * 	open tty and get passphrase.
+			 *	(md5 the passphrase to create an aes key.)
+			 */
+			char		*passphrase;
+			char		ppbuf[MAX_PASSPHRASE];
+			char		prompt[MAX_PASSPROMPT];
+			I2MD5_CTX	mdc;
+			size_t		pplen;
+
+			if(snprintf(prompt,MAX_PASSPROMPT,
+					"Enter passphrase for identity '%s': ",
+					pctx->opt.identity) >= MAX_PASSPROMPT){
+				I2ErrLog(eh,"ip_set_auth: Invalid identity");
+				goto DONE;
+			}
+
+			if(!(passphrase = I2ReadPassPhrase(prompt,ppbuf,
+						sizeof(ppbuf),I2RPP_ECHO_OFF))){
+				I2ErrLog(eh,"I2ReadPassPhrase(): %M");
+				goto DONE;
+			}
+			pplen = strlen(passphrase);
+
+			I2MD5Init(&mdc);
+			I2MD5Update(&mdc,(unsigned char *)passphrase,pplen);
+			I2MD5Final(aesbuff,&mdc);
+			aes = aesbuff;
 		}
 DONE:
 		if(aes){
@@ -583,7 +580,7 @@ main(
 	int			ch;
 	char                    *endptr = NULL;
 	char                    optstring[128];
-	static char		*conn_opts = "A:B:k:U:K";
+	static char		*conn_opts = "A:B:k:U:";
 	static char		*out_opts = "pxd:I:R:n:L:e:rvV";
 	static char		*test_opts = "i:l:uw:W:P:S:b:t:cs";
 	static char		*gen_opts = "hW";
@@ -712,9 +709,6 @@ main(
 				I2ErrLog(eh,"malloc:%M");
 				exit(1);
 			}
-			break;
-		case 'K':
-			app.opt.passphrase = True;
 			break;
 		case 'k':
 			if (!(app.opt.keyfile = strdup(optarg))) {
@@ -880,11 +874,6 @@ main(
 	if(app.opt.recv == app.opt.send){
 		usage(progname,
 			"Only one of -s or -c can currently be specified.");
-		exit(1);
-	}
-
-	if(app.opt.keyfile && app.opt.passphrase){
-		usage(progname,"Exactly one of -k or -K must be specified.");
 		exit(1);
 	}
 

@@ -74,7 +74,6 @@ typedef	struct {
 		char		*authmode;	/* -A */
 		char		*identity;	/* -U */
 		char		*keyfile;	/* -k */
-		I2Boolean	passphrase;	/* -K */
 
 #ifndef	NDEBUG
 		I2Boolean	childwait;	/* -W */
