@@ -372,6 +372,17 @@ run_iperf(
 	if(!iperf) iperf = _BWL_IPERF_CMD;
 	ipargs[a++] = iperf;
 
+	if(tsess->conf_receiver){
+		ipargs[a++] = "-B";
+		ipargs[a++] = hostname;
+
+		ipargs[a++] = "-s";
+	}
+	else{
+		ipargs[a++] = "-c";
+		ipargs[a++] = hostname;
+	}
+
 	ipargs[a++] = "-f";
 	ipargs[a++] = "b";
 
@@ -387,6 +398,10 @@ run_iperf(
 
 	if(tsess->test_spec.udp){
 		ipargs[a++] = "-u";
+		if(tsess->test_spec.bandwidth){
+			ipargs[a++] = "-b";
+			ipargs[a++] = uint32dup(ctx,tsess->test_spec.bandwidth);
+		}
 	}
 
 	if(tsess->test_spec.window_size){
@@ -416,17 +431,6 @@ run_iperf(
 	BWLAddrNodeName(tsess->test_spec.receiver,hostname,&hlen);
 	if(!hlen){
 		exit(BWL_CNTRL_FAILURE);
-	}
-
-	if(tsess->conf_receiver){
-		ipargs[a++] = "-B";
-		ipargs[a++] = hostname;
-
-		ipargs[a++] = "-s";
-	}
-	else{
-		ipargs[a++] = "-c";
-		ipargs[a++] = hostname;
 	}
 
 	ipargs[a++] = NULL;
