@@ -60,6 +60,31 @@
  */
 #define DIRECTION_EXT_LEN	5
 
+typedef struct {
+	/*
+	 * mode var
+	 */
+	char		*authmode;
+	u_int32_t	auth_mode;
+
+	/*
+	 * AESKEY auth vars
+	 */
+	char		*identity;
+	char		*keyfile;
+} aeskey_auth_rec, *aeskey_auth;
+
+typedef struct{
+	char		*host;
+	aeskey_auth	auth;
+	BWLControl	cntrl;
+	int		sockfd;
+	BWLNum64	rttbound;
+	BWLNum64	waketime;
+	BWLBoolean	send;
+	BWLTestSpec	tspec;
+} ipsess_trec, *ipsess_t;
+
 /*
  * Application "context" structure
  */
@@ -71,9 +96,6 @@ typedef	struct {
 		/* Flags */
 
 		char		*srcaddr;	/* -B (bind) */
-		char		*authmode;	/* -A */
-		char		*identity;	/* -U */
-		char		*keyfile;	/* -k */
 
 #ifndef	NDEBUG
 		I2Boolean	childwait;	/* -W */
@@ -116,14 +138,13 @@ typedef	struct {
 		u_int32_t	parallel;	/* -P	*/
 		u_int32_t	tos;		/* -S	*/
 
-		I2Boolean	recv;		/* -s (iperf server) */
-		I2Boolean	send;		/* -c (iperf client) */
-
 	} opt;
 
-	char			*remote_test;
 
-	u_int32_t		auth_mode;
+	ipsess_t		recv_sess;
+	ipsess_t		send_sess;
+
+	aeskey_auth		def_auth;
 
 	BWLScheduleContext	sctx;
 	BWLSID			sid;
@@ -136,14 +157,5 @@ typedef	struct {
 	char			fname[PATH_MAX];
 
 } ipapp_trec, *ipapp_t;
-
-typedef struct{
-	BWLControl	cntrl;
-	int		sockfd;
-	BWLNum64	rttbound;
-	BWLNum64	waketime;
-	BWLBoolean	send;
-	BWLTestSpec	tspec;
-} ipsess_trec, *ipsess_t;
 
 #endif

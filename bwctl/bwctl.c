@@ -57,8 +57,12 @@ static	int		ip_reset = 0;
 static	int		ip_exit = 0;
 static	int		ip_error = SIGCONT;
 static	BWLContext	ctx;
-static	ipsess_trec	local;
-static	ipsess_trec	remote;
+static	int		first_set = False;
+static	int		second_set = False;
+static	ipsess_trec	first;
+static	ipsess_trec	second;
+static	aeskey_auth	first_auth;
+static	aeskey_auth	second_auth;
 static	BWLNum64	zero64;
 static	BWLNum64	fuzz64;
 static	BWLSID		sid;
@@ -70,10 +74,14 @@ static void
 print_conn_args()
 {
 	fprintf(stderr,"              [Connection Args]\n\n"
-"   -A authmode    requested modes: [A]uthenticated, [E]ncrypted, [O]pen\n"
-"   -U username    username to use with Authenticated/Encrypted modes\n"
-"   -k keyfile     AES keyfile to use with Authenticated/Encrypted modes\n"
-"   -B srcaddr     use this as a local address for control connection and tests\n"
+"  -A authmode [AUTHMETHOD [AUTHOPTS]]\n"
+"            authmodes:\n"
+"                 [A]uthenticated, [E]ncrypted, [O]pen\n"
+"            AUTHMETHODS:\n"
+"                 AES userid [keyfile]\n"
+"  -U             deprecated\n"
+"  -k             deprecated\n"
+"  -B srcaddr     use this as a local address for control connection and tests\n"
 	);
 }
 
@@ -81,23 +89,27 @@ static void
 print_test_args()
 {
 	fprintf(stderr,
-"              [Test Args]\n\n"
-"   -i interval    report interval (seconds)\n"
-"   -l len         length of read/write buffers (bytes)\n"
-"   -u             UDP test\n"
-"   -w window      TCP window size (bytes) 0 indicates system defaults\n"
-"   -W window      Dynamic TCP window size: value used as fallback (bytes)\n"
+"            [Test Args]\n\n"
+"  -i interval    report interval (seconds)\n"
+"  -l len         length of read/write buffers (bytes)\n"
+"  -u             UDP test\n"
+"  -w window      TCP window size (bytes) 0 indicates system defaults\n"
+"  -W window      Dynamic TCP window size: value used as fallback (bytes)\n"
 	);
 	fprintf(stderr,
-"   -P nThreads    number of concurrent connections (ENOTSUPPORTED)\n"
-"   -S TOS         type-of-service for outgoing packets (ENOTSUPPORTED)\n"
-"   -b bandwidth   bandwidth to use for UDP test (bits/sec KM) (Default: 1Mb)\n"
-"   -t time        duration of test (seconds) (Default: 10)\n"
+"  -P nThreads    number of concurrent connections (ENOTSUPPORTED)\n"
+"  -S TOS         type-of-service for outgoing packets (ENOTSUPPORTED)\n"
+"  -b bandwidth   bandwidth to use for UDP test (bits/sec KM) (Default: 1Mb)\n"
+"  -t time        duration of test (seconds) (Default: 10)\n"
 	);
 	fprintf(stderr,
-"   -c recvhost    recvhost will run iperf server \n"
-"   -s sendhost    sendhost will run iperf client \n"
-"              [MUST SPECIFY EXACTLY ONE OF -c/-s]"
+"  -c recvhost [AUTHMETHOD [AUTHOPTS]]\n"
+"                 recvhost will run iperf server \n"
+"            AUTHMETHODS: (See -A argument)\n"
+"  -s sendhost [AUTHMETHOD [AUTHOPTS]]\n"
+"                 sendhost will run iperf server \n"
+"            AUTHMETHODS: (See -A argument)\n"
+"             [MUST SPECIFY AT LEAST ONE OF -c/-s]"
 	);
 }
 
@@ -106,27 +118,27 @@ print_output_args()
 {
 	fprintf(stderr,
 "              [Output Args]\n\n"
-"   -p             print completed filenames to stdout - not session data\n"
-"   -x             output sender session results\n"
+"  -p             print completed filenames to stdout - not session data\n"
+"  -x             output sender session results\n"
 	);
 	fprintf(stderr,
-"   -d dir         directory to save session files in (only if -p)\n"
-"   -I Interval    time between BWL test sessions(seconds)\n"
-"   -n nIntervals  number of tests to perform (default: continuous)\n"
-"   -R alpha       randomize the start time within this alpha(0-50%%)\n"
+"  -d dir         directory to save session files in (only if -p)\n"
+"  -I Interval    time between BWL test sessions(seconds)\n"
+"  -n nIntervals  number of tests to perform (default: continuous)\n"
+"  -R alpha       randomize the start time within this alpha(0-50%%)\n"
 "                  (default: 0 - start time not randomized)\n"
 "                  (Initial start randomized within the complete interval.)\n"
 	);
 	fprintf(stderr,
-"   -L LatestDelay latest time into an interval to run test(seconds)\n"
-"   -h             print this message and exit\n"
-"   -e facility    syslog facility to log to\n"
-"   -r             send syslog to stderr\n"
+"  -L LatestDelay latest time into an interval to run test(seconds)\n"
+"  -h             print this message and exit\n"
+"  -e facility    syslog facility to log to\n"
+"  -r             send syslog to stderr\n"
 		);
 	fprintf(stderr,
-"   -V             print version and exit\n"
-"   -v             verbose output to syslog - add 'v's to increase verbosity\n"
-"   -q             silent mode\n"
+"  -V             print version and exit\n"
+"  -v             verbose output to syslog - add 'v's to increase verbosity\n"
+"  -q             silent mode\n"
 	);
 }
 
@@ -299,17 +311,17 @@ CloseSessions()
 {
 	/* TODO: Handle clearing other state. Canceling tests nicely? */
 
-	if(remote.cntrl){
-		BWLControlClose(remote.cntrl);
-		remote.cntrl = NULL;
-		remote.sockfd = 0;
-		remote.tspec.req_time.tstamp = zero64;
+	if(second.cntrl){
+		BWLControlClose(second.cntrl);
+		second.cntrl = NULL;
+		second.sockfd = 0;
+		second.tspec.req_time.tstamp = zero64;
 	}
-	if(local.cntrl){
-		BWLControlClose(local.cntrl);
-		local.cntrl = NULL;
-		local.sockfd = 0;
-		local.tspec.req_time.tstamp = zero64;
+	if(first.cntrl){
+		BWLControlClose(first.cntrl);
+		first.cntrl = NULL;
+		first.sockfd = 0;
+		first.tspec.req_time.tstamp = zero64;
 	}
 
 	return;
@@ -580,7 +592,7 @@ main(
 	int			ch;
 	char                    *endptr = NULL;
 	char                    optstring[128];
-	static char		*conn_opts = "A:B:k:U:";
+	static char		*conn_opts = "A:B:";
 	static char		*out_opts = "pxd:I:R:n:L:e:qrvV";
 	static char		*test_opts = "i:l:uw:W:P:S:b:t:c:s:";
 	static char		*gen_opts = "hW";
@@ -631,6 +643,9 @@ main(
 	/* Set default options. */
 	memset(&app,0,sizeof(app));
 	app.opt.timeDuration = 10;
+
+	memset(&first,0,sizeof(first));
+	memset(&second,0,sizeof(second));
 
 	opterr = 0;
 	while((ch = getopt(argc, argv, optstring)) != -1){
@@ -693,10 +708,7 @@ main(
 		switch (ch) {
 		/* Connection options. */
 		case 'A':
-			if (!(app.opt.authmode = strdup(optarg))) {
-				I2ErrLog(eh,"malloc:%M");
-				exit(1);
-			}
+			app.def_auth = parse_next_args_set_optind(...);
 			break;
 		case 'B':
 			if (!(app.opt.srcaddr = strdup(optarg))) {
@@ -704,17 +716,40 @@ main(
 				exit(1);
 			}
 			break;
-		case 'U':
-			if (!(app.opt.identity = strdup(optarg))) {
-				I2ErrLog(eh,"malloc:%M");
+		case 'c':
+			if(app.recv_sess){
+				usage(progname,
+					"-c flag can only be specified once");
 				exit(1);
 			}
+			if(!first_set){
+				first_set = True;
+				app.recv_sess = &first;
+			}else{
+				second_set = True;
+				app.recv_sess = &second;
+			}
+			app.recv_sess->host = optarg;
+
+			app.recv_sess->auth = parse_next_args_set_optind(...);
 			break;
-		case 'k':
-			if (!(app.opt.keyfile = strdup(optarg))) {
-				I2ErrLog(eh,"malloc:%M");
+		case 's':
+			if(app.send_sess){
+				usage(progname,
+					"-s flag can only be specified once");
 				exit(1);
 			}
+			if(!first_set){
+				first_set = True;
+				app.send_sess = &first;
+			}else{
+				second_set = True;
+				app.send_sess = &second;
+			}
+			app.send_sess->send = True;
+			app.send_sess->host = optarg;
+
+			app.send_sess->auth = parse_next_args_set_optind(...);
 			break;
 
 		/* OUTPUT OPTIONS */
@@ -779,14 +814,6 @@ main(
 			exit(0);
 
 		/* TEST OPTIONS */
-		case 'c':
-			app.opt.send = True;
-			app.remote_test = optarg;
-			break;
-		case 's':
-			app.opt.recv = True;
-			app.remote_test = optarg;
-			break;
 		case 'i':
 			app.opt.reportInterval =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
@@ -871,11 +898,15 @@ main(
 		exit(1);
 	}
 
-	if(app.opt.recv == app.opt.send){
-		usage(progname,
-			"Only one of -s or -c can currently be specified.");
+	if(!app.recv_sess && !app.send_sess){
+		usage(progname, "At least one of -s or -c must be specified.");
 		exit(1);
 	}
+
+	if(!app.send_auth)
+		app.send_auth = app.def_auth;
+	if(!app.recv_auth)
+		app.recv_auth = app.def_auth;
 
 	/*
 	 * Useful constant
@@ -1018,27 +1049,26 @@ main(
 	/*
 	 * Initialize session records
 	 */
-	memset(&local,0,sizeof(local));
 	/* skip req_time/latest_time - set per/test */
-	local.tspec.duration = app.opt.timeDuration;
-	local.tspec.udp = app.opt.udpTest;
-	if(local.tspec.udp){
-		local.tspec.bandwidth = app.opt.bandWidth;
+	first.tspec.duration = app.opt.timeDuration;
+	first.tspec.udp = app.opt.udpTest;
+	if(first.tspec.udp){
+		first.tspec.bandwidth = app.opt.bandWidth;
 	}
-	local.tspec.window_size = app.opt.windowSize;
-	local.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
-	local.tspec.len_buffer = app.opt.lenBuffer;
-	local.tspec.report_interval = app.opt.reportInterval;
+	first.tspec.window_size = app.opt.windowSize;
+	first.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
+	first.tspec.len_buffer = app.opt.lenBuffer;
+	first.tspec.report_interval = app.opt.reportInterval;
 
 	/*
-	 * copy local tspec to remote record.
+	 * copy first tspec to second record.
 	 */
-	memcpy(&remote,&local,sizeof(local));
+	memcpy(&second,&first,sizeof(first));
 
 
 	/* s[0] == reciever, s[1] == sender */
-	s[0] = (app.opt.send)? &remote: &local;
-	s[1] = (!app.opt.send)? &remote: &local;
+	s[0] = (app.opt.send)? &second: &first;
+	s[1] = (!app.opt.send)? &second: &first;
 	s[1]->send = True;
 
 	/*
@@ -1150,125 +1180,194 @@ AGAIN:
 			exit(1);
 		}
 
-		/* Open remote connection */
-		if(!remote.cntrl){
-			remote.cntrl = BWLControlOpen(ctx,
+		/*
+		 * TODO:
+		 * Setup "default" authentication above in command-line
+		 * options. Determine which auth to use for first,second.
+		 */
+
+		/* Open first connection */
+		if(!first.cntrl){
+			first.cntrl = BWLControlOpen(ctx,
 				BWLAddrByNode(ctx,app.opt.srcaddr),
-				BWLAddrByNode(ctx,app.remote_test),
-				app.auth_mode,app.opt.identity,
+				BWLAddrByNode(ctx,first.host),
+				first.auth->auth_mode,first.auth->identity,
 				NULL,&err_ret);
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
-			if(!remote.cntrl){
-				I2ErrLog(eh,"Unable to connect to remote server: %M");
+			if(!first.cntrl){
+				if(errno == EACCES){
+					I2ErrLog(eh,
+					"Invalid authorization: server= %s",
+								first.host);
+				}else{
+					I2ErrLog(eh,
+						"Unable to connect: server= %s",
+								first.host);
+				}
 				goto next_test;
 			}
-			remote.sockfd = BWLControlFD(remote.cntrl);
+			first.sockfd = BWLControlFD(first.cntrl);
+			if(first.send){
+				first.tspec.sender = second.tspec.sender =
+					BWLAddrByControl(first.cntrl);
+			}
+			else{
+				first.tspec.receiver = second.tspec.receiver =
+					BWLAddrByControl(first.cntrl);
+			}
 
+		}
+		/* Open second connection */
+		if(!second.cntrl){
 			/*
-			 * Setup addresses of test endpoints.
-			 * (Must have initialized remote communication first.)
+			 * TODO: If second host specified, keep same.
+			 * 	If second host not specified, attempt to
+			 * 	contact localhost server. If can, then
+			 * 	use it. If not, and if "client_test"
+			 * 	option is set, then fork of a client tester.
 			 */
-			if(!local.tspec.sender){
-				local.tspec.sender = (app.opt.send)?
-					BWLAddrByLocalControl(remote.cntrl):
-						BWLAddrByControl(remote.cntrl);
-				if(!local.tspec.sender){
-					I2ErrLog(eh,
-					"Unable to determine send address: %M");
-					exit(1);
+			if(second_set){
+				/*
+				 * If second host is specified, a bwctld
+				 * process is required.
+				 */
+				second.cntrl = BWLControlOpen(ctx,
+					BWLAddrByNode(ctx,app.opt.srcaddr),
+					BWLAddrByNode(ctx,second.host),
+					second.auth->auth_mode,
+					second.auth->identity,
+					NULL,&err_ret);
+			}else{
+				/*
+				 * Try "localhost" server.
+				 */
+				second.cntrl = BWLControlOpen(ctx,
+					NULL,
+					BWLAddrByLocalControl(first.cntrl),
+					app.auth_mode,app.opt.identity,
+					NULL,&err_ret);
+				if(!second.cntrl && errno=ECONNREFUSED){
+					/*
+					 * TODO: check for failure here. If no
+					 * listening server, then fork and exec
+					 * something to speak bwctl protocol
+					 * (that will allow anything).
+					 * ENOTAVAIL?
+					 */
+					fake_daemon = True;
 				}
-				remote.tspec.sender = local.tspec.sender;
 			}
-
-			if(!local.tspec.receiver){
-				local.tspec.receiver = (!app.opt.send)?
-					BWLAddrByLocalControl(remote.cntrl):
-						BWLAddrByControl(remote.cntrl);
-				if(!local.tspec.receiver){
-					I2ErrLog(eh,
-					"Unable to determine recv address: %M");
-					exit(1);
-				}
-				remote.tspec.receiver = local.tspec.receiver;
-			}
-		}
-		/* Open local connection */
-		if(!local.cntrl){
-			local.cntrl = BWLControlOpen(ctx,
-				NULL,
-				BWLAddrByLocalControl(remote.cntrl),
-				app.auth_mode,app.opt.identity,
-				NULL,&err_ret);
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
-			if(!local.cntrl){
-				I2ErrLog(eh,"Unable to connect to local server: %M");
+			if(!second.cntrl){
+				if(errno == EACCES){
+					I2ErrLog(eh,
+					"Invalid authorization: server= %s",
+								second.host);
+				}else{
+					I2ErrLog(eh,
+						"Unable to connect: server= %s",
+								second.host);
+				}
 				goto next_test;
 			}
-			local.sockfd = BWLControlFD(remote.cntrl);
+			second.sockfd = BWLControlFD(second.cntrl);
+			if(fake_daemon){
+				if(second.send){
+					first.tspec.sender =
+						second.tspec.sender =
+						BWLAddrByLocalControl(
+								first.cntrl);
+				}
+				else{
+					first.tspec.receiver =
+						second.tspec.receiver =
+						BWLAddrByLocalControl(
+								first.cntrl);
+				}
+			}
+			else{
+				if(second.send){
+					first.tspec.sender =
+						second.tspec.sender =
+						BWLAddrByControl(second.cntrl);
+				}
+				else{
+					first.tspec.receiver =
+						second.tspec.receiver =
+						BWLAddrByControl(second.cntrl);
+				}
+			}
 		}
+
+		if(!first.tspec.sender){
+			I2ErrLog(eh,"Unable to determine send address: %M");
+			exit(1);
+		}
+		if(!first.tspec.receiver){
+			I2ErrLog(eh,"Unable to determine recv address: %M");
+			exit(1);
+		}
+
+		/*
+		 * Query first time error and update round-trip bound.
+		 * (The time will be over-written later, we really only
+		 * care about the errest portion of the timestamp.)
+		 *
+		 * Using the "second" tspec to hold this because I need to
+		 * pass the error estimate for the "opposite" end of the
+		 * test on in the request.
+		 */
+		if(BWLControlTimeCheck(first.cntrl,&second.tspec.req_time) !=
+								BWLErrOK){
+			I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
+			CloseSessions();
+			goto next_test;
+		}
+		if(sig_check()) exit(1);
+		first.rttbound = BWLGetRTTBound(first.cntrl);
+
+		/*
+		 * Query second time error and update round-trip bound.
+		 * (The time will be over-written later, we really only
+		 * care about the errest portion of the timestamp.)
+		 *
+		 * Using the "first" tspec to hold this because I need to
+		 * pass the error estimate for the "opposite" end of the
+		 * test on in the request.
+		 */
+		if(BWLControlTimeCheck(second.cntrl,&first.tspec.req_time) !=
+								BWLErrOK){
+			I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
+			CloseSessions();
+			goto next_test;
+		}
+		if(sig_check()) exit(1);
+		second.rttbound = BWLGetRTTBound(second.cntrl);
+
 
 		/*
 		 * Now caluculate how far into the future the test
 		 * request should be made for.
+		 *
+		 * The protocol messages that must happen are:
+		 * client -> first	request
+		 * client -> first	start
+		 * client -> second	request
+		 * client -> second	start
+		 * Then, there are 3 round trips between the server systems
+		 * for a peer connection setup. In the worst case, the
+		 * server two server rtt can be estimated as the sum of
+		 * the client->first and client->second rtts. So, we would
+		 * expect the amount of time required to setup a test to
+		 * be (rtt(c->first)+rtt(c->second))x5.
+		 *
 		 */
 		/* initialize */
-		req_time.tstamp = zero64;
-
-		/*
-		 * Query remote time error and update round-trip bound.
-		 * (The time will be over-written later, we only need it
-		 * to verify the time for now. The errest will continue
-		 * to be used to determine "fuzz" space between sessions.)
-		 *
-		 * Using the "local" tspec to hold this because I need to
-		 * pass the error estimate for the "opposite" end of the
-		 * test on in the request.
-		 */
-		if(BWLControlTimeCheck(remote.cntrl,&local.tspec.req_time) !=
-								BWLErrOK){
-			I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
-			CloseSessions();
-			goto next_test;
-		}
-		if(sig_check()) exit(1);
-
-		/*
-		 * req_time.tstamp += (5*round-trip-bound)
-		 * (5) -- 1 test_req, 1 start session, 3 for server-2-server
-		 * connection.
-		 */
-		remote.rttbound = BWLGetRTTBound(remote.cntrl);
-		req_time.tstamp = BWLNum64Add(req_time.tstamp,
-			BWLNum64Mult(remote.rttbound,BWLULongToNum64(5)));
-
-		/*
-		 * Query local time error and update round-trip bound.
-		 * (The time will be over-written later, we really only
-		 * care about the errest portion of the timestamp.)
-		 *
-		 * Using the "remote" tspec to hold this because I need to
-		 * pass the error estimate for the "opposite" end of the
-		 * test on in the request.
-		 */
-		if(BWLControlTimeCheck(local.cntrl,&remote.tspec.req_time) !=
-								BWLErrOK){
-			I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
-			CloseSessions();
-			goto next_test;
-		}
-		if(sig_check()) exit(1);
-
-		/*
-		 * req_time.tstamp += (5*round-trip-bound)
-		 * (5) -- 1 test_req, 1 start session, 3 for server-2-server
-		 * connection.
-		 */
-		local.rttbound = BWLGetRTTBound(local.cntrl);
-		req_time.tstamp = BWLNum64Add(req_time.tstamp,
-			BWLNum64Mult(local.rttbound,BWLULongToNum64(5)));
-
+		req_time.tstamp = BWLNum64Mult(
+				BWLNum64Add(first.rttbound,second.rttbound),
+				BWLULongToNum64(5));
 		/*
 		 * Add a small constant value to this... Will need to experiment
 		 * to find the right number. All the previous values were
@@ -1298,15 +1397,20 @@ AGAIN:
 		 * problems they can be revisited.)
 		 */
 		fuzz64 = BWLNum64Add(BWLULongToNum64(2),
-				BWLNum64Max(local.rttbound,remote.rttbound));
+				BWLNum64Max(first.rttbound,second.rttbound));
 
 		/*
 		 * req_time currently holds a reasonable relative amount of
 		 * time from 'now' that a test could be held. Get the current
 		 * time and add to make that an 'absolute' value.
 		 */
+		if(!BWLGetTimeStamp(ctx,&currtime)){
+			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+			exit(1);
+		}
 		req_time.tstamp = BWLNum64Add(req_time.tstamp,
 							currtime.tstamp);
+
 		/*
 		 * Get a reservation:
 		 * 	s[0] == receiver
@@ -1431,9 +1535,9 @@ sess_req_err:
 		}
 		if(sig_check()) exit(1);
 
-		endtime = local.tspec.req_time.tstamp;
+		endtime = first.tspec.req_time.tstamp;
 		endtime = BWLNum64Add(endtime,
-				BWLULongToNum64(local.tspec.duration));
+				BWLULongToNum64(first.tspec.duration));
 		endtime = BWLNum64Add(endtime,fuzz64);
 		stop = False;
 
@@ -1443,7 +1547,7 @@ sess_req_err:
 		if(app.opt.printfiles){
 			strcpy(recvfname,dirpath);
 			sprintf(&recvfname[file_offset],BWL_TSTAMPFMT,
-					local.tspec.req_time.tstamp);
+					first.tspec.req_time.tstamp);
 			strcpy(sendfname,recvfname);
 
 			sprintf(&recvfname[ext_offset],"%s%s",
@@ -1547,15 +1651,15 @@ sess_req_err:
 			BWLNum64ToTimeval(&reltime,
 					BWLNum64Sub(endtime,currtime.tstamp));
 			FD_ZERO(&readfds);
-			FD_SET(local.sockfd,&readfds);
-			FD_SET(remote.sockfd,&readfds);
+			FD_SET(first.sockfd,&readfds);
+			FD_SET(second.sockfd,&readfds);
 			exceptfds = readfds;
 
 			/*
 			 * Wait until endtime, or until one of the sockets
 			 * is readable.
 			 */
-			rc = select(MAX(local.sockfd,remote.sockfd)+1,
+			rc = select(MAX(first.sockfd,second.sockfd)+1,
 					&readfds,NULL,&exceptfds,&reltime);
 
 			if(rc > 0){
@@ -1569,11 +1673,11 @@ sess_req_err:
 				 */
 				stop = True;
 				if(app.opt.verbose > 1){
-					if(FD_ISSET(local.sockfd,&readfds)){
+					if(FD_ISSET(first.sockfd,&readfds)){
 						I2ErrLogP(eh,0,
 							"Local readable!");
 					}
-					if(FD_ISSET(remote.sockfd,&readfds)){
+					if(FD_ISSET(second.sockfd,&readfds)){
 						I2ErrLogP(eh,0,
 							"Remote readable!");
 					}
