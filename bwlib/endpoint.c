@@ -321,7 +321,7 @@ uint32dup(
 		u_int32_t	n
 		)
 {
-	char			nbuf[10];
+	char			nbuf[100];
 	int			len;
 	char			*ret;
 

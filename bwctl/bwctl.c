@@ -1025,7 +1025,7 @@ AGAIN:
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
 			if(!local.cntrl){
-				I2ErrLog(eh,"Unable to connect to remote server: %M");
+				I2ErrLog(eh,"Unable to connect to local server: %M");
 				goto next_test;
 			}
 			local.sockfd = BWLControlFD(remote.cntrl);
