@@ -960,13 +960,13 @@ AGAIN:
 		}
 		if(sig_check()) exit(1);
 		/*
-		 * req_time.ipftime += (3*round-trip-bound)
-		 * (3) -- 1 test_req, 1 start session, 1 for server-2-server
+		 * req_time.ipftime += (4*round-trip-bound)
+		 * (4) -- 1 test_req, 1 start session, 2 for server-2-server
 		 * connection.
 		 */
 		remote.rttbound = IPFGetRTTBound(remote.cntrl);
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-			IPFNum64Mult(remote.rttbound,IPFULongToNum64(2)));
+			IPFNum64Mult(remote.rttbound,IPFULongToNum64(4)));
 
 		/*
 		 * Query local time error and update round-trip bound.
@@ -1009,12 +1009,12 @@ AGAIN:
 
 		/*
 		 * req_time.ipftime += (3*round-trip-bound)
-		 * (3) -- 1 test_req, 1 start session, 1 for server-2-server
+		 * (4) -- 1 test_req, 1 start session, 2 for server-2-server
 		 * connection.
 		 */
 		local.rttbound = IPFGetRTTBound(local.cntrl);
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-			IPFNum64Mult(local.rttbound,IPFULongToNum64(3)));
+			IPFNum64Mult(local.rttbound,IPFULongToNum64(4)));
 
 		/*
 		 * Add a small constant value to this... Will need to experiment
@@ -1031,7 +1031,7 @@ AGAIN:
 		 * )
 		 */
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-						IPFULongToNum64(1));
+						IPFULongToNum64(10));
 
 		/*
 		 * Wait this long after a test should be complete before
