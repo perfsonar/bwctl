@@ -240,12 +240,12 @@ epssock(
 
 		case AF_INET6:
 			saddr6 = (struct sockaddr_in6 *)saddr;
-			*dataport = saddr6->sin6_port;
+			*dataport = ntohs(saddr6->sin6_port);
 			break;
 #endif
 		case AF_INET:
 			saddr4 = (struct sockaddr_in *)saddr;
-			*dataport = saddr4->sin_port;
+			*dataport = ntohs(saddr4->sin_port);
 			break;
 		default:
 			IPFError(tsess->cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
