@@ -823,8 +823,9 @@ ACCEPT:
 	}
 
 	reltime = IPFNum64Sub(tsess->reserve_time,currtime.ipftime);
+	reltime = IPFNum64Add(reltime,tsess->fuzz);
 	reltime = IPFNum64Add(reltime,
-			IPFULongToNum64(tsess->test_spec.duration + 1));
+			IPFULongToNum64(tsess->test_spec.duration));
 
 	memset(&itval,0,sizeof(itval));
 	IPFNum64ToTimeval(&itval.it_value,reltime);
