@@ -863,6 +863,8 @@ _IPFEndpointStatus(
 	int			childstatus;
 	IPFEndpoint		ep = tsess->endpoint;
 
+	*err_ret = IPFErrOK;
+
 	if(!ep)
 		return True;
 
@@ -889,9 +891,14 @@ AGAIN:
 				ep->acceptval = IPF_CNTRL_FAILURE;
 			}
 		}
+		else{
+			/*
+			 * Process still running just fine.
+			 */
+			return True;
+		}
 	}
 
-	*err_ret = IPFErrOK;
 	*aval = ep->acceptval;
 	return True;
 }
