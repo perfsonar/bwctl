@@ -1188,6 +1188,8 @@ IPFSessionRequest(
 error:
 	if(tsession){
 		_IPFTestSessionFree(tsession,IPF_CNTRL_FAILURE);
+		if(cntrl->tests == tsession)
+			cntrl->tests = NULL;
 	}
 	else{
 		/*
