@@ -1095,7 +1095,7 @@ _BWLReadTestRequest(
 
 	if(*test_session){
 		tsession = *test_session;
-		if(memcmp(sid,tsession->sid,sizeof(sid)) != 0){
+		if(memcmp(sid,tsession->sid,16) != 0){
 			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 				"_BWLReadTestRequest: sid mismatch");
 			goto error;
@@ -1242,7 +1242,17 @@ _BWLReadTestRequest(
 		 * generated - it still will be in sapi.c:BWLProcessTestRequest
 		 */
 		memcpy(tsession->sid,&buf[48],16);
-
+		/*
+		 * DEBUG
+		 */
+		{
+			char	hbuf[(sizeof(BWLKey)*2)+1];
+	
+			I2HexEncode(hbuf,tsession->sid,sizeof(BWLKey));
+			BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+				"ReadTestReq: key = '%s', size = %u",hbuf,
+					sizeof(BWLKey));
+		}
 	}
 
 

@@ -711,7 +711,17 @@ BWLProcessTestRequest(
 		acceptval = BWL_CNTRL_FAILURE;
 		goto error;
 	}
+	/*
+	 * DEBUG
+	 */
+	{
+		char	hbuf[(sizeof(BWLKey)*2)+1];
 
+		I2HexEncode(hbuf,tsession->sid,sizeof(BWLKey));
+		BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+			"ProcessTestReq: key = '%s', receiver = %d",hbuf,
+				tsession->conf_receiver);
+	}
 	/*
 	 * Initialize reservation time.
 	 */
