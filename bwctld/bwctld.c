@@ -399,7 +399,8 @@ next_slot:
 
 denied:
 	*err = 0;
-	I2ErrLogP(errhand, errno, "Unable to find reservation before \"last time\"");
+	I2ErrLogP(errhand,errno,
+			"Unable to find reservation before \"last time\"");
 	DeleteReservation(cstate);
 	return False;
 }
