@@ -1587,7 +1587,8 @@ AGAIN:
 						 * denied.
 						 */
 						I2ErrLog(eh,
-					"SessionRequest: Session denied");
+				"SessionRequest: Session denied by \'%s\'",
+						s[p]->host);
 					}
 
 					/*
@@ -1611,6 +1612,10 @@ AGAIN:
 								sid,
 								&err_ret)){
 							goto sess_req_err;
+							CloseSessions();
+							I2ErrLog(eh,
+	"SessionRequest Control connection failure for \'%s\'. Skipping.",
+								s[q]->host);
 						}
 					}
 				}
@@ -1622,7 +1627,8 @@ sess_req_err:
 					 */
 					CloseSessions();
 					I2ErrLog(eh,
-					"SessionRequest failure. Skipping.");
+	"SessionRequest Control connection failure for \'%s\'. Skipping.",
+						s[p]->host);
 				}
 				goto next_test;
 			}
