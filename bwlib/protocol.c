@@ -1662,7 +1662,7 @@ _IPFWriteStopSession(
 	struct stat	sbuf;
 	u_int32_t	fsize = 0;
 
-	if(!(_IPFStateIs(_IPFStateRequest,cntrl) &&
+	if(!( _IPFStateIs(_IPFStateRequest,cntrl) &&
 				_IPFStateIs(_IPFStateTest,cntrl))){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
 				"_IPFWriteStopSession called in wrong state.");
@@ -1790,7 +1790,7 @@ _IPFReadStopSession(
 	fsize = ntohl(*(u_int32_t*)&buf[8]);
 
 	if(!fsize){
-		return IPFErrOK;
+		goto end;
 	}
 
 	/*
@@ -1833,6 +1833,7 @@ _IPFReadStopSession(
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	}
 
+end:
 	/*
 	 * The control connection is now ready to send the response.
 	 */
