@@ -301,9 +301,25 @@ ChldReservationDemand(
 	}
 
 	/*
-	 * Determine earliest time the test can happen. (Max of the earliest
-	 * time the deamon is willing to have a test (one rtt from now) and
-	 * the requested time.
+	 * Determine earliest time the test can happen.
+	 * This is the max of the earliest time the deamon is willing
+	 * to have a test and the requested time.
+	 * The algorithm being used to determine the "earliest time
+	 * the daemon" is willing to have a test is:
+	 *
+	 *	2 X (rtt(client) + fuzztime(otherserver))
+	 *
+	 * The actual message time is:
+	 *	server			client
+	 *	request response ->
+	 *			<-	start sessions
+	 *	start response	->
+	 *	(This is only 1.5 rtt, but it is potentially 2 rtt's to the
+	 *	other server for a request/response and a start/response
+	 * 	and that is the value "fuzztime" represents. So, a possible
+	 *	delay of .5 rtt is acceptible.)
+	 *
+	 * The reservation is defined by the following vars:
 	 * res->restime == time of reservation
 	 * res->start == fuzz applied to beginning of that
 	 * res->end == fuzz applied to res->restime + duration
@@ -312,7 +328,9 @@ ChldReservationDemand(
 	 */
 	res->start = BWLNum64Sub(rtime,ftime);
 	res->start = BWLNum64Max(BWLNum64Add(currtime.tstamp,
-					BWLNum64Add(rtttime,ftime)),
+					BWLNum64Mult(
+						BWLNum64Add(rtttime,ftime),
+						BWLULongToNum64(2))),
 				res->start);
 	res->restime = BWLNum64Add(res->start,ftime);
 	dtime = BWLNum64Add(BWLULongToNum64(duration),ftime);
