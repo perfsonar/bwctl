@@ -40,46 +40,65 @@ BWCTL Version 1.0b <font color="#FF0000">(beta)</font></h1></center>
 <h5>
 $Date$</h5></center>
 <i>BWCTL</i> is a command line client application and a scheduling and
-policy daemon that wraps <b><a href="http://dast.nlanr.net/Projects/Iperf/">iperf</a></b>.
-Currently <i>BWCTL</i> wraps iperf by actually executing <b>iperf</b> on
-the system. The application works by contacting a <b>bwctld</b> process
-on the remote system and on the local system to requests that those daemons
-perform a specific <b>iperf</b> test between them. It is necessary to contact
-a daemon on the local host to ensure more than one <b>iperf</b> process
-does not happen at the same time on the local host. A more detailed description
-of the architecture is available in the <a href="architecture.html">architecture
+policy daemon that wraps <b><a href="http://dast.nlanr.net/Projects/Iperf/">Iperf</a></b>.
+<blockquote>From the <i>Iperf</i> web site:
+<br><b>Iperf</b> is a tool to measure maximum TCP bandwidth, allowing the
+tuning of various parameters and UDP characteristics. <b>Iperf</b> reports
+bandwidth, delay jitter, datagram loss.</blockquote>
+Currently <i>BWCTL</i> wraps <i>Iperf</i> by actually executing the <b>iperf</b>
+command line program on the system. The <b>bwctl</b> client application
+works by contacting a <b>bwctld</b> process on the remote system and on
+the local system to requests that those daemons perform a specific <i>Iperf</i>
+test between them. <b>bwctld</b> manages and schedules the resources of
+the host it runs on. Therefore, it is necessary to contact a daemon on
+the local host as well as the remote host to ensure more than one <i>Iperf</i>
+process does not happen at the same time on the either host. A more detailed
+description of the architecture is available in the <a href="architecture.html">architecture
 documentation</a>.
-<p>The reason to use <i>BWCTL</i> is to enable non-specific <b>iperf</b>
-tests to a host without having to give full user accounts on the given
-system. Users want the ability to run <b>iperf</b> to determine the achievable
-or available bandwidth between a pair of hosts. It is often useful to test
-to multiple points along a network path to determine the network characteristics
-along that path. Typically, users that want to do this path decomposition
-have to directly contact the network/system administrators that control
-the hosts along the path. The administrator needs to either run half of
-the test for the user or give them a user account on the host. Also typically,
+<p>The <b>bwctl</b> client is used to request the type of <i>Iperf</i>
+test wanted. Furthermore, it requests when the test is wanted. <b>bwctld</b>
+either responds with a tentative reservation or a test denied message.
+Once <b>bwctl</b> is able to get a matching reservation from both <b>bwctld</b>
+processes (one for each host involved in the test), it confirms the reservation.
+Then the <b>bwctld</b> processes run the test and return the results. The
+results are returned to the client from both sides of the test. Additionally,
+the <b>bwctld</b> processes share the results from their respective sides
+of the test with each other.
+<p><i>BWCTL</i> is used to enable non-specific <i>Iperf</i> tests to a
+host without having to give full user accounts on the given system. Users
+want the ability to run <i>Iperf</i> to determine the achievable or available
+bandwidth between a pair of hosts. It is often useful to test to multiple
+points along a network path to determine the network characteristics along
+that path. Typically, users that want to do this path decomposition have
+to directly contact the network/system administrators that control the
+hosts along the path. The administrator needs to either run half of the
+test for the user or give them a user account on the host. Also typically,
 network paths of interest are usually controlled by multiple administrators.
 These hurtles have made this kind of testing difficult in practice.
 <p><i>BWCTL</i> was designed to help with this problem. It allows an administrator
-to configure a given host as an iperf endpoint. It does not require a complete
-login from the remote testing point. It allows the administrator to classify
-incoming connections based upon a user name and AES key combination or
-alternatively based upon an IP/netmask. This allows the administrator to
-limit the types of <b>iperf</b> tests and the intensities of those tests
-based upon the remote user requesting the test. It also allows the administrator
-to allow for a limited amount of completely open tests.
+to configure a given host as an <i>Iperf</i> endpoint that can be shared
+by multiple users without concern that those users will interfere with
+each other. Specific policy limits can be applied to specific users, and
+individual tests are scheduled so they will not interfere with each other.
+<i>BWCTL</i> allows the administrator to classify incoming connections
+based upon a user name and AES key (generated by a pass phrase) combination
+or alternatively based upon an IP/netmask. Once the connection is classified,
+the <b>bwctld</b> can determine the exact type and intensities of <i>Iperf</i>
+tests that will be allowed. (More details on the policy controls can be
+found in the&nbsp; <a href="bwctld.limits.man.html">bwctld.limits(8)</a>
+manual page.)
 <h3>
 
 <hr WIDTH="100%">Features</h3>
 
 <ul>
 <li>
-Supports (and requires) versions 1.7.0 or 2.0.b of <b>iperf</b>.</li>
+Supports (and requires) versions 1.7.0 or 2.0.b of <b>Iperf</b>.</li>
 
 <li>
-Full IPV6 support. No options needed. If the target of a test is specified
+Full IPv6 support. No options needed. If the target of a test is specified
 by a DNS hostname, and that name has both an IPv4 and an IPv6 address defined,
-the <b>bwctl</b> command line application prefers the IPV6 address.</li>
+the <b>bwctl</b> command line application prefers the IPv6 address.</li>
 
 <li>
 Data from both sides of the test is returned so that sending rate can be
@@ -87,10 +106,10 @@ compared with receiving rate.</li>
 
 <li>
 Port ranges for the tests can be specified to allow passive monitoring
-to charactorize the test streams more easily.</li>
+to characterize the test streams more easily.</li>
 
 <li>
-Limits the types of <b>iperf</b> tests that can be run. Simultaneous connections
+Limits the types of <b>Iperf</b> tests that can be run. Simultaneous connections
 are not supported. Sending a set amount of data is not supported because
 <i>BWCTL</i>
 needs to know how long the test will take before the test is started.</li>
@@ -105,19 +124,33 @@ techniques in the future.)</li>
 <h3>
 
 <hr WIDTH="100%">Requirements</h3>
-<i>BWCTL</i> currently requires <b>iperf</b> version 1.7.0 (or 2.0.b for
-the adventurous). The
-<b>bwctld</b> daemon requires a reasonably synchronized
-clock. It is scheduling tests and needs to be sure it has the same idea
-of when a test should take place as the peer system the test is being done
-with. Therefore, <i>BWCTL</i> requires that <b>NTP</b> be running to synchronize
-the system clock. Additionally,
-<i>BWCTL</i> uses the NTP specific system
-calls to fetch time and time error estimates from the system kernel, so
-the kernel must support these interfaces. (All modern UNIX systems support
-them.)
-<h4>
-Supported Systems:</h4>
+
+<ul>
+<li>
+<i>BWCTL</i> currently requires <b>Iperf</b> version 1.7.0 (or 2.0.b for
+the adventurous).</li>
+
+<li>
+The
+<b>bwctld</b> daemon requires a reasonably synchronized clock. It is
+scheduling tests and needs to be sure it has the same idea of when a test
+should take place as the peer system the test is being done with. Therefore,
+<i>BWCTL</i> requires that <b>NTP</b> be running to synchronize the system
+clock. This means that <b>NTP</b> needs to be setup correctly on the system
+so that <b>NTP</b> can actually calculate a reasonable estimate of the
+time error. For the <b>NTP</b> algorithms to work correctly, <b>NTP <font color="#FF0000">MUST</font></b><font color="#000000">
+be configured with no fewer than 4 clocks.</font></li>
+
+<li>
+Additionally,
+<i>BWCTL</i> uses the NTP specific system calls to fetch
+time and time error estimates from the system kernel, so the kernel must
+support these interfaces. (All modern UNIX systems support them.)</li>
+</ul>
+
+<h3>
+
+<hr WIDTH="100%">Supported Systems:</h3>
 <i>BWCTL</i> has been tested most extensively on FreeBSD 4.7 and Linux
 2.4.20 but most recent versions of UNIX should work.
 <h3>
@@ -143,15 +176,17 @@ Please report any build problems to <a href="mailto:bwctl-users@internet2.edu">b
 <hr WIDTH="100%">Configuring <i>bwctld</i></h3>
 The basic procedure to configure <b>bwctld</b> is to create a <a href="bwctld.conf.man.html">bwctld.conf</a>
 and optionally a <a href="bwctld.limits.man.html">bwctld.limits</a> and
-bwctld.keys file. These files need to be installed in the same directory.
-The recommended directory is <i>/inst/root/etc</i>. (The <i>etc</i> directory
-below your install root.) There are examples of these files in the <i>bwctl-$VERS/conf&nbsp;</i>
-sub directory.
+<a href="bwctld.keys.man.html">bwctld.keys</a> file. These files need to
+be installed in the same directory which is specified with the <b>-c</b>
+option to <b>bwctld</b>.. The recommended directory is <i>/inst/root/etc</i>.
+(The <i>etc</i> directory below your install root.) There are examples
+of these files in the <i>bwctl-$VERS/conf&nbsp;</i> sub directory of the
+distribution.
 <p><b>bwctld.conf:</b>
 <br>Used to configure basic operation of the daemon such as server listening
 port, the path for <b>iperf</b>, and error logging. For a detailed description
-of the options available see the <a href="bwctld.conf.man.html">bwctld.conf</a>
-man page.
+of the options available see the <a href="bwctld.conf.man.html">bwctld.conf(8)</a>
+manual page.
 <p><b>bwctld.limits:</b>
 <br>Used to configure the policy limits for the daemon. There are two parts
 to this policy. 1) authentication. 2) authorization. The authentication
@@ -159,11 +194,14 @@ is done by assigning a class to each new connection. Each class has a set
 of limits associated with it. The classes are hierarchical, so a connection
 must pass the limit restrictions of the assigned class as well as all parent
 classes. For a detailed description of the options available see the
-<a href="bwctld.conf.man.html">bwctld.conf</a>
-man page.
+<a href="bwctld.conf.man.html">bwctld.limits(8)</a>
+manual page.
 <p><b>bwctl.keys:</b>
-<br>Used to associate identities with AES keys. These identites are then
-mapped to a class by the <b>bwctld.limits</b> file.
+<br>Used to associate identities with AES keys. These identities are then
+mapped to a class by the <b>bwctld.limits</b> file. For a more detailed
+description see the
+<a href="bwctld.keys.man.html">bwctld.keys(8)</a> manual
+page.
 <h3>
 
 <hr WIDTH="100%">Running <i>bwctld</i></h3>
@@ -218,7 +256,7 @@ this list as I expect bug reports to be sent here.</dd>
 This list will be used to announce new versions or significant developments
 with regard to the software.</dd>
 </dl>
-These lists can be subscribed to from <a href="https://mail.internet2.edu/wws/lists/engineering">https://mail.internet2.edu/wws/lists/engineering</a>.
+Information about these lists including links to subscribe is at <a href="https://mail.internet2.edu/wws/lists/engineering">https://mail.internet2.edu/wws/lists/engineering</a>.
 <h3>
 
 <hr WIDTH="100%">Author</h3>
