@@ -1148,6 +1148,30 @@ GetNodeDefault(
 }
 
 static BWLDPolicyNode
+GetNodeFromUserID(
+	BWLDPolicy	policy,
+	const BWLUserID	userid,		/* MUST POINT TO VALID MEMORY */
+	)
+{
+	BWLDPidRec	pid;
+	I2Datum		key,val;
+
+	memset(&pid,0,sizeof(pid));
+
+	pid.id_type = BWLDPidUserType;
+	key.dptr = &pid;
+	key.dsize = sizeof(pid);
+
+	memcpy(pid.user.userid,userid,sizeof(userid));
+
+	if(I2HashFetch(policy->idents,key,&val)){
+		return (BWLDPolicyNode)val.dptr;
+	}
+
+	return NULL;
+}
+
+static BWLDPolicyNode
 GetNodeFromAddr(
 	BWLDPolicy	policy,
 	struct sockaddr	*remote_sa_addr
@@ -2127,17 +2151,14 @@ BWLDCheckControlPolicy(
 	 * Determine userclass and send that to the parent.
 	 * (First try based on userid.)
 	 */
-	if((mode & BWL_MODE_DOCIPHER) && userid){
-		key.dptr = (void*)userid;
-		key.dsize = strlen(userid);
-
-		if(I2HashFetch(policy->limits,key,&val)){
-			node = val.dptr;
-		}
+	if(((mode & BWL_MODE_DOCIPHER) && userid) &&
+			!(node = GetNodeFromUserID(policy,userid))){
+		BWError(policy->ctx,BWLErrINFO,BWLErrUNKNOWN,
+				"BWLDCheckControlPolicy: No policy match for userid(%s) - using netmask match",userid);
 	}
 
 	/*
-	 * If we don't have a userclass from the userid, then get one
+	 * If we don't get a userclass from the userid, then get one
 	 * based on the address. (This returns the default if no
 	 * address matched.)
 	 */
