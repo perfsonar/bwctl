@@ -181,7 +181,7 @@ ip_set_auth(
 		 * (md5 the passphrase to create an aes key.)
 		 */
 		if(pctx->opt.passphrase){
-			unsigned char	*passphrase;
+			char		*passphrase;
 			char		ppbuf[MAX_PASSPHRASE];
 			char		prompt[MAX_PASSPROMPT];
 			I2MD5_CTX	mdc;
@@ -194,8 +194,7 @@ ip_set_auth(
 				goto DONE;
 			}
 
-			if(!(passphrase = (unsigned char *)
-						I2ReadPassPhrase(prompt,ppbuf,
+			if(!(passphrase = I2ReadPassPhrase(prompt,ppbuf,
 						sizeof(ppbuf),I2RPP_ECHO_OFF))){
 				I2ErrLog(eh,"I2ReadPassPhrase(): %M");
 				goto DONE;
@@ -203,7 +202,7 @@ ip_set_auth(
 			pplen = strlen(passphrase);
 
 			I2MD5Init(&mdc);
-			I2MD5Update(&mdc,passphrase,pplen);
+			I2MD5Update(&mdc,(unsigned char *)passphrase,pplen);
 			I2MD5Final(aesbuff,&mdc);
 			aes = aesbuff;
 		}
@@ -609,7 +608,11 @@ main(
 		exit(1);
 	}
 
-	progname = (progname = strrchr(argv[0], '/')) ? ++progname : *argv;
+	if((progname = strrchr(argv[0], '/'))){
+		progname++;
+	}else{
+		progname = *argv;
+	}
 
 	/* Create options strings for this program. */
 	strcpy(optstring, conn_opts);

@@ -19,6 +19,7 @@
  *	Description:	
  */
 #include <stdlib.h>
+#include <string.h>
 #include <bwlib/bwlib.h>
 
 struct BWLScheduleContextRec {

@@ -1327,7 +1327,11 @@ main(int argc, char *argv[])
 	* Start an error loggin session for reporting errors to the
 	* standard error
 	*/
-	progname = (progname = strrchr(argv[0], '/')) ? ++progname : *argv;
+	if((progname = strrchr(argv[0],'/'))){
+		progname++;
+	}else{
+		progname = *argv;
+	}
 	syslogattr.ident = progname;
 	syslogattr.logopt = LOG_PID;
 	syslogattr.facility = LOG_DAEMON;
