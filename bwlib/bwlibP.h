@@ -77,8 +77,8 @@
 #define _IPFStateStartSession		(_IPFStateTestRequest << 1)
 #define _IPFStateStopSession		(_IPFStateStartSession << 1)
 #define _IPFStateTestAccept		(_IPFStateStopSession << 1)
-#define _IPFStateControlAck		(_IPFStateTestAccept << 1)
-#define _IPFStateTimeRequest		(_IPFStateControlAck << 1)
+#define _IPFStateStartAck		(_IPFStateTestAccept << 1)
+#define _IPFStateTimeRequest		(_IPFStateStartAck << 1)
 #define _IPFStateTimeResponse		(_IPFStateTimeRequest << 1)
 
 /* Reading indicates partial read request-ReadRequestType without remainder */
@@ -87,7 +87,7 @@
 /*
  * "Pending" indicates waiting for server response to a request.
  */
-#define	_IPFStatePending	(_IPFStateTestAccept|_IPFStateControlAck|_IPFStateStopSession|_IPFStateTimeResponse)
+#define	_IPFStatePending	(_IPFStateTestAccept|_IPFStateStartAck|_IPFStateStopSession|_IPFStateTimeResponse)
 
 #define	_IPFStateIsInitial(c)	(!(c)->state)
 #define	_IPFStateIsSetup(c)	(!(_IPFStateSetup ^ (c)->state))
@@ -207,56 +207,6 @@ struct IPFControlRec{
 	IPFTestSession		tests;
 };
 
-typedef struct IPFLostPacketRec IPFLostPacketRec, *IPFLostPacket;
-struct IPFLostPacketRec{
-	u_int64_t	seq;
-	IPFBoolean	hit;
-	IPFNum64	relative;
-	struct timespec	absolute;	/* absolute time */
-	IPFLostPacket	next;
-};
-
-
-#if	NOT
-/*
- * This type holds all the information needed for an endpoint to be
- * managed.
- */
-typedef struct IPFEndpointRec{
-	IPFControl		cntrl;
-	IPFTestSession		tsession;
-
-#ifndef	NDEBUG
-	I2Boolean		childwait;
-#endif
-
-	IPFAcceptType		acceptval;
-	pid_t			child;
-	int			wopts;
-	IPFBoolean		send;
-	int			sockfd;
-	IPFAddr			remoteaddr;
-
-	char			fname[PATH_MAX];
-	FILE			*userfile;	/* from _IPFOpenFile */
-	FILE			*datafile;	/* correct buffering */
-	char			*fbuff;
-
-	struct timespec		start;
-	u_int8_t		*payload;
-
-	size_t			len_payload;
-
-	IPFLostPacket		freelist;
-	IPFLostPacket		begin;
-	IPFLostPacket		end;
-	u_int64_t		numalist;
-	I2Table			lost_packet_buffer;
-
-} IPFEndpointRec, *IPFEndpoint;
-#endif
-
-#define _IPFSLOT_BUFSIZE	10
 struct IPFTestSessionRec{
 	IPFControl			cntrl;
 	IPFSID				sid;
@@ -268,8 +218,7 @@ struct IPFTestSessionRec{
 	IPFBoolean			conf_receiver;
 	IPFTestSpec			test_spec;
 
-	/* only used on server side */
-	IPFBoolean			endpoint;
+	IPFBoolean			local;
 	void				*closure; /* per/test app data */
 };
 
@@ -514,40 +463,46 @@ _IPFReadTestAccept(
 
 extern IPFErrSeverity
 _IPFWriteStartSession(
-	IPFControl	cntrl
+	IPFControl	cntrl,
+	u_int16_t	dataport
 	);
 
 extern IPFErrSeverity
 _IPFReadStartSession(
 	IPFControl	cntrl,
+	u_int16_t	*dataport,
 	int		*retn_on_intr
 );
+
+extern IPFErrSeverity
+_IPFWriteStartAck(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	u_int16_t	dataport,
+	IPFAcceptType	acceptval
+	);
+
+extern IPFErrSeverity
+_IPFReadStartAck(
+	IPFControl	cntrl,
+	u_int16_t	*dataport,
+	IPFAcceptType	*acceptval
+	);
 
 extern IPFErrSeverity
 _IPFWriteStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
-	IPFAcceptType	acceptval
+	IPFAcceptType	acceptval,
+	FILE		*fp
 	);
 
 extern IPFErrSeverity
 _IPFReadStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
-	IPFAcceptType	*acceptval
-);
-
-extern IPFErrSeverity
-_IPFWriteControlAck(
-	IPFControl	cntrl,
-	int		*retn_on_intr,
-	IPFAcceptType	acceptval
-	);
-
-extern IPFErrSeverity
-_IPFReadControlAck(
-	IPFControl	cntrl,
-	IPFAcceptType	*acceptval
+	IPFAcceptType	*acceptval,
+	FILE		*fp
 );
 
 /*
@@ -614,24 +569,30 @@ _IPFCallCloseFile(
 /* endpoint.c */
 
 /*
- * The endpoint init function is responsible for opening a socketpair for
- * parent/child communication, and for forking off the child.
- * The child process will wait for "reserve_timeout" before exiting unless
- * it gets further instructions via signal/socket.
+ * EndpointStart:
+ * 1) Open tmpfile for results/ open /dev/null for stderr
+ * 2)	If receiver - open serversock for endpoint2endpoint communication
+ * 	If sender - connect to giving reciever control sock and send
+ * 		timestamp packet and receive AOK.
+ * 3) fork child
+ * 	child:
+ * 		dup stdout -> tmpfile
+ * 		dup stdin -> /dev/null
+ * 		dup stderr -> /dev/null
+ * 		wait until start time to exec or signal to exit
+ * 	parent: return AOK
  */
-extern IPFBoolean
-_IPFEndpointInit(
-	IPFControl	cntrl,
-	IPFTestSession	tsession,
-	IPFErrSeverity	*err_ret
-);
-
 extern IPFBoolean
 _IPFEndpointStart(
 	IPFTestSession	tsession,
+	u_int16_t	*dataport,
 	IPFErrSeverity	*err_ret
 	);
 
+/*
+ * EndpointStatus:
+ * Is child still alive? What was "exit" code of test?
+ */
 extern IPFBoolean
 _IPFEndpointStatus(
 	IPFTestSession	tsession,

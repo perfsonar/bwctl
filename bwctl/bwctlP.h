@@ -102,6 +102,7 @@ typedef	struct {
 
 typedef struct{
 	IPFControl	cntrl;
+	int		sockfd;
 	IPFNum64	rttbound;
 	IPFNum64	waketime;
 	IPFBoolean	send;

@@ -744,16 +744,6 @@ IPFProcessTestRequest(
 		goto error;
 	}
 
-	/*
-	 * If tsession is new, setup communication and fork then wait.
-	 * If !new, then notify forked child of new start time/port number.
-	 */
-	if(!_IPFEndpointInit(cntrl,tsession,&err_ret)){
-		err_ret = IPFErrWARNING;
-		acceptval = IPF_CNTRL_FAILURE;
-		goto error;
-	}
-
 	if( (rc = _IPFWriteTestAccept(cntrl,intr,IPF_CNTRL_ACCEPT,tsession))
 								< IPFErrOK){
 		err_ret = (IPFErrSeverity)rc;
@@ -819,22 +809,328 @@ IPFProcessStartSession(
 	IPFErrSeverity	err=IPFErrOK;
 	int		ival=0;
 	int		*intr = &ival;
+	u_int16_t	dataport = 0;
 
 	if(retn_on_intr){
 		intr = retn_on_intr;
 	}
 
-	if( (rc = _IPFReadStartSession(cntrl,intr)) < IPFErrOK)
+	if( (rc = _IPFReadStartSession(cntrl,&dataport,intr)) < IPFErrOK)
 		return _IPFFailControlSession(cntrl,rc);
 
-	if(!_IPFEndpointStart(cntrl->tests,&err)){
-		(void)_IPFWriteControlAck(cntrl,intr,IPF_CNTRL_FAILURE);
+	if(!_IPFEndpointStart(cntrl->tests,&dataport,&err)){
+		(void)_IPFWriteStartAck(cntrl,intr,0,IPF_CNTRL_FAILURE);
 		return _IPFFailControlSession(cntrl,err);
 	}
 
-	if( (rc = _IPFWriteControlAck(cntrl,intr,IPF_CNTRL_ACCEPT)) < IPFErrOK)
+	if( (rc = _IPFWriteStartAck(cntrl,intr,dataport,IPF_CNTRL_ACCEPT))
+								< IPFErrOK)
 		return _IPFFailControlSession(cntrl,rc);
 
 
 	return IPFErrOK;
+}
+
+/*
+ * Function:	IPFSessionStatus
+ *
+ * Description:	
+ * 	This function returns the "status" of the test session identified
+ * 	by the sid. "send" indicates which "side" of the test to retrieve
+ * 	information about.
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	True if status was available, False otherwise.
+ * 		aval contains the actual "status":
+ * 			<0	Test is not yet complete
+ * 			>=0	Valid IPFAcceptType - see enum for meaning.
+ * Side Effect:	
+ */
+IPFBoolean
+IPFSessionStatus(
+		IPFControl	cntrl,
+		IPFSID		sid,
+		IPFAcceptType	*aval
+		)
+{
+	IPFTestSession	tsession;
+	IPFErrSeverity	err;
+
+	/*
+	 * First find the tsession record for this test.
+	 */
+	tsession = cntrl->tests;
+	if(!tsession || (memcmp(sid,tsession->sid,sizeof(IPFSID)) != 0))
+		return False;
+
+	return _IPFEndpointStatus(tsession,aval,&err);
+
+	return False;
+}
+
+int
+IPFSessionsActive(
+		IPFControl	cntrl,
+		IPFAcceptType	*aval
+		)
+{
+	IPFTestSession	tsession;
+	IPFAcceptType	laval_mem = 0;
+	IPFAcceptType	*laval = &laval_mem;
+	IPFErrSeverity	err;
+
+	if(aval)
+		laval = aval;
+
+	tsession = cntrl->tests;
+	if(tsession && _IPFEndpointStatus(tsession,laval,&err) && (*laval < 0))
+		return 1;
+	return 0;
+}
+
+IPFErrSeverity
+IPFStopSession(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	IPFAcceptType	*acceptval_ret,	/* in/out	*/
+	FILE		*infp,		/* pointer to local results */
+	FILE		*outfp		/* save remote results here */
+		)
+{
+	IPFErrSeverity	err,err2=IPFErrOK;
+	IPFRequestType	msgtype;
+	IPFAcceptType	aval=IPF_CNTRL_ACCEPT;
+	IPFAcceptType	*acceptval=&aval;
+	int		ival=0;
+	int		*intr=&ival;
+
+	if(acceptval_ret){
+		acceptval = acceptval_ret;
+	}
+
+	if(retn_on_intr){
+		intr = retn_on_intr;
+	}
+
+	/*
+	 * TODO: v6 - fetch "last" sequence sent/received for encoding
+	 * in StopSession message.
+	 * (To do this - this loop needs to call "stop" on each endpoint,
+	 * but not free the structures. Somehow "stop" needs to fetch the
+	 * last sequence number from the endpoint when it exits. Receive
+	 * is easy... Send it not as simple. Should I create a socketpair
+	 * before forking off sender endpoints so the last seq number
+	 * can be sent up the pipe?)
+	 */
+
+	while(cntrl->tests){
+		err = _IPFTestSessionFree(cntrl->tests,*acceptval);
+		err2 = MIN(err,err2);
+	}
+
+	/*
+	 * If acceptval would have been "success", but stopping of local
+	 * endpoints failed, send failure acceptval instead and return error.
+	 * (The endpoint_stop_func should have reported the error.)
+	 */
+	if(!*acceptval && (err2 < IPFErrWARNING)){
+		*acceptval = IPF_CNTRL_FAILURE;
+	}
+
+	err = (IPFErrSeverity)_IPFWriteStopSession(cntrl,intr,*acceptval,infp);
+	if(err < IPFErrWARNING)
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	err2 = MIN(err,err2);
+
+	msgtype = IPFReadRequestType(cntrl,intr);
+	if(msgtype == IPFReqSockClose){
+		IPFError(cntrl->ctx,IPFErrFATAL,errno,
+				"IPFStopSession:Control socket closed: %M");
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	}
+	if(msgtype != IPFReqStopSession){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"Invalid protocol message received...");
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	}
+
+	err = _IPFReadStopSession(cntrl,acceptval,intr,outfp);
+
+	/*
+	 * TODO: v6 - use "last seq number" messages from
+	 * in StopSession message to remove "missing" packets from the
+	 * end of session files. The "last seq number" in the file should
+	 * be MIN(last seq number sent,last seq number in file{missing or not}).
+	 */
+
+	cntrl->state &= ~_IPFStateTest;
+
+	return MIN(err,err2);
+}
+
+int
+IPFStopSessionWait(
+	IPFControl	cntrl,
+	IPFNum64	*wake,
+	int		*retn_on_intr,
+	IPFAcceptType	*acceptval_ret,
+	FILE		*infp,		/* pointer to local results */
+	FILE		*outfp,		/* save remote results here */
+	IPFErrSeverity	*err_ret
+	)
+{
+	struct timeval	currtime;
+	struct timeval	reltime;
+	struct timeval	*waittime = NULL;
+	fd_set		readfds;
+	fd_set		exceptfds;
+	int		rc;
+	int		msgtype;
+	IPFErrSeverity	err2=IPFErrOK;
+	IPFAcceptType	aval;
+	IPFAcceptType	*acceptval=&aval;
+	int		ival=0;
+	int		*intr=&ival;
+
+	*err_ret = IPFErrOK;
+	if(acceptval_ret){
+		acceptval = acceptval_ret;
+	}
+	*acceptval = IPF_CNTRL_ACCEPT;
+
+	if(retn_on_intr){
+		intr = retn_on_intr;
+	}
+
+	if(!cntrl || cntrl->sockfd < 0){
+		*err_ret = IPFErrFATAL;
+		return -1;
+	}
+
+	/*
+	 * If there are no active sessions, get the status and return.
+	 */
+	if(!IPFSessionsActive(cntrl,acceptval) || (*acceptval)){
+		/*
+		 * Sessions are complete - send StopSession message.
+		 */
+		*err_ret = IPFStopSession(cntrl,intr,acceptval,infp,outfp);
+		return 0;
+	}
+
+	if(wake){
+		IPFTimeStamp	wakestamp;
+
+		/*
+		 * convert abs wake time to timeval
+		 */
+		wakestamp.ipftime = *wake;
+		IPFTimestampToTimeval(&reltime,&wakestamp);
+
+		/*
+		 * get current time.
+		 */
+		if(gettimeofday(&currtime,NULL) != 0){
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+					"gettimeofday():%M");
+			return -1;
+		}
+
+		/*
+		 * compute relative wake time from current time and abs wake.
+		 */
+		if(tvalcmp(&currtime,&reltime,<)){
+			tvalsub(&reltime,&currtime);
+		}
+		else{
+			tvalclear(&reltime);
+		}
+
+		waittime = &reltime;
+	}
+
+
+	FD_ZERO(&readfds);
+	FD_SET(cntrl->sockfd,&readfds);
+	FD_ZERO(&exceptfds);
+	FD_SET(cntrl->sockfd,&exceptfds);
+AGAIN:
+	rc = select(cntrl->sockfd+1,&readfds,NULL,&exceptfds,waittime);
+
+	if(rc < 0){
+		if(errno != EINTR){
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+					"select():%M");
+			*err_ret = IPFErrFATAL;
+			return -1;
+		}
+		if(waittime || *intr){
+			return 2;
+		}
+
+		/*
+		 * If there are tests still happening, and no tests have
+		 * ended in error - go back to select and wait for the
+		 * rest of the tests to complete.
+		 */
+		if(IPFSessionsActive(cntrl,acceptval) && !*acceptval){
+			goto AGAIN;
+		}
+
+		/*
+		 * Sessions are complete - send StopSession message.
+		 */
+		*err_ret = IPFStopSession(cntrl,intr,acceptval,infp,outfp);
+
+		return 0;
+	}
+	if(rc == 0)
+		return 1;
+
+	if(!FD_ISSET(cntrl->sockfd,&readfds) &&
+					!FD_ISSET(cntrl->sockfd,&exceptfds)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+					"select():cntrl fd not ready?:%M");
+		*err_ret = _IPFFailControlSession(cntrl,IPFErrFATAL);
+		return -1;
+	}
+
+	msgtype = IPFReadRequestType(cntrl,intr);
+	if(msgtype == 0){
+		IPFError(cntrl->ctx,IPFErrFATAL,errno,
+			"IPFStopSessionWait: Control socket closed: %M");
+		*err_ret = _IPFFailControlSession(cntrl,IPFErrFATAL);
+		return -1;
+	}
+	if(msgtype != 3){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"Invalid protocol message received...");
+		*err_ret = _IPFFailControlSession(cntrl,IPFErrFATAL);
+		return -1;
+	}
+
+	*err_ret = _IPFReadStopSession(cntrl,intr,acceptval,outfp);
+	if(*err_ret != IPFErrOK){
+		cntrl->state = _IPFStateInvalid;
+		return -1;
+	}
+
+	while(cntrl->tests){
+		err2 = _IPFTestSessionFree(cntrl->tests,*acceptval);
+		*err_ret = MIN(*err_ret,err2);
+	}
+
+	if(*err_ret < IPFErrWARNING){
+		*acceptval = IPF_CNTRL_FAILURE;
+	}
+
+	err2 = _IPFWriteStopSession(cntrl,intr,*acceptval,infp);
+	cntrl->state &= ~_IPFStateTest;
+
+	*err_ret = MIN(*err_ret, err2);
+	return 0;
 }

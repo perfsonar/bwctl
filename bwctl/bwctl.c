@@ -52,6 +52,7 @@ int optreset;
 static	ipapp_trec		app;
 static	I2ErrHandle		eh;
 static	u_int32_t		file_offset,ext_offset;
+static	int			ip_intr = 0;
 static	int			ip_reset = 0;
 static	int			ip_exit = 0;
 static	int			ip_error = SIGCONT;
@@ -59,6 +60,7 @@ static	IPFContext		ctx;
 static	ipsess_trec		local;
 static	ipsess_trec		remote;
 static	IPFNum64		zero64;
+static	IPFNum64		fuzz64;
 static	IPFSID			sid;
 static	u_int16_t		recv_port;
 static	ipsess_t		s[2];	/* receiver == 0, sender == 1 */
@@ -204,11 +206,13 @@ CloseSessions()
 	if(remote.cntrl){
 		IPFControlClose(remote.cntrl);
 		remote.cntrl = NULL;
+		remote.sockfd = 0;
 		remote.tspec.req_time.ipftime = zero64;
 	}
 	if(local.cntrl){
 		IPFControlClose(local.cntrl);
 		local.cntrl = NULL;
+		local.sockfd = 0;
 		local.tspec.req_time.ipftime = zero64;
 	}
 
@@ -233,6 +237,8 @@ sig_catch(
 			break;
 	}
 
+	ip_intr++;
+
 	return;
 }
 
@@ -252,6 +258,8 @@ sig_check()
 		I2ErrLog(eh,"SIGTERM/SIGINT: Exiting.");
 		exit(0);
 	}
+
+	ip_intr = 0;
 
 	if(ip_reset){
 		ip_reset = 0;
@@ -675,6 +683,9 @@ main(
 	do{
 		IPFTimeStamp	req_time;
 		IPFTimeStamp	currtime;
+		IPFNum64	endtime;
+		u_int16_t	dataport;
+		IPFBoolean	stop;
 
 		if(sig_check()) exit(1);
 
@@ -688,6 +699,7 @@ main(
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
 			if(!remote.cntrl) exit(1);
+			remote.sockfd = IPFControlFD(remote.cntrl);
 		}
 		/* Open local connection */
 		if(!local.cntrl){
@@ -699,6 +711,7 @@ main(
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
 			if(!local.cntrl) exit(1);
+			local.sockfd = IPFControlFD(remote.cntrl);
 		}
 
 		/*
@@ -718,10 +731,11 @@ main(
 			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
 			exit(1);
 		}
-		/* req_time.ipftime += (3*round-trip-bound) */
+		if(sig_check()) exit(1);
+		/* req_time.ipftime += (2*round-trip-bound) */
+		remote.rttbound = IPFGetRTTBound(remote.cntrl);
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-				IPFNum64Mult(IPFGetRTTBound(remote.cntrl),
-							IPFULongToNum64(3)));
+			IPFNum64Mult(remote.rttbound,IPFULongToNum64(2)));
 
 		/*
 		 * Query local time error and update round-trip bound.
@@ -733,17 +747,28 @@ main(
 			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
 			exit(1);
 		}
-		/* req_time.ipftime += (3*round-trip-bound) */
+		if(sig_check()) exit(1);
+		/* req_time.ipftime += (2*round-trip-bound) */
+		local.rttbound = IPFGetRTTBound(local.cntrl);
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-				IPFNum64Mult(IPFGetRTTBound(local.cntrl),
-							IPFULongToNum64(3)));
+			IPFNum64Mult(local.rttbound,IPFULongToNum64(2)));
+
+		/*
+		 * Wait this long after a test should be complete before
+		 * poking the servers.
+		 * (Again 2 seconds is just a guess - I'm making a lot of
+		 * guesses due to time constrants. If these values cause
+		 * problems they can be revisited.)
+		 */
+		fuzz64 = IPFNum64Add(IPFULongToNum64(2),
+				IPFNum64Min(local.rttbound,remote.rttbound));
 
 		/*
 		 * Add a small constant value to this... Will need to experiment
 		 * to find the right number.
 		 */
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-						IPFULongToNum64(5));
+						IPFULongToNum64(2));
 
 		/*
 		 * req_time currently holds a reasonable relative amount of
@@ -802,13 +827,32 @@ main(
 						"SessionRequest: Server busy.");
 					goto next_test;
 				}
+				/*
+				 * TODO: Differentiate failure from not allowed.
+				 * (? Does it make a difference ?)
+				 */
 				CloseSessions();
 				I2ErrLog(eh,
 					"SessionRequest failure. Skipping.");
 				goto next_test;
-			}else{
-				s[p]->tspec.req_time.ipftime = req_time.ipftime;
 			}
+			if(sig_check()) exit(1);
+			
+			if(IPFNum64Cmp(req_time.ipftime,
+						s[p]->tspec.latest_time) > 0){
+				I2ErrLog(eh,
+					"SessionRequest: returned bad time!");
+				/*
+				 * TODO: Send SessionRequest of time==0
+				 * 	to clear current reservation instead
+				 * 	of closing sockets.
+				 */
+				CloseSessions();
+				goto next_test;
+			}
+
+			/* save new time for res */
+			s[p]->tspec.req_time.ipftime = req_time.ipftime;
 
 			/*
 			 * Do we have a meeting?
@@ -819,13 +863,89 @@ main(
 			}
 		}
 
-		/* TODO: Add sighandler for SIGINT that sends StopSessions? */
+		/* Start receiver */
+		if(IPFStartSession(s[0]->cntrl,&dataport) < IPFErrINFO){
+			I2ErrLog(eh,"IPFStartSessions: Failed");
+			CloseSessions();
+			goto next_test;
+		}
+		if(sig_check()) exit(1);
+
+		/* Start sender */
+		if(IPFStartSession(s[1]->cntrl,&dataport) < IPFErrINFO){
+			I2ErrLog(eh,"IPFStartSessions: Failed");
+			CloseSessions();
+			goto next_test;
+		}
+		if(sig_check()) exit(1);
+
+		endtime = local.tspec.req_time.ipftime;
+		endtime = IPFNum64Add(endtime,local.tspec.duration);
+		endtime = IPFNum64Add(endtime,fuzz64);
+		stop = False;
 
 		/*
-		 * Now...
-		 * 	StartSessions
 		 * 	WaitForStopSessions
 		 */
+		while(1){
+			struct timeval	reltime;
+			int		rc;
+			fd_set		readfds,exceptfds;
+
+			if(!IPFGetTimestamp(ctx,&currtime)){
+				I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
+				exit(1);
+			}
+			if(stop || (IPFNum64Cmp(currtime.ipftime,endtime) > 0)){
+				/*
+				 * Send TerminateSession
+				 */
+				/* sender session to 'null' */
+				if( (err_ret = IPFEndSession(s[1]->cntrl,
+							&ip_intr,NULL))
+							< IPFErrWARNING){
+					CloseSessions();
+					goto next_test;
+				}
+				if(sig_check()) exit(1);
+				/* receiver session to STDOUT (for now) */
+				if( (err_ret =IPFEndSession(s[1]->cntrl,
+							&ip_intr,stdout))
+							< IPFErrWARNING){
+					CloseSessions();
+					goto next_test;
+				}
+				if(sig_check()) exit(1);
+				break;
+			}
+
+			IPFNum64ToTimeval(&reltime,
+					IPFNum64Sub(endtime,currtime.ipftime));
+			FD_ZERO(&readfds);
+			FD_SET(local.sockfd,&readfds);
+			FD_SET(remote.sockfd,&readfds);
+			exceptfds = readfds;
+
+			/*
+			 * Wait until endtime, or until one of the sockets
+			 * is readable.
+			 */
+			rc = select(MAX(local.sockfd,remote.sockfd)+1,
+					&readfds,NULL,&exceptfds,&reltime);
+
+			if(rc <= 0){
+				if(sig_check()) exit(1);
+				continue;
+			}
+
+			/*
+			 * One of the sockets is readable. Don't really care
+			 * which one. Set stop so EndSessions happens above.
+			 * (Basically, any i/o on either of these sockets
+			 * indicates it is time to terminate the test now.
+			 */
+			stop = True;
+		}
 
 		/*
 		 * Skip to here on failure for now. Will perhaps add
@@ -834,6 +954,8 @@ main(
 		 */
 next_test:
 		;
+
+		if(sig_check()) exit(1);
 
 	}while(0); /* TODO: test for "next" interval time */
 

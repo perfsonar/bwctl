@@ -170,6 +170,8 @@ typedef u_int64_t IPFNum64;
 #define IPFNum64Add(x,y)	(x+y)
 #define IPFNum64Sub(x,y)	(x-y)
 #define IPFNum64Cmp(x,y)	((x<y) ? -1 : ((x>y) ? 1 : 0))
+#define IPFNum64Min(x,y)	((x<y) ? x : y)
+#define IPFNum64Max(x,y)	((x>y) ? x : y)
 
 extern IPFNum64
 IPFNum64Mult(
@@ -756,7 +758,8 @@ IPFSessionRequest(
  */
 extern IPFErrSeverity
 IPFStartSession(
-	IPFControl	control_handle
+	IPFControl	control_handle,
+	u_int16_t	*dataport
 );
 
 /*
@@ -791,7 +794,7 @@ IPFStartSession(
  * a simple way to poll all of them - you know you are done when it returns 0.)
  * You can of course recall StopSessionWait in this case.
  *
- * Client and Server
+ * Server Only
  */
 extern int
 IPFStopSessionWait(
@@ -799,6 +802,8 @@ IPFStopSessionWait(
 	IPFNum64	*wake_time,		/* abs time */
 	int		*retn_on_intr,
 	IPFAcceptType	*acceptval,		/* out */
+	FILE		*infp,
+	FILE		*outfp,
 	IPFErrSeverity	*err_ret
 );
 
@@ -814,6 +819,8 @@ IPFStopSessionWait(
  * 	<0	Test is not yet complete.
  * 	>=0	Accept value of completed test. 0 indicates success
  * 		other values indicate type of error test encountered.
+ *
+ * Server Only
  */
 extern IPFBoolean
 IPFSessionStatus(
@@ -832,6 +839,8 @@ IPFSessionStatus(
  *
  * returns:
  * 	number of active endpoints.
+ *
+ * Server Only
  */
 extern int
 IPFSessionsActive(
@@ -842,15 +851,30 @@ IPFSessionsActive(
 /*
  * Send the StopSession message, and wait for the response.
  *
- * Client and Server.
+ * Server Only
  */
 extern IPFErrSeverity
 IPFStopSession(
 	IPFControl	control_handle,
 	int		*retn_on_intr,
-	IPFAcceptType	*acceptval	/* in/out */
+	IPFAcceptType	*acceptval,	/* in/out */
+	FILE		*infp,
+	FILE		*outfp
 );
 
+/*
+ * Signal the server to stop the session, and read the response.
+ * The response should contain the test results, and they will
+ * be printed to the fp passed in.
+ *
+ * Client Only
+ */
+extern IPFErrSeverity
+IPFEndSession(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	FILE		*fp
+	);
 
 /*
  * Return the file descriptor being used for the control connection. An
@@ -945,6 +969,11 @@ IPFProcessTestRequest(
 	IPFControl	cntrl,
 	int		*retn_on_intr
 		);
+
+extern IPFErrSeverity
+IPFProcessTimeRequest(
+	IPFControl	cntrl,
+	int		*retn_on_intr
 
 extern IPFErrSeverity
 IPFProcessStartSession(

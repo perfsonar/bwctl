@@ -17,8 +17,6 @@
  *	Date:		Tue Sep 16 14:25:57 MDT 2003
  *
  *	Description:	
- *		This file contains the "default" implementation for
- *		the send and recv endpoints of an OWAMP test session.
  */
 #include <stdio.h>
 #include <unistd.h>
@@ -247,6 +245,7 @@ HashLostPacket(
  * If this is a recv endpoint, it is also responsible for allocating a
  * session id.
  */
+#if	NOT
 IPFBoolean
 _IPFEndpointInit(
 	IPFControl	cntrl,
@@ -254,7 +253,6 @@ _IPFEndpointInit(
 	IPFErrSeverity	*err_ret
 )
 {
-#if	NOT
 	struct sockaddr_storage	sbuff;
 	socklen_t		sbuff_len=sizeof(sbuff);
 	IPFEndpoint		ep;
@@ -553,12 +551,8 @@ _IPFEndpointInit(
 error:
 	EndpointFree(ep,IPF_CNTRL_FAILURE);
 	return False;
-#else
-	return False;
-#endif
 }
 
-#if	NOT
 static int owp_usr1;
 static int owp_usr2;
 static int owp_int;
@@ -1534,7 +1528,6 @@ error:
 
 	exit(IPF_CNTRL_FAILURE);
 }
-#endif
 
 /*
  * Note: We explicitly do NOT connect the send udp socket. This is because
@@ -1549,7 +1542,6 @@ _IPFEndpointInitHook(
 	IPFErrSeverity	*err_ret
 )
 {
-#if	NOT
 	IPFContext		ctx = IPFGetContext(cntrl);
 	IPFEndpoint		*end_data = &tsession->endpoint;
 	IPFEndpoint		ep = tsession->endpoint;
@@ -1785,14 +1777,13 @@ parenterr:
 	IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
 			"Shouldn't get to this line of code... Hmmpf.");
 	exit(IPF_CNTRL_FAILURE);
-#else
-	return False;
-#endif
 }
+#endif
 
 IPFBoolean
 _IPFEndpointStart(
 	IPFTestSession	tsession,
+	u_int16_t	*dataport,
 	IPFErrSeverity	*err_ret
 	)
 {

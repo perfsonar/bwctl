@@ -783,6 +783,7 @@ AddrBySAddrRef(
 
 	return addr;
 }
+
 /*
  * 	TestRequest message format:
  *
@@ -1259,8 +1260,6 @@ error:
 	return err_ret;
 }
 
-
-
 /*
  *
  * 	TestAccept message format:
@@ -1385,9 +1384,9 @@ _IPFReadTestAccept(
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|      2        |                                               |
- *	  +-+-+-+-+-+-+-+-+                                               +
- *	04|                      Unused (15 octets)                       |
+ *	00|      2        |    Unused     |            DataPort           |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	04|                      Unused (12 octets)                       |
  *	08|                                                               |
  *	12|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -1400,29 +1399,36 @@ _IPFReadTestAccept(
  */
 IPFErrSeverity
 _IPFWriteStartSession(
-	IPFControl	cntrl
+	IPFControl	cntrl,
+	u_int16_t	dataport
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsPending(cntrl)){
+	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsPending(cntrl) ||
+			!cntrl->tests){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteStartSession:called in wrong state.");
+			"_IPFWriteStartSession: called in wrong state.");
 		return IPFErrFATAL;
 	}
 
+	/* initialize buffer */
+	memset(&buf[0],0,32);
+
 	buf[0] = 2;	/* start-session identifier	*/
-#ifndef	NDEBUG
-	memset(&buf[1],0,15);	/* Unused	*/
-#endif
-	memset(&buf[16],0,16);	/* Zero padding */
+	/*
+	 * If conf_sender, than need to "set" the dataport.
+	 */
+	if(cntrl->tests->conf_sender){
+		*(u_int16_t*)&buf[2] = htons(dataport);
+	}
 
 	if(_IPFSendBlocks(cntrl,buf,2) != 2){
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
 
-	cntrl->state |= _IPFStateControlAck;
+	cntrl->state |= _IPFStateStartAck;
 	cntrl->state |= _IPFStateTest;
 	return IPFErrOK;
 }
@@ -1430,13 +1436,14 @@ _IPFWriteStartSession(
 IPFErrSeverity
 _IPFReadStartSession(
 	IPFControl	cntrl,
+	u_int16_t	*dataport,
 	int		*retn_on_intr
 )
 {
 	int		n;
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIs(_IPFStateStartSession,cntrl)){
+	if(!_IPFStateIs(_IPFStateStartSession,cntrl) || !cntrl->tests){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
 				"_IPFReadStartSession called in wrong state.");
 		return IPFErrFATAL;
@@ -1455,31 +1462,163 @@ _IPFReadStartSession(
 
 	if(n != (_IPF_STOP_SESSIONS_BLK_LEN-1)){
 		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadStartSession:Unable to read from socket.");
+			"_IPFReadStartSession: Unable to read from socket.");
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
 
 	if(memcmp(cntrl->zero,&buf[16],16)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadTestRequest:Invalid zero padding");
+				"_IPFReadTestRequest: Invalid zero padding");
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
 
 	if(buf[0] != 2){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadStartSession:Not a StartSession message...");
+			"_IPFReadStartSession: Not a StartSession message...");
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	if(cntrl->tests->conf_sender){
+		*dataport = ntohs(*(u_int16_t*)&buf[2]);
+	}
+	/*
+	 * The control connection is now ready to send the response.
+	 */
+	cntrl->state &= ~_IPFStateStartSession;
+	cntrl->state |= _IPFStateStartAck;
+	cntrl->state |= _IPFStateTest;
+
+	return IPFErrOK;
+}
+
+/*
+ *
+ * 	StartAck message format:
+ *
+ * 	size: 32 octets
+ *
+ * 	   0                   1                   2                   3
+ * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	00|     Accept    |    Unused     |            DataPort           |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	04|                      Unused (12 octets)                       |
+ *	08|                                                               |
+ *	12|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	16|                                                               |
+ *	20|                    Zero Padding (16 octets)                   |
+ *	24|                                                               |
+ *	28|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+IPFErrSeverity
+_IPFWriteStartAck(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	u_int16_t	dataport,
+	IPFAcceptType	acceptval
+	)
+{
+	int		n;
+	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+
+	if(!_IPFStateIs(_IPFStateStartAck,cntrl)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"_IPFWriteStartAck called in wrong state.");
+		return IPFErrFATAL;
+	}
+
+	memset(&buf[0],0,32);
+
+	buf[0] = acceptval & 0xff;
+
+	if(cntrl->tests->conf_receiver){
+		*(u_int16_t*)&buf[2] = htons(dataport);
+	}
+
+	n = _IPFSendBlocksIntr(cntrl,buf,_IPF_CONTROL_ACK_BLK_LEN,retn_on_intr);
+
+	if((n < 0) && *retn_on_intr && (errno == EINTR)){
+		return IPFErrFATAL;
+	}
+
+	if(n != _IPF_CONTROL_ACK_BLK_LEN){
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
 
 	/*
-	 * The control connection is now ready to send the response.
+	 * StartAck has been sent, leave that state.
 	 */
-	cntrl->state &= ~_IPFStateStartSession;
-	cntrl->state |= _IPFStateControlAck;
-	cntrl->state |= _IPFStateTest;
+	cntrl->state &= ~_IPFStateStartAck;
+
+	/*
+	 * Test was denied - go back to Request state.
+	 */
+	if(_IPFStateIs(_IPFStateTest,cntrl) && (acceptval != IPF_CNTRL_ACCEPT)){
+		cntrl->state &= ~_IPFStateTest;
+	}
+
+	return IPFErrOK;
+}
+
+IPFErrSeverity
+_IPFReadStartAck(
+	IPFControl	cntrl,
+	u_int16_t	*dataport,
+	IPFAcceptType	*acceptval
+)
+{
+	u_int8_t		*buf = (u_int8_t*)cntrl->msg;
+
+	*acceptval = IPF_CNTRL_INVALID;
+
+	if(!_IPFStateIs(_IPFStateStartAck,cntrl)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"_IPFReadStartAck called in wrong state.");
+		return IPFErrFATAL;
+	}
+
+	if(_IPFReceiveBlocks(cntrl,&buf[0],_IPF_CONTROL_ACK_BLK_LEN) != 
+					(_IPF_CONTROL_ACK_BLK_LEN)){
+		IPFError(cntrl->ctx,IPFErrFATAL,errno,
+			"_IPFReadStartAck: Unable to read from socket.");
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	if(memcmp(cntrl->zero,&buf[16],16)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"_IPFReadStartAck: Invalid zero padding");
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+	*acceptval = GetAcceptType(cntrl,buf[0]);
+	if(*acceptval == IPF_CNTRL_INVALID){
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	if(cntrl->tests->conf_receiver){
+		*dataport = ntohs(*(u_int16_t*)&buf[2]);
+	}
+
+	/*
+	 * received StartAck - leave that state.
+	 */
+	cntrl->state &= ~_IPFStateStartAck;
+
+	/* If StartSession was rejected get back into StateRequest */
+	if (_IPFStateIsTest(cntrl) && (*acceptval != IPF_CNTRL_ACCEPT)){
+		cntrl->state &= ~_IPFStateTest;
+		cntrl->state |= _IPFStateRequest;
+	}
+
 
 	return IPFErrOK;
 }
@@ -1495,14 +1634,26 @@ _IPFReadStartSession(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	00|      3        |    Accept     |                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
- *	04|                       Unused (14 octets)                      |
- *	08|                                                               |
- *	12|                                                               |
+ *	04|                       Unused (6 octets)                       |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	08|                       N-bytes following                       |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	12|                       Unused (4 octets)                       |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	16|                                                               |
- *	20|                    Zero Padding (16 octets)                   |
+ *	20|                    Zero Padding (20 octets)                   |
  *	24|                                                               |
  *	28|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * The following is appended ONLY if (N-bytes != 0)
+ *
+ *	  ... ASCII TEST RESULTS ... (last block is zero padded)
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	00|                                                               |
+ *	04|                    Zero Padding (16 octets)                   |
+ *	08|                                                               |
+ *	12|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
@@ -1510,11 +1661,13 @@ IPFErrSeverity
 _IPFWriteStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
-	IPFAcceptType	acceptval
+	IPFAcceptType	acceptval,
+	FILE		*fp
 	)
 {
-	int		n;
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	struct stat	sbuf;
+	u_int32_t	fsize = 0;
 
 	if(!(_IPFStateIs(_IPFStateRequest,cntrl) &&
 				_IPFStateIs(_IPFStateTest,cntrl))){
@@ -1523,19 +1676,73 @@ _IPFWriteStopSession(
 		return IPFErrFATAL;
 	}
 
-	buf[0] = 3;
-	buf[1] = acceptval & 0xff;
-#ifndef	NDEBUG
-	memset(&buf[2],0,14);	/* Unused	*/
-#endif
-	memset(&buf[16],0,16);	/* Zero padding */
+	memset(&buf[0],0,32);
 
-	n = _IPFSendBlocks(cntrl,buf,2);
-	if((n < 0) && *retn_on_intr && (errno == EINTR)){
+	buf[0] = 3;
+	if(fp){
+		/*
+		 * Find out how much data we need to send.
+		 */
+		if(fstat(fileno(fp),&sbuf) || fseeko(fp,0,SEEK_SET)){
+			acceptval = IPF_CNTRL_FAILURE;
+			goto datadone;
+		}
+		fsize = sbuf.st_size;
+
+		/*
+		 * check for overflow.
+		 */
+		if(sbuf.st_size != (off_t)fsize){
+			fsize = 0;
+			IPFError(cntrl->ctx,IPFErrWARNING,IPFErrUNKNOWN,
+				"_IPFWriteStopSession: Invalid data file");
+			acceptval = IPF_CNTRL_FAILURE;
+			goto datadone;
+		}
+
+		*(u_int32_t*)&buf[8] = htonl(fsize);
+	}
+
+datadone:
+	buf[1] = acceptval & 0xff;
+
+	if(_IPFSendBlocksIntr(cntrl,buf,2,retn_on_intr) != 2){
 		return IPFErrFATAL;
 	}
-	if(n != 2)
-		return IPFErrFATAL;
+
+	if(!fsize){
+		return IPFErrOK;
+	}
+
+	/*
+	 * Send data with trailing zero block
+	 */
+
+	while(fsize >= _IPF_RIJNDAEL_BLOCK_SIZE){
+		if(fread(buf,1,_IPF_RIJNDAEL_BLOCK_SIZE,fp) !=
+						_IPF_RIJNDAEL_BLOCK_SIZE){
+			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		}
+		if(_IPFSendBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		}
+		fsize -= _IPF_RIJNDAEL_BLOCK_SIZE;
+	}
+
+	if(fsize > 0){
+		memset(buf,0,_IPF_RIJNDAEL_BLOCK_SIZE);
+		if(fread(buf,1,fsize,fp) != fsize){
+			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		}
+		if(_IPFSendBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		}
+	}
+
+	if(_IPFSendBlocksIntr(cntrl,cntrl->zero,1,retn_on_intr) != 1){
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	}
+
 	return IPFErrOK;
 }
 
@@ -1543,12 +1750,14 @@ IPFErrSeverity
 _IPFReadStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
-	IPFAcceptType	*acceptval
+	IPFAcceptType	*acceptval,
+	FILE		*fp
 )
 {
 	int		n;
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 	IPFAcceptType	aval;
+	u_int32_t	fsize;
 
 	if(!(_IPFStateIs(_IPFStateRequest,cntrl) &&
 					_IPFStateIs(_IPFStateTest,cntrl))){
@@ -1568,24 +1777,67 @@ _IPFReadStopSession(
 			return IPFErrFATAL;
 		}
 		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadStopSession:Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+			"_IPFReadStopSession: Unable to read from socket.");
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	}
 
 	if(memcmp(cntrl->zero,&buf[16],16)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStopSession:Invalid zero padding");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+				"_IPFReadStopSession: Invalid zero padding");
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	}
 	aval = GetAcceptType(cntrl,buf[1]);
 	if(acceptval)
 		*acceptval = aval;
 
 	if(aval == IPF_CNTRL_INVALID){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	}
+
+	fsize = ntohl(*(u_int32_t*)&buf[8]);
+
+	if(!fsize){
+		return IPFErrOK;
+	}
+
+	/*
+	 * Read test results and write to fp, if not null.
+	 */
+	while(fsize >= _IPF_RIJNDAEL_BLOCK_SIZE){
+
+		if(_IPFReceiveBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		}
+
+		if(fp && (fwrite(buf,_IPF_RIJNDAEL_BLOCK_SIZE,1,fp) != 1)){
+			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		}
+
+		fsize -= _IPF_RIJNDAEL_BLOCK_SIZE;
+	}
+
+	if(fsize > 0){
+
+		if(_IPFReceiveBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		}
+
+		if(fp && (fwrite(buf,fsize,1,fp) != 1)){
+			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		}
+	}
+
+	/*
+	 * Integrity Zero block
+	 */
+	if(_IPFReceiveBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	}
+
+	if(memcmp(cntrl->zero,buf,16)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"_IPFReadStopSession: Invalid zero padding");
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	}
 
 	/*
@@ -1593,127 +1845,6 @@ _IPFReadStopSession(
 	 */
 	cntrl->state &= ~_IPFStateStopSession;
 	cntrl->state |= _IPFStateRequest;
-
-	return IPFErrOK;
-}
-
-/*
- *
- * 	ControlAck message format:
- *
- * 	size: 32 octets
- *
- * 	   0                   1                   2                   3
- * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|     Accept    |                                               |
- *	  +-+-+-+-+-+-+-+-+                                               +
- *	04|                      Unused (15 octets)                       |
- *	08|                                                               |
- *	12|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	16|                                                               |
- *	20|                    Zero Padding (16 octets)                   |
- *	24|                                                               |
- *	28|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- */
-IPFErrSeverity
-_IPFWriteControlAck(
-	IPFControl	cntrl,
-	int		*retn_on_intr,
-	IPFAcceptType	acceptval
-	)
-{
-	int		n;
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-
-	if(!_IPFStateIs(_IPFStateControlAck,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFWriteControlAck called in wrong state.");
-		return IPFErrFATAL;
-	}
-
-	buf[0] = acceptval & 0xff;
-#ifndef	NDEBUG
-	memset(&buf[1],0,15);	/* Unused	*/
-#endif
-	memset(&buf[16],0,16);	/* Zero padding */
-
-	n = _IPFSendBlocksIntr(cntrl,buf,_IPF_CONTROL_ACK_BLK_LEN,retn_on_intr);
-
-	if((n < 0) && *retn_on_intr && (errno == EINTR)){
-		return IPFErrFATAL;
-	}
-
-	if(n != _IPF_CONTROL_ACK_BLK_LEN){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * ControlAck has been sent, leave that state.
-	 */
-	cntrl->state &= ~_IPFStateControlAck;
-
-	/*
-	 * Test was denied - go back to Request state.
-	 */
-	if(_IPFStateIs(_IPFStateTest,cntrl) && (acceptval != IPF_CNTRL_ACCEPT)){
-		cntrl->state &= ~_IPFStateTest;
-	}
-
-	return IPFErrOK;
-}
-
-IPFErrSeverity
-_IPFReadControlAck(
-	IPFControl	cntrl,
-	IPFAcceptType	*acceptval
-)
-{
-	u_int8_t		*buf = (u_int8_t*)cntrl->msg;
-
-	*acceptval = IPF_CNTRL_INVALID;
-
-	if(!_IPFStateIs(_IPFStateControlAck,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadControlAck called in wrong state.");
-		return IPFErrFATAL;
-	}
-
-	if(_IPFReceiveBlocks(cntrl,&buf[0],_IPF_CONTROL_ACK_BLK_LEN) != 
-					(_IPF_CONTROL_ACK_BLK_LEN)){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadControlAck:Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	if(memcmp(cntrl->zero,&buf[16],16)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadControlAck:Invalid zero padding");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-	*acceptval = GetAcceptType(cntrl,buf[0]);
-	if(*acceptval == IPF_CNTRL_INVALID){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * received ControlAck - leave that state.
-	 */
-	cntrl->state &= ~_IPFStateControlAck;
-
-	/* If StartSession was rejected get back into StateRequest */
-	if (_IPFStateIsTest(cntrl) && (*acceptval != IPF_CNTRL_ACCEPT)){
-		cntrl->state &= ~_IPFStateTest;
-		cntrl->state |= _IPFStateRequest;
-	}
-
 
 	return IPFErrOK;
 }

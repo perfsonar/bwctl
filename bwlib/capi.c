@@ -1209,11 +1209,14 @@ error:
  */
 IPFErrSeverity
 IPFStartSession(
-	IPFControl	cntrl
+	IPFControl	cntrl,
+	u_int16_t	*dataport /* retn for recv - set for send */
 )
 {
 	int		rc;
 	IPFAcceptType	acceptval;
+	u_int16_t	lport_val = 0;
+	u_int16_t	*lport = &lport_val;
 
 	/*
 	 * Must pass valid cntrl record.
@@ -1225,18 +1228,66 @@ IPFStartSession(
 	}
 
 	/*
+	 * if dataport is non-null, pass the value pointed at by it instead
+	 * of the stack value 0.
+	 */
+	if(dataport){
+		lport = dataport;
+	}
+
+	/*
 	 * Send the StartSession message to the server
 	 */
-	if((rc = _IPFWriteStartSession(cntrl)) < IPFErrOK){
+	if((rc = _IPFWriteStartSession(cntrl,*lport)) < IPFErrOK){
 		return _IPFFailControlSession(cntrl,rc);
 	}
 
 	/*
 	 * Read the server response.
 	 */
-	if(((rc = _IPFReadControlAck(cntrl,&acceptval)) < IPFErrOK) ||
+	if(((rc = _IPFReadStartAck(cntrl,lport,&acceptval)) < IPFErrOK) ||
 					(acceptval != IPF_CNTRL_ACCEPT)){
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	}
+
+	return IPFErrOK;
+}
+
+IPFErrSeverity
+IPFEndSession(
+	IPFControl	cntrl,
+	IPFAcceptType	*acceptval,
+	FILE		*fp
+	)
+{
+	int		ival = 0;
+	int		*intr=&ival;
+	IPFRequestType	msgtype;
+	IPFAcceptType	aval = IPF_CNTRL_ACCEPT;
+	IPFAcceptType	*aptr = &aval;
+	IPFErrSeverity	rc;
+
+	if(acceptval)
+		aptr = acceptval;
+
+	if( (rc = _IPFWriteStopSession(cntrl,intr,*aptr,NULL)) < IPFErrOK){
+		*aptr = IPF_CNTRL_FAILURE;
+		return _IPFFailControlSession(cntrl,rc);
+	}
+
+	msgtype = IPFReadRequestType(cntrl,intr);
+	if(msgtype == IPFReqSockClose){
+		IPFError(cntrl->ctx,IPFErrFATAL,errno,
+				"IPFEndSession: Control socket closed: %M");
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	}
+	if(msgtype != IPFReqStopSession){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"IPFEndSession: Invalid protocol message received...");
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	}
+	if( (rc = _IPFReadStopSession(cntrl,intr,aptr,fp)) < IPFErrOK){
+		return _IPFFailControlSession(cntrl,rc);
 	}
 
 	return IPFErrOK;
