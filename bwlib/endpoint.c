@@ -282,6 +282,14 @@ getsidaeskey(
 
 	memcpy(key_ret,sidbytes,sizeof(BWLKey));
 
+	{
+		char	hbuf[(sizeof(BWLKey)*2)+1];
+
+		I2HexEncode(hbuf,sidbytes,sizeof(BWLKey));
+		BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+				"getsidaeskey: key = '%s'",hbuf);
+	}
+
 	return True;
 }
 
