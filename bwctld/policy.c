@@ -971,6 +971,7 @@ IPFDPolicyInstall(
 	IPFContext	ctx,
 	char		*datadir,
 	char		*confdir,
+	char		*iperfcmd,
 	char		**lbuf,
 	size_t		*lbuf_max
 	)
@@ -1116,6 +1117,9 @@ BADLINE:
 	 */
 
 	if(!IPFContextConfigSet(ctx,IPFDPOLICY,policy)){
+		return NULL;
+	}
+	if(iperfcmd && !IPFContextConfigSet(ctx,IPFIperfCmd,(void*)iperfcmd)){
 		return NULL;
 	}
 	if(!IPFContextConfigSet(ctx,IPFGetAESKey,(void*)getaeskey)){

@@ -40,6 +40,7 @@ typedef struct {
 	char		*class2limits;
 	char		*passwd;
 
+	char		*iperfcmd;
 	char		*datadir;
 
 	char		*authmode;
@@ -49,7 +50,6 @@ typedef struct {
 	char		*user;
 	char		*group;
 
-	double		diskfudge;
 	u_int32_t	dieby;
 	u_int32_t	controltimeout;
 #ifndef	NDEBUG

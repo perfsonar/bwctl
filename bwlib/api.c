@@ -603,7 +603,6 @@ _IPFCreateSID(
 	IPFTestSession	tsession
 	)
 {
-	IPFTimeStamp	tstamp;
 	u_int8_t	*aptr;
 
 #ifdef	AF_INET6
@@ -629,9 +628,7 @@ _IPFCreateSID(
 
 	memcpy(&tsession->sid[0],aptr,4);
 
-	if(!IPFGetTimestamp(tsession->cntrl->ctx,&tstamp))
-		return 1;
-	_IPFEncodeTimeStamp(&tsession->sid[4],&tstamp);
+	_IPFEncodeTimeStamp(&tsession->sid[4],&tsession->localtime);
 
 	if(I2RandomBytes(tsession->cntrl->ctx->rand_src,&tsession->sid[12],4)
 									!= 0){

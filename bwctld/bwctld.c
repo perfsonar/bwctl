@@ -762,6 +762,14 @@ LoadConfig(
 		else if(!strncasecmp(key,"loglocation",12)){
 			syslogattr.line_info |= I2FILE|I2LINE;
 		}
+		else if(!strncasecmp(key,"iperfcmd",8)){
+			if(!(opts.iperfcmd = strdup(val))) {
+				fprintf(stderr,"strdup(): %s\n",
+							strerror(errno));
+				rc=-rc;
+				break;
+			}
+		}
 		else if(!strncasecmp(key,"datadir",8)){
 			if(!(opts.datadir = strdup(val))) {
 				fprintf(stderr,"strdup(): %s\n",
@@ -809,29 +817,6 @@ LoadConfig(
 			if(!(opts.vardir = strdup(val))) {
 				fprintf(stderr,"strdup(): %s\n",
 							strerror(errno));
-				rc=-rc;
-				break;
-			}
-		}
-		else if(!strncasecmp(key,"diskfudge",10)){
-			char	*end=NULL;
-			double	tdbl;
-			
-			errno = 0;
-			tdbl = strtod(val,&end);
-			if((end == val) || (errno == ERANGE)){
-				fprintf(stderr,"strtod(): %s\n",
-							strerror(errno));
-				rc=-rc;
-				break;
-			}
-			if((tdbl >= 1.0) && (tdbl <= 10.0)){
-				opts.diskfudge = tdbl;
-			}
-			else{
-				fprintf(stderr,"Invalid diskfudge \"%f\":"
-					"valid values 1.0<=diskfudge<=10.0",
-					tdbl);
 				rc=-rc;
 				break;
 			}
@@ -931,12 +916,11 @@ main(int argc, char *argv[])
 	opts.ip2class = "ip2class.conf";
 	opts.class2limits = "class2limits.conf";
 	opts.passwd = "passwd.conf";
-	opts.vardir = opts.confdir = opts.datadir = NULL;
+	opts.vardir = opts.confdir = opts.datadir = opts.iperfcmd = NULL;
 	opts.authmode = NULL; 
 	opts.srcnode = NULL;
 	opts.daemon = 1;
 	opts.user = opts.group = NULL;
-	opts.diskfudge = 1.0;
 	opts.dieby = 30;
 	opts.controltimeout = 1800;
 
@@ -1189,6 +1173,7 @@ main(int argc, char *argv[])
 	 * Install policy for "ctx" - and return policy record.
 	 */
 	if(!(policy = IPFDPolicyInstall(ctx,opts.datadir,opts.confdir,
+					opts.iperfcmd,
 					&lbuf,&lbuf_max))){
 		I2ErrLog(errhand, "PolicyInit failed. Exiting...");
 		exit(1);
@@ -1347,7 +1332,7 @@ main(int argc, char *argv[])
 			exit(1);
 		}
 
-		if(!IPFGetTimeOfDay(&currtime)){
+		if(!IPFGetTimeStamp(ctx,&currtime)){
 			I2ErrLogP(errhand, errno, "IPFGetTimeOfDay: %M");
 			kill(mypid,SIGTERM);
 			exit(1);

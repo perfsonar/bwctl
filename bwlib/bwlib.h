@@ -230,7 +230,7 @@ typedef struct IPFControlRec	*IPFControl;
 typedef struct IPFAddrRec	*IPFAddr;
 
 /*
- * Timestamp related types and structures needed throughout.
+ * TimeStamp related types and structures needed throughout.
  */
 
 typedef struct IPFTimeStampRec{
@@ -383,6 +383,12 @@ IPFError_(
  * types. (The key is a string - the type indicates what type of data
  * will be stored/retrieved using that key.
  */
+
+/*
+ * This type is used to hold the path to the iperf executable.
+ * (char *)
+ */
+#define	IPFIperfCmd		"IPFIperfCmd"
 
 /*
  * This type is used to define the function that retrieves the shared
@@ -1109,31 +1115,31 @@ IPFGetRTTBound(
 	IPFControl	cntrl
 	);
 
-extern double
+extern IPFNum64
 IPFGetTimeStampError(
 	IPFTimeStamp	*tstamp
 	);
 
 extern IPFTimeStamp *
-IPFGetTimestamp(
+IPFGetTimeStamp(
 	IPFContext	ctx,
 	IPFTimeStamp	*tstamp
 );
 
 extern IPFTimeStamp *
-IPFTimevalToTimestamp(
+IPFTimevalToTimeStamp(
 	IPFTimeStamp	*tstamp,
 	struct timeval	*tval
 );
 
 extern struct timeval *
-IPFTimestampToTimeval(
+IPFTimeStampToTimeval(
 	struct timeval	*tval,
 	IPFTimeStamp	*tstamp
 	);
 
 extern IPFTimeStamp *
-IPFTimespecToTimestamp(
+IPFTimespecToTimeStamp(
 	IPFTimeStamp	*tstamp,
 	struct timespec	*tval,
 	u_int32_t	*errest,	/* usec's */
@@ -1141,7 +1147,7 @@ IPFTimespecToTimestamp(
 	);
 
 extern struct timespec *
-IPFTimestampToTimespec(
+IPFTimeStampToTimespec(
 	struct timespec	*tval,
 	IPFTimeStamp	*tstamp
 	);

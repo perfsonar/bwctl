@@ -269,6 +269,146 @@ sig_check()
 	return 0;
 }
 
+static int
+str2num(
+		u_int32_t	*num_ret,
+		char		*str
+		)
+{
+	size_t		silen = 0;
+	size_t		len;
+	char		*endptr;
+	u_int32_t	npart, mult=1;
+
+	while(isdigit(str[silen])){
+		silen++;
+	}
+
+	len = strlen(str);
+
+	if(len != silen){
+		/*
+		 * Only one non-digit is allowed and it must be the last char
+		 */
+		if((len - silen) > 0){
+			return -1;
+		}
+
+		switch(tolower(str[silen])){
+#if	NOT
+			/*
+			 * Don't need these until we use something larger
+			 * than u_int32_t to hold the value!
+			 */
+			case 'z':
+				mult *= 1000;
+			case 'e':
+				mult *= 1000;
+			case 'p':
+				mult *= 1000;
+			case 't':
+				mult *= 1000;
+#endif
+			case 'g':
+				mult *= 1000;
+			case 'm':
+				mult *= 1000;
+			case 'k':
+				mult *= 1000;
+				break;
+			default:
+				return -1;
+		}
+		str[silen] = '\0';
+	}
+
+	npart = strtoul(str,&endptr,10);
+	if(endptr != &str[silen]){
+		return -1;
+	}
+
+	if(npart == 0){
+		*num_ret = 0;
+		return 0;
+	}
+
+	/*
+	 * check for overflow
+	 */
+	*num_ret = npart * mult;
+	return ((*num_ret < npart) || (*num_ret < mult))? (-1): 0;
+}
+
+static int
+str2bytenum(
+		u_int32_t	*num_ret,
+		char		*str
+		)
+{
+	size_t		silen = 0;
+	size_t		len;
+	char		*endptr;
+	u_int32_t	npart, mult=1;
+
+	while(isdigit(str[silen])){
+		silen++;
+	}
+
+	len = strlen(str);
+
+	if(len != silen){
+		/*
+		 * Only one non-digit is allowed and it must be the last char
+		 */
+		if((len - silen) > 0){
+			return -1;
+		}
+
+		switch(tolower(str[silen])){
+#if	NOT
+			/*
+			 * Don't need these until we use something larger
+			 * than u_int32_t to hold the value!
+			 */
+			case 'z':
+				mult <<= 10;
+			case 'e':
+				mult <<= 10;
+			case 'p':
+				mult <<= 10;
+			case 't':
+				mult <<= 10;
+#endif
+			case 'g':
+				mult <<= 10;
+			case 'm':
+				mult <<= 10;
+			case 'k':
+				mult <<= 10;
+				break;
+			default:
+				return -1;
+		}
+		str[silen] = '\0';
+	}
+
+	npart = strtoul(str,&endptr,10);
+	if(endptr != &str[silen]){
+		return -1;
+	}
+
+	if(npart == 0){
+		*num_ret = 0;
+		return 0;
+	}
+
+	/*
+	 * check for overflow
+	 */
+	*num_ret = npart * mult;
+	return ((*num_ret < npart) || (*num_ret < mult))? (-1): 0;
+}
+
 int
 main(
 	int	argc,
@@ -426,10 +566,9 @@ main(
 			}
 			break;
 		case 'l':
-			app.opt.lenBuffer =strtoul(optarg, &endptr, 10);
-			if (*endptr != '\0') {
+			if(str2bytenum(&app.opt.lenBuffer,optarg) != 0){
 				usage(progname, 
-				"Invalid value. Positive integer expected");
+			"Invalid value. (-l) positive integer expected");
 				exit(1);
 			}
 			break;
@@ -437,10 +576,9 @@ main(
 			app.opt.udpTest = True;
 			break;
 		case 'w':
-			app.opt.windowSize =strtoul(optarg, &endptr, 10);
-			if (*endptr != '\0') {
+			if(str2bytenum(&app.opt.windowSize,optarg) != 0){
 				usage(progname, 
-				"Invalid value. Positive integer expected");
+			"Invalid value. (-w) positive integer expected");
 				exit(1);
 			}
 			break;
@@ -465,10 +603,9 @@ main(
 			exit(1);
 			break;
 		case 'b':
-			app.opt.bandWidth =strtoul(optarg, &endptr, 10);
-			if (*endptr != '\0') {
+			if(str2num(&app.opt.bandWidth,optarg) != 0){
 				usage(progname, 
-				"Invalid value. Positive integer expected");
+			"Invalid value. (-b) Positive integer expected");
 				exit(1);
 			}
 			break;
@@ -775,7 +912,7 @@ main(
 		 * time from 'now' that a test could be held. Get the current
 		 * time and add to make that an 'absolute' value.
 		 */
-		if(!IPFGetTimestamp(ctx,&currtime)){
+		if(!IPFGetTimeStamp(ctx,&currtime)){
 			I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
 			exit(1);
 		}
@@ -892,7 +1029,7 @@ main(
 			int		rc;
 			fd_set		readfds,exceptfds;
 
-			if(!IPFGetTimestamp(ctx,&currtime)){
+			if(!IPFGetTimeStamp(ctx,&currtime)){
 				I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
 				exit(1);
 			}

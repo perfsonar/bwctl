@@ -25,7 +25,7 @@ libipcntrl_a_SOURCES	= api.c capi.c sapi.c context.c error.c ipcntrlP.h \
 			protocol.c io.c endpoint.c time.c arithm64.c \
 			rijndael-alg-fst.c rijndael-alg-fst.h \
 			rijndael-api-fst.c rijndael-api-fst.h \
-			util.c unixtime.c schedule.c
+			util.c schedule.c
 #			policy.h policy.c
 #			access2.c read_class2limits.c defaults.c print.c
 

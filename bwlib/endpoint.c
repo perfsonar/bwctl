@@ -20,6 +20,7 @@
  */
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <netinet/in.h>
 #include <assert.h>
@@ -310,16 +311,197 @@ sig_catch(
 	return;
 }
 
+static char *
+uint32dup(
+		IPFContext	ctx,
+		u_int32_t	n
+		)
+{
+	char			nbuf[10];
+	int			len;
+	char			*ret;
+
+	nbuf[sizeof(nbuf)-1] = '\0';
+	len = snprintf(nbuf,sizeof(nbuf)-1,"%llu",(unsigned long long)n);
+	if((len < 0) || ((unsigned)len >= sizeof(nbuf))){
+		IPFError(ctx,IPFErrFATAL,errno,"snprintf(): %M");
+		exit(IPF_CNTRL_FAILURE);
+	}
+
+	if((ret = strdup(nbuf)))
+		return ret;
+
+	IPFError(ctx,IPFErrFATAL,errno,"strdup(): %M");
+	exit(IPF_CNTRL_FAILURE);
+}
+
 /*
  * This function redirects stdout to the tmpfile that was created
  * to hold the result, and then waits until it should fire off
  * the test - and then exec's.
  */
 static void
-iperf(
+run_iperf(
 		IPFEndpoint	ep
 		)
 {
+	IPFTestSession		tsess = ep->tsess;
+	IPFContext		ctx = tsess->cntrl->ctx;
+	int			outfd = fileno(ep->tsess->localfp);
+	int			nullfd;
+	struct sigaction	act;
+	IPFTimeStamp		currtime;
+	IPFNum64		reltime;
+	struct timespec		ts_sleep;
+	struct timespec		ts_remain;
+	int			a = 0;
+	char			hostname[MAXHOSTNAMELEN];
+	size_t			hlen = sizeof(hostname);
+	char			*ipargs[_IPF_MAX_IPERFARGS*2];
+	char			*iperf = (char*)IPFContextConfigGet(ctx,
+								IPFIperfCmd);
+
+	/*
+	 * First figure out the args for iperf
+	 */
+	if(!iperf) iperf = _IPF_IPERF_CMD;
+	ipargs[a++] = iperf;
+
+	ipargs[a++] = "-f";
+	ipargs[a++] = "b";
+
+	ipargs[a++] = "-l";
+	ipargs[a++] = uint32dup(ctx,tsess->test_spec.len_buffer);
+
+	ipargs[a++] = "-m";
+
+	ipargs[a++] = "-p";
+	ipargs[a++] = uint32dup(ctx,tsess->recv_port);
+
+	if(tsess->test_spec.udp){
+		ipargs[a++] = "-u";
+	}
+
+	ipargs[a++] = "-w";
+	ipargs[a++] = uint32dup(ctx,tsess->test_spec.window_size);
+
+	ipargs[a++] = "-t";
+	ipargs[a++] = uint32dup(ctx,tsess->test_spec.duration);
+
+	if(tsess->test_spec.report_interval){
+		ipargs[a++] = "-i";
+		ipargs[a++] = uint32dup(ctx,tsess->test_spec.report_interval);
+	}
+
+	switch(tsess->test_spec.receiver->saddr->sa_family){
+#ifdef	AF_INET6
+		case AF_INET6:
+			ipargs[a++] = "-V";
+			break;
+#endif
+		case AF_INET:
+		default:
+			break;
+	}
+
+	if(tsess->conf_receiver){
+		IPFAddrNodeName(tsess->test_spec.receiver,hostname,&hlen);
+		if(!hlen){
+			exit(IPF_CNTRL_FAILURE);
+		}
+		ipargs[a++] = "-B";
+		ipargs[a++] = hostname;
+
+		ipargs[a++] = "-s";
+	}
+	else{
+		IPFAddrNodeName(tsess->test_spec.sender,hostname,&hlen);
+		if(!hlen){
+			exit(IPF_CNTRL_FAILURE);
+		}
+
+		ipargs[a++] = "-c";
+		ipargs[a++] = hostname;
+	}
+
+	ipargs[a++] = NULL;
+
+	/*
+	 * Reset ignored signals to default
+	 * (exec will reset set signals to default)
+	 */
+	memset(&act,0,sizeof(act));
+	act.sa_handler = SIG_DFL;
+	sigemptyset(&act.sa_mask);
+	if(sigaction(SIGPIPE,&act,NULL) != 0){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"sigaction(): %M");
+		exit(IPF_CNTRL_FAILURE);
+	}
+
+	/*
+	 * Open /dev/null to dup to stdin before the exec.
+	 */
+	if( (nullfd = open(_IPF_DEV_NULL,O_RDONLY)) < 0){
+		IPFError(ctx,IPFErrFATAL,errno,"open(/dev/null): %M");
+		exit(IPF_CNTRL_FAILURE);
+	}
+
+	if(		(dup2(nullfd,STDIN_FILENO) < 0) ||
+			(dup2(outfd,STDOUT_FILENO) < 0) ||
+			(dup2(outfd,STDERR_FILENO) < 0)){
+		IPFError(ctx,IPFErrFATAL,errno,"dup2(): %M");
+		exit(IPF_CNTRL_FAILURE);
+	}
+
+	/*
+	 * Compute the time until the test should start.
+	 */
+	if(!IPFGetTimeStamp(ctx,&currtime)){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+				"IPFGetTimeStamp(): %M");
+		exit(IPF_CNTRL_FAILURE);
+	}
+	if(ipf_term) exit(IPF_CNTRL_FAILURE);
+
+	if(IPFNum64Cmp(tsess->reserve_time,currtime.ipftime) < 0){
+		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+				"run_iperf(): Too LATE!");
+		exit(IPF_CNTRL_FAILURE);
+	}
+
+	reltime = IPFNum64Sub(tsess->reserve_time,currtime.ipftime);
+
+	/*
+	 * Use the error estimates rounded up to 1 second, and start the
+	 * recv side that much before the test time.
+	 */
+	if(tsess->conf_receiver){
+		if(IPFNum64Cmp(reltime,tsess->fuzz) > 0){
+			reltime = IPFNum64Sub(reltime,tsess->fuzz);
+		}
+		else{
+			reltime = IPFULongToNum64(0);
+		}
+	}
+
+	timespecclear(&ts_sleep);
+	timespecclear(&ts_remain);
+	IPFNum64ToTimespec(&ts_sleep,reltime);
+
+	while(timespecisset(&ts_sleep)){
+		if(nanosleep(&ts_sleep,&ts_remain) == 0){
+			break;
+		}
+		if(ipf_term) exit(IPF_CNTRL_FAILURE);
+		ts_sleep = ts_remain;
+	}
+
+	/*
+	 * Now run iperf!
+	 */
+	execv(iperf,ipargs);
+
+	IPFError(ctx,IPFErrFATAL,errno,"execv(): %M");
 	exit(IPF_CNTRL_FAILURE);
 }
 
@@ -469,7 +651,7 @@ _IPFEndpointStart(
 
 	if(ep->child == 0){
 		/* go run iperf */
-		iperf(ep);
+		run_iperf(ep);
 		/* NOTREACHED */
 	}
 
@@ -496,9 +678,9 @@ _IPFEndpointStart(
 	 * the remote endpoint before the time the test should start,
 	 * exit.
 	 */
-	if(!IPFGetTimestamp(ctx,&currtime)){
+	if(!IPFGetTimeStamp(ctx,&currtime)){
 		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"IPFGetTimestamp(): %M");
+				"IPFGetTimeStamp(): %M");
 		goto end;
 	}
 
@@ -577,9 +759,9 @@ ACCEPT:
 	 * Now that we have established communication, reset the timer
 	 * for just past the end of the test period. (one second past)
 	 */
-	if(!IPFGetTimestamp(ctx,&currtime)){
+	if(!IPFGetTimeStamp(ctx,&currtime)){
 		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"IPFGetTimestamp(): %M");
+				"IPFGetTimeStamp(): %M");
 		goto end;
 	}
 

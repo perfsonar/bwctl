@@ -240,7 +240,7 @@ _IPFDecodeTimeStampErrEstimate(
 }
 
 /*
- * Function:	IPFTimevalToTimestamp
+ * Function:	IPFTimevalToTimeStamp
  *
  * Description:	
  * 	This function takes a struct timeval and converts the time value
@@ -261,7 +261,7 @@ _IPFDecodeTimeStampErrEstimate(
  * Side Effect:	
  */
 IPFTimeStamp *
-IPFTimevalToTimestamp(
+IPFTimevalToTimeStamp(
 	IPFTimeStamp	*tstamp,
 	struct timeval	*tval
 )
@@ -289,7 +289,7 @@ IPFTimevalToTimestamp(
 }
 
 /*
- * Function:	IPFTimestampToTimeval
+ * Function:	IPFTimeStampToTimeval
  *
  * Description:	
  * 	This function takes an IPFTimeStamp structure and returns a
@@ -310,7 +310,7 @@ IPFTimevalToTimestamp(
  * Side Effect:	
  */
 struct timeval *
-IPFTimestampToTimeval(
+IPFTimeStampToTimeval(
 	struct timeval	*tval,
 	IPFTimeStamp	*tstamp
 	)
@@ -331,7 +331,7 @@ IPFTimestampToTimeval(
 }
 
 /*
- * Function:	IPFTimespecToTimestamp
+ * Function:	IPFTimespecToTimeStamp
  *
  * Description:	
  * 	This function takes a struct timespec and converts it to an
@@ -360,7 +360,7 @@ IPFTimestampToTimeval(
  * Side Effect:	
  */
 IPFTimeStamp *
-IPFTimespecToTimestamp(
+IPFTimespecToTimeStamp(
 	IPFTimeStamp	*tstamp,
 	struct timespec	*tval,
 	u_int32_t	*errest,	/* usec's */
@@ -436,7 +436,7 @@ IPFTimespecToTimestamp(
 }
 
 /*
- * Function:	IPFTimestampToTimespec
+ * Function:	IPFTimeStampToTimespec
  *
  * Description:	
  * 	This function takes an IPFTimeStamp structure and returns a
@@ -457,7 +457,7 @@ IPFTimespecToTimestamp(
  * Side Effect:	
  */
 struct timespec *
-IPFTimestampToTimespec(
+IPFTimeStampToTimespec(
 	struct timespec	*tval,
 	IPFTimeStamp	*tstamp
 	)
@@ -491,7 +491,7 @@ IPFTimestampToTimespec(
  * Returns:	
  * Side Effect:	
  */
-double
+IPFNum64
 IPFGetTimeStampError(
 	IPFTimeStamp	*tstamp
 	)
@@ -519,10 +519,7 @@ IPFGetTimeStampError(
 		scale--;
 	}
 
-	/*
-	 * Return the IPFNum64 value as a double.
-	 */
-	return IPFNum64ToDouble(err);
+	return err;
 }
 
 /*
@@ -630,7 +627,7 @@ _IPFGetTimespec(
 }
 
 IPFTimeStamp *
-IPFGetTimestamp(
+IPFGetTimeStamp(
 	IPFContext	ctx,
 	IPFTimeStamp	*tstamp
 	       )
@@ -646,5 +643,5 @@ IPFGetTimestamp(
 		return NULL;
 
 	/* type conversion */
-	return IPFTimespecToTimestamp(tstamp,&ts,&errest,NULL);
+	return IPFTimespecToTimeStamp(tstamp,&ts,&errest,NULL);
 }

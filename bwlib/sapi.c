@@ -670,6 +670,7 @@ IPFProcessTestRequest(
 	IPFAcceptType	acceptval = IPF_CNTRL_FAILURE;
 	int		ival=0;
 	int		*intr = &ival;
+	IPFNum64	one64 = IPFULongToNum64(1);
 
 	if(retn_on_intr){
 		intr = retn_on_intr;
@@ -692,6 +693,14 @@ IPFProcessTestRequest(
 		}
 	}
 
+	if(!IPFGetTimeStamp(cntrl->ctx,&tsession->localtime)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+				"IPFGetTimeStamp(): %M");
+		err_ret = IPFErrWARNING;
+		acceptval = IPF_CNTRL_FAILURE;
+		goto error;
+	}
+
 	/*
 	 * If this is a "new" receiver session, create a SID for it.
 	 */
@@ -706,6 +715,18 @@ IPFProcessTestRequest(
 	 * Initialize reservation time.
 	 */
 	tsession->reserve_time = IPFULongToNum64(0);
+
+	/*
+	 * compute "fuzz" time.
+	 * Round the NTP error on both side up to one second and add.
+	 * In most cases this will give us a "fuzz" of 2 seconds.
+	 */
+	tsession->fuzz = IPFNum64Max(one64,
+			IPFGetTimeStampError(&tsession->test_spec.req_time));
+	tsession->fuzz = IPFNum64Add(tsession->fuzz,
+				IPFNum64Max(one64,
+				IPFGetTimeStampError(&tsession->localtime)));
+
 
 	/*
 	 * Is this request allowed? Is there time (a reservation slot) for it?
@@ -790,7 +811,7 @@ IPFProcessTimeRequest(
 	if( (rc = _IPFReadTimeRequest(cntrl,intr)) < IPFErrOK)
 		return _IPFFailControlSession(cntrl,rc);
 
-	if(!IPFGetTimestamp(cntrl->ctx,&tstamp))
+	if(!IPFGetTimeStamp(cntrl->ctx,&tstamp))
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 
 	if( (rc = _IPFWriteTimeResponse(cntrl,&tstamp,intr)) < IPFErrOK)
@@ -1025,7 +1046,7 @@ IPFStopSessionWait(
 		 * convert abs wake time to timeval
 		 */
 		wakestamp.ipftime = *wake;
-		IPFTimestampToTimeval(&reltime,&wakestamp);
+		IPFTimeStampToTimeval(&reltime,&wakestamp);
 
 		/*
 		 * get current time.

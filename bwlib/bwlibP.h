@@ -106,9 +106,13 @@
 /*
  * other useful constants.
  */
+#define	_IPF_DEFAULT_TMPDIR	"/tmp"
+#define	_IPF_DEV_NULL		"/dev/null"
+#define	_IPF_IPERF_CMD		"/usr/local/bin/iperf"
 #define _IPF_ERR_MAXSTRING	(1024)
 #define	_IPF_PATH_SEPARATOR	"/"
 #define _IPF_TMPFILEFMT		"iperfc.XXXXXX"
+#define _IPF_MAX_IPERFARGS	(32)
 
 /*
  * Data structures
@@ -231,7 +235,9 @@ typedef struct IPFEndpointRec{
 struct IPFTestSessionRec{
 	IPFControl			cntrl;
 	IPFSID				sid;
+	IPFTimeStamp			localtime;
 	IPFNum64			reserve_time;
+	IPFNum64			fuzz;
 	IPFNum64			latest_time;
 	u_int16_t			recv_port;
 

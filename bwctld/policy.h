@@ -350,6 +350,7 @@ IPFDPolicyInstall(
 	IPFContext	ctx,
 	char		*datadir,	/* root dir for datafiles	*/
 	char		*confdir,	/* conf dir for policy		*/
+	char		*iperfcmd,	/* iperf exec path		*/
 	char		**lbuf,
 	size_t		*lbuf_max
 	);

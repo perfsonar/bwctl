@@ -125,7 +125,7 @@ IPFContextCreate(
 	if( (tmpdir = getenv("TMPDIR")))
 		strncpy(ctx->tmpdir,tmpdir,PATH_MAX);
 	else
-		strcpy(ctx->tmpdir,"/tmp");
+		strncpy(ctx->tmpdir,_IPF_DEFAULT_TMPDIR,PATH_MAX);
 
 	if(strlen(ctx->tmpdir) + strlen(_IPF_PATH_SEPARATOR) +
 					strlen(_IPF_TMPFILEFMT) > PATH_MAX){
