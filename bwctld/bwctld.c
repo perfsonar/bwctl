@@ -120,7 +120,7 @@ signal_catch(
 			_exit(IPF_CNTRL_FAILURE);
 	}
 
-	ipfd_intr = 1;
+	ipfd_intr++;
 
 	return;
 }

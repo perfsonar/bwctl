@@ -1176,7 +1176,7 @@ AGAIN:
 				 */
 				/* sender session to 'null' */
 				if( (err_ret = IPFEndSession(s[1]->cntrl,
-							&ip_intr,NULL))
+							&ip_intr,stdout))
 							< IPFErrWARNING){
 					CloseSessions();
 					goto next_test;
@@ -1217,6 +1217,12 @@ AGAIN:
 				 * the test.)
 				 */
 				stop = True;
+				if(FD_ISSET(local.sockfd,&readfds)){
+					I2ErrLogP(eh,0,"Local readable!");
+				}
+				if(FD_ISSET(remote.sockfd,&readfds)){
+					I2ErrLogP(eh,0,"Remote readable!");
+				}
 			}
 			if(sig_check()) exit(1);
 		}

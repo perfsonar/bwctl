@@ -162,12 +162,14 @@ tfile(
 		return NULL;
 	}
 
+#if	TODO
 	if(unlink(fname) != 0){
 		IPFError(tsess->cntrl->ctx,IPFErrFATAL,errno,
 					"unlink(%s): %M",fname);
 		while((fclose(fp) != 0) && (errno == EINTR));
 		return NULL;
 	}
+#endif
 
 	return fp;
 }
@@ -360,6 +362,15 @@ run_iperf(
 	char			*ipargs[_IPF_MAX_IPERFARGS*2];
 	char			*iperf = (char*)IPFContextConfigGet(ctx,
 								IPFIperfCmd);
+
+#if	NOT
+	{
+		int	waitfor=1;
+
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"Waiting!!!:ipf_term=%d",ipf_term);
+		while(waitfor);
+	}
+#endif
 
 	/*
 	 * First figure out the args for iperf
@@ -653,6 +664,7 @@ _IPFEndpointStart(
 	 * endpoint for the test results exchange.
 	 */
 	ep->child = fork();
+IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"ipf_term=%d",ipf_term);
 
 	if(ep->child < 0){
 		/* fork error */
@@ -734,8 +746,8 @@ ACCEPT:
 		/*
 		 * Only allow connections from the remote testaddr
 		 */
-		if(I2SockAddrEqual(tsess->cntrl->remote_addr->saddr,
-					tsess->cntrl->remote_addr->saddrlen,
+		if(I2SockAddrEqual(tsess->test_spec.sender->saddr,
+					tsess->test_spec.sender->saddrlen,
 					(struct sockaddr *)&sbuff,sbuff_len,
 					I2SADDR_ADDR) <= 0){
 			IPFError(ctx,IPFErrFATAL,IPFErrPOLICY,
