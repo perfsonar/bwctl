@@ -755,6 +755,8 @@ BWLProcessTestRequest(
 					 raddr->saddr,
 					 raddr->saddrlen,
 					 I2SADDR_ADDR) <= 0) &&
+			!I2SockAddrIsLoopback(cntrl->remote_addr->saddr,
+					cntrl->remote_addr->saddrlen) &&
 			(I2SockAddrEqual(cntrl->remote_addr->saddr,
 					 cntrl->remote_addr->saddrlen,
 					 cntrl->local_addr->saddr,
