@@ -1353,9 +1353,9 @@ main(int argc, char *argv[])
 	sigset_t		sigs;
 
 #ifndef NDEBUG
-	char *optstring = "hvc:d:R:a:S:e:ZU:G:qw";
+	char *optstring = "hvc:d:R:a:S:e:ZU:G:w";
 #else	
-	char *optstring = "hvc:d:R:a:S:e:ZU:G:q";
+	char *optstring = "hvc:d:R:a:S:e:ZU:G:";
 #endif
 
 	/*

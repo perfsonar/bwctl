@@ -1,5 +1,14 @@
 $Id$
 
+version 1.0d
+* Corrected AES identity specified policies.
+* Fixed bwctl -q flag.
+* Corrected documentation of "assign user" lines in bwctld.limits.man
+  (only one user can be specified per line.)
+* Relaxed synchronization requirement and also added a syncfuzz option to
+  the daemon to allow the sysadmin to relax the requirement even further.
+* Lots of documentation edits for proper "english".
+
 version 1.0c
 * Fixed an optimization bug.
 * Added more information to error messages if NTP state does not look correct.
