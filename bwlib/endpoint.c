@@ -162,14 +162,12 @@ tfile(
 		return NULL;
 	}
 
-#if	TODO
 	if(unlink(fname) != 0){
 		IPFError(tsess->cntrl->ctx,IPFErrFATAL,errno,
 					"unlink(%s): %M",fname);
 		while((fclose(fp) != 0) && (errno == EINTR));
 		return NULL;
 	}
-#endif
 
 	return fp;
 }
@@ -419,22 +417,18 @@ run_iperf(
 			break;
 	}
 
+	IPFAddrNodeName(tsess->test_spec.receiver,hostname,&hlen);
+	if(!hlen){
+		exit(IPF_CNTRL_FAILURE);
+	}
+
 	if(tsess->conf_receiver){
-		IPFAddrNodeName(tsess->test_spec.receiver,hostname,&hlen);
-		if(!hlen){
-			exit(IPF_CNTRL_FAILURE);
-		}
 		ipargs[a++] = "-B";
 		ipargs[a++] = hostname;
 
 		ipargs[a++] = "-s";
 	}
 	else{
-		IPFAddrNodeName(tsess->test_spec.sender,hostname,&hlen);
-		if(!hlen){
-			exit(IPF_CNTRL_FAILURE);
-		}
-
 		ipargs[a++] = "-c";
 		ipargs[a++] = hostname;
 	}
@@ -674,7 +668,6 @@ _IPFEndpointStart(
 	 * endpoint for the test results exchange.
 	 */
 	ep->child = fork();
-IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"ipf_term=%d",ipf_term);
 
 	if(ep->child < 0){
 		/* fork error */

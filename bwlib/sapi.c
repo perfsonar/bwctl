@@ -727,7 +727,7 @@ IPFProcessTestRequest(
 	tsession->fuzz = IPFNum64Add(tsession->fuzz,
 				IPFNum64Max(one64,
 				IPFGetTimeStampError(&tsession->localtime)));
-	tsession->fuzz = IPFNum64Add(tsession->fuzz,IPFULongToNum64(5));
+	tsession->fuzz = IPFNum64Add(tsession->fuzz,IPFULongToNum64(1));
 
 	/*
 	 * TODO:
