@@ -444,7 +444,8 @@ run_iperf(
 	memset(&act,0,sizeof(act));
 	act.sa_handler = SIG_DFL;
 	sigemptyset(&act.sa_mask);
-	if(sigaction(SIGPIPE,&act,NULL) != 0){
+	if(	(sigaction(SIGPIPE,&act,NULL) != 0) ||
+		(sigaction(SIGALRM,&act,NULL) != 0)){
 		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"sigaction(): %M");
 		exit(IPF_CNTRL_FAILURE);
 	}
@@ -533,7 +534,11 @@ _IPFEndpointStart(
 	IPFNum64		reltime;
 	struct itimerval	itval;
 	IPFAcceptType		aval;
-	int			wstatus;
+	fd_set			readfds;
+	fd_set			exceptfds;
+	int			rc=0;
+	int			do_read=0;do_write=0;
+
 
 	if( !(tsess->localfp = tfile(tsess)) ||
 					!(tsess->remotefp = tfile(tsess))){
@@ -602,11 +607,9 @@ _IPFEndpointStart(
 		EndpointClear(ep);
 
 		/*
-		 * close the remotefp - this process no longer needs it.
-		 * keep localfp so the test results can be sent to client.
+		 * Keep localfp and remotefp open. The ProcessResults
+		 * function is called from this process.
 		 */
-		fclose(tsess->remotefp);
-		tsess->remotefp = NULL;
 
 		return True;
 	}
@@ -699,6 +702,12 @@ IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"ipf_term=%d",ipf_term);
 	(void)IPFContextConfigDelete(ctx,IPFCheckControlPolicy);
 	(void)IPFContextConfigDelete(ctx,IPFCheckTestPolicy);
 	(void)IPFContextConfigDelete(ctx,IPFTestComplete);
+	(void)IPFContextConfigDelete(ctx,IPFProcessResults);
+
+	/*
+	 * TODO: If ctx variable for client-side retn_on_intr gets
+	 * added - change the ctx variable here!
+	 */
 
 	/*
 	 * Set a timer - if we have not established a connection with
@@ -810,7 +819,8 @@ ACCEPT:
 
 	/*
 	 * Now that we have established communication, reset the timer
-	 * for just past the end of the test period. (one second past)
+	 * for just past the end of the test period. (one second past
+	 * the session time plus the fuzz time.)
 	 */
 	if(!IPFGetTimeStamp(ctx,&currtime)){
 		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
@@ -840,36 +850,102 @@ ACCEPT:
 		goto end;
 
 	/*
-	 * Fake lcntrl socket into "test" mode and set it up with the
-	 * same tsess record as the parent process.
-	 * Then wait for StopSession to trade results.
+	 * Fake lcntrl socket into "test" mode and set it up to trade results.
 	 */
 	ep->rcntrl->tests = tsess;
 	tsess->cntrl = ep->rcntrl;
 	tsess->closure = NULL;
-	tsess->endpoint = NULL;
 	ep->rcntrl->state |= _IPFStateTest;
 	
-wait:
-	wstatus = IPFStopSessionWait(ep->rcntrl,NULL,&ipf_term,&aval,err_ret);
+	FD_ZERO(&readfds);
+	FD_SET(ep->rcntrl->sockfd,&readfds);
+	exceptfds = readfds;
+	do_read=do_write=1;
 
-	if(wstatus == 0)
-		exit(aval);
+select:
+	rc = select(ep->rcntrl->sockfd+1,&readfds,NULL,&exceptfds,NULL);
 
-	if((wstatus > 0) && !ipf_term)
-		goto wait;
+	/*
+	 * Is socket readable?
+	 */
+	if(!ipf_term && (rc > 0)){
+		if(!FD_ISSET(ep->rcntrl->sockfd,&readfds)){
+			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+					"select(): peer connection not ready?");
+			aval = IPF_CNTRL_FAILURE;
+			ipf_term++;
+		}
+		else{
+			do_read=0;
+			msgtype = IPFReadRequestType(ep->rcntrl,&ipf_term);
+			if(msgtype == 0){
+				IPFError(ctx,IPFErrFATAL,errno,
+						"Test peer closed connection.");
+				aval = IPF_CNTRL_FAILURE;
+				ipf_term++;
+				do_write=0;
+			}
+			else if(msgtype != 3){
+				IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+				"Invalid protocol messaage from test peer");
+				aval = IPF_CNTRL_FAILURE;
+				do_write=0;
+			}
+			else{
+				err_ret = _IPFReadStopSession(ep->rcntrl,
+					&ipf_term,&aval,tsess->remotefp);
+				if((aval == IPF_CNTRL_ACCEPT) && !ipf_term){
+					FD_ZERO(&readfds);
+					exceptfds = readfds;
+					goto select;
+				}
+			}
+		}
+	}
 
 end:
-
-	if(ep->child > 0){
-		int	cstatus;
-
-		kill(ep->child,SIGINT);
-		ep->wopts &= ~WNOHANG;
-		while((waitpid(ep->child,&cstatus,ep->wopts) < 0) &&
-				(errno == EINTR));
+	if((kill(ep->child,SIGINT) != 0) && (errno != ESRCH)){
+		IPFError(ctx,IPFErrFATAL,errno,
+				"Unable to kill test endpoint, pid=%d: %M",
+				ep->child);
+		exit(IPF_CNTRL_FAILURE);
 	}
-	exit(IPF_CNTRL_FAILURE);
+	ep->wopts &= ~WNOHANG;
+	if(!_IPFEndpointStatus(tsess,&ep->accept_val,&err_ret)){
+		exit(IPF_CNTRL_FAILURE);
+	}
+	if(ep->accept_val != IPF_CNTRL_ACCEPT){
+		ep->accept_val = IPF_CNTRL_FAILURE;
+		tsess->localfp = NULL;
+	}
+
+	if(do_write){
+		err_ret = _IPFWriteStopSession(ep->rcntrl,&ipf_term,
+				ep->accept_val,tsess->localfp);
+		if(err_ret != IPFErrOK){
+			do_read = 0;
+		}
+	}
+
+	if(do_read && !ipf_term){
+		msgtype = IPFReadRequestType(ep->rcntrl,&ipf_term);
+		if(msgtype == 0){
+			IPFError(ctx,IPFErrFATAL,errno,
+						"Test peer closed connection.");
+			aval = IPF_CNTRL_FAILURE;
+		}
+		else if(msgtype != 3){
+			IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+				"Invalid protocol messaage from test peer");
+			aval = IPF_CNTRL_FAILURE;
+		}
+		else{
+			(void)_IPFReadStopSession(ep->rcntrl,
+					&ipf_term,&aval,tsess->remotefp);
+		}
+	}
+
+	exit(aval & ep->accept_val);
 }
 
 IPFBoolean
