@@ -449,6 +449,20 @@ main(
 	BWLScheduleContext	sctx;
 	BWLTimeStamp		wake;
 	struct sigaction	act;
+	sigset_t		sigs;
+
+	/*
+	 * Make sure the signal mask is UNBLOCKING TERM/HUP/INT
+	 */
+	sigemptyset(&sigs);
+	sigaddset(&sigs,SIGTERM);
+	sigaddset(&sigs,SIGINT);
+	sigaddset(&sigs,SIGHUP);
+	sigaddset(&sigs,SIGALRM);
+	if(sigprocmask(SIG_UNBLOCK,&sigs,NULL) != 0){
+		I2ErrLog(eh,"sigprocmask(): %M");
+		exit(1);
+	}
 
 	progname = (progname = strrchr(argv[0], '/')) ? ++progname : *argv;
 
