@@ -1,0 +1,186 @@
+." The first line of this file must contain the '"[e][r][t][v] line
+." to tell man to run the appropriate filter "t" for table.
+."
+."	$Id$
+."
+."######################################################################
+."#									#
+."#			   Copyright (C)  2004				#
+."#	     			Internet2				#
+."#			   All Rights Reserved				#
+."#									#
+."######################################################################
+."
+."	File:		bwctld.8
+."
+."	Author:		Jeff Boote
+."			Internet2
+."
+."	Date:		Thu Feb 12 15:44:09 MST 2004
+."
+."	Description:	
+."
+.TH bwctld.conf 5 "$Date$"
+.SH NAME
+bwctld.conf \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
+\fBd\fRaemon configuration file
+.SH DESCRIPTION
+The \fBbwctld.conf\fR file is the configuration file for the \fBbwctld(8)\fR
+program. It is used to configure the basic operation of the server. For
+example, what addresses and ports it should listent on and where it should
+send error messages and where it should save files.
+.PP
+The policy rules for \fBbwctld\fR are configured using the \fBbwctld.limits\fR
+file and the details for configuring those policies are described in
+the \fBbwctld.limits(5)\fR manual page.
+.PP
+The format of this file is as follows:
+.RS
+.IP \(bu
+Comment lines are any line with the first non-whitespace character is '#'.
+These lines are counted for the purposes of returning line numbers in error
+messages but are otherwise ignored by \fBbwctld\fR.
+.IP \(bu
+Lines may be continued using the semi-standard '\\' charater followed
+immediately by a newline. This is the only valid place for the '\\'
+character. If it is found elsewhere a syntax error is reported.
+.IP \(bu
+Blank lines are treated as comment lines.
+.IP \(bu
+All other lines are used to set configuration options. The format of these
+lines is an initial keyword followed by a variable list of arguments
+separated by whitespace.
+.RE
+.SH CONFIGURATION OPTIONS
+.TP
+.BI iperfcmd " iperfcmd"
+The full path to the \fBIperf\fR on the system.
+.RS
+.IP Default:
+/usr/local/bin/iperf
+.RE
+.TP
+.BI iperfport " iperfport"
+The port number(s) that \fBIperf\fR receivers will use.
+Currently \fBbwctld\fR simply cycles through this range linearly.
+\fIiperfport\fR can be specified as a single valid port number or as
+a range as \fIlow\fR-\fIhigh\fR. The range must be specified as two valid
+port numbers with the '-' character separating them. Whitespace is
+not allowed within the \fIiperfport\fR.
+.RS
+.IP Default:
+5001
+.RE
+.TP
+.BI user " user"
+Specifies the uid the \fBbwctld\fR process should run as. \fIuser\fB
+can be specified using a valid user name on the system or by using -uid.
+This option is only used if \fBbwctld\fR is started as root.
+.TP
+.BI group " group"
+Specifies the gid the \fBbwctld\fR process should run as. \fIgroup\fB
+can be specified using a valid group name on the system or by using -gid.
+This option is only used if \fBbwctld\fR is started as root.
+.TP
+.B verbose
+If this option is present, it directs the \fBbwctld\fR process to
+generate more verbose messages to syslog.
+.TP
+.BI facility " facility"
+Syslog \fIfacility\fR to log messages to.
+.RS
+.IP Default:
+\fBLOG_DAEMON\fR
+.RE
+.TP
+.B loglocation
+Directs the \fBbwctld\fR process to report source code file and line
+number information with error messages. This is a particularly useful
+option to set when sending in messages as part of a bug report.
+.TP
+.BI vardir " vardir"
+Directory path where the bwctld.pid file will be placed.
+.RS
+.IP Default:
+Current directory
+.RE
+.TP
+.BI datadir " datadir"
+Directory path where output data files will be placed. (\fBbwctld\fR
+does not currently save the results of the \fBIperf\fR tests. This
+option is a place holder for when it does.)
+.RS
+.IP Default:
+Current directory
+.RE
+.TP
+.BI authmode " authmode"
+Specify the authentication modes the server is willing to use for
+communication. \fIauthmode\fR should be set as a character string with
+any or all of the characters "AEO". The modes are:
+.RS
+.IP \fBA\fR
+[\fBA\fR]uthenticated. This mode encrypts the control connection.
+.IP \fBE\fR
+[\fBE\fR]ncrypted. This mode encrypts the control connection. If the
+test supports encryption, this mode will additionally encrypt the test
+stream. (Encryption of the test stream is not currently supported, so
+this mode is currently identical to authenticated.)
+.IP \fBO\fR
+[\fBO\fR]pen. No encryption of any kind is done.
+.PP
+The server can specify all the modes it is willing to communicate with. The
+most strict mode that both the server and the client are willing to speak
+will be selected.
+.IP Default:
+"AEO".
+.RE
+.TP
+.BI srcnode " nodename:port"
+Specify the address and port that \fBbwctld\fR will listen for requests on.
+\fInodename\fR can be specified using a DNS name or using the textual
+representation of the address. It is possible to set the source address
+without setting the \fIport\fR by simply leaving off the ':' and \fIport\fR
+specification. If an IPv6 address is specified, note that the accepted format
+contains \fInodename\fR in square brackets as: [fe80::fe9f:62d8]. This
+ensures the port number is distinct from the address specification.
+.RS
+.IP Default:
+\fInodename\fR is wildcarded as any currently available address
+.br
+\fIport\fR is 4823.
+.RE
+.TP
+.BI dieby " dieby"
+Number of seconds to wait for child processes to gracefully terminate
+before killing them with \fBSIGKILL\fR. This is in response to the master
+process receiving \fBSIGTERM\fR or \fBSIGHUP\fR.
+.RS
+.IP Default:
+30
+.RE
+.TP
+.BI controltimeout " controltimeout"
+Number of seconds to wait for protocol messages before timing out. This
+value should be significantly larger than what typical users specify
+for the \fB-I\fR flag of \fBbwctl\fR or \fBbwctl\fR will have to open
+a new control connection for each new test it requests.
+.RS
+.IP Default:
+7200 (Picked to be the same as the default for TCP keepalive)
+.RE
+.TP
+.BI bottleneckcapacity " bottleneckcapacity"
+This value is used in the algorithm to dynamically set the TCP
+send/recv window sizes. This option is likely to be removed in the
+future once a dynamic \fIbottleneckcapacity\fR algorithm is incorporated
+into the code. (This option only really works when the local NIC is
+the bottleneck.) If this option is not specified, the dynamic window
+calculation requested by the \fB-W\fR option to \fBbwctl\fR is not
+done and the advisory value is used.
+.SH SEE ALSO
+\fBbwctl(1)\fR, \fBbwctld(8)\fR, \fBbwctld.limits(5)\fR, \fBbwctld.keys(5)\fR
+and the \fBhttp://e2epi.internet2.edu/bwctl/\fR web site.
+.PP
+For details on \fBIperf\fR, see the \fBhttp://dast.nlanr.net/Projects/Iperf/\fR
+web site.

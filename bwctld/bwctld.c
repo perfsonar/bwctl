@@ -70,21 +70,22 @@ usage(
 	fprintf(stderr, "\nWhere \"options\" are:\n\n");
 
 		fprintf(stderr,
-		"   -v                verbose output\n"
-		"   -h                Print this message and exit\n"
-		"   -c confidr        Configuration directory\n"
-		"   -d datadir        Data directory\n"
-		"   -a authmode       Default supported authmodes:[E]ncrypted,[A]uthenticated,[O]pen\n"
+"   -a authmode       Default supported authmodes:[E]ncrypted,[A]uthenticated,[O]pen\n"
+"   -c confdir        Configuration directory\n"
+"   -d datadir        Data directory\n"
+"   -e facility       syslog facility to log to\n"
+"   -G group          Run as group \"group\" :-gid also valid\n"
+"   -h                Print this message and exit\n"
+"   -R vardir         Location for pid file\n"
 			);
 		fprintf(stderr,
-	        "   -S nodename:port  Srcaddr to bind to\n"
-		"      -U/-G options only used if run as root\n"
-		"   -U user           Run as user \"user\" :-uid also valid\n"
-		"   -G group          Run as group \"group\" :-gid also valid\n"
+"   -S nodename:port  Srcaddr to bind to\n"
+"      -U/-G options only used if run as root\n"
+"   -U user           Run as user \"user\" :-uid also valid\n"
+"   -v                verbose output\n"
 #ifndef	NDEBUG
-		"   -w                Debugging: busy-wait children after fork to allow attachment\n"
-		"   -Y                Allow the clock to be unsynchronized\n"
-		"   -Z                Debugging: Run in foreground\n"
+"   -w                Debugging: busy-wait children after fork to allow attachment\n"
+"   -Z                Debugging: Run in foreground\n"
 #endif
 			"\n"
 			);
@@ -1136,7 +1137,7 @@ LoadConfig(
 		}
 		else if(!strncasecmp(key,"iperfport",10)){
 			char		*hpstr = NULL;
-			u_int16_t	lport,hport;
+			u_int16_t	lport,hport,tsrt;
 			char		*end=NULL;
 			u_int32_t	tlng;
 
@@ -1175,6 +1176,13 @@ LoadConfig(
 			}
 			else{
 				hport = lport;
+			}
+
+			if(hport < lport){
+				fprintf(stderr,
+					"iperfport: invalid range specified");
+				rc=-rc;
+				break;
 			}
 
 			opts.port_range_len = hport-lport+1;
@@ -1287,7 +1295,7 @@ LoadConfig(
 	}
 
 	if(rc < 0){
-		fprintf(stderr,"%s:%d Problem parsing conffile\n",
+		fprintf(stderr,"%s:%d Problem parsing config file\n",
 								conf_file,-rc);
 		exit(1);
 	}
