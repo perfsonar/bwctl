@@ -1182,7 +1182,7 @@ AGAIN:
 				}
 				if(sig_check()) exit(1);
 				/* receiver session to STDOUT (for now) */
-				if( (err_ret =IPFEndSession(s[1]->cntrl,
+				if( (err_ret =IPFEndSession(s[0]->cntrl,
 							&ip_intr,stdout))
 							< IPFErrWARNING){
 					CloseSessions();
