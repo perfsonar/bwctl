@@ -636,6 +636,7 @@ _IPFEndpointStart(
 	}
 
 	if(ipf_term){
+		IPFError(ctx,IPFErrFATAL,errno,"Caught SIGTERM!");
 		exit(IPF_CNTRL_FAILURE);
 	}
 
