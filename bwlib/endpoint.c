@@ -30,6 +30,8 @@
 
 #include "ipcntrlP.h"
 
+static int ipf_term;
+
 /*
  * Function:	EndpointAlloc
  *
@@ -180,8 +182,7 @@ epssock(
 	socklen_t		sbuff_len = sizeof(sbuff);
 	struct sockaddr		*saddr = (struct sockaddr *)&sbuff;
 
-	localaddr = (tsess->conf_sender)?
-			tsess->test_spec.sender: tsess->test_spec.receiver;
+	localaddr = tsess->test_spec.receiver;
 
 	fd = socket(localaddr->ai->ai_family,SOCK_STREAM,IPPROTO_IP);
 	if(fd < 0){
@@ -203,13 +204,19 @@ epssock(
 				setsockopt(fd,IPPROTO_IPV6,IPV6_V6ONLY,
 				&on,sizeof(on)) != 0){
 		IPFError(tsess->cntrl->ctx,IPFErrFATAL,errno,
-				"setsockopt(SO_REUSEADDR): %M");
+				"setsockopt(!IPV6_V6ONLY): %M");
 		goto failsock;
 	}
 #endif
 
 	if(bind(fd,localaddr->ai->ai_addr,localaddr->ai->ai_addrlen) != 0){
 		IPFError(tsess->cntrl->ctx,IPFErrFATAL,errno,"bind(): %M");
+		goto failsock;
+	}
+
+	/* set listen backlog to 1 - we only expect 1 client */
+	if(listen(fd,1) != 0){
+		IPFError(tsess->cntrl->ctx,IPFErrFATAL,errno,"listen(): %M");
 		goto failsock;
 	}
 
@@ -275,6 +282,32 @@ getsidaeskey(
 	return True;
 }
 
+static void
+sig_catch(
+		int	signo
+		)
+{
+	switch(signo){
+		case SIGTERM:
+		case SIGINT:
+		case SIGHUP:
+		case SIGALRM:
+			ipf_term++;
+			break;
+		case SIGCHLD:
+			ipf_chld++;
+			break;
+		default:
+			IPFError(NULL,IPFErrFATAL,IPFErrUNKNOWN,
+					"sig_catch: Invalid signal(%d)",signo);
+			abort();
+	}
+
+	ipf_intr++;
+
+	return;
+}
+
 IPFBoolean
 _IPFEndpointStart(
 	IPFTestSession	tsess,
@@ -284,10 +317,15 @@ _IPFEndpointStart(
 {
 	IPFContext		ctx = tsess->cntrl->ctx;
 	IPFEndpoint		ep;
+	int			ssockfd;
 	char			fname[PATH_MAX+1];
 	IPFGetAESKeyFunc	getaeskey = getsidaeskey;
 	sigset_t		sigs;
 	sigset_t		osigs;
+	struct sigaction	act;
+	IPFTimeStamp		currtime;
+	IPFNum64		reltime;
+	struct itimerval	itval;
 
 	if( !(tsess->localfp = tfile(tsess)) ||
 			!(tsess->remotefp = tfile(tsess))){
@@ -298,11 +336,10 @@ _IPFEndpointStart(
 		return False;
 	}
 
-	if(tsess->conf_sender){
-		if( (ep->ssockfd = epssock(tsess,dataport)) < 0){
-			EndpointFree(ep);
-			return False;
-		}
+	if(tsess->conf_receiver &&
+			((ssockfd = epssock(tsess,dataport)) < 0)){
+		EndpointFree(ep);
+		return False;
 	}
 
 	/*
@@ -315,12 +352,14 @@ _IPFEndpointStart(
 	sigaddset(&sigs,SIGTERM);
 	sigaddset(&sigs,SIGINT);
 	sigaddset(&sigs,SIGCHLD);
+	sigaddset(&sigs,SIGALRM);
 
 	if(sigprocmask(SIG_BLOCK,&sigs,&osigs) != 0){
 		IPFError(ctx,IPFErrFATAL,errno,"sigprocmask(): %M");
 		EndpointFree(ep);
 		return False;
 	}
+	tsess->endpoint = ep;
 
 	ep->child = fork();
 
@@ -330,6 +369,7 @@ _IPFEndpointStart(
 		(void)sigprocmask(SIG_SETMASK,&osigs,NULL);
 		IPFError(ctx,IPFErrFATAL,serr,"fork(): %M");
 		EndpointFree(ep);
+		tsess->endpoint = NULL;
 		return False;
 	}
 
@@ -337,36 +377,224 @@ _IPFEndpointStart(
 		/* parent */
 		int	cstatus;
 
-		if(sigprocmask(SIG_BLOCK,&sigs,&osigs) != 0){
+		if(sigprocmask(SIG_BLOCK,&osigs,NULL) != 0){
 			IPFError(ctx,IPFErrFATAL,errno,"sigprocmask(): %M");
 			kill(ep->child,SIGINT);
 			ep->wopts &= ~WNOHANG;
 			while((waitpid(ep->child,&cstatus,ep->wopts) < 0) &&
 					(errno == EINTR));
 			EndpointFree(ep);
+			tsess->endpoint = NULL;
 			return False;
 		}
 
 		EndpointClear(ep);
+
 		return True;
 	}
 
 	/* child */
 
-#if	NOT
-	HERE
+#ifndef	NDEBUG
+	/*
+	 * busy loop to wait for debugger attachment
+	 */
+	{
+		int	waitfor = (int)IPFContextConfigGet(ctx,IPFChildWait);
 
-	ep->rcntrl = IPFControlOpen(ctx,
+		while(waitfor);
+	}
+#endif
+
+	/*
+	 * Set sig handlers
+	 */
+	ipf_term = ipf_intr = ipf_chld = 0;
+	memset(&act,0,sizeof(act));
+	act.sa_handler = sig_catch;
+	sigemptyset(&act.sa_mask);
+	if(		(sigaction(SIGTERM,&act,NULL) != 0) ||
+			(sigaction(SIGINT,&act,NULL) != 0) ||
+			(sigaction(SIGCHLD,&act,NULL) != 0) ||
+			(sigaction(SIGALRM,&act,NULL) != 0) ||
+			(sigaction(SIGHUP,&act,NULL) != 0)
+			){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"sigaction(): %M");
+		exit(IPF_CNTRL_FAILURE);
+	}
+
+	if(sigprocmask(SIG_BLOCK,&osigs,NULL) != 0){
+		IPFError(ctx,IPFErrFATAL,errno,"sigprocmask(): %M");
+		exit(IPF_CNTRL_FAILURE);
+	}
+
+	if(ipf_term){
+		exit(IPF_CNTRL_FAILURE);
+	}
+
+	/*
+	 * Now fork again. The child will go on to "exec" iperf at the
+	 * appropriate time. The parent will open a connection to the other
+	 * endpoint for the test results exchange.
+	 */
+
+	ep->child = fork();
+
+	if(ep->child < 0){
+		/* fork error */
+		IPFError(ctx,IPFErrFATAL,errno,"fork(): %M");
+		exit(IPF_CNTRL_FAILURE);
+	}
+
+	if(ep->child == 0){
+		iperf(ep);
+		/* NOTREACHED */
+	}
+
+	/********************************************************************
+	 * The remainder of this procedure is the endpoint control process  *
+	 ********************************************************************/
+
+	/*
+	 * Reset the GetAESKey function to use the SID for the AESKey in
+	 * the Endpoint to Endpoint control connection setup.
+	 */
+	if(		!IPFContextConfigSet(ctx,IPFGetAESKey,
+							(void*)getaeskey) ||
+			!IPFContextConfigSet(ctx,_IPFGetSIDAESKEY,
+							(void*)tsess->sid)
+			){
+		IPFError(ctx,IPFErrFATAL,errno,
+				"Unable to setup SID for endpoint: %M");
+		goto end;
+	}
+
+	/*
+	 * Set a timer - if we have not established a connection with
+	 * the remote endpoint before the time the test should start,
+	 * exit.
+	 */
+	if(!IPFGetTimestamp(ctx,&currtime)){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+				"IPFGetTimestamp(): %M");
+		goto end;
+	}
+
+	if(IPFNum64Cmp(tsess->reserve_time,currtime->ipftime) < 0){
+		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+				"endpoint to endpoint setup too late");
+		goto end;
+	}
+
+	reltime = IPFNum64Sub(tsess->reserve_time,currtime->ipftime);
+
+	memset(&itval,0,sizeof(itval));
+	IPFNum64ToTimeval(&itval.itvalue,reltime);
+	if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+		IPFError(ctx,IPFErrFATAL,errno,"setitimer(): %M");
+		goto end;
+	}
+
+	if(tsess->conf_recv){
+		struct sockaddr_storage	sbuff;
+		socklen_t		sbuff_len;
+		int			connfd;
+
+ACCEPT:
+		sbuff_len = sizeof(sbuff);
+		connfd = accept(ssockfd,(struct sockaddr *)&sbuff,
+								&sbuff_len);
+		if(ipf_term)
+			goto end;
+
+		if(connfd < 0){
+			if(errno == EINTR && !ipf_term){
+				goto ACCEPT;
+			}
+			IPFError(ctx,IPFErrFATAL,errno,
+					"Unable to connect endpoint cntrl: %M");
+			goto end;
+		}
+
+		/*
+		 * Only allow connections from the remote testaddr
+		 */
+		if(I2SockAddrEqual(cntrl->remote_addr->saddr,
+					cntrl->remote_addr->saddrlen,
+					(struct sockaddr *)sbuff,sbuff_len,
+					I2SADDR_ADDR) <= 0){
+			IPFError(ctx,IPFErrFATAL,IPFErrPOLICY,
+					"Connect from invalid addr");
+			while((close(connfd) != 0) && (errno == EINTR));
+			goto ACCEPT;
+		}
+
+		close(ssockfd);
+		ssockfd = -1;
+
+		ep->rcntrl = IPFControlAccept(ctx,connfd,
+				(struct sockaddr *)sbuff,sbuff_len,
+				tsess->cntrl->mode,currtime->ipftime,
+				&ipf_term,err_ret);
+	}
+	else{
+		ep->rcntrl = IPFControlOpen(ctx,
 				IPFAddrByLocalControl(tsess->cntrl),
 				_IPFAddrCopy(tsess->cntrl->remote_addr),
 				tsess->cntrl->mode,
 				"endpoint",
 				NULL,
 				err_ret);
-				}
-#else
-	return False;
-#endif
+	}
+	if(!ep->rcntrl)
+		goto end;
+
+	/*
+	 * Now that we have established communication, reset the timer
+	 * for just past the end of the test period. (one second past)
+	 */
+	if(!IPFGetTimestamp(ctx,&currtime)){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+				"IPFGetTimestamp(): %M");
+		goto end;
+	}
+
+	if(IPFNum64Cmp(tsess->reserve_time,currtime->ipftime) < 0){
+		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+				"endpoint to endpoint setup too late");
+		goto end;
+	}
+
+	reltime = IPFNum64Sub(tsess->reserve_time,currtime->ipftime);
+	reltime = IPFNum64Add(reltime,
+			IPFULongToNum64(tsess->test_spec.duration + 1));
+
+	memset(&itval,0,sizeof(itval));
+	IPFNum64ToTimeval(&itval.itvalue,reltime);
+	if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+		IPFError(ctx,IPFErrFATAL,errno,"setitimer(): %M");
+		goto end;
+	}
+
+	/*
+	 * Fake lcntrl socket into "test" mode and set it up with the
+	 * same tsess record as the parent process.
+	 */
+	ep->rcntrl->tests = tsess;
+	ep->rcntrl->state |= _IPFStateTest;
+
+	HERE
+	FIGURE OUT FILE I/O StopSessionsWait is messed up!
+
+end:
+
+	if(ep->child > 0){
+		kill(ep->child,SIGINT);
+		ep->wopts &= ~WNOHANG;
+		while((waitpid(ep->child,&cstatus,ep->wopts) < 0) &&
+				(errno == EINTR));
+	}
+	exit(IPF_CNTRL_FAILURE);
 }
 
 IPFBoolean

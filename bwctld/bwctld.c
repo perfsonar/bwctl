@@ -479,7 +479,7 @@ ACCEPT:
 #endif
 		/*
 		 * TODO: Close all open file descriptors not needed by this
-		 * child?
+		 * child.
 		 */
 
 		/*
