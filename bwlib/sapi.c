@@ -620,7 +620,7 @@ IPFControlAccept(
 			IPFError(ctx,IPFErrINFO,IPFErrPOLICY,
        "ControlSession request to (%s:%s) denied from userid(%s):(%s:%s)",
 				cntrl->local_addr->node,cntrl->local_addr->port,
-				(cntrl->userid)?cntrl->userid:(u_int8_t*)"nil",
+				(cntrl->userid)?cntrl->userid:"nil",
 				cntrl->remote_addr->node,
 				cntrl->remote_addr->port);
 			/*
@@ -647,7 +647,7 @@ IPFControlAccept(
 	IPFError(ctx,IPFErrINFO,IPFErrPOLICY,
 		"ControlSession([%s]:%s) accepted from userid(%s):([%s]:%s)",
 		cntrl->local_addr->node,cntrl->local_addr->port,
-		(cntrl->userid)?cntrl->userid:(u_int8_t*)"nil",
+		(cntrl->userid)?cntrl->userid:"nil",
 		cntrl->remote_addr->node,
 		cntrl->remote_addr->port);
 	
@@ -723,19 +723,6 @@ IPFProcessTestRequest(
 	}
 
 	if(tsession->conf_receiver && (_IPFCreateSID(tsession) != 0)){
-		err_ret = IPFErrWARNING;
-		acceptval = IPF_CNTRL_FAILURE;
-		goto error;
-	}
-
-	/*
-	 * Now that we know the SID we can create the schedule
-	 * context.
-	 */
-	if(!(tsession->sctx = IPFScheduleContextCreate(cntrl->ctx,
-					tsession->sid,&tsession->test_spec))){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-					"Unable to init schedule generator");
 		err_ret = IPFErrWARNING;
 		acceptval = IPF_CNTRL_FAILURE;
 		goto error;
@@ -886,7 +873,7 @@ err2:
 }
 
 IPFErrSeverity
-IPFProcessStartSessions(
+IPFProcessStartSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr
 	)
@@ -901,7 +888,7 @@ IPFProcessStartSessions(
 		intr = retn_on_intr;
 	}
 
-	if( (rc = _IPFReadStartSessions(cntrl,intr)) < IPFErrOK)
+	if( (rc = _IPFReadStartSession(cntrl,intr)) < IPFErrOK)
 		return _IPFFailControlSession(cntrl,rc);
 
 	if( (rc = _IPFWriteControlAck(cntrl,intr,IPF_CNTRL_ACCEPT)) < IPFErrOK)
@@ -910,7 +897,7 @@ IPFProcessStartSessions(
 	for(tsession = cntrl->tests;tsession;tsession = tsession->next){
 		if(tsession->endpoint){
 			if(!_IPFEndpointStart(tsession->endpoint,&err)){
-				(void)_IPFWriteStopSessions(cntrl,intr,
+				(void)_IPFWriteStopSession(cntrl,intr,
 							    IPF_CNTRL_FAILURE);
 				return _IPFFailControlSession(cntrl,err);
 			}
@@ -919,338 +906,4 @@ IPFProcessStartSessions(
 	}
 
 	return err2;
-}
-
-struct DoDataState{
-	IPFControl	cntrl;
-	IPFErrSeverity	err;
-	IPFBoolean	send;
-	u_int32_t	begin;
-	u_int32_t	end;
-	u_int32_t	inbuf;
-	u_int64_t	count;
-	u_int32_t	maxiseen;
-	int		*intr;
-};
-
-static int
-DoDataRecords(
-	IPFDataRec	*rec,
-	void		*udata
-	)
-{
-	struct DoDataState	*dstate = (struct DoDataState *)udata;
-	IPFControl		cntrl = dstate->cntrl;
-	u_int8_t		*buf = (u_int8_t*)cntrl->msg;
-
-	/*
-	 * If this record is not in range - return 0 to continue on.
-	 */
-	if((rec->seq_no < dstate->begin) || (rec->seq_no > dstate->end)){
-		return 0;
-	}
-
-	dstate->count++;
-
-	/*
-	 * Save largest index seen that is not lost.
-	 * (This allows this data to be parsed again to count only those
-	 * records before this index for the purposes of fetching a
-	 * partial valid session even if it was unable to terminate
-	 * properly.)
-	 */
-	if((rec->seq_no > dstate->maxiseen) && !IPFIsLostRecord(rec)){
-		dstate->maxiseen = rec->seq_no;
-	}
-
-	if(dstate->send){
-		/*
-		 * Encode this record into cntrl->msg buffer.
-		 */
-		if(!_IPFEncodeDataRecord(&buf[dstate->inbuf*_IPF_TESTREC_SIZE],
-									rec)){
-			return -1;
-		}
-		dstate->inbuf++;
-
-		/*
-		 * If the buffer is full enough to send, do so.
-		 */
-		if(dstate->inbuf == _IPF_FETCH_TESTREC_BLOCKS){
-			if(_IPFSendBlocksIntr(cntrl,buf,_IPF_FETCH_AES_BLOCKS,
-					dstate->intr) != _IPF_FETCH_AES_BLOCKS){
-				dstate->err = IPFErrFATAL;
-				_IPFFailControlSession(cntrl,IPFErrFATAL);
-				return -1;
-			}
-			dstate->inbuf = 0;
-		}
-	}
-
-	return 0;
-}
-
-IPFErrSeverity
-IPFProcessFetchSession(
-	IPFControl	cntrl,
-	int		*retn_on_intr
-	)
-{
-	u_int8_t		*buf = (u_int8_t*)cntrl->msg;
-	IPFErrSeverity  	err;
-	IPFAcceptType		acceptval = IPF_CNTRL_REJECT;
-	u_int32_t		begin;
-	u_int32_t		end;
-	IPFSID			sid;
-
-	FILE			*fp;
-	char			fname[PATH_MAX];
-
-	u_int32_t		ver;
-	u_int32_t		fin;
-	off_t			hdr_off,tr_off,tr_size;
-	struct stat		stat_buf;
-
-	u_int64_t		filerecs;
-	u_int64_t		sendrecs;
-	struct DoDataState	dodata;
-
-	int			ival=0;
-	int			*intr = &ival;
-
-	if(retn_on_intr){
-		intr = retn_on_intr;
-	}
-
-	/*
-	 * Read the complete FetchSession request.
-	 */
-	if((err = _IPFReadFetchSession(cntrl,intr,&begin,&end,sid)) < IPFErrOK){
-		return _IPFFailControlSession(cntrl, err);
-	}
-
-	/*
-	 * Try and open the file containing sid information.
-	 */
-	if( !(fp = _IPFCallOpenFile(cntrl,NULL,sid,fname))){
-		goto reject;
-	}
-
-	/*
-	 * Read the file header - fp will end up at beginning of
-	 * TestRequest record.
-	 */
-	if(_IPFReadDataHeaderInitial(cntrl->ctx,fp,&ver,&fin,&hdr_off,
-								&stat_buf)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"_IPFReadDataHeaderInitial(\"%s\"): %M",fname);
-		goto failed;
-	}
-
-	/*
-	 * Only version 2 files can be used to produce valid v5 Fetch
-	 * response messages.
-	 */
-	if(ver < 2){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-		"IPFProcessFetchSession(\"%s\"): Invalid file version: %d",
-			fname,ver);
-		goto failed;
-	}
-
-	if(fin == _IPF_SESSION_FIN_ERROR){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"IPFProcessFetchSession(\"%s\"): Invalid file!",
-			fname);
-		goto failed;
-	}
-
-	/*
-	 * If a "complete" session was requested, and the test did not
-	 * terminate normally - we MUST deny here.
-	 */
-	if((begin == 0) && (end == 0xFFFFFFFF) &&
-					(fin != _IPF_SESSION_FIN_NORMAL)){
-		goto reject;
-	}
-
-	/*
-	 * Determine size of TestReq - then check that the TestReq is
-	 * non-zero and a multiple of AES blocksize.
-	 */
-	if( (tr_off = ftello(fp)) < 0){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,"ftello(): %M");
-		goto failed;
-	}
-	tr_size = hdr_off - tr_off;
-	if((tr_off >= hdr_off) || (tr_size % _IPF_RIJNDAEL_BLOCK_SIZE)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-		"IPFProcessFetchSession(\"%s\"): Invalid record offsets");
-		goto failed;
-	}
-
-	/*
-	 * Determine number of records in the file.
-	 */
-	filerecs = (stat_buf.st_size-hdr_off)/_IPF_TESTREC_SIZE;
-
-	/*
-	 * setup the state record for parsing the records.
-	 */
-	dodata.cntrl = cntrl;
-	dodata.intr = intr;
-	dodata.err = IPFErrOK;
-	dodata.send = False;
-	dodata.begin = begin;
-	dodata.end = end;
-	dodata.inbuf = 0;
-	dodata.count = 0;
-	dodata.maxiseen = 0;
-
-	/*
-	 * Now - count the number of records that will be sent.
-	 * short-cut the count if full session is requested.
-	 */
-	if((fin == _IPF_SESSION_FIN_NORMAL) &&
-					(begin == 0) && (end == 0xFFFFFFFF)){
-		sendrecs = filerecs;
-	}
-	else{
-		/* forward pointer to data records for counting */
-		if(fseeko(fp,hdr_off,SEEK_SET)){
-			IPFError(cntrl->ctx,IPFErrFATAL,errno,"fseeko(): %M");
-			goto failed;
-		}
-		/*
-		 * Now, count the records in range.
-		 */
-		if(IPFParseRecords(cntrl->ctx,fp,filerecs,ver,
-					DoDataRecords,&dodata) != IPFErrOK){
-			goto failed;
-		}
-		sendrecs = dodata.count;
-		dodata.count = 0;
-
-		/* set pointer back to beginning of TestReq */
-		if(fseeko(fp,tr_off,SEEK_SET)){
-			IPFError(cntrl->ctx,IPFErrFATAL,errno,"fseeko(): %M");
-			goto failed;
-		}
-
-		/*
-		 * If the session did not complete normally, redo the
-		 * count ignoring all "missing" packets after the
-		 * last seen one.
-		 */
-		if((fin != 1) && (dodata.maxiseen != end)){
-			dodata.end = dodata.maxiseen;
-			dodata.maxiseen = 0;
-
-			if(IPFParseRecords(cntrl->ctx,fp,filerecs,ver,
-					DoDataRecords,&dodata) != IPFErrOK){
-				goto failed;
-			}
-			sendrecs = dodata.count;
-			dodata.count = 0;
-
-			/* set pointer back to beginning of TestReq */
-			if(fseeko(fp,tr_off,SEEK_SET)){
-				IPFError(cntrl->ctx,IPFErrFATAL,errno,
-							"fseeko(): %M");
-				goto failed;
-			}
-		}
-	}
-
-	/*
-	 * Now accept the FetchRequest.
-	 */
-	acceptval = IPF_CNTRL_ACCEPT;
-	if((err = _IPFWriteControlAck(cntrl,intr,acceptval)) < IPFErrOK){
-		_IPFCallCloseFile(cntrl,NULL,fp,IPF_CNTRL_FAILURE);
-		return _IPFFailControlSession(cntrl,err);
-	}
-
-	/*
-	 * Read the TestReq from the file and write it to the socket.
-	 * (after this loop - fp is positioned at hdr_off.
-	 */
-	while((tr_size > 0) &&
-			(fread(buf,1,_IPF_RIJNDAEL_BLOCK_SIZE,fp) ==
-			 			_IPF_RIJNDAEL_BLOCK_SIZE)){
-		if(_IPFSendBlocksIntr(cntrl,buf,1,intr) != 1){
-			_IPFCallCloseFile(cntrl,NULL,fp,IPF_CNTRL_FAILURE);
-			return _IPFFailControlSession(cntrl,IPFErrFATAL);
-		}
-		tr_size -= _IPF_RIJNDAEL_BLOCK_SIZE;
-	}
-
-	/*
-	 * Send the number of records.
-	 */
-	if((err = _IPFWriteFetchRecordsHeader(cntrl,intr,sendrecs)) < IPFErrOK){
-		_IPFCallCloseFile(cntrl,NULL,fp,IPF_CNTRL_FAILURE);
-		return _IPFFailControlSession(cntrl,err);
-	}
-
-	/*
-	 * Now, send the data!
-	 */
-	dodata.send = True;
-	if( (IPFParseRecords(cntrl->ctx,fp,filerecs,ver,
-			DoDataRecords,&dodata) != IPFErrOK) ||
-						(dodata.count != sendrecs)){
-		_IPFCallCloseFile(cntrl,NULL,fp,IPF_CNTRL_FAILURE);
-		return _IPFFailControlSession(cntrl,err);
-	}
-
-	/*
-	 * We are done reading from the file - close it.
-	 */
-	_IPFCallCloseFile(cntrl,NULL,fp,IPF_CNTRL_ACCEPT);
-
-	/*
-	 * zero pad any "incomplete" records...
-	 */
-	assert(dodata.inbuf < _IPF_FETCH_TESTREC_BLOCKS);
-	/* zero out any partial data blocks */
-	while(dodata.inbuf && (dodata.inbuf < _IPF_FETCH_TESTREC_BLOCKS)){
-		memset(&buf[dodata.inbuf*_IPF_TESTREC_SIZE],0,
-							_IPF_TESTREC_SIZE);
-		dodata.inbuf++;
-	}
-
-	/* send final data blocks */
-	if(dodata.inbuf &&
-		(_IPFSendBlocksIntr(cntrl,buf,_IPF_FETCH_AES_BLOCKS,intr) !=
-							_IPF_FETCH_AES_BLOCKS)){
-		return _IPFFailControlSession(cntrl,err);
-	}
-
-	/* now send final Zero Integrity Block */
-	if(_IPFSendBlocksIntr(cntrl,cntrl->zero,1,intr) != 1){
-		return _IPFFailControlSession(cntrl,err);
-	}
-
-	/*
-	 * reset state to request.
-	 */
-	cntrl->state &= ~_IPFStateFetching;
-	cntrl->state |= _IPFStateRequest;
-
-	return IPFErrOK;
-
-failed:
-	acceptval = IPF_CNTRL_FAILURE;
-reject:
-	if(fp){
-		_IPFCallCloseFile(cntrl,NULL,fp,acceptval);
-	}
-
-	if( (err = _IPFWriteControlAck(cntrl,intr,acceptval)) < IPFErrOK){
-		return _IPFFailControlSession(cntrl,err);
-	}
-
-	return IPFErrINFO;
-
 }

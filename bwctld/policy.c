@@ -1964,6 +1964,8 @@ IPFDCheckTestPolicy(
 
 	tinfo->node = node;
 
+	/* TODO: VAlIDATE THE REQUEST! */
+#if	TODO
 	/*
 	 * Check bandwidth
 	 */
@@ -2001,6 +2003,7 @@ IPFDCheckTestPolicy(
 			goto done;
 		}
 	}
+#endif
 
 	*closure = tinfo;
 	return True;

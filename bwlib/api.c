@@ -510,32 +510,6 @@ _IPFTestSessionAlloc(
 	test->conf_receiver = conf_receiver;
 	memcpy(&test->test_spec,test_spec,sizeof(IPFTestSpec));
 
-	/*
-	 * Allocate memory for slot records if they won't fit in the
-	 * pre-allocated "buffer" already associated with the TestSession
-	 * record. Then copy the slot records.
-	 * (From the server side, slots will be 0 at this point - the
-	 * SessionRecord is allocated before reading the slots off the
-	 * socket so the SessionRecord slot "buffer" can potentially be used.)
-	 */
-	if(test->test_spec.slots){
-		if(test->test_spec.nslots > _IPFSLOT_BUFSIZE){
-			if(!(test->test_spec.slots =
-						calloc(test->test_spec.nslots,
-							sizeof(IPFSlot)))){
-				IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-						"calloc(%d,IPFSlot): %M",
-						test->test_spec.nslots);
-				free(test);
-				return NULL;
-			}
-		}else{
-			test->test_spec.slots = test->slot_buffer;
-		}
-		memcpy(test->test_spec.slots,test_spec->slots,
-					test_spec->nslots*sizeof(IPFSlot));
-	}
-
 	return test;
 }
 
@@ -590,11 +564,6 @@ _IPFTestSessionFree(
 
 	if(tsession->sctx){
 		IPFScheduleContextFree(tsession->sctx);
-	}
-
-	if(tsession->test_spec.slots &&
-			(tsession->test_spec.slots != tsession->slot_buffer)){
-		free(tsession->test_spec.slots);
 	}
 
 	free(tsession);
@@ -661,7 +630,7 @@ _IPFCreateSID(
 }
 
 IPFErrSeverity
-IPFStopSessions(
+IPFStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
 	IPFAcceptType	*acceptval_ret	/* in/out	*/
@@ -707,7 +676,7 @@ IPFStopSessions(
 		*acceptval = IPF_CNTRL_FAILURE;
 	}
 
-	err = (IPFErrSeverity)_IPFWriteStopSessions(cntrl,intr,*acceptval);
+	err = (IPFErrSeverity)_IPFWriteStopSession(cntrl,intr,*acceptval);
 	if(err < IPFErrWARNING)
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	err2 = MIN(err,err2);
@@ -715,16 +684,16 @@ IPFStopSessions(
 	msgtype = IPFReadRequestType(cntrl,intr);
 	if(msgtype == IPFReqSockClose){
 		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-				"IPFStopSessions:Control socket closed: %M");
+				"IPFStopSession:Control socket closed: %M");
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	}
-	if(msgtype != IPFReqStopSessions){
+	if(msgtype != IPFReqStopSession){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
 				"Invalid protocol message received...");
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	}
 
-	err = _IPFReadStopSessions(cntrl,acceptval,intr);
+	err = _IPFReadStopSession(cntrl,acceptval,intr);
 
 	/*
 	 * TODO: v6 - use "last seq number" messages from
@@ -762,48 +731,6 @@ IPFTestPayloadSize(
 	return msg_size + padding;
 }
 
-/*
- * Function:	IPFTestPacketRate
- *
- * Description:	
- * 	This function returns the # packets/ second as a double.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-double
-IPFTestPacketRate(
-	IPFContext	ctx,
-	IPFTestSpec	*tspec
-		)
-{
-	IPFNum64	duration = IPFULongToNum64(0);
-	u_int32_t	i;
-
-	if(!tspec){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFTestPacketRate: Invalid tspec arg");
-		return 0;
-	}
-
-	if(!tspec->nslots || !tspec->slots){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-			"IPFTestPacketRate: Invalid empty test specification");
-		return 0;
-	}
-
-	for(i=0;i<tspec->nslots;i++){
-		duration = IPFNum64Add(duration,tspec->slots[i].any.mean_delay);
-	}
-
-	return (double)tspec->nslots / IPFNum64ToDouble(duration);
-}
-
 /* These lengths assume no IP options. */
 #define IPF_IP4_HDR_SIZE	20	/* rfc 791 */
 #define IPF_IP6_HDR_SIZE	40	/* rfc 2460 */
@@ -838,39 +765,6 @@ IPFTestPacketSize(
 			return 0;
 
 	return payload_size + header_size;
-}
-
-/*
- * Function:	IPFTestPacketBandwidth
- *
- * Description:	
- * 	returns the average bandwidth requirements of the given test using
- * 	the given address family, and authentication mode.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-double
-IPFTestPacketBandwidth(
-	IPFContext	ctx,
-	int		af,
-	IPFSessionMode	mode, 
-	IPFTestSpec	*tspec
-	)
-{
-	if(!tspec){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFTestPacketBandwidth: Invalid tspec arg");
-		return 0;
-	}
-
-	return IPFTestPacketRate(ctx,tspec) *
-			IPFTestPacketSize(af,mode,tspec->packet_size_padding);
 }
 
 /*
@@ -949,7 +843,7 @@ IPFSessionsActive(
 }
 
 int
-IPFStopSessionsWait(
+IPFStopSessionWait(
 	IPFControl	cntrl,
 	IPFNum64	*wake,
 	int		*retn_on_intr,
@@ -990,9 +884,9 @@ IPFStopSessionsWait(
 	 */
 	if(!IPFSessionsActive(cntrl,acceptval) || (*acceptval)){
 		/*
-		 * Sessions are complete - send StopSessions message.
+		 * Sessions are complete - send StopSession message.
 		 */
-		*err_ret = IPFStopSessions(cntrl,intr,acceptval);
+		*err_ret = IPFStopSession(cntrl,intr,acceptval);
 		return 0;
 	}
 
@@ -1056,9 +950,9 @@ AGAIN:
 		}
 
 		/*
-		 * Sessions are complete - send StopSessions message.
+		 * Sessions are complete - send StopSession message.
 		 */
-		*err_ret = IPFStopSessions(cntrl,intr,acceptval);
+		*err_ret = IPFStopSession(cntrl,intr,acceptval);
 
 		return 0;
 	}
@@ -1076,7 +970,7 @@ AGAIN:
 	msgtype = IPFReadRequestType(cntrl,intr);
 	if(msgtype == 0){
 		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"IPFStopSessionsWait: Control socket closed: %M");
+			"IPFStopSessionWait: Control socket closed: %M");
 		*err_ret = _IPFFailControlSession(cntrl,IPFErrFATAL);
 		return -1;
 	}
@@ -1087,7 +981,7 @@ AGAIN:
 		return -1;
 	}
 
-	*err_ret = _IPFReadStopSessions(cntrl,intr,acceptval);
+	*err_ret = _IPFReadStopSession(cntrl,intr,acceptval);
 	if(*err_ret != IPFErrOK){
 		cntrl->state = _IPFStateInvalid;
 		return -1;
@@ -1102,7 +996,7 @@ AGAIN:
 		*acceptval = IPF_CNTRL_FAILURE;
 	}
 
-	err2 = _IPFWriteStopSessions(cntrl,intr,*acceptval);
+	err2 = _IPFWriteStopSession(cntrl,intr,*acceptval);
 	cntrl->state &= ~_IPFStateTest;
 
 	*err_ret = MIN(*err_ret, err2);
@@ -1209,935 +1103,4 @@ bail:
 	*len = 0;
 	buf[0] = '\0';
 	return;
-}
-
-/*
- * Functions for writing and reading headers. The format varies
- * according to the version. In all cases the files starts
- * with 4 bytes of magic number, 4 bytes of version, and
- * 4 bytes of total header length (version and header length
- * fields given in network byte order). The rest depends on
- * the version as follows:
- *
- * Version 0: nothing - data records follow "hdr length".
- * Version 2: Session Request as per version 5 of the protocol (use hdr len
- * 	to skip session request, or read it using the format described
- * 	below. (All values are in network byte order.)
- *
- * File format is as follows:
- *
- * 
- * 	   0                   1                   2                   3
- * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|       "O"     |       "w"     |       "A"     |       \0      |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                        Version                                |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                      hdr length (unsigned 64bit)              |
- *	12|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	16|                        Finished                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	20|                                                               |
- *	  ...                 TestRequestPreamble (protocol.c)          ...
- *     128|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     132|	                                                          |
- *     136|                   Slot(1) definitions (16 octets each)        |
- *     140|                                                               |
- *     144|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     148:(148+(16*(nslots-1)) (16 octets for each additional slot)
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	  |                                                               |
- *	  |                   Zero Integrity Padding (16 octets)          |
- *	  |                                                               |
- *	  |                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * Then individual packet records start. (hdr_len should point to here.)
- * The format for individual packet records is:
- *
- * 	   0                   1                   2                   3
- * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                   Sequence Number                             |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                                                               |
- *	08|                   Send Timestamp                              |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	12|  Send Error Estimate          |                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               +
- *	16|                   Recv Timestamp                              |
- *	  +                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	20|                               |       Recv Error Estimate     |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- */
-
-/*
- * Function:	IPFWriteDataHeader
- *
- * Description:	
- *	Write data header to the file.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-int
-IPFWriteDataHeader(
-	IPFContext		ctx,
-	FILE			*fp,
-	IPFSessionHeader	hdr
-	)
-{
-	static char	magic[] = _IPF_MAGIC_FILETYPE;
-	u_int32_t	ver;
-	u_int32_t	finished = 2; /* 2 means unknown */
-	u_int64_t	hdr_len;
-	u_int64_t	hdr_len_net;
-	u_int8_t	*ptr;
-	off_t		hdr_off;
-			/* use u_int32_t for proper alignment */
-	u_int32_t	msg[_IPF_TEST_REQUEST_PREAMBLE_SIZE/sizeof(u_int32_t)];
-	u_int32_t	len = sizeof(msg);
-	u_int32_t	i;
-
-	if(hdr){
-		if(_IPFEncodeTestRequestPreamble(ctx,msg,&len,
-				(struct sockaddr*)&hdr->addr_sender,
-				(struct sockaddr*)&hdr->addr_receiver,
-				hdr->conf_sender,hdr->conf_receiver,
-				hdr->sid,&hdr->test_spec) != 0){
-			return 1;
-		}
-		ver = htonl(2);
-		/*
-		 * Compute the offset to the data records:
-		 * 	MAGIC+Version+HdrLen+Finished+TestRequestPramble+Slots
-		 */
-		hdr_len = sizeof(magic)+sizeof(ver)+sizeof(hdr_len)+
-			sizeof(finished)+len+16*(hdr->test_spec.nslots+1);
-	}
-	else{
-		len = 0;
-		ver = htonl(0);
-		hdr = NULL;
-		hdr_len = sizeof(magic)+sizeof(ver)+sizeof(hdr_len);
-	}
-
-
-	hdr_off = (off_t)hdr_len;
-	if(hdr_len != (u_int64_t)hdr_off){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-	"IPFWriteDataHeader: Header too large for format representation (%llu)",
-							hdr_len);
-		return 1;
-	}
-	ptr = (u_int8_t*)&hdr_len_net;
-	/*
-	 * copy low-order word (net order) to last 4 bytes of hdr_len_net
-	 */
-	*(u_int32_t*)&ptr[4] = htonl((hdr_len & 0xFFFFFFFFUL));
-	/*
-	 * copy high-order word (net order) to first 4 bytes of hdr_len_net
-	 */
-	hdr_len >>= 32;
-	*(u_int32_t*)&ptr[0] = htonl((hdr_len & 0xFFFFFFFFUL));
-
-	/*
-	 * write magic
-	 */
-	if(fwrite(magic, 1, sizeof(magic), fp) != sizeof(magic)){
-		return 1;
-	}
-
-	/*
-	 * write version
-	 */
-	if(fwrite(&ver, 1, sizeof(ver), fp) != sizeof(ver)){
-		return 1;
-	}
-
-	/*
-	 * write hdr_len - first high order word, then low order word.
-	 * Each word in network byte order.
-	 */
-	if(fwrite(&hdr_len_net,1,sizeof(hdr_len_net),fp)!=sizeof(hdr_len_net)){
-		return 1;
-	}
-
-	/*
-	 * write dynmic header
-	 */
-	if(len > 0){
-		/*
-		 * write finished
-		 */
-		if(hdr){
-			switch(hdr->finished){
-				case 0:
-				case 1:
-					finished = hdr->finished;
-					break;
-				default:
-					break;
-			}
-		}
-		finished = htonl(finished);
-		if(fwrite(&finished,1,sizeof(finished),fp) != sizeof(finished)){
-			return 1;
-		}
-
-		/*
-		 * write TestRequest preamble
-		 */
-		if(fwrite(msg,1,len,fp) != len){
-			return 1;
-		}
-
-		/*
-		 * write slots
-		 */
-		for(i=0;i<hdr->test_spec.nslots;i++){
-			/*
-			 * Each slot is one block (16 bytes)
-			 */
-			if(_IPFEncodeSlot(msg,&hdr->test_spec.slots[i]) !=
-								IPFErrOK){
-				IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFWriteDataHeader: Invalid slot record");
-				return 1;
-			}
-			if(fwrite(msg,1,16,fp) != 16){
-				return 1;
-			}
-		}
-		/*
-		 * write 16 Zero Integrity bytes
-		 */
-		memset(msg,0,16);
-		if(fwrite(msg,1,16,fp) != 16){
-			return 1;
-		}
-	}
-
-	fflush(fp);
-	return 0;
-}
-
-/*
- * Function:	IPFTestDiskspace
- *
- * Description:	
- * 	Returns the size of file a given testspec will require.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-u_int64_t
-IPFTestDiskspace(
-	IPFTestSpec	*tspec
-	)
-{
-	static char	magic[] = _IPF_MAGIC_FILETYPE;
-	u_int32_t	ver;
-	u_int32_t	finished;
-	u_int64_t	hdr_len;
-
-	hdr_len = sizeof(magic)+sizeof(ver)+sizeof(hdr_len)+
-			sizeof(finished)+_IPF_TEST_REQUEST_PREAMBLE_SIZE+
-			16*(tspec->nslots+1);
-	return hdr_len + tspec->npackets*_IPF_TESTREC_SIZE;
-}
-
-/*
- * Function:	_IPFWriteDataHeaderFinished
- *
- * Description:	
- *	Write a new "finished" word into the file. This function seeks to
- *	the correct offset for a version 2 file.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-int
-_IPFWriteDataHeaderFinished(
-	IPFContext		ctx,
-	FILE			*fp,
-	u_int32_t		finished
-	)
-{
-	int		err;
-	off_t		offset;
-	static char	magic[] = _IPF_MAGIC_FILETYPE;
-	u_int32_t	ver;
-	u_int64_t	hdr_len;
-
-	if(finished > 2){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteDataHeaderFinished: Invalid \"finished\"");
-		return 1;
-	}
-
-	if(fflush(fp) != 0){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fflush(): %M");
-		errno = err;
-		return 1;
-	}
-
-	offset = sizeof(magic)+sizeof(ver)+sizeof(hdr_len);
-	if(fseeko(fp,offset,SEEK_SET)){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fseeko(): %M");
-		errno = err;
-		return 1;
-	}
-
-	finished = htonl(finished);
-	if(fwrite(&finished,1,sizeof(finished),fp) != sizeof(finished)){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fwrite(): %M");
-		errno = err;
-		return 1;
-	}
-
-	if(fflush(fp) != 0){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fflush(): %M");
-		errno = err;
-		return 1;
-	}
-
-	return 0;
-}
-
-/*
- * Function:	IPFWriteDataRecord
- *
- * Description:	
- * 	Write a single data record described by rec to file fp.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-int
-IPFWriteDataRecord(
-	IPFContext	ctx,
-	FILE		*fp,
-	IPFDataRec	*rec
-	)
-{
-	u_int8_t	buf[_IPF_TESTREC_SIZE];
-
-	if(!_IPFEncodeDataRecord(buf,rec)){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFWriteDataRecord: Unable to encode data record");
-		return -1;
-	}
-
-	/*
-	 * write data record
-	 */
-	if(fwrite(buf,1,_IPF_TESTREC_SIZE,fp) != _IPF_TESTREC_SIZE){
-		IPFError(ctx,IPFErrFATAL,errno,
-			"IPFWriteDataRecord: fwrite(): %M");
-		return -1;
-	}
-
-	return 0;
-}
-
-/*
- * Function:	_IPFReadDataHeaderInitial
- *
- * Description:	
- * 	Read the "header" of the ipf file and determine the layout
- * 	and validity of the file.
- * 	The fp will be placed at the beginning of the TestRequest
- * 	data for version 2 files, and at the beginning of the data records
- * 	for version 0 files.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	non-zero on failure (errno will be set too.)
- * Side Effect:	
- */
-int
-_IPFReadDataHeaderInitial(
-	IPFContext	ctx,
-	FILE		*fp,
-	u_int32_t	*ver,
-	u_int32_t	*fin,
-	off_t		*hdr_off,
-	struct stat	*stat_buf
-	)
-{
-	static char	magic[] = _IPF_MAGIC_FILETYPE;
-	char		read_magic[sizeof(magic)];
-	u_int64_t	hlen,hlen_net;
-	u_int8_t	*ptr;
-	u_int32_t	t32;
-	int		err;
-	off_t		treq_size;
-
-	/*
-	 * Stat the file to get the size and check that it is really there.
-	 */
-	if(fstat(fileno(fp),stat_buf) < 0){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fstat(): %M");
-		errno = err;
-		return 1;
-	}
-
-	/*
-	 * Position fp to beginning of file.
-	 */
-	if(fseeko(fp,0,SEEK_SET)){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fseeko(): %M");
-		errno = err;
-		return 1;
-	}
-
-	/*
-	 * File must be at least as big as the initial header information.
-	 * 16 bytes is magic+version+hdr_length
-	 */
-	if(stat_buf->st_size < (off_t)16){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"_IPFReadDataHeaderInitial: Invalid ipf file");
-		/*
-		 * TODO: Check validity of this errno... May need to
-		 * use ENOSYS...
-		 */
-		errno = EFTYPE;
-		return 1;
-	}
-
-	/*
-	 * Read and check "magic".
-	 * 4 bytes
-	 */
-	if(fread(read_magic, 1, 4, fp) != 4){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fread(): %M");
-		errno = err;
-		return 1;
-	}
-	if(memcmp(read_magic,magic,4) != 0){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-		"_IPFReadDataHeaderInitial: Invalid ipf file:wrong magic");
-		/*
-		 * TODO: Check validity of this errno... May need to
-		 * use ENOSYS...
-		 */
-		errno = EFTYPE;
-		return 1;
-	}
-
-	/*
-	 * Get the file "version".
-	 * 4 byte "network long" quantity
-	 */
-	if(fread(ver, 1, 4, fp) != 4){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fread(): %M");
-		errno = err;
-		return 1;
-	}
-	*ver = ntohl(*ver);
-
-	/*
-	 * This code only supports version 0 and 2 ipf files.
-	 */
-	if((*ver != 0) && (*ver != 2)){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-		"_IPFReadDataHeaderInitial: Unknown file version (%d)",*ver);
-		errno = ENOSYS;
-		return 1;
-	}
-
-	/*
-	 * Read the header length. 8 byte/64 bit field. network byte order.
-	 * (Defined by rfc791 - Appendix B.)
-	 */
-	if(fread(&hlen_net, 1, 8, fp) != 8){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fread(): %M");
-		errno = err;
-		return 1;
-	}
-
-	/*
-	 * - Decode the 64 bit header length -
-	 *
-	 * ptr will use hlen_net as a 64 bit buffer.
-	 */
-	ptr = (u_int8_t*)&hlen_net;
-
-	/*
-	 * High order 4 bytes
-	 */
-	t32 = ntohl(*(u_int32_t*)&ptr[0]);
-	hlen = t32 & 0xFFFFFFFF;
-	hlen <<= 32;
-	/*
-	 * Low order 4 bytes
-	 */
-	t32 = ntohl(*(u_int32_t*)&ptr[4]);
-	hlen |= (t32 & 0xFFFFFFFF);
-
-	/*
-	 * place 64 bit data in off_t variable - then ensure the value is
-	 * representable on this system.
-	 */
-	*hdr_off = (off_t)hlen;
-	if(hlen != (u_int64_t)*hdr_off){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"_IPFReadDataHeaderInitial: Header too larger (%llu)",
-			hlen);
-		/*
-		 * TODO: Check validity of this errno... May need to
-		 * use ENOSYS...
-		 */
-		errno = EOVERFLOW;
-		return 1;
-	}
-
-	if(*ver != 0){
-		/*
-		 * Get the file "finished" status. Just tells us what
-		 * the recv process thought about the status.
-		 * 0: questionable termination
-		 * 1: completed normal test
-		 * 2: in-progress or unknown (recv died?)
-		 *
-		 * 4 byte "network long" quantity
-		 */
-		if(fread(fin,1,4,fp) != 4){
-			err = errno;
-			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fread(): %M");
-			errno = err;
-			return 0;
-		}
-		*fin = ntohl(*fin);
-		/*
-		 * Compute the size for the test req portion within the file for
-		 * a sanity check. 20 offset to begining of TestRequest.
-		 */
-		treq_size = *hdr_off - 20;
-	}
-	else{
-		*fin = 2; /* unknown */
-		treq_size = 0;
-	}
-
-
-	/*
-	 * Ensure the file is valid with respect to the reported header
-	 * size.
-	 */
-	if((*hdr_off > stat_buf->st_size) ||
-					(treq_size % _IPF_RIJNDAEL_BLOCK_SIZE)){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"_IPFReadDataHeaderInitial: corrupt header");
-		/*
-		 * TODO: Check validity of this errno... May need to
-		 * use ENOSYS...
-		 */
-		errno = EFTYPE;
-		return 1;
-	}
-
-	return 0;
-}
-
-/*
- * Function:	IPFReadDataHeader
- *
- * Description:	
- * Version 0: nothing - data records follow.
- * Version 2: Session Request as per version 5 of the protocol
- * 	This function does NOT read the slots into the hdr_ret->test_spec.
- * 	A separate function IPFReadDataHeaderSlots has been provided to do
- * 	that. (Memory for the slots must be provided by the caller.)
- *
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-u_int32_t
-IPFReadDataHeader(
-	IPFContext		ctx,
-	FILE			*fp,
-	off_t			*hdr_len,
-	IPFSessionHeader	hdr_ret
-	)
-{
-	int		err;
-	u_int32_t	ver;
-	u_int32_t	fin;
-	off_t		hdr_off;
-	struct stat	stat_buf;
-			/* buffer for TestRequest 32 bit aligned */
-	u_int32_t	msg[_IPF_TEST_REQUEST_PREAMBLE_SIZE/sizeof(u_int32_t)];
-
-	if(hdr_len)
-		*hdr_len = 0;
-	if(hdr_ret)
-		hdr_ret->header = 0;
-
-	if(_IPFReadDataHeaderInitial(ctx,fp,&ver,&fin,&hdr_off,&stat_buf)){
-		return 0;
-	}
-
-	/*
-	 * return hdr_off in hdr_len if it is not NULL.
-	 */
-	if(hdr_len)
-		*hdr_len = hdr_off;
-
-	/*
-	 * Decode the header if present(version 2), and wanted (hdr_ret).
-	 */
-	if((ver==2) && hdr_ret){
-
-		hdr_ret->finished = fin;
-
-		/*
-		 * read TestRequestPreamble
-		 */
-		if(fread(msg,1,_IPF_TEST_REQUEST_PREAMBLE_SIZE,fp) !=
-					_IPF_TEST_REQUEST_PREAMBLE_SIZE){
-			err = errno;
-			IPFError(ctx,IPFErrFATAL,errno,"fread(): %M");
-			errno = err;
-			return 0;
-		}
-
-		hdr_ret->addr_len = sizeof(hdr_ret->addr_sender);
-		/*
-		 * Now decode it into the hdr_ret variable.
-		 */
-		if(_IPFDecodeTestRequestPreamble(ctx,msg,
-				_IPF_TEST_REQUEST_PREAMBLE_SIZE,
-				(struct sockaddr*)&hdr_ret->addr_sender,
-				(struct sockaddr*)&hdr_ret->addr_receiver,
-				&hdr_ret->addr_len,&hdr_ret->ipvn,
-				&hdr_ret->conf_sender,&hdr_ret->conf_receiver,
-				hdr_ret->sid,&hdr_ret->test_spec) != IPFErrOK){
-			/*
-			 * TODO: Check validity of this errno... May need to
-			 * use ENOSYS...
-			 */
-			errno = EFTYPE;
-			return 0;
-		}
-
-		hdr_ret->header = True;
-	}
-
-	if(hdr_ret){
-		hdr_ret->version = ver;
-		hdr_ret->rec_size = _IPF_TESTREC_SIZE;
-	}
-
-	/*
-	 * Forward fp to data records.
-	 */
-	if(fseeko(fp,hdr_off,SEEK_SET)){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fseeko(): %M");
-		errno = err;
-		return 0;
-	}
-	return (stat_buf.st_size-hdr_off)/_IPF_TESTREC_SIZE;
-}
-
-/*
- * Function:	IPFReadDataHeaderSlots
- *
- * Description:	
- * 	This function will read all the slot records out of the
- * 	file fp. slots is assumed to be an array of IPFSlot records of
- * 	length nslots.
- *
- * 	This function will position the fp to the beginning of the data
- * 	records.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-IPFErrSeverity
-IPFReadDataHeaderSlots(
-	IPFContext		ctx,
-	FILE			*fp,
-	u_int32_t		nslots,
-	IPFSlot			*slots
-	)
-{
-	int		err;
-	u_int32_t	ver;
-	u_int32_t	fin;
-	u_int32_t	fileslots;
-	u_int32_t	i;
-	off_t		hdr_off;
-	off_t		slot_off = 132; /* see above layout of bytes */
-	struct stat	stat_buf;
-			/* buffer for Slots 32 bit aligned */
-	u_int32_t	msg[16/sizeof(u_int32_t)];
-	u_int32_t	zero[16/sizeof(u_int32_t)];
-
-	/*
-	 * validate array.
-	 */
-	assert(slots);
-
-	/*
-	 * Stat the file and get the "initial" fields from the header.
-	 */
-	if(_IPFReadDataHeaderInitial(ctx,fp,&ver,&fin,&hdr_off,&stat_buf)){
-		return 0;
-	}
-
-	/*
-	 * this function is currently only supported for version 2 files.
-	 */
-	if(ver != 2){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFReadDataHeaderSlots: Invalid file version (%d)",
-			ver);
-		errno = ENOSYS;
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * validate nslots passed in with what is in the file.
-	 * hdr_off should point to the offset in the file where the slots
-	 * are finished and the 1 block of zero padding is finished.
-	 */
-	fileslots = hdr_off - slot_off; /* bytes for slots */
-
-	/*
-	 * bytes for slots/zero padding must be of block size 16
-	 */
-	if(fileslots%16){
-		IPFError(ctx,IPFErrFATAL,EINVAL,
-			"IPFReadDataHeaderSlots: Invalid hdr_offset (%llu)",
-			hdr_off);
-		/*
-		 * TODO: Check validity of this errno... May need to
-		 * use ENOSYS...
-		 */
-		errno = EFTYPE;
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * Convert bytes to number of slots. Divide by block size, then
-	 * subtract 1 for zero integrity block.
-	 */
-	fileslots/=16;
-	fileslots--;
-
-	if(fileslots != nslots){
-		IPFError(ctx,IPFErrFATAL,EINVAL,
-"IPFReadDataHeaderSlots: nslots mismatch with file: fileslots(%d), nslots(%d)",
-			fileslots,nslots);
-		/*
-		 * TODO: Check validity of this errno... May need to
-		 * use ENOSYS...
-		 */
-		errno = EINVAL;
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * Position fp to beginning of slot records.
-	 */
-	if(fseeko(fp,slot_off,SEEK_SET)){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"fseeko(): %M");
-		errno = err;
-		return IPFErrFATAL;
-	}
-
-	for(i=0;i<nslots;i++){
-		
-		/*
-		 * Read slot into buffer.
-		 */
-		if(fread(msg,1,16,fp) != 16){
-			err = errno;
-			IPFError(ctx,IPFErrFATAL,errno,"fread(): %M");
-			errno = err;
-			return IPFErrFATAL;
-		}
-
-		/*
-		 * Decode slot buffer into slot record.
-		 */
-		if(_IPFDecodeSlot(&slots[i],msg) != IPFErrOK){
-			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"IPFReadDataHeaderSlots: Invalid Slot record");
-			errno = EFTYPE;
-			return IPFErrFATAL;
-		}
-	}
-
-	/*
-	 * Read block of Zero Integrity bytes into buffer.
-	 */
-	if(fread(msg,1,16,fp) != 16){
-		err = errno;
-		IPFError(ctx,IPFErrFATAL,errno,"fread(): %M");
-		errno = err;
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * check to make sure Zero bytes are zero.
-	 */
-	memset(zero,0,16);
-	if(memcmp(zero,msg,16) != 0){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFReadDataHeaderSlots: Invalid zero padding");
-		errno = EFTYPE;
-		return IPFErrFATAL;
-	}
-
-	return IPFErrOK;
-}
-
-/*
- * Function:	IPFParseRecords
- *
- * Description:	
- * 	Fetch num_rec records from disk calling the record proc function
- * 	on each record.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-IPFErrSeverity
-IPFParseRecords(
-	IPFContext		ctx,
-	FILE			*fp,
-	u_int32_t		num_rec,
-	u_int32_t		file_version,
-	IPFDoDataRecord		proc_rec,
-	void			*app_data
-	)
-{
-	u_int8_t	rbuf[_IPF_TESTREC_SIZE];
-	u_int32_t	i;
-	IPFDataRec	rec;
-	int		rc;
-
-	/*
-	 * Someday this function may need to deal with multiple datafile
-	 * versions. Currently it only supports 0 and 2. (both of which
-	 * require the same 24 octet data records.)
-	 */
-	if((file_version != 0) && (file_version != 2)){
-		IPFError(ctx,IPFErrFATAL,EINVAL,
-				"IPFParseRecords: Invalid file version (%d)",
-				file_version);
-		return IPFErrFATAL;
-	}
-
-	for(i=0;i<num_rec;i++){
-		if(fread(rbuf,_IPF_TESTREC_SIZE,1,fp) < 1){
-			if(ferror(fp)){
-				IPFError(ctx,IPFErrFATAL,errno,
-				"fread(): STREAM ERROR: offset=%llu,i=%lu",
-					ftello(fp),i);
-			}
-			else if(feof(fp)){
-				IPFError(ctx,IPFErrFATAL,errno,
-					"fread(): EOF: offset=%llu",ftello(fp));
-			}
-			return IPFErrFATAL;
-		}
-		if(!_IPFDecodeDataRecord(&rec,rbuf)){
-			errno = EFTYPE;
-			IPFError(ctx,IPFErrFATAL,errno,
-				"IPFParseRecords: Invalid Data Record: %M");
-			return IPFErrFATAL;
-		}
-		rc = proc_rec(&rec,app_data);
-		if(!rc) continue;
-		if(rc < 0)
-			return IPFErrFATAL;
-		return IPFErrOK;
-
-	}
-
-	return IPFErrOK;
-}
-
-/*
- * Function:	IPFIsLostRecord
- *
- * Description:	
- * 	Returns true if the given DataRec indicates a "lost" packet. This
- * 	is determined by looking at the recv timestamp. If it is a string
- * 	of zero bits, then it is lost.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-IPFBoolean
-IPFIsLostRecord(
-	IPFDataRec *rec
-	)
-{
-	return !rec->recv.ipftime;
 }

@@ -84,7 +84,6 @@ typedef	struct {
 	} opt;
 
 	char			*remote_test;
-	char			*remote_serv;
 
 	u_int32_t		auth_mode;
 
@@ -99,5 +98,12 @@ typedef	struct {
 	char			fname[PATH_MAX];
 
 } ipapp_trec, *ipapp_t;
+
+typedef struct{
+	IPFControl	cntrl;
+	IPFNum64	rttbound;
+	IPFNum64	waketime;
+	IPFTestSpec	tspec;
+} ipsess_trec, *ipsess_t;
 
 #endif

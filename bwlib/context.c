@@ -589,8 +589,8 @@ _IPFCallCheckTestPolicy(
 		return True;
 	}
 
-	return func(cntrl,local_sender,local,remote,sa_len,test_spec,closure,
-			err_ret);
+	return func(cntrl,local_sender,local,remote,sa_len,test_spec,
+			closure,err_ret);
 }
 
 /*

@@ -29,10 +29,7 @@ struct IPFScheduleContextRec {
 	u_int8_t	counter[16];	/* 128-bit counter (network order) */
 	u_int8_t	out[16];	/* encrypted block buffer.         */
 
-	u_int64_t	i;		/* current index for generation */
-	u_int64_t	maxi;
-	u_int32_t	nslots;
-	IPFSlot		*slots;
+	u_int32_t	mean;
 };
 
 /*
@@ -247,46 +244,6 @@ IPFRand64Exponent(
 }
 
 /*
- * Function:	CheckSlots
- *
- * Description:	
- * 	This function validates the slots parameter of the TestSpec
- * 	for the Create/Reset functions of the ScheduleContext. This ensures
- * 	that future calls to the GenerateDelta functions will not fail.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-static
-int CheckSlots(
-		IPFContext	ctx,
-		IPFTestSpec	*tspec
-	      )
-{
-	u_int32_t	i;
-
-	for(i=0;i<tspec->nslots;i++){
-
-		switch(tspec->slots[i].slot_type){
-			case IPFSlotRandExpType:
-			case IPFSlotLiteralType:
-				break;
-			default:
-				IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFScheduleContextGenerateNextDelta: Invalid slot");
-				return 1;
-		}
-	}
-
-	return 0;
-}
-
-/*
  * Function:	IPFScheduleContextFree
  *
  * Description:	
@@ -332,16 +289,10 @@ IPFScheduleContext
 IPFScheduleContextCreate(
 	IPFContext	ctx,
 	IPFSID		sid,
-	IPFTestSpec	*tspec
+	u_int32_t	mean
 	)
 {
 	IPFScheduleContext	sctx;
-
-	if(!tspec || !tspec->slots || !tspec->nslots || CheckSlots(ctx,tspec)){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-			"IPFScheduleContextCreate: Invalid tspec");
-		return NULL;
-	}
 
 	sctx = malloc(sizeof(*sctx));
 	if (!sctx){
@@ -361,10 +312,7 @@ IPFScheduleContextCreate(
 	memset(sctx->out,0,16);
 	memset(sctx->counter,0,16);
 
-	sctx->i = 0;
-	sctx->maxi = tspec->npackets;
-	sctx->nslots = MIN(tspec->nslots,tspec->npackets);
-	sctx->slots = tspec->slots;
+	sctx->mean = mean;
 
 	return(sctx);
 }
@@ -390,18 +338,13 @@ IPFErrSeverity
 IPFScheduleContextReset(
 	IPFScheduleContext	sctx,
 	IPFSID			sid,
-	IPFTestSpec		*tspec
+	u_int32_t		mean
 		)
 {
 	memset(sctx->out,0,16);
 	memset(sctx->counter,0,16);
-	sctx->i = 0;
 
-	if(sid && tspec){
-
-		if(CheckSlots(sctx->ctx,tspec)){
-			return IPFErrFATAL;
-		}
+	if(sid && mean){
 
 		/*
 		 * Initialize Key with sid.
@@ -409,10 +352,7 @@ IPFScheduleContextReset(
 		 * do it.)
 		 */
 		bytes2Key(&sctx->key, sid);
-
-		sctx->maxi = tspec->npackets;
-		sctx->nslots = MIN(tspec->nslots,tspec->npackets);
-		sctx->slots = tspec->slots;
+		sctx->mean = mean;
 
 	}
 
@@ -438,28 +378,6 @@ IPFScheduleContextGenerateNextDelta(
 		IPFScheduleContext	sctx
 		)
 {
-	IPFSlot		*slot;
-
-	if(sctx->i >= sctx->maxi){
-		IPFError(sctx->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-		"IPFScheduleContextGenerateNextDelta: Schedule complete");
-		return 0;
-	}
-	slot = &sctx->slots[sctx->i++ % sctx->nslots];
-
-	switch(slot->slot_type){
-		case IPFSlotRandExpType:
-			return IPFNum64Mult(IPFRand64Exponent(sctx),
-					slot->rand_exp.mean);
-		case IPFSlotLiteralType:
-			return slot->literal.offset;
-		default:
-			/* Create and reset should keep this from happening. */
-			IPFError(sctx->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFScheduleContextGenerateNextDelta: Invalid slot");
-	}
-
-	/*NOTREACHED*/
-	abort();
-	return 0;
+	return IPFNum64Mult(IPFRand64Exponent(sctx),
+			IPFULongToNum64(sctx->mean));
 }

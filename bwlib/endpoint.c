@@ -32,6 +32,7 @@
 
 #include "ipcntrlP.h"
 
+#if	NOT
 /*
  * Function:	EndpointAlloc
  *
@@ -338,6 +339,7 @@ HashLostPacket(
 
 	return *kn & 0xFFFFFFFFUL;
 }
+#endif
 
 /*
  * The endpoint init function is responsible for opening a socket, and
@@ -354,6 +356,7 @@ _IPFEndpointInit(
 	IPFErrSeverity	*err_ret
 )
 {
+#if	NOT
 	struct sockaddr_storage	sbuff;
 	socklen_t		sbuff_len=sizeof(sbuff);
 	IPFEndpoint		ep;
@@ -658,8 +661,10 @@ _IPFEndpointInit(
 error:
 	EndpointFree(ep,IPF_CNTRL_FAILURE);
 	return False;
+#endif
 }
 
+#if	NOT
 static int owp_usr1;
 static int owp_usr2;
 static int owp_int;
@@ -1635,6 +1640,7 @@ error:
 
 	exit(IPF_CNTRL_FAILURE);
 }
+#endif
 
 /*
  * Note: We explicitly do NOT connect the send udp socket. This is because
@@ -1649,6 +1655,7 @@ _IPFEndpointInitHook(
 	IPFErrSeverity	*err_ret
 )
 {
+#if	NOT
 	IPFContext		ctx = IPFGetContext(cntrl);
 	IPFEndpoint		*end_data = &tsession->endpoint;
 	IPFEndpoint		ep = tsession->endpoint;
@@ -1884,6 +1891,7 @@ parenterr:
 	IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
 			"Shouldn't get to this line of code... Hmmpf.");
 	exit(IPF_CNTRL_FAILURE);
+#endif
 }
 
 IPFBoolean
@@ -1892,6 +1900,7 @@ _IPFEndpointStart(
 	IPFErrSeverity	*err_ret
 	)
 {
+#if	NOT
 	*err_ret = IPFErrOK;
 
 	if((ep->acceptval < 0) && ep->child && (kill(ep->child,SIGUSR1) == 0))
@@ -1901,6 +1910,7 @@ _IPFEndpointStart(
 	IPFError(ep->tsession->cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 			"EndpointStart:Can't signal child #%d: %M",ep->child);
 	return False;
+#endif
 }
 
 IPFBoolean
@@ -1910,6 +1920,7 @@ _IPFEndpointStatus(
 	IPFErrSeverity	*err_ret
 	)
 {
+#if	NOT
 	pid_t			p;
 	int			childstatus;
 
@@ -1934,6 +1945,7 @@ AGAIN:
 	*err_ret = IPFErrOK;
 	*aval = ep->acceptval;
 	return True;
+#endif
 }
 
 
@@ -1944,6 +1956,7 @@ _IPFEndpointStop(
 	IPFErrSeverity	*err_ret
 	)
 {
+#if	NOT
 	int		sig;
 	int		teststatus;
 	IPFBoolean	retval;
@@ -1994,4 +2007,5 @@ done:
 	EndpointFree(ep,aval);
 
 	return retval;
+#endif
 }

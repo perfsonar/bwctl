@@ -417,8 +417,8 @@ _IPFReadServerUptime(
  * This function is called on the server side to read the first block
  * of client requests. The remaining read request messages MUST be called
  * next!.
- * It is also called by the client side from IPFStopSessionsWait and
- * IPFStopSessions
+ * It is also called by the client side from IPFStopSessionWait and
+ * IPFStopSession
  */
 IPFRequestType
 IPFReadRequestType(
@@ -454,7 +454,7 @@ IPFReadRequestType(
 	msgtype = *(u_int8_t*)cntrl->msg;
 
 	/*
-	 * StopSessions(3) message is only allowed during active tests,
+	 * StopSession(3) message is only allowed during active tests,
 	 * and it is the only message allowed during active tests.
 	 */
 	if((_IPFStateIs(_IPFStateTest,cntrl) && (msgtype != 3)) ||
@@ -473,13 +473,10 @@ IPFReadRequestType(
 			cntrl->state |= _IPFStateTestRequest;
 			break;
 		case	2:
-			cntrl->state |= _IPFStateStartSessions;
+			cntrl->state |= _IPFStateStartSession;
 			break;
 		case	3:
-			cntrl->state |= _IPFStateStopSessions;
-			break;
-		case	4:
-			cntrl->state |= _IPFStateFetchSession;
+			cntrl->state |= _IPFStateStopSession;
 			break;
 		default:
 			cntrl->state = _IPFStateInvalid;
@@ -543,6 +540,7 @@ IPFReadRequestType(
  *     108|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
+#if	NOT
 int
 _IPFEncodeTestRequestPreamble(
 		IPFContext	ctx,
@@ -956,22 +954,19 @@ _IPFDecodeSlot(
 
 	return IPFErrOK;
 }
+#endif
 
 IPFErrSeverity
 _IPFWriteTestRequest(
 	IPFControl	cntrl,
-	struct sockaddr	*sender,
-	struct sockaddr	*receiver,
-	IPFBoolean	server_conf_sender,
-	IPFBoolean	server_conf_receiver,
-	IPFSID		sid,
-	IPFTestSpec	*test_spec
+	struct sockaddr	*sender		__attribute__((unused)),
+	struct sockaddr	*receiver		__attribute__((unused)),
+	IPFBoolean	server_conf_sender		__attribute__((unused)),
+	IPFBoolean	server_conf_receiver		__attribute__((unused)),
+	IPFSID		sid		__attribute__((unused)),
+	IPFTestSpec	*test_spec		__attribute__((unused))
 )
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	u_int32_t	buf_len = sizeof(cntrl->msg);
-	u_int32_t	i;
-
 	/*
 	 * Ensure cntrl is in correct state.
 	 */
@@ -980,6 +975,11 @@ _IPFWriteTestRequest(
 			"_IPFWriteTestRequest:called in wrong state.");
 		return IPFErrFATAL;
 	}
+
+#if	TODO
+	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	u_int32_t	buf_len = sizeof(cntrl->msg);
+	u_int32_t	i;
 
 	/*
 	 * Encode test request variables that were passed in into
@@ -1024,12 +1024,14 @@ _IPFWriteTestRequest(
 		return IPFErrFATAL;
 	}
 
+#endif
 	cntrl->state |= _IPFStateTestAccept;
 
 	return IPFErrOK;
 }
 
 
+#if	NOT
 /*
  * Function:	_IPFReadTestRequestSlots
  *
@@ -1160,6 +1162,7 @@ _IPFReadTestRequestSlots(
 
 	return IPFErrOK;
 }
+#endif
 
 /*
  * Function:	AddrBySAddrRef
@@ -1264,11 +1267,18 @@ AddrBySAddrRef(
 IPFErrSeverity
 _IPFReadTestRequest(
 	IPFControl	cntrl,
-	int		*retn_on_intr,
-	IPFTestSession	*test_session,
-	IPFAcceptType	*accept_ret
+	int		*retn_on_intr __attribute__((unused)),
+	IPFTestSession	*test_session __attribute__((unused)),
+	IPFAcceptType	*accept_ret __attribute__((unused))
 )
 {
+	if(!_IPFStateIs(_IPFStateTestRequest,cntrl)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"_IPFReadTestRequest: called in wrong state.");
+		return IPFErrFATAL;
+	}
+
+#if	NOT
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 	IPFErrSeverity	err_ret=IPFErrOK;
 	struct sockaddr_storage	sendaddr_rec;
@@ -1294,11 +1304,6 @@ _IPFReadTestRequest(
 	memset(&tspec,0,sizeof(tspec));
 	memset(sid,0,sizeof(sid));
 
-	if(!_IPFStateIs(_IPFStateTestRequest,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTestRequest: called in wrong state.");
-		return IPFErrFATAL;
-	}
 
 	/*
 	 * Setup an IPFAcceptType return in the event this function is
@@ -1462,6 +1467,9 @@ error:
 	}
 
 	return err_ret;
+#endif
+
+	return IPFErrFATAL;
 }
 
 /*
@@ -1574,7 +1582,7 @@ _IPFReadTestAccept(
 
 /*
  *
- * 	StartSessions message format:
+ * 	StartSession message format:
  *
  * 	size: 32 octets
  *
@@ -1595,7 +1603,7 @@ _IPFReadTestAccept(
  *
  */
 IPFErrSeverity
-_IPFWriteStartSessions(
+_IPFWriteStartSession(
 	IPFControl	cntrl
 	)
 {
@@ -1603,7 +1611,7 @@ _IPFWriteStartSessions(
 
 	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsPending(cntrl)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteStartSessions:called in wrong state.");
+			"_IPFWriteStartSession:called in wrong state.");
 		return IPFErrFATAL;
 	}
 
@@ -1624,7 +1632,7 @@ _IPFWriteStartSessions(
 }
 
 IPFErrSeverity
-_IPFReadStartSessions(
+_IPFReadStartSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr
 )
@@ -1632,9 +1640,9 @@ _IPFReadStartSessions(
 	int		n;
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIs(_IPFStateStartSessions,cntrl)){
+	if(!_IPFStateIs(_IPFStateStartSession,cntrl)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStartSessions called in wrong state.");
+				"_IPFReadStartSession called in wrong state.");
 		return IPFErrFATAL;
 	}
 
@@ -1651,7 +1659,7 @@ _IPFReadStartSessions(
 
 	if(n != (_IPF_STOP_SESSIONS_BLK_LEN-1)){
 		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadStartSessions:Unable to read from socket.");
+			"_IPFReadStartSession:Unable to read from socket.");
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
@@ -1665,7 +1673,7 @@ _IPFReadStartSessions(
 
 	if(buf[0] != 2){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadStartSessions:Not a StartSessions message...");
+			"_IPFReadStartSession:Not a StartSession message...");
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
@@ -1673,7 +1681,7 @@ _IPFReadStartSessions(
 	/*
 	 * The control connection is now ready to send the response.
 	 */
-	cntrl->state &= ~_IPFStateStartSessions;
+	cntrl->state &= ~_IPFStateStartSession;
 	cntrl->state |= _IPFStateControlAck;
 	cntrl->state |= _IPFStateTest;
 
@@ -1682,7 +1690,7 @@ _IPFReadStartSessions(
 
 /*
  *
- * 	StopSessions message format:
+ * 	StopSession message format:
  *
  * 	size: 32 octets
  *
@@ -1703,7 +1711,7 @@ _IPFReadStartSessions(
  *
  */
 IPFErrSeverity
-_IPFWriteStopSessions(
+_IPFWriteStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
 	IPFAcceptType	acceptval
@@ -1715,7 +1723,7 @@ _IPFWriteStopSessions(
 	if(!(_IPFStateIs(_IPFStateRequest,cntrl) &&
 				_IPFStateIs(_IPFStateTest,cntrl))){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFWriteStopSessions called in wrong state.");
+				"_IPFWriteStopSession called in wrong state.");
 		return IPFErrFATAL;
 	}
 
@@ -1736,7 +1744,7 @@ _IPFWriteStopSessions(
 }
 
 IPFErrSeverity
-_IPFReadStopSessions(
+_IPFReadStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
 	IPFAcceptType	*acceptval
@@ -1749,7 +1757,7 @@ _IPFReadStopSessions(
 	if(!(_IPFStateIs(_IPFStateRequest,cntrl) &&
 					_IPFStateIs(_IPFStateTest,cntrl))){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStopSessions called in wrong state.");
+				"_IPFReadStopSession called in wrong state.");
 		return IPFErrFATAL;
 	}
 
@@ -1764,14 +1772,14 @@ _IPFReadStopSessions(
 			return IPFErrFATAL;
 		}
 		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadStopSessions:Unable to read from socket.");
+			"_IPFReadStopSession:Unable to read from socket.");
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
 
 	if(memcmp(cntrl->zero,&buf[16],16)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStopSessions:Invalid zero padding");
+				"_IPFReadStopSession:Invalid zero padding");
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
@@ -1787,133 +1795,8 @@ _IPFReadStopSessions(
 	/*
 	 * The control connection is now ready to send the response.
 	 */
-	cntrl->state &= ~_IPFStateStopSessions;
+	cntrl->state &= ~_IPFStateStopSession;
 	cntrl->state |= _IPFStateRequest;
-
-	return IPFErrOK;
-}
-
-/*
- * 	FetchSession message format:
- *
- * 	size: 48 octets
- *
- * 	   0                   1                   2                   3
- * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|      4        |                                               |
- *	  +-+-+-+-+-+-+-+-+                                               +
- *	04|                      Unused (7 octets)                        |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                         Begin Seq                             |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	12|                          End Seq                              |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	16|                                                               |
- *	20|                        SID (16 octets)                        |
- *	24|                                                               |
- *	28|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	32|                                                               |
- *	36|                    Zero Padding (16 octets)                   |
- *	40|                                                               |
- *	44|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- */
-IPFErrSeverity
-_IPFWriteFetchSession(
-	IPFControl	cntrl,
-	u_int32_t	begin,
-	u_int32_t	end,
-	IPFSID		sid
-	)
-{
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-
-	if(!_IPFStateIs(_IPFStateRequest,cntrl) || _IPFStateIsTest(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteFetchSession called in wrong state.");
-		return IPFErrFATAL;
-	}
-
-	buf[0] = 4;
-#ifndef	NDEBUG
-	memset(&buf[1],0,7);	/* Unused	*/
-#endif
-	*(u_int32_t*)&buf[8] = htonl(begin);
-	*(u_int32_t*)&buf[12] = htonl(end);
-	memcpy(&buf[16],sid,16);
-	memset(&buf[32],0,16);	/* Zero padding */
-
-	if(_IPFSendBlocks(cntrl,buf,3) != 3)
-		return IPFErrFATAL;
-
-	cntrl->state |= (_IPFStateControlAck | _IPFStateFetchSession);
-	cntrl->state &= ~(_IPFStateRequest);
-	return IPFErrOK;
-}
-
-IPFErrSeverity
-_IPFReadFetchSession(
-	IPFControl	cntrl,
-	int		*retn_on_intr,
-	u_int32_t	*begin,
-	u_int32_t	*end,
-	IPFSID		sid
-)
-{
-	int		n;
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-
-	if(!_IPFStateIs(_IPFStateFetchSession,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadFetchSession called in wrong state.");
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * Already read the first block - read the rest for this message
-	 * type.
-	 */
-	n = _IPFReceiveBlocksIntr(cntrl,&buf[16],_IPF_FETCH_SESSION_BLK_LEN-1,
-			retn_on_intr);
-
-	if((n < 0) && *retn_on_intr && (errno == EINTR)){
-		return IPFErrFATAL;
-	}
-
-	if(n != (_IPF_FETCH_SESSION_BLK_LEN-1)){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadFetchSession:Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	if(memcmp(cntrl->zero,&buf[32],16)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadFetchSession:Invalid zero padding");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-	if(buf[0] != 4){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadFetchSession:Invalid message...");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	*begin = ntohl(*(u_int32_t*)&buf[8]);
-	*end = ntohl(*(u_int32_t*)&buf[12]);
-	memcpy(sid,&buf[16],16);
-
-	/*
-	 * The control connection is now ready to send the response.
-	 * (We are no-longer in FetchSession/Request state, we are
-	 * in ControlAck/Fetching state.)
-	 */
-	cntrl->state &= (~_IPFStateFetchSession & ~_IPFStateRequest);
-	cntrl->state |= _IPFStateControlAck|_IPFStateFetching;
 
 	return IPFErrOK;
 }
@@ -1985,16 +1868,6 @@ _IPFWriteControlAck(
 		cntrl->state &= ~_IPFStateTest;
 	}
 
-	/*
-	 * Fetch was denied - this short-cuts fetch response to "only"
-	 * a control ack. So, leave Fetching state and go back to plain
-	 * Request state.
-	 */
-	if(_IPFStateIsFetching(cntrl) && (acceptval != IPF_CNTRL_ACCEPT)){
-		cntrl->state &= ~_IPFStateFetching;
-		cntrl->state |= _IPFStateRequest;
-	}
-
 	return IPFErrOK;
 }
 
@@ -2039,220 +1912,12 @@ _IPFReadControlAck(
 	 */
 	cntrl->state &= ~_IPFStateControlAck;
 
-	if (_IPFStateIsFetchSession(cntrl)){
-		cntrl->state &= ~(_IPFStateFetchSession);
-		/* If FetchRequest was rejected get back into StateRequest */
-		if(*acceptval != IPF_CNTRL_ACCEPT){
-			cntrl->state |= _IPFStateRequest;
-		}else{
-		/* Otherwise prepare to read the TestRequest */
-			cntrl->state |= _IPFStateTestRequest;
-		}
-	}
-		/* If StartSessions was rejected get back into StateRequest */
-	else if (_IPFStateIsTest(cntrl) && (*acceptval != IPF_CNTRL_ACCEPT)){
+	/* If StartSession was rejected get back into StateRequest */
+	if (_IPFStateIsTest(cntrl) && (*acceptval != IPF_CNTRL_ACCEPT)){
 		cntrl->state &= ~_IPFStateTest;
 		cntrl->state |= _IPFStateRequest;
 	}
 
 
 	return IPFErrOK;
-}
-
-IPFErrSeverity
-_IPFWriteFetchRecordsHeader(
-	IPFControl	cntrl,
-	int		*retn_on_intr,
-	u_int64_t	num_rec
-	)
-{
-	int		n;
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	u_int32_t	nrec;
-
-	if(!_IPFStateIsFetching(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			 "_IPFWriteFetchRecordsHeader: called in wrong state.");
-		return IPFErrFATAL;
-	};
-
-	/*
-	 * Initialize memory.
-	 */
-	memset(&buf[0],0,16);
-
-	/*
-	 * The num_rec field is *likely* to change to an u_int64_t field in
-	 * the future - so use that in the code. The "buf" field still
-	 * has an u_int32_t for now.
-	 */
-	nrec = num_rec; /* could loose precision... sigh. */
-	if(num_rec != (u_int64_t)nrec){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-	"_IPFWriteFetchRecordsHeader: Protocol doesn't allow %llu records!",
-								num_rec);
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	*(u_int32_t*)&buf[0] = htonl(nrec);
-
-	n = _IPFSendBlocksIntr(cntrl,buf,1,retn_on_intr);
-
-	if((n < 0) && *retn_on_intr && (errno == EINTR)){
-		return IPFErrFATAL;
-	}
-
-	if(n != 1){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	return IPFErrOK;
-}
-
-/*
- * Function:	_IPFReadFetchRecordsHeader
- *
- * Description:	
- *	During Fetch Session - TestRequest has already come back, the next
- *	thing to do is to read the records - this block contains the number
- *	of records that are coming.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-IPFErrSeverity
-_IPFReadFetchRecordsHeader(
-	IPFControl	cntrl,
-	u_int64_t	*num_rec
-	)
-{
-	u_int8_t *buf = (u_int8_t*)cntrl->msg;
-
-	if(!_IPFStateIsFetching(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			 "_IPFReadFetchRecordsHeader: called in wrong state.");
-		return IPFErrFATAL;
-	};
-
-	if(_IPFReceiveBlocks(cntrl, buf, 1) != 1){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-		"_IPFReadFetchRecordsHeader: Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	/* Check for 8 bytes of zero padding. */
-	if(memcmp(cntrl->zero,&buf[8],8)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadFetchRecordsHeader:Invalid zero padding");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * This field is *likely* to change to an u_int64_t field in
-	 * the future - so use that in the code. The "buf" field still
-	 * has an u_int32_t for now.
-	 */
-	if(num_rec)
-		*num_rec = (u_int64_t)ntohl(*(u_int32_t *)buf);
-
-	return IPFErrOK;
-}
-
-/*
- * Function:	_IPFEncodeDataRecord
- *
- * Description:	
- * 	This function is used to encode the 24 octet "packet record" from
- * 	the values in the given IPFDataRec. It returns false if the
- * 	timestamp err estimates are invalid values.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-IPFBoolean
-_IPFEncodeDataRecord(
-	u_int8_t	buf[24],
-	IPFDataRec	*rec
-	)
-{
-	u_int32_t	nlbuf;
-
-	memset(buf,0,24);
-	nlbuf = htonl(rec->seq_no);
-	memcpy(&buf[0],&nlbuf,4);
-
-	_IPFEncodeTimeStamp(&buf[4],&rec->send);
-	_IPFEncodeTimeStamp(&buf[14],&rec->recv);
-	if(IPFIsLostRecord(rec)){
-		return True;
-	}
-
-	if(!_IPFEncodeTimeStampErrEstimate(&buf[12],&rec->send)){
-		return False;
-	}
-
-	if(!_IPFEncodeTimeStampErrEstimate(&buf[22],&rec->recv)){
-		return False;
-	}
-
-	return True;
-}
-
-/*
- * Function:	IPFDecodeDataRecord
- *
- * Description:	
- * 	This function is used to decode the 24 octet "packet record" and
- * 	place the values in the given IPFDataRec. It returns false if the
- * 	timestamp err estimates are invalid values.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-IPFBoolean
-_IPFDecodeDataRecord(
-	IPFDataRec	*rec,
-	u_int8_t	buf[24]
-	)
-{
-	/*
-	 * Have to memcpy buf because it is not 32bit aligned.
-	 */
-	memset(rec,0,sizeof(IPFDataRec));
-	memcpy(&rec->seq_no,&buf[0],4);
-	rec->seq_no = ntohl(rec->seq_no);
-
-	_IPFDecodeTimeStamp(&rec->send,&buf[4]);
-	_IPFDecodeTimeStamp(&rec->recv,&buf[14]);
-	if(IPFIsLostRecord(rec)){
-		return True;
-	}
-
-	if(!_IPFDecodeTimeStampErrEstimate(&rec->send,&buf[12])){
-		return False;
-	}
-	if(!_IPFDecodeTimeStampErrEstimate(&rec->recv,&buf[22])){
-		return False;
-	}
-
-	return True;
 }

@@ -1017,6 +1017,7 @@ IPFSessionRequest(
 	IPFBoolean	server_conf_receiver,
 	IPFTestSpec	*test_spec,
 	FILE		*fp,
+	u_int32_t	*avail_time_ret,
 	IPFSID		sid_ret,
 	IPFErrSeverity	*err_ret
 )
@@ -1028,6 +1029,8 @@ IPFSessionRequest(
 
 	*err_ret = IPFErrOK;
 
+	assert(avail_time_ret);
+	*avail_time_ret = 0; /* TODO: set to non-zero if request params ok */
 	/*
 	 * Check cntrl state is appropriate for this call.
 	 * (this would happen as soon as we tried to call the protocol
@@ -1039,6 +1042,7 @@ IPFSessionRequest(
 		"IPFSessionRequest called with invalid cntrl record");
 		goto error;
 	}
+
 
 	/*
 	 * If NULL passed in for recv address - fill it in with local
@@ -1184,17 +1188,6 @@ foundaddr:
 		}
 
 		/*
-		 * Now that we know the SID we can create the schedule
-		 * context.
-		 */
-		if(!(tsession->sctx = IPFScheduleContextCreate(cntrl->ctx,
-					tsession->sid,&tsession->test_spec))){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-					"Unable to init schedule generator");
-			goto error;
-		}
-
-		/*
 		 * If sender is local, complete it's initialization now that
 		 * we know the receiver port number.
 		 */
@@ -1224,17 +1217,6 @@ foundaddr:
 		 * local receiver - create SID and compute schedule.
 		 */
 		if(_IPFCreateSID(tsession) != 0){
-			goto error;
-		}
-
-		/*
-		 * Now that we know the SID we can create the schedule
-		 * context.
-		 */
-		if(!(tsession->sctx = IPFScheduleContextCreate(cntrl->ctx,
-					tsession->sid,&tsession->test_spec))){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-					"Unable to init schedule generator");
 			goto error;
 		}
 
@@ -1314,10 +1296,10 @@ error:
 }
 
 /*
- * Function:	IPFStartSessions
+ * Function:	IPFStartSession
  *
  * Description:	
- * 	This function is used by applications to send the StartSessions
+ * 	This function is used by applications to send the StartSession
  * 	message to the server and to kick of it's side of all sessions.
  *
  * In Args:	
@@ -1329,7 +1311,7 @@ error:
  * Side Effect:	
  */
 IPFErrSeverity
-IPFStartSessions(
+IPFStartSession(
 	IPFControl	cntrl
 )
 {
@@ -1343,14 +1325,14 @@ IPFStartSessions(
 	 */
 	if(!cntrl){
 		IPFError(NULL,IPFErrFATAL,IPFErrINVALID,
-		"IPFStartSessions called with invalid cntrl record");
+		"IPFStartSession called with invalid cntrl record");
 		return IPFErrFATAL;
 	}
 
 	/*
-	 * Send the StartSessions message to the server
+	 * Send the StartSession message to the server
 	 */
-	if((rc = _IPFWriteStartSessions(cntrl)) < IPFErrOK){
+	if((rc = _IPFWriteStartSession(cntrl)) < IPFErrOK){
 		return _IPFFailControlSession(cntrl,rc);
 	}
 
@@ -1413,198 +1395,4 @@ IPFDelay(
 {
 	return IPFNum64ToDouble(recv_time->ipftime) -
 			IPFNum64ToDouble(send_time->ipftime);
-}
-
-/*
- * Function:	IPFFetchSession
- *
- * Description:	
- *	This function is used to request that the data for the TestSession
- *	identified by sid be fetched from the server and copied to the
- *	file pointed at by fp. This function assumes fp is currently pointing
- *	at an open file, and that fp is ready to write at the begining of the
- *	file.
- *
- *	To request an entire session set begin = 0, and end = 0xFFFFFFFF.
- *	(This is only valid if the session is complete - otherwise the server
- *	should deny this request.)
- *	Otherwise, "begin" and "end" refer to sequence numbers in the test
- *	session.
- *	The number of records returned will not necessarily be end-begin due
- *	to possible loss and/or duplication.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- *	The number of data records in the file. If < 1, check err_ret to
- *	find out if it was an error condition: ErrOK just means the request
- *	was denied by the server. ErrWARNING means there was a local
- *	problem (fp not writeable etc...) and the control connection is
- *	still valid.
- * Side Effect:	
- */
-u_int64_t
-IPFFetchSession(
-	IPFControl		cntrl,
-	FILE			*fp,
-	u_int32_t		begin,
-	u_int32_t		end,
-	IPFSID			sid,
-	IPFErrSeverity		*err_ret
-	)
-{
-	IPFAcceptType		acceptval;
-	IPFTestSession		tsession = NULL;
-	IPFSessionHeaderRec	hdr;
-	u_int64_t		num_rec,n;
-	u_int8_t		buf[_IPF_FETCH_BUFFSIZE];
-	int			i;
-	IPFBoolean		dowrite = True;
-
-	*err_ret = IPFErrOK;
-
-	if(!fp){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-						"IPFFetchSession: Invalid fp");
-		*err_ret = IPFErrFATAL;
-		return 0;
-	}
-
-	/*
-	 * Make the request of the server.
-	 */
-	if((*err_ret = _IPFWriteFetchSession(cntrl,begin,end,sid)) <
-								IPFErrWARNING)
-		goto failure;
-
-	/*
-	 * Read the response
-	 */
-	if((*err_ret = _IPFReadControlAck(cntrl, &acceptval)) < IPFErrWARNING)
-		goto failure;
-	
-	/*
-	 * If the server didn't accept, we are done.
-	 */
-	if(acceptval != IPF_CNTRL_ACCEPT)
-		return 0;
-
-	if((*err_ret = _IPFReadTestRequest(cntrl,NULL,&tsession,NULL)) !=
-								IPFErrOK){
-		goto failure;
-	}
-
-	/*
-	 * Write the file header now. First encode the tsession into
-	 * a SessionHeader.
-	 */
-
-	assert(sizeof(hdr.addr_sender) >= tsession->sender->saddrlen);
-	memcpy(&hdr.addr_sender,tsession->sender->saddr,
-						tsession->sender->saddrlen);
-	memcpy(&hdr.addr_receiver,tsession->receiver->saddr,
-						tsession->receiver->saddrlen);
-
-	hdr.conf_sender = tsession->conf_sender;
-	hdr.conf_receiver = tsession->conf_receiver;
-
-	memcpy(hdr.sid,tsession->sid,sizeof(hdr.sid));
-		/* hdr.test_spec will now point at same slots memory. */
-	hdr.test_spec = tsession->test_spec;
-
-	if(IPFWriteDataHeader(cntrl->ctx,fp,&hdr) != 0){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"IPFFetchSession: IPFWriteDataHeader(): %M");
-		*err_ret = IPFErrWARNING;
-		(void)_IPFTestSessionFree(tsession,IPF_CNTRL_INVALID);
-		dowrite = True;
-	}
-
-	/*
-	 * Read the RecordsHeader from the server. Just the number of
-	 * data records that will follow.
-	 */
-	if((*err_ret = _IPFReadFetchRecordsHeader(cntrl,&num_rec)) <
-								IPFErrWARNING)
-		goto failure;
-
-
-	for(n=num_rec;
-			n >= _IPF_FETCH_TESTREC_BLOCKS;
-				n -= _IPF_FETCH_TESTREC_BLOCKS){
-		if(_IPFReceiveBlocks(cntrl,buf,_IPF_FETCH_AES_BLOCKS) !=
-							_IPF_FETCH_AES_BLOCKS){
-			*err_ret = IPFErrFATAL;
-			goto failure;
-		}
-		if(dowrite && (fwrite(buf,_IPF_TESTREC_SIZE,
-					_IPF_FETCH_TESTREC_BLOCKS,fp) !=
-						_IPF_FETCH_TESTREC_BLOCKS)){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-					"IPFFetchSession: fwrite(): %M");
-			dowrite = False;
-		}
-	}
-
-	if(n){
-		/*
-		 * Read enough AES blocks to get remaining records.
-		 */
-		int	blks = n*_IPF_TESTREC_SIZE/_IPF_RIJNDAEL_BLOCK_SIZE + 1;
-
-		if(_IPFReceiveBlocks(cntrl,buf,blks) != blks){
-			*err_ret = IPFErrFATAL;
-			goto failure;
-		}
-		if(dowrite && (fwrite(buf,_IPF_TESTREC_SIZE,n,fp) != n)){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-					"IPFFetchSession: fwrite(): %M");
-			dowrite = False;
-		}
-		/* check zero padding */
-		for(i=(n*_IPF_TESTREC_SIZE);
-				i < (blks*_IPF_RIJNDAEL_BLOCK_SIZE);i++){
-			if(buf[i] != 0){
-				IPFError(cntrl->ctx,IPFErrINFO,IPFErrUNKNOWN,
-				"IPFFetchSession: record padding non-zero");
-			}
-		}
-	}
-
-	fflush(fp);
-
-	/*
-	 * Read final MBZ AES block to finalize transaction.
-	 */
-	if(_IPFReceiveBlocks(cntrl,buf,1) != 1){
-		*err_ret = IPFErrFATAL;
-		goto failure;
-	}
-
-	if(memcmp(cntrl->zero,buf,_IPF_RIJNDAEL_BLOCK_SIZE)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"IPFFetchSession:Final MBZ block corrupt");
-		*err_ret = IPFErrFATAL;
-		goto failure;
-	}
-
-	/*
-	 * reset state to request.
-	 */
-	cntrl->state &= ~_IPFStateFetching;
-	cntrl->state |= _IPFStateRequest;
-
-	if(!dowrite){
-		*err_ret = IPFErrWARNING;
-		num_rec = 0;
-	}
-
-	return num_rec;
-
-failure:
-	(void)_IPFFailControlSession(cntrl,*err_ret);
-	return 0;
 }

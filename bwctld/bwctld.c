@@ -558,8 +558,8 @@ ACCEPT:
 				rc = IPFProcessTestRequest(cntrl,&ipfd_intr);
 				break;
 
-			case IPFReqStartSessions:
-				rc = IPFProcessStartSessions(cntrl,&ipfd_intr);
+			case IPFReqStartSession:
+				rc = IPFProcessStartSession(cntrl,&ipfd_intr);
 				if(rc < IPFErrOK){
 					break;
 				}
@@ -580,7 +580,7 @@ ACCEPT:
 
 					rc = IPFErrOK;
 					ipfd_intr = 0;
-					wstate = IPFStopSessionsWait(cntrl,NULL,
+					wstate = IPFStopSessionWait(cntrl,NULL,
 							  &ipfd_intr,NULL,&rc);
 					if(ipfd_exit || (wstate < 0)){
 						goto done;
@@ -590,9 +590,9 @@ ACCEPT:
 					}
 				}
 				/*
-				 * Sessions are complete, but StopSessions
+				 * Sessions are complete, but StopSession
 				 * message has not been exchanged - set the
-				 * timer and trade StopSessions messages
+				 * timer and trade StopSession messages
 				 */
 				ipfd_intr = 0;
 				itval.it_value.tv_sec = opts.controltimeout;
@@ -600,23 +600,8 @@ ACCEPT:
 					I2ErrLog(errhand,"setitimer(): %M");
 					goto done;
 				}
-				rc = IPFStopSessions(cntrl,&ipfd_intr,NULL);
+				rc = IPFStopSession(cntrl,&ipfd_intr,NULL);
 
-				break;
-
-			case 4:
-				/*
-				 * TODO: Should the timeout be suspended
-				 * for fetchsession?
-				 * (If session files take longer than
-				 * the timeout - this will fail... The
-				 * default is 30 min. Leave for now.
-				 * (The fix would be to leave the timeout in
-				 * place for completing the fetchsession
-				 * read, and then process the write
-				 * of the session separately.)
-				 */
-				rc = IPFProcessFetchSession(cntrl,&ipfd_intr);
 				break;
 
 			case IPFReqSockClose:

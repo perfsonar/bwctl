@@ -51,15 +51,16 @@ int optreset;
  */
 static	ipapp_trec		appctx;
 static	I2ErrHandle		eh;
-static	IPFTestSpec		tspec;
 static	u_int32_t		sessionTime;
 static	u_int32_t		file_offset,ext_offset;
 static	int			ip_reset = 0;
 static	int			ip_exit = 0;
+static	int			ip_error = SIGCONT;
 static	double			inf_delay;
 static	IPFContext		ctx;
-static	IPFControl		lcntrl;
-static	IPFControl		rcntrl;
+static	ipsess_trec		local;
+static	ipsess_trec		remote;
+static	ipsess_t		sender,receiver;
 
 static void
 print_conn_args()
@@ -191,6 +192,71 @@ ip_set_auth(
 		pctx->auth_mode = IPF_MODE_OPEN|IPF_MODE_AUTHENTICATED|
 							IPF_MODE_ENCRYPTED;
 	}
+}
+
+static void
+CloseSessions()
+{
+	/* TODO: Handle clearing other state. Canceling tests nicely? */
+
+	if(remote.cntrl){
+		IPFCloseConnection(remote.cntrl);
+		remote.cntrl = NULL;
+		remote.starttime = 0;
+	}
+	if(local.cntrl){
+		IPFCloseConnection(local.cntrl);
+		local.cntrl = NULL;
+		local.starttime = 0;
+	}
+
+	return;
+}
+
+static void
+sig_catch(
+		int	signo
+		)
+{
+	switch(signo){
+		case SIGINT:
+		case SIGTERM:
+			ip_exit++;
+			break;
+		case SIGHUP:
+			ip_reset++;
+			break;
+		default:
+			ip_error = signo;
+			break;
+	}
+
+	return;
+}
+
+static int
+sig_check()
+{
+	if(ip_error != SIGCONT){
+		I2ErrLog(eh,"sig_catch(%d):UNEXPECTED SIGNAL NUMBER",ip_error);
+		exit(1);
+	}
+
+	if(ip_exit || ip_reset){
+		CloseSessions();
+	}
+
+	if(ip_exit){
+		I2ErrLog(eh,"SIGTERM/SIGINT: Exiting.");
+		exit(0);
+	}
+
+	if(ip_reset){
+		ip_reset = 0;
+		return 1;
+	}
+
+	return 0;
 }
 
 int
@@ -415,12 +481,7 @@ main(
 		usage(progname, NULL);
 		exit(1);
 	}
-
 	appctx.remote_test = argv[0];
-	if(argc > 1)
-		appctx.remote_serv = argv[1];
-	else
-		appctx.remote_serv = appctx.remote_test;
 
 	if(appctx.opt.recv == appctx.opt.send){
 		usage(progname,"Exactly one of -s or -c must be specified.");
@@ -501,18 +562,30 @@ main(
 	ext_offset = file_offset + TSTAMPCHARS;
 
 	/*
-	 * Setup Test Session record.
+	 * Initialize session records
 	 */
+	memset(&local,0,sizeof(local));
 	/* skip req_time/latest_time - set per/test */
-	memset(&tspec,0,sizeof(tspec));
-	tspec.duration = appctx.opt.timeDuration;
-	tspec.udp = appctx.opt.udpTest;
-	if(tspec.udp){
-		tspec.bandwidth = appctx.opt.bandWidth;
+	local.tspec.duration = appctx.opt.timeDuration;
+	local.tspec.udp = appctx.opt.udpTest;
+	if(local.tspec.udp){
+		local.tspec.bandwidth = appctx.opt.bandWidth;
 	}
-	tspec.window_size = appctx.opt.windowSize;
-	tspec.len_buffer = appctx.opt.lenBuffer;
-	tspec.report_interval = appctx.opt.reportInterval;
+	local.tspec.window_size = appctx.opt.windowSize;
+	local.tspec.len_buffer = appctx.opt.lenBuffer;
+	local.tspec.report_interval = appctx.opt.reportInterval;
+
+	memcpy(&remote,&local,sizeof(local));
+
+	if(appctx.opt.send){
+		sender = &local;
+		receiver = &remote;
+	}else{
+		sender = &remote;
+		receiver = &local;
+	}
+
+	zero64 = IPFULongToNum64(0);
 
 	/*
 	 * TODO: Fix this.
@@ -536,60 +609,160 @@ main(
 	 * 	create loop for the remainder of main() that sets up a test
 	 * 	every sessionInterval*pseudo-poisson
 	 */
-	IPFTimeStamp	reqtime;
-	IPFTimeStamp	curtime;
-	IPFNum64	tval;
-
 	do{
-		memset(&reqtime,0,sizeof(reqtime));
+		IPFTimeStamp	req_time;
+		IPFTimeStamp	currtime;
 
 		/* Open remote connection */
-		/* get socknam to get addr for local */
-
-		/* Get TimeErrEst and round-trip-bound */
-		if(IPFControlTimeCheck(rcntrl,NULL) != IPFErrOK){
-			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
-			exit(1);
+		if(!remote.cntrl){
+			remote.cntrl = IPFControlOpen(ctx,
+				IPFAddrByNode(ctx,appctx.opt.srcaddr),
+				IPFAddrByNode(ctx,appctx.remote_test),
+				appctx.auth_mode,appctx.opt.identity,
+				NULL,&err_ret);
+			/* TODO: deal with temporary failures */
+			if(sig_check()) exit(1);
+			if(!remote.cntrl) exit(1);
 		}
-		tval = IPFGetRTTBound(rcntrl);
-		/* reqtime.ipftime += (2*round-trip-bound) */
-		reqtime.ipftime = IPFNum64Add(reqtime.ipftime,
-					IPFNum64Mult(tval,IPFULongToNum64(2)));
-
-
 		/* Open local connection */
-
-		/* Get TimeErrEst and round-trip-bound */
-		if(IPFControlTimeCheck(lcntrl,NULL) != IPFErrOK){
-			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
-			exit(1);
+		if(!local.cntrl){
+			local.cntrl = IPFControlOpen(ctx,
+				NULL,
+				IPFAddrByLocalControl(remote.cntrl),
+				appctx.auth_mode,appctx.opt.identity,
+				NULL,&err_ret);
+			/* TODO: deal with temporary failures */
+			if(sig_check()) exit(1);
+			if(!local.cntrl) exit(1);
 		}
-		tval = IPFGetRTTBound(lcntrl);
-		/* reqtime.ipftime += (2*round-trip-bound) */
-		reqtime.ipftime = IPFNum64Add(reqtime.ipftime,
-					IPFNum64Mult(tval,IPFULongToNum64(2)));
 
 		/*
-		 * reqtime currently holds a reasonable relative amount of
+		 * Now caluculate how far into the future the test
+		 * request should be made for.
+		 */
+		/* initialize */
+		req_time.ipftime = zero64;
+
+		/* Determine round-trip time to remote host */
+		if(IPFControlTimeCheck(remote.cntrl,NULL) != IPFErrOK){
+			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
+			exit(1);
+		}
+		/* req_time.ipftime += (3*round-trip-bound) */
+		req_time.ipftime = IPFNum64Add(req_time.ipftime,
+				IPFNum64Mult(IPFGetRTTBound(remote.cntrl),
+							IPFULongToNum64(3)));
+
+		/* Determine round-trip time to local host */
+		if(IPFControlTimeCheck(local.cntrl,NULL) != IPFErrOK){
+			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
+			exit(1);
+		}
+		/* req_time.ipftime += (3*round-trip-bound) */
+		req_time.ipftime = IPFNum64Add(req_time.ipftime,
+				IPFNum64Mult(IPFGetRTTBound(local.cntrl),
+							IPFULongToNum64(3)));
+
+		/*
+		 * Add a small constant value to this... Will need to experiment
+		 * to find the right number.
+		 */
+		req_time.ipftime = IPFNum64Add(req_time.ipftime,
+						IPFULongToNum64(5));
+
+		/*
+		 * req_time currently holds a reasonable relative amount of
 		 * time from 'now' that a test could be held. Get the current
 		 * time and add to make that an 'absolute' value.
 		 */
-		if(!IPFGetTimeOfDay(&curtime)){
+		if(!IPFGetTimeOfDay(&currtime)){
 			I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
 			exit(1);
 		}
-		reqtime.ipftime = IPFNum64Add(reqtime.ipftime,curtime.ipftime);
+		req_time.ipftime = IPFNum64Add(req_time.ipftime,
+							currtime.ipftime);
+		/*
+		 * Get a reservation:
+		 * 	initialize req_time/latest_time
+		 * 	keep querying each server in turn until satisfied,
+		 * 	or denied.
+		 */
+		/* TODO: Come up with a reasonable 'latest' time */
+		sender->tspec.latest_time = receiver->tspec.latest_time= zero64;
+		sender->tspec.req_time = INFINITY;
+		memset(sid,0,sizeof(sid));
+		do{
+			/*
+			 * Must start with receiver because the first time
+			 * allocates/creates the sid.
+			 */
+
+			receiver->tspec.req_time = req_time.ipftime;
+			/* TODO: do something with return values. */
+			if(!IPFSessionRequest(receiver->cntrl,False,
+					&receiver->tspec,STDOUT,&req_time,
+					sid,&err_ret)){
+				if((err_ret == IPFErrOK) &&
+						(IPFNum64Cmp(req_time.ipftime,
+							     zero64) != 0)){
+					/* TODO: clear connections? */
+					goto next_test;
+				}
+				/* TODO: handle error */
+				exit(1);
+			}else{
+				receiver->tspec.req_time = req_time.ipftime;
+			}
+
+			/*
+			 * Do we have a meeting?
+			 */
+			if(IPFNum64Cmp(receiver->tspec.req_time,
+						sender->tspec.req_time) == 0){
+				break;
+			}
+
+			sender->tspec.req_time = req_time.ipftime;
+			/* TODO: do something with return values. */
+			if(!IPFSessionRequest(sender->cntrl,False,
+					&sender->tspec,STDOUT,&req_time,
+					sid,&err_ret)){
+				if((err_ret == IPFErrOK) &&
+						(IPFNum64Cmp(req_time.ipftime,
+							     zero64) != 0)){
+					/* TODO: clear connections? */
+					goto next_test;
+				}
+				/* TODO: handle error */
+				exit(1);
+			}else{
+				sender->tspec.req_time = req_time.ipftime;
+			}
+
+			/*
+			 * Do we have a meeting?
+			 */
+			if(IPFNum64Cmp(receiver->tspec.req_time,
+						sender->tspec.req_time) == 0){
+				break;
+			}
+		}while(1);
+
+		/* TODO: Add sighandler for SIGINT that sends StopSessions? */
 
 		/*
-		 * Get a reservation
+		 * Now...
+		 * 	StartSessions
+		 * 	WaitForStopSessions
 		 */
-		STime = RTime = 0;
-		do{
-			/* recver*/
-			/* sender*/
-		}while(STime != RTime);
 
-		/* TODO: Add sighandler for SIGINT that sends StopSessions */
+		/*
+		 * Skip to here on failure for now. Will perhaps add
+		 * intermediate retries until some threshold of the
+		 * current period.
+		 */
+next_test:
+		;
 
 	}while(0); /* TODO: test for "next" interval time */
 

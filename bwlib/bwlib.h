@@ -315,7 +315,8 @@ typedef struct IPFScheduleContextRec	*IPFScheduleContext;
 IPFScheduleContext
 IPFScheduleContextCreate(
 		IPFContext	ctx,
-		IPFSID		sid
+		IPFSID		sid,
+		u_int32_t	mean
 		);
 
 void
@@ -326,7 +327,8 @@ IPFScheduleContextFree(
 IPFErrSeverity
 IPFScheduleContextReset(
 	IPFScheduleContext	sctx,
-		IPFSID		sid
+		IPFSID		sid,
+		u_int32_t	mean
 		);
 
 IPFNum64
@@ -447,7 +449,6 @@ typedef IPFBoolean (*IPFCheckTestPolicyFunc)(
 	struct sockaddr	*local_sa_addr,
 	struct sockaddr	*remote_sa_addr,
 	socklen_t	sa_len,
-	u_int32_t	req_time,
 	IPFTestSpec	*test_spec,
 	void		**closure,
 	IPFErrSeverity	*err_ret
@@ -712,6 +713,8 @@ IPFControlClose(
  *
  * Reasons this function will return False (with avail_time_ret == 0):
  * 1. Server denied test: err_ret==ErrOK
+ * 	If avail_time_ret == 0, than no reason can be determined.
+ * 	If avail_time_ret != 0, the client should interpret this is "busy".
  * 2. Control connection failure: err_ret == ErrFATAL
  * 3. Local resource problem (malloc/fork/fdopen): err_ret == ErrFATAL
  * 4. Bad addresses: err_ret == ErrWARNING
@@ -727,13 +730,10 @@ IPFControlClose(
 extern IPFBoolean
 IPFSessionRequest(
 	IPFControl	control_handle,
-	IPFAddr		sender,
-	IPFBoolean	server_conf_sender,
-	IPFAddr		receiver,
-	IPFBoolean	server_conf_receiver,
+	IPFBoolean	sender,
 	IPFTestSpec	*test_spec,
 	FILE		*fp,		/* where to direct the results */
-	u_int32_t	*avail_time_ret,
+	IPFTimeStamp	*avail_time_ret,
 	IPFSID		sid_ret,
 	IPFErrSeverity	*err_ret
 );
@@ -744,7 +744,7 @@ IPFSessionRequest(
  * Client and Server
  */
 extern IPFErrSeverity
-IPFStartSessions(
+IPFStartSession(
 	IPFControl	control_handle
 );
 
@@ -752,7 +752,7 @@ IPFStartSessions(
  * Wait for test sessions to complete. This function will return the
  * following integer values:
  * 	<0	ErrorCondition
- * 	0	StopSessions received, acted upon, and sent back.
+ * 	0	StopSession received, acted upon, and sent back.
  * 	1	wake_time reached
  *
  *	2	system event (signal)
@@ -770,20 +770,20 @@ IPFStartSessions(
  * actually interested in.)
  *
  * To block indefinately, specify NULL for wake_time and NULL for
- * retn_on_intr. (StopSessionsWait will poll the status of current tests
+ * retn_on_intr. (StopSessionWait will poll the status of current tests
  * automatically whenever a system event takes place in this case, so
- * StopSessionsWait will never return 1 or 2 in this case.)
+ * StopSessionWait will never return 1 or 2 in this case.)
  *
  * If wake_time or retn_on_intr is set, and this function returns 1 or 2, then
  * it is required to poll the status of each local endpoint using
  * IPFTestSessionStatus until all sessions complete.  (IPFSessionsActive is
  * a simple way to poll all of them - you know you are done when it returns 0.)
- * You can of course recall StopSessionsWait in this case.
+ * You can of course recall StopSessionWait in this case.
  *
  * Client and Server
  */
 extern int
-IPFStopSessionsWait(
+IPFStopSessionWait(
 	IPFControl	control_handle,
 	IPFNum64	*wake_time,		/* abs time */
 	int		*retn_on_intr,
@@ -834,7 +834,7 @@ IPFSessionsActive(
  * Client and Server.
  */
 extern IPFErrSeverity
-IPFStopSessions(
+IPFStopSession(
 	IPFControl	control_handle,
 	int		*retn_on_intr,
 	IPFAcceptType	*acceptval	/* in/out */
@@ -846,11 +846,11 @@ IPFStopSessions(
  * application can use this to call select or otherwise poll to determine
  * if anything is ready to be read but they should not read or write to
  * the descriptor.
- * This can be used in conjunction with the IPFStopSessionsWait
+ * This can be used in conjunction with the IPFStopSessionWait
  * function so that the application can recieve user input, and only call
- * the IPFStopSessionsWait function when there is something to read
+ * the IPFStopSessionWait function when there is something to read
  * from the connection. (A nul timestamp would be used in this case
- * so that IPFStopSessionsWait does not block.)
+ * so that IPFStopSessionWait does not block.)
  *
  * This is also useful in a policy context - getpeername can be called
  * on this descriptor.
@@ -918,9 +918,8 @@ typedef enum IPFRequestType{
 	IPFReqInvalid=-1,
 	IPFReqSockClose=0,
 	IPFReqTest=1,
-	IPFReqStartSessions=2,
-	IPFReqStopSessions=3,
-	IPFReqFetchSession=4
+	IPFReqStartSession=2,
+	IPFReqStopSession=3
 } IPFRequestType;
 
 extern IPFRequestType
@@ -936,20 +935,14 @@ IPFProcessTestRequest(
 		);
 
 extern IPFErrSeverity
-IPFProcessStartSessions(
+IPFProcessStartSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr
 	);
 
 extern IPFErrSeverity
-IPFProcessStopSessions(
+IPFProcessStopSession(
 	IPFControl	cntrl
-	);
-
-extern IPFErrSeverity
-IPFProcessFetchSession(
-	IPFControl	cntrl,
-	int		*retn_on_intr
 	);
 
 extern IPFContext
@@ -964,40 +957,6 @@ IPFGetMode(
 
 
 /*
-** Given the protocol family, OWAMP mode and packet padding,
-** compute the size of resulting full IP test packet.
-*/
-
-/*
- * Payload size is used to determine how large the buffers need to be
- * to read a packet.
- */
-extern IPFPacketSizeT
-IPFTestPayloadSize(
-		IPFSessionMode	mode,
-		u_int32_t	padding
-		);
-/*
- * PacketSize is used to compute the full packet size - this is used to
- * determine bandwidth requirements for policy purposes.
- */
-extern IPFPacketSizeT
-IPFTestPacketSize(
-		int		af,
-		IPFSessionMode	mode,
-		u_int32_t	padding
-		);
-
-/*
- * Returns # packets/second: 0.0 on error.
- */
-extern double
-IPFTestPacketRate(
-		IPFContext	ctx,
-		IPFTestSpec	*tspec
-		);
-
-/*
  * Returns bytes/second: 0.0 on error.
  */
 extern double
@@ -1005,142 +964,6 @@ IPFTestPacketBandwidth(
 		IPFContext	ctx,
 		int		af,
 		IPFSessionMode	mode,
-		IPFTestSpec	*tspec
-		);
-
-extern u_int64_t
-IPFFetchSession(
-	IPFControl		cntrl,
-	FILE			*fp,
-	u_int32_t		begin,
-	u_int32_t		end,
-	IPFSID			sid,
-	IPFErrSeverity		*err_ret
-	);
-
-/*
-** Processing Session data to/from local disk.
-*/
-
-/*
- * This data structure is used to read/write a session header. When
- * reading a header, if the "header" element returns false, the file
- * did not contain any header information, and the remaining fields
- * are not valid.
- */
-typedef struct IPFSessionHeaderRec{
-	IPFBoolean		header;		/* RO: TestSession header? */
-	u_int32_t		version;	/* RO: File version */
-	u_int32_t		rec_size;	/* RO: data record size */
-	IPFBoolean		finished;	/* RW: is session finished?
-						 * 0:no,1:yes,2:unknown */
-	u_int8_t		ipvn;		/* RO: ipvn of addrs */
-	socklen_t		addr_len;	/* RO: saddr_len of saddrs */
-	struct sockaddr_storage	addr_sender;
-	struct sockaddr_storage	addr_receiver;
-	IPFBoolean		conf_sender;
-	IPFBoolean		conf_receiver;
-	IPFSID			sid;
-	IPFTestSpec		test_spec;
-} IPFSessionHeaderRec, *IPFSessionHeader;
-
-/*
-** Applications use this type to manipulate individual timestamp data records.
-*/
-typedef struct IPFDataRec {
-	u_int32_t    seq_no;
-	IPFTimeStamp send;
-	IPFTimeStamp recv;
-} IPFDataRec;
-
-/*
- * Write data header to the file.
- * Returns:
- * 0	Success
- */
-int
-IPFWriteDataHeader(
-		IPFContext		ctx,
-		FILE			*fp,
-		IPFSessionHeader	hdr
-		);
-/*
- * Write data record to a file.
- * Returns:
- * 0	Success
- */
-int
-IPFWriteDataRecord(
-		IPFContext		ctx,
-		FILE			*fp,
-		IPFDataRec		*rec
-		);
-/*
- * Returns:
- * number of records in the file. 0 on error. (errno will be set.)
- */
-u_int32_t
-IPFReadDataHeader(
-		IPFContext		ctx,
-		FILE			*fp,
-		off_t			*hdr_len,
-		IPFSessionHeader	hdr_ret
-		);
-/*
- * This (type of) function is used by Fetch-Client to process
- * data records.
- *
- * The function should return < 0 to indicate an error condition in which
- * case IPFParseRecords will return IPFErrFATAL.
- * It should return 0 to continue parsing.
- * It should return 1 to terminate parsing in which case IPFParseRecords will
- * return IPFErrOK.
- *
- * num_rec can be any number less than or equal to the number of valid
- * records in the file reported by IPFReadDataHeader. This function assumes
- * the fp is currently pointing at the beginning of a data record.
- * (This can be done simply by calling IPFReadDataHeader or fseek'ing to
- * the offset reported by IPFReadDataHeader.) Or advancing by some multiple
- * of hdr.rec_size.
- *
- * If IPFParseRecords completes parsing "num_rec" records with out error,
- * it will return IPFErrOK.
- * If IPFParseRecords is unable to complete parsing because of file i/o problems
- * it will return IPFErrFATAL.
- */
-typedef int (*IPFDoDataRecord)(
-	IPFDataRec	*rec,
-	void		*udata
-       );
-
-IPFErrSeverity
-IPFParseRecords(
-	IPFContext		ctx,
-	FILE			*fp,
-	u_int32_t		num_rec, 
-	u_int32_t		file_version,	/* as reported by
-						   IPFReadDataHeader */
-	IPFDoDataRecord		proc_rec,
-	void			*udata		/* passed into proc_rec */
-	);
-
-extern double
-IPFDelay(
-	IPFTimeStamp	*send_time,
-	IPFTimeStamp	*recv_time
-	);
-
-extern IPFBoolean
-IPFIsLostRecord(
-	IPFDataRec	*rec
-	);
-
-/*
- * How much disk space will a given test require?
- * (This is only an estimate - duplicates/loss will change this.)
- */
-extern u_int64_t
-IPFTestDiskspace(
 		IPFTestSpec	*tspec
 		);
 

@@ -80,6 +80,7 @@ IPFHexDecode(
 			}
 			return False;
 byteset:
+			;
 		}
 	}
 

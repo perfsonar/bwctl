@@ -73,13 +73,13 @@
  * The following states are for partially read messages on the server.
  */
 #define _IPFStateTestRequest		(_IPFStateTest << 1)
-#define _IPFStateStartSessions		(_IPFStateTestRequest << 1)
-#define _IPFStateStopSession		(_IPFStateStartSessions << 1)
+#define _IPFStateStartSession		(_IPFStateTestRequest << 1)
+#define _IPFStateStopSession		(_IPFStateStartSession << 1)
 #define _IPFStateTestAccept		(_IPFStateStopSession << 1)
 #define _IPFStateControlAck		(_IPFStateTestAccept << 1)
 
 /* Reading indicates partial read request-ReadRequestType without remainder */
-#define _IPFStateReading	(_IPFStateTestRequest|_IPFStateStartSessions|_IPFStateStopSessions)
+#define _IPFStateReading	(_IPFStateTestRequest|_IPFStateStartSession|_IPFStateStopSession)
 
 /*
  * "Pending" indicates waiting for server response to a request.
@@ -193,7 +193,7 @@ struct IPFControlRec{
 	 * Encryption fields
 	 */
 				/* null if not set - else userid_buffer */
-	u_int8_t		*userid;
+	char			*userid;
 	IPFUserID		userid_buffer;
 	keyInstance             encrypt_key;
 	keyInstance             decrypt_key;
@@ -504,14 +504,10 @@ _IPFReadTestRequest(
 
 extern IPFBoolean
 _IPFEncodeDataRecord(
-	u_int8_t	buf[24],
-	IPFDataRec	*rec
 	);
 
 extern IPFBoolean
 _IPFDecodeDataRecord(
-	IPFDataRec	*rec,
-	u_int8_t	buf[24]
 	);
 
 extern IPFErrSeverity
@@ -532,25 +528,25 @@ _IPFReadTestAccept(
 	);
 
 extern IPFErrSeverity
-_IPFWriteStartSessions(
+_IPFWriteStartSession(
 	IPFControl	cntrl
 	);
 
 extern IPFErrSeverity
-_IPFReadStartSessions(
+_IPFReadStartSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr
 );
 
 extern IPFErrSeverity
-_IPFWriteStopSessions(
+_IPFWriteStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
 	IPFAcceptType	acceptval
 	);
 
 extern IPFErrSeverity
-_IPFReadStopSessions(
+_IPFReadStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
 	IPFAcceptType	*acceptval
