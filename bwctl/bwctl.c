@@ -921,6 +921,33 @@ main(
 AGAIN:
 		if(sig_check()) exit(1);
 
+		/*
+		 * Get current time.
+		 */
+		if(!BWLGetTimeStamp(ctx,&currtime)){
+			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+			exit(1);
+		}
+
+		/*
+		 * Check if the test should run yet...
+		 */
+		if(BWLNum64Cmp(wake.tstamp,currtime.tstamp) > 0){
+			struct timespec	tspec;
+			BWLNum64	rel;
+
+			rel = BWLNum64Sub(wake.tstamp,currtime.tstamp);
+			BWLNum64ToTimespec(&tspec,rel);
+			if((nanosleep(&tspec,NULL) == 0) ||
+					(errno == EINTR)){
+				goto AGAIN;
+			}
+
+			BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+					"nanosleep(): %M");
+			exit(1);
+		}
+
 		/* Open remote connection */
 		if(!remote.cntrl){
 			remote.cntrl = BWLControlOpen(ctx,
@@ -1021,32 +1048,6 @@ AGAIN:
 		}
 		if(sig_check()) exit(1);
 
-		/*
-		 * Get current time.
-		 */
-		if(!BWLGetTimeStamp(ctx,&currtime)){
-			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-			exit(1);
-		}
-
-		/*
-		 * Check if the test should run yet...
-		 */
-		if(BWLNum64Cmp(wake.tstamp,currtime.tstamp) > 0){
-			struct timespec	tspec;
-			BWLNum64	rel;
-
-			rel = BWLNum64Sub(wake.tstamp,currtime.tstamp);
-			BWLNum64ToTimespec(&tspec,rel);
-			if((nanosleep(&tspec,NULL) == 0) ||
-					(errno == EINTR)){
-				goto AGAIN;
-			}
-
-			BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-					"nanosleep(): %M");
-			exit(1);
-		}
 
 		/*
 		 * req_time.tstamp += (3*round-trip-bound)
@@ -1338,11 +1339,14 @@ AGAIN:
 		 * current period.
 		 */
 next_test:
-		;
+		if(app.opt.continuous || --app.opt.nIntervals){
+			wake.tstamp = BWLNum64Add(wake.tstamp,
+				BWLScheduleContextGenerateNextDelta(sctx));
+		}
 
 		if(sig_check()) exit(1);
 
-	}while(app.opt.continuous || --app.opt.nIntervals);
+	}while(app.opt.continuous || app.opt.nIntervals);
 
 
 	exit(0);

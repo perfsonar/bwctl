@@ -56,7 +56,8 @@ limit ami with parent=root, \
 	allow_open_mode=on
 
 # default everything to disabled
-assign default jail
+#assign default jail
+assign default ami
 
 # loopback for testing
 assign net ::/127 ami
