@@ -239,7 +239,7 @@ ip_set_auth(
 			}
 		}else{
 			I2ErrLog(eh,
-			"Ignoring id %s, key not specified. (See -k/-K)",
+		"Ignoring identity '%s', key not specified. (See -k/-K)",
 						pctx->opt.identity);
 		}
 DONE:
