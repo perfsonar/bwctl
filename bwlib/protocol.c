@@ -1008,7 +1008,6 @@ _IPFReadTestRequest(
 )
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	u_int8_t	zero[_IPF_RIJNDAEL_BLOCK_SIZE];
 	IPFTimeStamp	tstamp;
 	IPFErrSeverity	err_ret=IPFErrFATAL;
 	struct sockaddr_storage	sendaddr_rec;
@@ -1062,8 +1061,7 @@ _IPFReadTestRequest(
 	}
 
 
-	memset(zero,0,_IPF_RIJNDAEL_BLOCK_SIZE);
-	if(memcmp(zero,&buf[96],_IPF_RIJNDAEL_BLOCK_SIZE)){
+	if(memcmp(cntrl->zero,&buf[96],_IPF_RIJNDAEL_BLOCK_SIZE)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
 			"_IPFReadTestRequest: Invalid zero padding");
 		goto error;

@@ -218,7 +218,9 @@ struct IPFTestSessionRec{
 	IPFBoolean			conf_receiver;
 	IPFTestSpec			test_spec;
 
-	IPFBoolean			local;
+	FILE				*localfp;
+	FILE				*remotefp;
+
 	void				*closure; /* per/test app data */
 };
 

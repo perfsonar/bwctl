@@ -281,9 +281,12 @@ struct limdesc{
 static struct limdesc	limkeys[] = {
 {IPFDLimParent,		"parent",		LIMNOT,		0,	0},
 {IPFDLimBandwidth,	"bandwidth",		LIMINTVAL,	1,	0},
-{IPFDLimDisk,		"disk",			LIMINTVAL,	0,	0},
-{IPFDLimDeleteOnFetch,	"delete_on_fetch",	LIMBOOLVAL,	0,	0},
-{IPFDLimAllowOpenMode,	"allow_open_mode",	LIMBOOLVAL,	0,	1}
+{IPFDLimPending,	"pending",		LIMINTVAL,	1,	0},
+{IPFDLimEventHorizon,	"event_horizon",	LIMINTVAL,	1,	0},
+{IPFDLimDuration,	"duration",		LIMINTVAL,	1,	0},
+{IPFDLimAllowOpenMode,	"allow_open_mode",	LIMBOOLVAL,	0,	1},
+{IPFDLimAllowTCP,	"allow_tcp",		LIMBOOLVAL,	0,	1},
+{IPFDLimAllowUDP,	"allow_udp",		LIMBOOLVAL,	0,	0}
 };
 
 static IPFDLimitT

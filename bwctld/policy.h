@@ -118,16 +118,18 @@ typedef struct IPFDLimRec{
 } IPFDLimRec;
 
 /* parent		cname		*/
-/* bandwidth		uint (bytes/sec)*/
-/* disk			uint (bytes)	*/
+/* bandwidth		uint (bits/sec)*/
 /* delete_on_fetch	on/(off)	*/
 /* allow_open_mode	(on)/off	*/
 
 #define	IPFDLimParent		0
 #define	IPFDLimBandwidth	1
-#define	IPFDLimDisk		3
-#define	IPFDLimDeleteOnFetch	4
+#define	IPFDLimPending		2
+#define	IPFDLimEventHorizon	3
+#define	IPFDLimDuration		4
 #define	IPFDLimAllowOpenMode	5
+#define	IPFDLimAllowTCP		6
+#define	IPFDLimAllowUDP		7
 
 struct IPFDPolicyNodeRec{
 	IPFDPolicy		policy;

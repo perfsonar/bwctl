@@ -933,18 +933,18 @@ main(
 			rc = select(MAX(local.sockfd,remote.sockfd)+1,
 					&readfds,NULL,&exceptfds,&reltime);
 
-			if(rc <= 0){
-				if(sig_check()) exit(1);
-				continue;
+			if(rc > 0){
+				/*
+				 * One of the sockets is readable. Don't
+				 * really care which one. Set stop so
+				 * EndSessions happens above.
+				 * (Basically, any i/o on either of these
+				 * sockets indicates it is time to terminate
+				 * the test.)
+				 */
+				stop = True;
 			}
-
-			/*
-			 * One of the sockets is readable. Don't really care
-			 * which one. Set stop so EndSessions happens above.
-			 * (Basically, any i/o on either of these sockets
-			 * indicates it is time to terminate the test now.
-			 */
-			stop = True;
+			if(sig_check()) exit(1);
 		}
 
 		/*

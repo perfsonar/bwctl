@@ -802,8 +802,6 @@ IPFStopSessionWait(
 	IPFNum64	*wake_time,		/* abs time */
 	int		*retn_on_intr,
 	IPFAcceptType	*acceptval,		/* out */
-	FILE		*infp,
-	FILE		*outfp,
 	IPFErrSeverity	*err_ret
 );
 
@@ -857,9 +855,7 @@ extern IPFErrSeverity
 IPFStopSession(
 	IPFControl	control_handle,
 	int		*retn_on_intr,
-	IPFAcceptType	*acceptval,	/* in/out */
-	FILE		*infp,
-	FILE		*outfp
+	IPFAcceptType	*acceptval	/* in/out */
 );
 
 /*
@@ -968,12 +964,13 @@ extern IPFErrSeverity
 IPFProcessTestRequest(
 	IPFControl	cntrl,
 	int		*retn_on_intr
-		);
+	);
 
 extern IPFErrSeverity
 IPFProcessTimeRequest(
 	IPFControl	cntrl,
 	int		*retn_on_intr
+	);
 
 extern IPFErrSeverity
 IPFProcessStartSession(

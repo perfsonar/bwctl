@@ -896,9 +896,7 @@ IPFErrSeverity
 IPFStopSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
-	IPFAcceptType	*acceptval_ret,	/* in/out	*/
-	FILE		*infp,		/* pointer to local results */
-	FILE		*outfp		/* save remote results here */
+	IPFAcceptType	*acceptval_ret	/* in/out	*/
 		)
 {
 	IPFErrSeverity	err,err2=IPFErrOK;
@@ -907,6 +905,7 @@ IPFStopSession(
 	IPFAcceptType	*acceptval=&aval;
 	int		ival=0;
 	int		*intr=&ival;
+	FILE		*fp;
 
 	if(acceptval_ret){
 		acceptval = acceptval_ret;
@@ -917,20 +916,10 @@ IPFStopSession(
 	}
 
 	/*
-	 * TODO: v6 - fetch "last" sequence sent/received for encoding
-	 * in StopSession message.
-	 * (To do this - this loop needs to call "stop" on each endpoint,
-	 * but not free the structures. Somehow "stop" needs to fetch the
-	 * last sequence number from the endpoint when it exits. Receive
-	 * is easy... Send it not as simple. Should I create a socketpair
-	 * before forking off sender endpoints so the last seq number
-	 * can be sent up the pipe?)
+	 * Stop the local endpoint. This should not return until
+	 * the datafile is "flushed" into "localfp".
 	 */
-
-	while(cntrl->tests){
-		err = _IPFTestSessionFree(cntrl->tests,*acceptval);
-		err2 = MIN(err,err2);
-	}
+	(void)_IPFEndpointStop(cntrl->tests,*acceptval,&err);
 
 	/*
 	 * If acceptval would have been "success", but stopping of local
@@ -939,9 +928,13 @@ IPFStopSession(
 	 */
 	if(!*acceptval && (err2 < IPFErrWARNING)){
 		*acceptval = IPF_CNTRL_FAILURE;
+		fp = NULL;
+	}
+	else{
+		fp = cntrl->tests->localfp;
 	}
 
-	err = (IPFErrSeverity)_IPFWriteStopSession(cntrl,intr,*acceptval,infp);
+	err = (IPFErrSeverity)_IPFWriteStopSession(cntrl,intr,*acceptval,fp);
 	if(err < IPFErrWARNING)
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	err2 = MIN(err,err2);
@@ -958,14 +951,13 @@ IPFStopSession(
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	}
 
-	err = _IPFReadStopSession(cntrl,acceptval,intr,outfp);
+	if( (err = _IPFReadStopSession(cntrl,acceptval,intr,NULL)) !=
+								IPFErrOK){
+		return _IPFFailControlSession(cntrl,err);
+	}
+	err2 = MIN(err,err2);
 
-	/*
-	 * TODO: v6 - use "last seq number" messages from
-	 * in StopSession message to remove "missing" packets from the
-	 * end of session files. The "last seq number" in the file should
-	 * be MIN(last seq number sent,last seq number in file{missing or not}).
-	 */
+	err = _IPFTestSessionFree(cntrl->tests,*acceptval);
 
 	cntrl->state &= ~_IPFStateTest;
 
@@ -978,8 +970,6 @@ IPFStopSessionWait(
 	IPFNum64	*wake,
 	int		*retn_on_intr,
 	IPFAcceptType	*acceptval_ret,
-	FILE		*infp,		/* pointer to local results */
-	FILE		*outfp,		/* save remote results here */
 	IPFErrSeverity	*err_ret
 	)
 {
@@ -995,6 +985,7 @@ IPFStopSessionWait(
 	IPFAcceptType	*acceptval=&aval;
 	int		ival=0;
 	int		*intr=&ival;
+	FILE		*fp;
 
 	*err_ret = IPFErrOK;
 	if(acceptval_ret){
@@ -1018,7 +1009,7 @@ IPFStopSessionWait(
 		/*
 		 * Sessions are complete - send StopSession message.
 		 */
-		*err_ret = IPFStopSession(cntrl,intr,acceptval,infp,outfp);
+		*err_ret = IPFStopSession(cntrl,intr,acceptval);
 		return 0;
 	}
 
@@ -1084,7 +1075,7 @@ AGAIN:
 		/*
 		 * Sessions are complete - send StopSession message.
 		 */
-		*err_ret = IPFStopSession(cntrl,intr,acceptval,infp,outfp);
+		*err_ret = IPFStopSession(cntrl,intr,acceptval);
 
 		return 0;
 	}
@@ -1113,22 +1104,37 @@ AGAIN:
 		return -1;
 	}
 
-	*err_ret = _IPFReadStopSession(cntrl,intr,acceptval,outfp);
+	*err_ret = _IPFReadStopSession(cntrl,intr,acceptval,NULL);
 	if(*err_ret != IPFErrOK){
-		cntrl->state = _IPFStateInvalid;
+		*err_ret = _IPFFailControlSession(cntrl,*err_ret);
 		return -1;
 	}
+
+	/*
+	 * Stop the local endpoint. This should not return until
+	 * the datafile is "flushed" into "localfp".
+	 */
+	(void)_IPFEndpointStop(cntrl->tests,*acceptval,&err2);
+	if(err2 < IPFErrWARNING){
+		*acceptval = IPF_CNTRL_FAILURE;
+		fp = NULL;
+	}
+	else{
+		fp = cntrl->tests->localfp;
+	}
+	*err_ret = MIN(*err_ret,err2);
+
+	if( (err2 = _IPFWriteStopSession(cntrl,intr,*acceptval,fp)) !=
+								IPFErrOK){
+		(void)_IPFFailControlSession(cntrl,err2);
+	}
+	*err_ret = MIN(*err_ret,err2);
 
 	while(cntrl->tests){
 		err2 = _IPFTestSessionFree(cntrl->tests,*acceptval);
 		*err_ret = MIN(*err_ret,err2);
 	}
 
-	if(*err_ret < IPFErrWARNING){
-		*acceptval = IPF_CNTRL_FAILURE;
-	}
-
-	err2 = _IPFWriteStopSession(cntrl,intr,*acceptval,infp);
 	cntrl->state &= ~_IPFStateTest;
 
 	*err_ret = MIN(*err_ret, err2);
