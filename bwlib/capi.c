@@ -1249,17 +1249,6 @@ BWLSessionRequest(
 	}
 
 	/*
-	 * DEBUG
-	 */
-	{
-		char	hbuf[(sizeof(BWLKey)*2)+1];
-
-		I2HexEncode(hbuf,tsession->sid,sizeof(BWLKey));
-		BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
-			"BWLSessionRequest: key = '%s', receiver = %d",hbuf,
-				tsession->conf_receiver);
-	}
-	/*
 	 * Request the server create the receiver & possibly the
 	 * sender.
 	 */

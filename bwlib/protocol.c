@@ -449,7 +449,7 @@ BWLReadRequestType(
 
 	if(!_BWLStateIsRequest(cntrl) || _BWLStateIsReading(cntrl)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-				"BWLReadRequestType:called in wrong state.");
+				"BWLReadRequestType: called in wrong state.");
 		return BWLReqInvalid;
 	}
 
@@ -1242,17 +1242,6 @@ _BWLReadTestRequest(
 		 * generated - it still will be in sapi.c:BWLProcessTestRequest
 		 */
 		memcpy(tsession->sid,&buf[60],16);
-		/*
-		 * DEBUG
-		 */
-		{
-			char	hbuf[(sizeof(BWLKey)*2)+1];
-	
-			I2HexEncode(hbuf,tsession->sid,sizeof(BWLKey));
-			BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
-				"ReadTestReq: key = '%s', size = %u",hbuf,
-					sizeof(BWLKey));
-		}
 	}
 
 
@@ -1660,7 +1649,7 @@ _BWLReadStartAck(
  *	12|                       Unused (4 octets)                       |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	16|                                                               |
- *	20|                    Zero Padding (20 octets)                   |
+ *	20|                    Zero Padding (16 octets)                   |
  *	24|                                                               |
  *	28|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -1789,9 +1778,7 @@ _BWLReadStopSession(
 	 * Already read the first block - read the rest for this message
 	 * type.
 	 */
-	if((n = _BWLReceiveBlocksIntr(cntrl,&buf[16],
-				_BWL_STOP_SESSIONS_BLK_LEN-1,retn_on_intr)) !=
-						(_BWL_STOP_SESSIONS_BLK_LEN-1)){
+	if((n = _BWLReceiveBlocksIntr(cntrl,&buf[16],1,retn_on_intr)) != 1){
 		if((n < 0) && *retn_on_intr && (errno == EINTR)){
 			return BWLErrFATAL;
 		}
@@ -1800,6 +1787,19 @@ _BWLReadStopSession(
 		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
+	/*
+	 * DEBUG
+	 */
+	{
+		char	hbuf[33];
+
+		I2HexEncode(hbuf,&buf[0],16);
+		BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
+			"ReadStopSession: msg[0-15] = '%s'",hbuf);
+		I2HexEncode(hbuf,&buf[16],16);
+		BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
+			"ReadStopSession: msg[16-31] = '%s'",hbuf);
+	}
 	if(memcmp(cntrl->zero,&buf[16],16)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 				"_BWLReadStopSession: Invalid zero padding");
