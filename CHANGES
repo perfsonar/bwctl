@@ -1,6 +1,6 @@
 $Id$
 
-version 1.0d
+version 1.0e
 * Corrected AES identity specified policies.
 * Fixed bwctl -q flag.
 * Corrected documentation of "assign user" lines in bwctld.limits.man
