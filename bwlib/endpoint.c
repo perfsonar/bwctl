@@ -697,6 +697,8 @@ IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"ipf_term=%d",ipf_term);
 		goto end;
 	}
 	(void)IPFContextConfigDelete(ctx,IPFCheckControlPolicy);
+	(void)IPFContextConfigDelete(ctx,IPFCheckTestPolicy);
+	(void)IPFContextConfigDelete(ctx,IPFTestComplete);
 
 	/*
 	 * Set a timer - if we have not established a connection with
