@@ -98,12 +98,6 @@ typedef struct BWLDLimRec{
 	BWLDLimitT	value;
 } BWLDLimRec;
 
-extern int
-BWLDstr2num(
-	BWLDLimitT	*numret,
-	char		*str
-	   );
-
 /* parent		cname		*/
 /* bandwidth		uint (bits/sec)*/
 /* allow_open_mode	(on)/off	*/

@@ -35,6 +35,8 @@ typedef struct {
 	I2Boolean	verbose;
 	I2Boolean	help;
 
+        int             access_prio;
+
 	char		cwd[MAXPATHLEN];
 	char		*confdir;
 	char		*vardir;
@@ -46,6 +48,8 @@ typedef struct {
 	u_int16_t	port_range_len;
 	u_int16_t	port_count;
 	char		*datadir;
+
+        BWLPortRange    peerports;
 
 	char		*authmode;
 	u_int32_t	auth_mode;	/* cooked version of authmode */

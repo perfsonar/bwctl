@@ -127,95 +127,6 @@ parsekeys(
 }
 
 /*
- * Function:	BWLDstr2num
- *
- * Description:	
- * 	This function converts a string representation of a number to
- * 	an unsigned 64 bit integer value. It understands SI unit extentions
- * 	to the numeric value. (There can be no whitespace between the number
- * 	and the "unit" or the "unit" charactor will not be found.)
- *
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- * 	This function is destructive to the passed in string.
- */
-int
-BWLDstr2num(
-		BWLDLimitT	*limnum,
-		char		*limstr
-		)
-{
-	size_t		silen=0;
-	size_t		len;
-	char		*endptr;
-	BWLDLimitT	ret, mult=1;
-
-	while(isdigit(limstr[silen])){
-		silen++;
-	}
-	len = strlen(limstr);
-
-	if(len != silen){
-		/*
-		 * Ensure that there is at most one non-digit and that it
-		 * is the last char.
-		 */
-		if((len - silen) > 1){
-			return -1;
-		}
-
-		switch (tolower(limstr[silen])){
-		case 'k':
-			mult = 1000ULL;                            /* 1e3 */
-			break;
-		case 'm':
-			mult = 1000000ULL;                         /* 1e6 */
-			break;
-		case 'g':
-			mult = 1000000000ULL;                      /* 1e9 */
-			break;
-		case 't':
-			mult = 1000000000000ULL;                   /* 1e12 */
-			break;
-		case 'p':
-			mult = 1000000000000000ULL;                /* 1e15 */
-			break;
-		case 'e':
-			mult = 1000000000000000000ULL;             /* 1e18 */
-			break;
-#if	NOTYET
-		case 'z':
-			mult = 1000000000000000000000ULL;          /* 1e21 */
-			break;
-#endif
-		default:
-			return -1;
-			/* UNREACHED */
-		}
-		limstr[silen] = '\0';
-	}
-	ret = strtoull(limstr, &endptr, 10);
-	if(endptr != &limstr[silen]){
-		return -1;
-	}
-
-	if(ret == 0){
-		*limnum = 0;
-		return 0;
-	}
-
-	/* Check for overflow. */
-	*limnum = ret * mult;
-	return (*limnum < ret || *limnum < mult)? (-1) : 0;
-}
-
-/*
  * INTVAL are consumables that are tracked in the "used" limits of
  * each node. The other limits are fixed values with a yes/no at each
  * level of the tree.
@@ -428,7 +339,7 @@ parselimitline(
 
 		case LIMINT:
 		case LIMFIXEDINT:
-			if(BWLDstr2num(&limtemp[tnode.ilim].value,limval)){
+			if(I2StrToNum(&limtemp[tnode.ilim].value,limval)){
 				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid value specified for \"%s\".",
 					limname);
@@ -486,7 +397,7 @@ override:
 				 * we don't care, so break out.
 				 */
 				if((limkeys[k].ltype != LIMFIXEDINT) &&
-						(limkeys[k].ltype != LIMINT))
+					(limkeys[k].ltype != LIMINT))
 					break;
 
 				/*
