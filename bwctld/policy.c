@@ -1150,7 +1150,7 @@ GetNodeDefault(
 static BWLDPolicyNode
 GetNodeFromUserID(
 	BWLDPolicy	policy,
-	const BWLUserID	userid,		/* MUST POINT TO VALID MEMORY */
+	const BWLUserID	userid		/* MUST POINT TO VALID MEMORY */
 	)
 {
 	BWLDPidRec	pid;
@@ -2133,7 +2133,6 @@ BWLDCheckControlPolicy(
 	BWLContext	ctx;
 	BWLDPolicy	policy;
 	BWLDPolicyNode	node=NULL;
-	I2Datum		key,val;
 	BWLDMesgT	ret;
 
 	*err_ret = BWLErrOK;
@@ -2153,7 +2152,7 @@ BWLDCheckControlPolicy(
 	 */
 	if(((mode & BWL_MODE_DOCIPHER) && userid) &&
 			!(node = GetNodeFromUserID(policy,userid))){
-		BWError(policy->ctx,BWLErrINFO,BWLErrUNKNOWN,
+		BWLError(policy->ctx,BWLErrINFO,BWLErrUNKNOWN,
 				"BWLDCheckControlPolicy: No policy match for userid(%s) - using netmask match",userid);
 	}
 
