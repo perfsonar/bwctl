@@ -1,0 +1,110 @@
+$Id$
+
+bwctl is basically a scheduling and policy daemon that wraps iperf. It works
+by contacting a bwctld process on the remote system and on the local system
+and requests that those daemons perform a specific iperf test between them.
+
+The bwctl software uses the "autoconf" tools to prepare a build process. It is
+distributed with a pre-built "configure" script - so the "autoconf" tools should
+not be needed. (gnumake may be required... I have not tried using other versions
+of make.)
+
+The bwctld daemon does require a reasonably synchronized clock. (It is
+scheduling tests and needs to be sure it has the same general concept of
+when a test should take place as the peer system the test is being done with.)
+Therefore bwctl requires ntp be installed and used to synchronize the system
+clock.
+
+The way bwctl currently works is that it contacts a bwctld on 
+
+The simple build procedure would be:
+
+	% gzip -cd bwctl-$VERS.tar.gz | tar xf -
+	% cd bwctl-$VERS
+	% ./configure --prefix=/inst/root
+	% make
+	% make install
+then
+	* edit bwctl-$VERS/conf/bwctld.conf
+	* create user id's with aespasswd
+	  (installed from bwctl-$VERS/I2util/aespasswd).
+
+	  [This step is only required if you want to use encrypted or
+	  authenticated mode. Policy restrictions are based on identity
+	  if possible, and netmasks otherwise so it is possible to run
+	  the bwctld without these identities only using netmasks for
+	  policy determination.]
+
+	  % aespasswd -n -f bwctl-$VERS/conf/bwctld.keys ${userid}
+
+	  You will be prompted for a passphrase. This passphrase will
+	  uniquely identify an AES key. That AES key needs to be installed
+	  in the bwctld.keys file for all bwctld servers you with to contact.
+	  (You can add as many userid's to the file as you want. The -n flag
+	  is used to create the file initially, so do not use it for subsequent
+	  identity additions.)
+
+	* edit bwctl-$VERS/conf/bwctld.limits
+
+	  You can use either identities from the bwctld.keys file or
+	  setup netmasks within this file to define "classes" of users.
+	  This file is used to assign "limits" to those "classes" of users.
+
+	* copy bwctld.{conf,limits,keys} to the config directory.
+	  (/inst/root/etc?)
+
+There is currently no build process to help build the bwctld configuration
+file - or to build "init.d/rc" scripts. There are the start of some of these
+things in the $bwctl/scripts and $bwctl/conf directories.
+
+To run the daemon:
+
+	% bwctld -c /path/to/confdir (/inst/root/etc in above)
+
+The daemon will run without a bwctld configuration file if you use enough
+of the command-line flags - but it is much easier to use the config file.
+There is an example configuration file in $bwctld/conf/bwctld.conf.
+
+To get the list of available options use:
+
+	% bwctld -h
+
+	[bwctld -h will give you the list of options. Specifically, if
+	you have problems you may want to use the -Z flag to run it in
+	the foreground and have error messages come to the console in
+	addition to syslog.]
+
+
+To run the client:
+
+	% bwctl [options] [-c|-s] host.running.bwctld
+
+At least a -c or a -s must be specified to indicate the direction of the
+test. [-c == local sender, -s == local receiver]
+
+To get the list of available options use:
+
+	% bwctl -h
+
+	[I tried to keep as many of the iperf command line options as I
+	could...]
+
+Problems/Questions can be reported to bwctl-users@internet2.edu.
+
+Mailing Lists:
+
+I have created two email lists to support this softare:
+
+bwctl-users	A general discussion list for users to discuss problems.
+		I will monitor this list as I expect bug reports to be
+		sent here.
+
+bwctl-announce	This list will be used to announce new versions or significant
+		developments with regard to the software.
+
+These lists can be subscribed to from:
+
+	https://mail.internet2.edu/wws/lists/engineering
+
+Jeff Boote
+Internet2
