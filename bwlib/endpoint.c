@@ -530,13 +530,13 @@ run_iperf(
 
 static BWLAddr
 AddrByTestAddr(
-	BWContext	ctx,
-	BWAddr		addr,
+	BWLContext	ctx,
+	BWLAddr		from_addr,
 	u_int16_t	port
 		   )
 {
 	struct addrinfo		*ai=NULL;
-	BWLAddr			addr;
+	BWLAddr			to_addr;
 	struct sockaddr_storage	saddr_rec;
 	struct sockaddr		*oaddr=(struct sockaddr*)&saddr_rec;
 	socklen_t		len;
@@ -544,17 +544,17 @@ AddrByTestAddr(
 	/*
 	 * copy current socketaddr into saddr_rec
 	 */
-	len = addr->saddrlen;
-	memcpy(&saddr_rec,addr->saddr,len);
+	len = from_addr->saddrlen;
+	memcpy(&saddr_rec,from_addr->saddr,len);
 
 	/*
 	 * Allocate an BWLAddr record to assign the data into.
 	 */
-	if( !(addr = _BWLAddrAlloc(ctx)))
+	if( !(to_addr = _BWLAddrAlloc(ctx)))
 		return NULL;
 
 	if( !(ai = calloc(1,sizeof(struct addrinfo))) ||
-					!(addr->saddr = calloc(1,len))){
+					!(to_addr->saddr = calloc(1,len))){
 		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"malloc():%M");
 		goto error;
 	}
@@ -562,34 +562,33 @@ AddrByTestAddr(
 	/*
 	 * Assign all the fields.
 	 */
-	memcpy(addr->saddr,oaddr,len);
-	ai->ai_addr = addr->saddr;
-	addr->saddrlen = len;
+	memcpy(to_addr->saddr,oaddr,len);
+	ai->ai_addr = to_addr->saddr;
+	to_addr->saddrlen = len;
 	ai->ai_addrlen = len;
 
-	switch(addr->saddr->sa_family){
+	switch(to_addr->saddr->sa_family){
 		struct sockaddr_in	*saddr4;
 #ifdef	AF_INET6
 		struct sockaddr_in6	*saddr6;
 
 		case AF_INET6:
-			saddr6 = (struct sockaddr_in6 *)addr->saddr;
+			saddr6 = (struct sockaddr_in6 *)to_addr->saddr;
 			saddr6->sin6_port = htons(port);
 			break;
 #endif
 		case AF_INET:
-			saddr4 = (struct sockaddr_in *)addr->saddr;
+			saddr4 = (struct sockaddr_in *)to_addr->saddr;
 			saddr4->sin_port = htons(port);
 			break;
 		default:
-			BWLError(tsess->cntrl->ctx,BWLErrFATAL,
-						BWLErrINVALID,
+			BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
 				"Endpoint control socket: Invalid AF(%d)",
-					addr->saddr->sa_family);
-			goto end;
+					to_addr->saddr->sa_family);
+			goto error;
 	}
-	sprintf(addr->port,"%u",port);
-	addr->port_set = True;
+	sprintf(to_addr->port,"%u",port);
+	to_addr->port_set = True;
 
 	ai->ai_flags = 0;
 	ai->ai_family = oaddr->sa_family;
@@ -598,16 +597,16 @@ AddrByTestAddr(
 	ai->ai_canonname = NULL;
 	ai->ai_next = NULL;
 
-	addr->ai = ai;
-	addr->ai_free = True;
-	addr->so_type = SOCK_STREAM;
-	addr->so_protocol = IPPROTO_IP;
+	to_addr->ai = ai;
+	to_addr->ai_free = True;
+	to_addr->so_type = SOCK_STREAM;
+	to_addr->so_protocol = IPPROTO_IP;
 
-	return addr;
+	return to_addr;
 
 error:
-	if(addr)
-		BWLAddrFree(addr);
+	if(to_addr)
+		BWLAddrFree(to_addr);
 	if(ai)
 		free(ai);
 
