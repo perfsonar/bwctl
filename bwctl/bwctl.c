@@ -579,7 +579,7 @@ main(
 	int			ch;
 	char                    *endptr = NULL;
 	char                    optstring[128];
-	static char		*conn_opts = "A:B:k:U:";
+	static char		*conn_opts = "A:B:k:U:K";
 	static char		*out_opts = "pxd:I:R:n:L:e:rvV";
 	static char		*test_opts = "i:l:uw:P:S:b:t:cs";
 	static char		*gen_opts = "hWY";
