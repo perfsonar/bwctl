@@ -27,9 +27,9 @@
 #
 #	Options:
 # Process this file with autoconf to produce a configure script.
-AC_INIT(iperfcd, 1.0a, iperfcd-bugs@internet2.edu)
+AC_INIT(iperfc, 1.0a, iperfc-bugs@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(iperfcd, 1.0a, [no-define])
+AM_INIT_AUTOMAKE(iperfc, 1.0a, [no-define])
 AC_CONFIG_SRCDIR(ipcntrl/context.c)
 AM_CONFIG_HEADER(ipcntrl/config.h)
 

@@ -955,16 +955,11 @@ _IPFWriteTestRequest(
 			break;
 	}
 
-	memcpy(&buf[48],tsession->sid,16);
+	memcpy(&buf[60],tsession->sid,16);
 	*(u_int32_t*)&buf[76] = htonl(tspec->bandwidth);
 	*(u_int32_t*)&buf[80] = htonl(tspec->len_buffer);
 	*(u_int32_t*)&buf[84] = htonl(tspec->window_size);
 	*(u_int32_t*)&buf[88] = htonl(tspec->report_interval);
-
-	/*
-	 * Set MBZ and Integrity Zero Padding
-	 */
-	memset(&buf[92],0,20);
 
 	/*
 	 * Now - send the request! 112 octets == 7 blocks.
@@ -1159,7 +1154,7 @@ _IPFReadTestRequest(
 				/* receiver address and port  */
 				saddr6 = (struct sockaddr_in6*)&recvaddr_rec;
 				saddr6->sin6_family = AF_INET6;
-				memcpy(saddr6->sin6_addr.s6_addr,&buf[32],16);
+				memcpy(saddr6->sin6_addr.s6_addr,&buf[44],16);
 				saddr6->sin6_port = 0;
 
 				break;
@@ -1178,13 +1173,13 @@ _IPFReadTestRequest(
 				/* sender address and port  */
 				saddr4 = (struct sockaddr_in*)&sendaddr_rec;
 				saddr4->sin_family = AF_INET;
-				saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[16];
+				saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[28];
 				saddr4->sin_port = 0;
 
 				/* receiver address and port  */
 				saddr4 = (struct sockaddr_in*)&recvaddr_rec;
 				saddr4->sin_family = AF_INET;
-				saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[32];
+				saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[44];
 				saddr4->sin_port = 0;
 
 				break;
