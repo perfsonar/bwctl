@@ -159,6 +159,15 @@ Run the master \fBbwctld\fR process in the foreground. In this mode, error
 messages are printed to stderr as well as being sent to syslog. Also, normal
 terminal controls are available. (i.e. <Cntr\-C> will cause the daemon to
 kill it's child processes and exit.) This is useful for debugging.
+.SH REQUIREMENTS
+The \fBbwctld\fR daemon requires a reasonably synchronized clock. It is
+scheduling tests and needs to be sure it has the same idea of when a test
+should take place as the peer system the test is being done with.
+Therefore, \fBbwctld\fR requires that \fBNTP\fR be running to synchronize
+the system clock. This means that \fBNTP\fR needs to be setup correctly
+on the system so that \fBNTP\fR can actually calculate a reasonable
+estimate of the time error. For the \fBNTP\fR algorithms to work correctly,
+ntpd \fBMUST\fR be configured with no fewer than 4 clocks.
 .SH FILES
 bwctld.pid
 .br
