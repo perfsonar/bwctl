@@ -1,5 +1,7 @@
 $Id$
 
+[See the doc subdirectory for a more comprehensive installation guide.]
+
 bwctl is basically a scheduling and policy daemon that wraps iperf. It works
 by contacting a bwctld process on the remote system and on the local system
 and requests that those daemons perform a specific iperf test between them.

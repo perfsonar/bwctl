@@ -2,7 +2,6 @@ $Id$
 
 	bwctl
 
-
 bwctl [iperf control program/daemon]
 
 It is organized as follows:
@@ -13,3 +12,5 @@ bwlib		directory for api - a high level abstraction for
 		speaking the bwctl protocol.
 bwctld/		Server implementation (schedules resources and executes tests).
 bwctl/		A command line bwctl client. (Takes *most* iperf args.)
+
+For more details see the "doc" subdirectory.

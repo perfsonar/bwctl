@@ -757,7 +757,7 @@ main(
 			break;
 		case 'v':
 			app.opt.version = True;
-			I2ErrLog(eh,"Version: $Revision$");
+			fprintf(stderr,"Version: $Revision$\n");
 			exit(0);
 
 		/* TEST OPTIONS */
@@ -863,7 +863,8 @@ main(
 	}
 
 	if(app.opt.verbose){
-		fprintf(stderr,"Further messages to syslog(%s,%s)\n",
+		fprintf(stderr,
+			"Further messages to syslog(%s,%s) - (see -r option)\n",
 			I2ErrLogSyslogFacilityName(syslogattr.facility),
 			I2ErrLogSyslogPriorityName(syslogattr.priority));
 	}
