@@ -213,6 +213,8 @@ getclientkey(
 static int
 parse_auth_args(
 	I2ErrHandle	eh,
+	char		**argv,
+	int		argc,
 	aeskey_auth	*auth_ret
 	       )
 {
@@ -320,7 +322,7 @@ parse_auth_args(
 	if(auth->keyfile){
 		if(!(fp = fopen(auth->keyfile,"r"))){
 			I2ErrLog(eh,"Unable to open %s: %M",auth->keyfile);
-			goto DONE;
+			return 1;
 		}
 
 		rc = I2ParseKeyFile(eh,fp,0,&lbuf,&lbuf_max,NULL,
@@ -776,7 +778,7 @@ main(
 		/* Connection options. */
 		case 'A':
 			/* TODO: parse auth! */
-			if((parse_auth_args(eh,&app.def_auth) != 0) ||
+			if((parse_auth_args(eh,argv,argc,&app.def_auth) != 0) ||
 					!app.def_auth){
 				I2ErrLog(eh,"invalid default authentication");
 				exit(1);
@@ -803,7 +805,8 @@ main(
 			}
 			app.recv_sess->host = optarg;
 
-			if(parse_auth_args(eh,&app.recv_sess->auth) != 0){
+			if(parse_auth_args(eh,argv,argc,&app.recv_sess->auth)
+									!= 0){
 				I2ErrLog(eh,
 					"invalid \'receiver\' authentication");
 				exit(1);
@@ -825,7 +828,8 @@ main(
 			app.send_sess->send = True;
 			app.send_sess->host = optarg;
 
-			if(parse_auth_args(eh,&app.send_sess->auth) != 0){
+			if(parse_auth_args(eh,argv,argc,&app.send_sess->auth)
+									!= 0){
 				I2ErrLog(eh,
 					"invalid \'sender\' authentication");
 				exit(1);
@@ -982,11 +986,6 @@ main(
 		usage(progname, "At least one of -s or -c must be specified.");
 		exit(1);
 	}
-
-	if(!app.send_auth)
-		app.send_auth = app.def_auth;
-	if(!app.recv_auth)
-		app.recv_auth = app.def_auth;
 
 	/*
 	 * Useful constant
@@ -1155,15 +1154,8 @@ main(
 
 
 	/* s[0] == reciever, s[1] == sender */
-	s[0] = (app.opt.send)? &second: &first;
-	s[1] = (!app.opt.send)? &second: &first;
-	s[1]->send = True;
-
-	/*
-	 * Setup policy stuff
-	 * (Get an AES key if needed...)
-	 */
-	ip_set_auth(ctx,progname,&app); 
+	s[0] = app.recv_sess;
+	s[1] = app.send_sess;
 
 	/*
 	 * setup sighandlers
@@ -1222,6 +1214,7 @@ main(
 		BWLNum64	rel;
 		u_int16_t	dataport;
 		BWLBoolean	stop;
+		BWLBoolean	fake_daemon = False;
 		char		recvfname[PATH_MAX];
 		char		sendfname[PATH_MAX];
 		FILE		*recvfp = NULL;
@@ -1277,7 +1270,7 @@ AGAIN:
 
 		/* Open first connection */
 		if(!first.cntrl){
-			current_auth = (first.auth?first.auth:def_auth);
+			current_auth = ((first.auth)?first.auth:app.def_auth);
 			first.cntrl = BWLControlOpen(ctx,
 				BWLAddrByNode(ctx,app.opt.srcaddr),
 				BWLAddrByNode(ctx,first.host),
@@ -1320,7 +1313,7 @@ AGAIN:
 			 * 	use it. If not, and if "client_test"
 			 * 	option is set, then fork of a client tester.
 			 */
-			current_auth = (second.auth?second.auth:def_auth);
+			current_auth = ((second.auth)?second.auth:app.def_auth);
 			if(second_set){
 				/*
 				 * If second host is specified, a bwctld
