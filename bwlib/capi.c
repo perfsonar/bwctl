@@ -853,6 +853,7 @@ _IPFClientRequestTestReadResponse(
 		*err_ret = (IPFErrSeverity)rc;
 		return 1;
 	}
+HERE
 
 	/*
 	 * Figure out if the server will be returning Port field.

@@ -537,6 +537,7 @@ _IPFWriteTimeRequest(
 
 	return IPFErrOK;
 }
+
 IPFErrSeverity
 _IPFReadTimeRequest(
 	IPFControl	cntrl,
@@ -617,7 +618,7 @@ _IPFWriteTimeResponse(
 	int		ival=0;
 	int		*intr=&ival;
 
-	if(!_IPFStateIs(cntrl,_IPFStateTimeResponse)){
+	if(!_IPFStateIs(_IPFStateTimeResponse,cntrl)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
 			"_IPFWriteTimeResponse: called in wrong state.");
 		return IPFErrFATAL;
@@ -634,8 +635,8 @@ _IPFWriteTimeResponse(
 	/*
 	 * Encode time and time  error estimate
 	 */
-	_IPFEncodeTimeStamp(&buf[0],&tstamp);
-	if(!_IPFEncodeTimeStampErrEstimate(&buf[8],&tstamp)){
+	_IPFEncodeTimeStamp(&buf[0],tstamp);
+	if(!_IPFEncodeTimeStampErrEstimate(&buf[8],tstamp)){
 		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 						"Invalid Timestamp Error");
 		return IPFErrFATAL;
@@ -703,6 +704,86 @@ _IPFReadTimeResponse(
 }
 
 /*
+ * Function:	AddrBySAddrRef
+ *
+ * Description:	
+ * 	Construct an IPFAddr record given a sockaddr struct.
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ */
+static IPFAddr
+AddrBySAddrRef(
+	IPFContext	ctx,
+	struct sockaddr	*saddr,
+	socklen_t	saddrlen,
+	int		socktype
+	)
+{
+	IPFAddr		addr;
+	struct addrinfo	*ai=NULL;
+	int		gai;
+
+	if(!saddr){
+		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+				"AddrBySAddrRef:Invalid saddr");
+		return NULL;
+	}
+
+	if(!(addr = _IPFAddrAlloc(ctx)))
+		return NULL;
+
+	if(!(ai = malloc(sizeof(struct addrinfo)))){
+		IPFError(addr->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+				"malloc():%s",strerror(errno));
+		(void)IPFAddrFree(addr);
+		return NULL;
+	}
+
+	if(!(addr->saddr = malloc(saddrlen))){
+		IPFError(addr->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+				"malloc():%s",strerror(errno));
+		(void)IPFAddrFree(addr);
+		(void)free(ai);
+		return NULL;
+	}
+	memcpy(addr->saddr,saddr,saddrlen);
+	ai->ai_addr = addr->saddr;
+	addr->saddrlen = saddrlen;
+	ai->ai_addrlen = saddrlen;
+
+	ai->ai_flags = 0;
+	ai->ai_family = saddr->sa_family;
+	ai->ai_socktype = socktype;
+	ai->ai_protocol = IPPROTO_IP;	/* reasonable default.	*/
+	ai->ai_canonname = NULL;
+	ai->ai_next = NULL;
+
+	addr->ai = ai;
+	addr->ai_free = True;
+	addr->so_type = SOCK_DGRAM;
+	addr->so_protocol = IPPROTO_IP;
+
+	if( (gai = getnameinfo(addr->saddr,addr->saddrlen,
+				addr->node,sizeof(addr->node),
+				addr->port,sizeof(addr->port),
+				NI_NUMERICHOST | NI_NUMERICSERV)) != 0){
+		IPFError(addr->ctx,IPFErrWARNING,IPFErrUNKNOWN,
+				"getnameinfo(): %s",gai_strerror(gai));
+		strncpy(addr->node,"unknown",sizeof(addr->node));
+		strncpy(addr->port,"unknown",sizeof(addr->port));
+	}
+	addr->node_set = True;
+	addr->port_set = True;
+
+	return addr;
+}
+/*
  * 	TestRequest message format:
  *
  * 	size:112 octets
@@ -720,7 +801,7 @@ _IPFReadTimeResponse(
  *	16|                          Latest Time                          |
  *	20|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	24|        Time Error Estimate    |         Receiver Port         |
+ *	24|        Time Error Estimate    |            Unused             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	28|                        Sender Address                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -758,11 +839,15 @@ _IPFReadTimeResponse(
 IPFErrSeverity
 _IPFWriteTestRequest(
 	IPFControl	cntrl,
-	IPFBoolean	sender,
 	IPFSID		sid,
-	IPFTestSpec	*test_spec
+	IPFTestSpec	*tspec
 )
 {
+	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	u_int8_t	version;
+	IPFTimeStamp	tstamp;
+	IPFAddr		sender;
+	IPFAddr		receiver;
 	/*
 	 * Ensure cntrl is in correct state.
 	 */
@@ -772,99 +857,14 @@ _IPFWriteTestRequest(
 		return IPFErrFATAL;
 	}
 
-#if	TODO
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	u_int32_t	buf_len = sizeof(cntrl->msg);
-	u_int32_t	i;
-
 	/*
-	 * Encode test request variables that were passed in into
-	 * the "buf" in the format required by V5 of ipcntrl spec section 4.3.
+	 * Interpret addresses
 	 */
-	if((_IPFEncodeTestRequestPreamble(cntrl->ctx,cntrl->msg,&buf_len,
-				sender,receiver,server_conf_sender,
-				server_conf_receiver,sid,test_spec) != 0) ||
-							(buf_len != 112)){
-		return IPFErrFATAL;
-	}
+	sender = tspec->sender;
+	receiver = tspec->receiver;
 
-	/*
-	 * Now - send the request! 112 octets == 7 blocks.
-	 */
-	if(_IPFSendBlocks(cntrl,buf,7) != 7){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * Send slots
-	 */
-	for(i=0;i<test_spec->nslots;i++){
-		if(_IPFEncodeSlot(cntrl->msg,&test_spec->slots[i]) != IPFErrOK){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFWriteTestRequest: Invalid slot record");
-			cntrl->state = _IPFStateInvalid;
-			return IPFErrFATAL;
-		}
-		if(_IPFSendBlocks(cntrl,buf,1) != 1){
-			cntrl->state = _IPFStateInvalid;
-			return IPFErrFATAL;
-		}
-	}
-
-	/*
-	 * Send 1 block of Integrity Zero Padding.
-	 */
-	if(_IPFSendBlocks(cntrl,cntrl->zero,1) != 1){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-#endif
-	cntrl->state |= _IPFStateTestAccept;
-
-	return IPFErrOK;
-}
-#if	NOT
-int
-_IPFEncodeTestRequestPreamble(
-		IPFContext	ctx,
-		u_int32_t	*msg,
-		u_int32_t	*len_ret,
-		struct sockaddr	*sender,
-		struct sockaddr	*receiver,
-		IPFBoolean	server_conf_sender, 
-		IPFBoolean	server_conf_receiver,
-		IPFSID		sid,
-		IPFTestSpec	*tspec
-		)
-{
-	u_int8_t	*buf = (u_int8_t*)msg;
-	u_int8_t	version;
-	IPFTimeStamp	tstamp;
-
-	if(*len_ret < 112){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFEncodeTestRequestPreamble:Buffer too small");
-		*len_ret = 0;
-		return IPFErrFATAL;
-	}
-	*len_ret = 0;
-
-	/*
-	 * Check validity of input variables.
-	 */
-
-	/* valid "conf" setup? */
-	if(!server_conf_sender && !server_conf_receiver){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-		"_IPFEncodeTestRequestPreamble:Request for empty config?");
-		return IPFErrFATAL;
-	}
-
-	/* consistant addresses? */
-	if(sender->sa_family != receiver->sa_family){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+	if(sender->saddr->sa_family != receiver->saddr->sa_family){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
 					"Address Family mismatch");
 		return IPFErrFATAL;
 	}
@@ -873,7 +873,7 @@ _IPFEncodeTestRequestPreamble(
 	 * Addresses are consistant. Can we deal with what we
 	 * have been given? (We only support AF_INET and AF_INET6.)
 	 */
-	switch (sender->sa_family){
+	switch (sender->saddr->sa_family){
 		case AF_INET:
 			version = 4;
 			break;
@@ -883,36 +883,39 @@ _IPFEncodeTestRequestPreamble(
 			break;
 #endif
 		default:
-			IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
 					"Invalid IP Address Family");
-			return 1;
+			return IPFErrFATAL;
 	}
 
 	/*
-	 * Do we have "valid" schedule variables?
+	 * Initialize buffer
 	 */
-	if((tspec->npackets < 1) || (tspec->nslots < 1) || !tspec->slots){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"Invalid test distribution parameters");
-		return IPFErrFATAL;
-	}
+	memset(&buf[0],0,112);
 
-	/*
-	 * set simple values
-	 */
 	buf[0] = 1;	/* Request-Session message # */
-	buf[1] = version & 0xF;
-	buf[2] = (server_conf_sender)?1:0;
-	buf[3] = (server_conf_receiver)?1:0;
+	buf[1] = version & 0xF;	/* version */
+	if(tspec->udp){	/* udp */
+		buf[1] |= 0x10;
+	}
+	buf[2] = (tspec->conf_sender)?1:0;
+	buf[3] = (tspec->conf_receiver)?1:0;
 
 	/*
 	 * slots and npackets... convert to network byte order.
 	 */
-	*(u_int32_t*)&buf[4] = htonl(tspec->nslots);
-	*(u_int32_t*)&buf[8] = htonl(tspec->npackets);
+	*(u_int32_t*)&buf[4] = htonl(tspec->duration);
+	_IPFEncodeTimeStamp(&buf[8],&tspec->req_time);
+	tstamp.ipftime = tspec->latest_time;
+	_IPFEncodeTimeStamp(&buf[16],&tstamp);
+	if(!_IPFEncodeTimeStampErrEstimate(&buf[24],&tspec->req_time)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+					"Invalid req_time time errest");
+		return IPFErrFATAL;
+	}
 
 	/*
-	 * Now set addr values. (sockaddr vars should already have
+	 * Now set addr values. (sockaddr vars will already have
 	 * values in network byte order.)
 	 */
 	switch(version){
@@ -920,28 +923,24 @@ _IPFEncodeTestRequestPreamble(
 #ifdef	AF_INET6
 	struct sockaddr_in6	*saddr6;
 		case 6:
-			/* sender address  and port */
+			/* sender address */
 			saddr6 = (struct sockaddr_in6*)sender;
-			memcpy(&buf[16],saddr6->sin6_addr.s6_addr,16);
-			*(u_int16_t*)&buf[12] = saddr6->sin6_port;
+			memcpy(&buf[28],saddr6->sin6_addr.s6_addr,16);
 
 			/* receiver address and port  */
 			saddr6 = (struct sockaddr_in6*)receiver;
-			memcpy(&buf[32],saddr6->sin6_addr.s6_addr,16);
-			*(u_int16_t*)&buf[14] = saddr6->sin6_port;
+			memcpy(&buf[44],saddr6->sin6_addr.s6_addr,16);
 
 			break;
 #endif
 		case 4:
-			/* sender address and port  */
+			/* sender address */
 			saddr4 = (struct sockaddr_in*)sender;
-			*(u_int32_t*)&buf[16] = saddr4->sin_addr.s_addr;
-			*(u_int16_t*)&buf[12] = saddr4->sin_port;
+			*(u_int32_t*)&buf[28] = saddr4->sin_addr.s_addr;
 
-			/* receiver address and port  */
+			/* receiver address */
 			saddr4 = (struct sockaddr_in*)receiver;
-			*(u_int32_t*)&buf[32] = saddr4->sin_addr.s_addr;
-			*(u_int16_t*)&buf[14] = saddr4->sin_port;
+			*(u_int32_t*)&buf[44] = saddr4->sin_addr.s_addr;
 
 			break;
 		default:
@@ -956,503 +955,27 @@ _IPFEncodeTestRequestPreamble(
 	if(sid)
 		memcpy(&buf[48],sid,16);
 
-	*(u_int32_t*)&buf[64] = htonl(tspec->packet_size_padding);
-
-	/*
-	 * timestamps...
-	 */
-	tstamp.ipftime = tspec->start_time;
-	_IPFEncodeTimeStamp(&buf[68],&tstamp);
-	tstamp.ipftime = tspec->loss_timeout;
-	_IPFEncodeTimeStamp(&buf[76],&tstamp);
-
-	*(u_int32_t*)&buf[84] = htonl(tspec->typeP);
+	*(u_int32_t*)&buf[76] = htonl(tspec->bandwidth);
+	*(u_int32_t*)&buf[80] = htonl(tspec->len_buffer);
+	*(u_int32_t*)&buf[84] = htonl(tspec->window_size);
+	*(u_int32_t*)&buf[88] = htonl(tspec->report_interval);
 
 	/*
 	 * Set MBZ and Integrity Zero Padding
 	 */
-	memset(&buf[88],0,24);
-
-	*len_ret = 112;
-
-	return 0;
-}
-IPFErrSeverity
-_IPFDecodeTestRequestPreamble(
-	IPFContext	ctx,
-	u_int32_t	*msg,
-	u_int32_t	msg_len,
-	struct sockaddr	*sender,
-	struct sockaddr	*receiver,
-	socklen_t	*socklen,
-	u_int8_t	*ipvn,
-	IPFBoolean	*server_conf_sender,
-	IPFBoolean	*server_conf_receiver,
-	IPFSID		sid,
-	IPFTestSpec	*tspec
-)
-{
-	u_int8_t	*buf = (u_int8_t*)msg;
-	u_int8_t	zero[_IPF_RIJNDAEL_BLOCK_SIZE];
-	IPFTimeStamp	tstamp;
-
-	if(msg_len != 112){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFDecodeTestRequestPreamble:Invalid message size");
-		return IPFErrFATAL;
-	}
-
-	memset(zero,0,_IPF_RIJNDAEL_BLOCK_SIZE);
-	if(memcmp(zero,&buf[96],_IPF_RIJNDAEL_BLOCK_SIZE)){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFDecodeTestRequestPreamble:Invalid zero padding");
-		return IPFErrFATAL;
-	}
-
-
-	*ipvn = buf[1] & 0xF;
-	tspec->nslots = ntohl(*(u_int32_t*)&buf[4]);
-	tspec->npackets = ntohl(*(u_int32_t*)&buf[8]);
-
-	switch(buf[2]){
-		case 0:
-			*server_conf_sender = False;
-			break;
-		case 1:
-		default:
-			*server_conf_sender = True;
-			break;
-	}
-	switch(buf[3]){
-		case 0:
-			*server_conf_receiver = False;
-			break;
-		case 1:
-		default:
-			*server_conf_receiver = True;
-			break;
-	}
-
-	if(!*server_conf_sender && !*server_conf_receiver){
-			IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-		"_IPFDecodeTestRequestPreamble:Invalid null request");
-			return IPFErrWARNING;
-	}
-
-	switch(*ipvn){
-	struct sockaddr_in	*saddr4;
-#ifdef	AF_INET6
-	struct sockaddr_in6	*saddr6;
-		case 6:
-			if(*socklen < sizeof(struct sockaddr_in6)){
-				IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-	"_IPFDecodeTestRequestPreamble: socklen not large enough (%d < %d)",
-					*socklen,sizeof(struct sockaddr_in6));
-				*socklen = 0;
-				return IPFErrFATAL;
-			}
-			*socklen = sizeof(struct sockaddr_in6);
-
-			/* sender address  and port */
-			saddr6 = (struct sockaddr_in6*)sender;
-			saddr6->sin6_family = AF_INET6;
-			memcpy(saddr6->sin6_addr.s6_addr,&buf[16],16);
-			if(*server_conf_sender)
-				saddr6->sin6_port = 0;
-			else
-				saddr6->sin6_port = *(u_int16_t*)&buf[12];
-
-			/* receiver address and port  */
-			saddr6 = (struct sockaddr_in6*)receiver;
-			saddr6->sin6_family = AF_INET6;
-			memcpy(saddr6->sin6_addr.s6_addr,&buf[32],16);
-			if(*server_conf_receiver)
-				saddr6->sin6_port = 0;
-			else
-				saddr6->sin6_port = *(u_int16_t*)&buf[14];
-
-			break;
-#endif
-		case 4:
-			if(*socklen < sizeof(struct sockaddr_in)){
-				*socklen = 0;
-				IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-	"_IPFDecodeTestRequestPreamble: socklen not large enough (%d < %d)",
-					*socklen,sizeof(struct sockaddr_in));
-				return IPFErrFATAL;
-			}
-			*socklen = sizeof(struct sockaddr_in);
-
-			/* sender address and port  */
-			saddr4 = (struct sockaddr_in*)sender;
-			saddr4->sin_family = AF_INET;
-			saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[16];
-			if(*server_conf_sender)
-				saddr4->sin_port = 0;
-			else
-				saddr4->sin_port = *(u_int16_t*)&buf[12];
-
-			/* receiver address and port  */
-			saddr4 = (struct sockaddr_in*)receiver;
-			saddr4->sin_family = AF_INET;
-			saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[32];
-			if(*server_conf_receiver)
-				saddr4->sin_port = 0;
-			else
-				saddr4->sin_port = *(u_int16_t*)&buf[14];
-
-			break;
-		default:
-			IPFError(ctx,IPFErrWARNING,IPFErrINVALID,
-		"_IPFDecodeTestRequestPreamble: Unsupported IP version (%d)",
-									*ipvn);
-			return IPFErrWARNING;
-	}
-
-#ifdef	HAVE_STRUCT_SOCKADDR_SA_LEN
-	sender->sa_len = receiver->sa_len = *socklen;
-#endif
-
-	memcpy(sid,&buf[48],16);
-
-	tspec->packet_size_padding = ntohl(*(u_int32_t*)&buf[64]);
-
-	_IPFDecodeTimeStamp(&tstamp,&buf[68]);
-	tspec->start_time = tstamp.ipftime;
-	_IPFDecodeTimeStamp(&tstamp,&buf[76]);
-	tspec->loss_timeout = tstamp.ipftime;
-
-	tspec->typeP = ntohl(*(u_int32_t*)&buf[84]);
+	memset(&buf[92],0,20);
 
 	/*
-	 * This implementation currently only supports type-P descriptors
-	 * for valid DSCP types. (A valid DSCP value will be all 0's except
-	 * the last 6 bits.)
+	 * Now - send the request! 112 octets == 7 blocks.
 	 */
-	if(*server_conf_sender && (tspec->typeP & ~0x3F)){
-		IPFError(ctx,IPFErrWARNING,IPFErrINVALID,
-		"_IPFDecodeTestRequestPreamble: Unsupported type-P value (%u)",
-								tspec->typeP);
-		return IPFErrWARNING;
-	}
-
-	return IPFErrOK;
-}
-
-
-/*
- * 	Encode/Decode Slot
- *
- * 	   0                   1                   2                   3
- * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|    Slot Type  |                                               |
- *	  +-+-+-+-+-+-+-+-+              MBZ                              +
- *	04|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                 Slot Parameter (Timestamp)                    |
- *	12|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- */
-/*
- * Function:	_IPFEncodeSlot
- *
- * Description:	
- * 	This function is used to encode a slot record in a single block
- * 	in the format needed to send a slot over the wire.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-IPFErrSeverity
-_IPFEncodeSlot(
-	u_int32_t	msg[4],	/* 1 block 32bit aligned */
-	IPFSlot		*slot
-	)
-{
-	u_int8_t	*buf = (u_int8_t*)msg;
-	IPFTimeStamp	tstamp;
-
-	/*
-	 * Initialize block to zero
-	 */
-	memset(buf,0,16);
-
-	switch(slot->slot_type){
-		case IPFSlotRandExpType:
-			buf[0] = 0;
-			tstamp.ipftime = slot->rand_exp.mean;
-			break;
-		case IPFSlotLiteralType:
-			buf[0] = 1;
-			tstamp.ipftime = slot->literal.offset;
-			break;
-		default:
-			return IPFErrFATAL;
-	}
-	_IPFEncodeTimeStamp(&buf[8],&tstamp);
-
-	return IPFErrOK;
-}
-/*
- * Function:	_IPFDecodeSlot
- *
- * Description:	
- * 	This function is used to read a slot in protocol format into a
- * 	slot structure record.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-IPFErrSeverity
-_IPFDecodeSlot(
-	IPFSlot		*slot,
-	u_int32_t	msg[4] /* 1 block 32bit aligned */
-	)
-{
-	u_int8_t	*buf = (u_int8_t*)msg;
-	IPFTimeStamp	tstamp;
-
-	_IPFDecodeTimeStamp(&tstamp,&buf[8]);
-	switch(buf[0]){
-		case 0:
-			slot->slot_type = IPFSlotRandExpType;
-			slot->rand_exp.mean = tstamp.ipftime;
-			break;
-		case 1:
-			slot->slot_type = IPFSlotLiteralType;
-			slot->literal.offset = tstamp.ipftime;
-			break;
-		default:
-			return IPFErrFATAL;
-	}
-
-	return IPFErrOK;
-}
-#endif
-
-
-#if	NOT
-/*
- * Function:	_IPFReadTestRequestSlots
- *
- * Description:	
- * 	This function reads nslot slot descriptions off of the socket.
- * 	If slots is non-null, each slot description is decoded and
- * 	placed in the "slots" array. It is assumed to be of at least
- * 	length "nslots". If "slots" is NULL, then nslots are read
- * 	off the socket and discarded.
- *
- * 	The _IPFDecodeSlot function is called to decode each individual
- * 	slot. Then the last block of integrity zero padding is checked
- * 	to complete the reading of the TestRequest.
- *
- * 	The formats are as follows:
- *
- * 	size: Each Slot is 16 octets. All slots are followed by 16 octets
- * 	of Integrity Zero Padding.
- *
- * 	   0                   1                   2                   3
- * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|    Slot Type  |                                               |
- *	  +-+-+-+-+-+-+-+-+              MBZ                              +
- *	04|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                 Slot Parameter (Timestamp)                    |
- *	12|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	  ...
- *	  ...
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                                                               |
- *      04|                Integrity Zero Padding (16 octets)             |
- *      08|                                                               |
- *      12|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-static IPFErrSeverity
-_IPFReadTestRequestSlots(
-	IPFControl	cntrl,
-	int		*intr,
-	u_int32_t	nslots,
-	IPFSlot		*slots
-)
-{
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	u_int32_t	i;
-	int		len;
-
-	if(!_IPFStateIs(_IPFStateTestRequestSlots,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTestRequestSlots called in wrong state.");
-		return IPFErrFATAL;
-	}
-
-	for(i=0;i<nslots;i++){
-
-		/*
-		 * Read slot into buffer.
-		 */
-		if((len = _IPFReceiveBlocksIntr(cntrl,&buf[0],1,intr)) != 1){
-			cntrl->state = _IPFStateInvalid;
-			if((len < 0) && *intr && (errno==EINTR)){
-				return IPFErrFATAL;
-			}
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"_IPFReadTestRequestSlots: Read Error: %M");
-			return IPFErrFATAL;
-		}
-
-		/*
-		 * slots will be null if we are just reading the slots
-		 * to get the control connection in the correct state
-		 * to respond with a denied Accept message.
-		 */
-		if(!slots){
-			continue;
-		}
-
-		/*
-		 * Decode slot from buffer into slot record.
-		 */
-		if(_IPFDecodeSlot(&slots[i],cntrl->msg) != IPFErrOK){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadTestRequestSlots: Invalid Slot");
-			cntrl->state = _IPFStateInvalid;
-			return IPFErrFATAL;
-		}
-
-	}
-
-	/*
-	 * Now read Integrity Zero Padding
-	 */
-	if((len=_IPFReceiveBlocksIntr(cntrl,&buf[0],1,intr)) != 1){
-		cntrl->state = _IPFStateInvalid;
-		if((len<0) && *intr && (errno == EINTR)){
-			return IPFErrFATAL;
-		}
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"_IPFReadTestRequestSlots: Read Error: %M");
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * Now check the integrity.
-	 */
-	if(memcmp(cntrl->zero,&buf[0],_IPF_RIJNDAEL_BLOCK_SIZE) != 0){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTestRequestSlots:Invalid zero padding");
+	if(_IPFSendBlocks(cntrl,buf,7) != 7){
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
 
-	/*
-	 * TestRequestSlots are read, now ready to send TestAccept message.
-	 */
-	cntrl->state &= ~_IPFStateTestRequestSlots;
+	cntrl->state |= _IPFStateTestAccept;
 
 	return IPFErrOK;
-}
-#endif
-
-/*
- * Function:	AddrBySAddrRef
- *
- * Description:	
- * 	Construct an IPFAddr record given a sockaddr struct.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-static IPFAddr
-AddrBySAddrRef(
-	IPFContext	ctx,
-	struct sockaddr	*saddr,
-	socklen_t	saddrlen
-	)
-{
-	IPFAddr		addr;
-	struct addrinfo	*ai=NULL;
-	int		gai;
-
-	if(!saddr){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"AddrBySAddrRef:Invalid saddr");
-		return NULL;
-	}
-
-	if(!(addr = _IPFAddrAlloc(ctx)))
-		return NULL;
-
-	if(!(ai = malloc(sizeof(struct addrinfo)))){
-		IPFError(addr->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"malloc():%s",strerror(errno));
-		(void)IPFAddrFree(addr);
-		return NULL;
-	}
-
-	if(!(addr->saddr = malloc(saddrlen))){
-		IPFError(addr->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"malloc():%s",strerror(errno));
-		(void)IPFAddrFree(addr);
-		(void)free(ai);
-		return NULL;
-	}
-	memcpy(addr->saddr,saddr,saddrlen);
-	ai->ai_addr = addr->saddr;
-	addr->saddrlen = saddrlen;
-	ai->ai_addrlen = saddrlen;
-
-	ai->ai_flags = 0;
-	ai->ai_family = saddr->sa_family;
-	ai->ai_socktype = SOCK_DGRAM;
-	ai->ai_protocol = IPPROTO_IP;	/* reasonable default.	*/
-	ai->ai_canonname = NULL;
-	ai->ai_next = NULL;
-
-	addr->ai = ai;
-	addr->ai_free = True;
-	addr->so_type = SOCK_DGRAM;
-	addr->so_protocol = IPPROTO_IP;
-
-	if( (gai = getnameinfo(addr->saddr,addr->saddrlen,
-				addr->node,sizeof(addr->node),
-				addr->port,sizeof(addr->port),
-				NI_NUMERICHOST | NI_NUMERICSERV)) != 0){
-		IPFError(addr->ctx,IPFErrWARNING,IPFErrUNKNOWN,
-				"getnameinfo(): %s",gai_strerror(gai));
-		strncpy(addr->node,"unknown",sizeof(addr->node));
-		strncpy(addr->port,"unknown",sizeof(addr->port));
-	}
-	addr->node_set = True;
-	addr->port_set = True;
-
-	return addr;
 }
 
 /*
@@ -1462,10 +985,10 @@ AddrBySAddrRef(
  * 	This function reads a test request off the wire and encodes
  * 	the information in a TestSession record.
  *
- * 	If it is called in a server context, the acceptval pointer will
- * 	be non-null and will be set. (i.e. if there is a memory allocation
- * 	error, it will be set to IPF_CNTRL_FAILURE. If there is invalid
- * 	data in the TestRequest it will be set to IPF_CNTRL_REJECT.)
+ * 	The acceptval pointer will be non-null and will return a value.
+ * 	(i.e. if there is a memory allocation error, it will be set to
+ * 	IPF_CNTRL_FAILURE. If there is invalid data in the TestRequest
+ * 	it will be set to IPF_CNTRL_REJECT.)
  *
  * In Args:	
  *
@@ -1478,38 +1001,33 @@ AddrBySAddrRef(
 IPFErrSeverity
 _IPFReadTestRequest(
 	IPFControl	cntrl,
-	int		*retn_on_intr __attribute__((unused)),
-	IPFTestSession	*test_session __attribute__((unused)),
-	IPFAcceptType	*accept_ret __attribute__((unused))
+	int		*retn_on_intr,
+	IPFTestSession	*test_session,
+	IPFAcceptType	*accept_ret
 )
 {
-	if(!_IPFStateIs(_IPFStateTestRequest,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTestRequest: called in wrong state.");
-		return IPFErrFATAL;
-	}
-
-#if	NOT
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	IPFErrSeverity	err_ret=IPFErrOK;
+	u_int8_t	zero[_IPF_RIJNDAEL_BLOCK_SIZE];
+	IPFTimeStamp	tstamp;
+	IPFErrSeverity	err_ret=IPFErrFATAL;
 	struct sockaddr_storage	sendaddr_rec;
 	struct sockaddr_storage	recvaddr_rec;
 	socklen_t	addrlen = sizeof(sendaddr_rec);
 	IPFAddr		SendAddr=NULL;
 	IPFAddr		RecvAddr=NULL;
 	u_int8_t	ipvn;
-	IPFBoolean	conf_sender;
-	IPFBoolean	conf_receiver;
 	IPFSID		sid;
 	IPFTestSpec	tspec;
-	int		rc;
 	IPFTestSession	tsession;
-	IPFAcceptType	accept_mem;
-	IPFAcceptType	*accept_ptr = &accept_mem;
 	int		ival=0;
 	int		*intr=&ival;
 
-	*test_session = NULL;
+	if(!_IPFStateIs(_IPFStateTestRequest,cntrl)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"_IPFReadTestRequest: called in wrong state.");
+		return IPFErrFATAL;
+	}
+
 	memset(&sendaddr_rec,0,addrlen);
 	memset(&recvaddr_rec,0,addrlen);
 	memset(&tspec,0,sizeof(tspec));
@@ -1517,29 +1035,15 @@ _IPFReadTestRequest(
 
 
 	/*
-	 * Setup an IPFAcceptType return in the event this function is
-	 * called in a "server" context.
+	 * Initialize IPFAcceptType
 	 */
-	if(accept_ret)
-		accept_ptr = accept_ret;
-	*accept_ptr = IPF_CNTRL_ACCEPT;
-
-	if(retn_on_intr){
-		intr = retn_on_intr;
-	}
+	*accept_ret = IPF_CNTRL_INVALID;
 
 	/*
-	 * If this was called from the client side, we need to read
-	 * one block of data into the cntrl buffer. (Server side already
-	 * did this to determine the message type - client is doing this
-	 * as part of a fetch session.
+	 * If caller wants to participate in interrupts, use the passed in addr.
 	 */
-	if(!accept_ret && (_IPFReceiveBlocksIntr(cntrl,&buf[0],1,intr) != 1)){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadTestRequest: Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		*accept_ptr = IPF_CNTRL_INVALID;
-		return IPFErrFATAL;
+	if(retn_on_intr){
+		intr = retn_on_intr;
 	}
 
 	/*
@@ -1550,122 +1054,185 @@ _IPFReadTestRequest(
 				intr) != (_IPF_TEST_REQUEST_BLK_LEN-1)){
 		IPFError(cntrl->ctx,IPFErrFATAL,errno,
 		"_IPFReadTestRequest: Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		*accept_ptr = IPF_CNTRL_INVALID;
-		return IPFErrFATAL;
+		goto error;
+	}
+
+
+	memset(zero,0,_IPF_RIJNDAEL_BLOCK_SIZE);
+	if(memcmp(zero,&buf[96],_IPF_RIJNDAEL_BLOCK_SIZE)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"_IPFReadTestRequest: Invalid zero padding");
+		goto error;
 	}
 
 	/*
-	 * Now - fill in the Addr records, ipvn, server_conf varaibles,
-	 * sid and "tspec" with the values in the msg buffer.
+	 * Decode the parameters that are used for initial request AND
+	 * for reservation update.
 	 */
-	if( (err_ret = _IPFDecodeTestRequestPreamble(cntrl->ctx,cntrl->msg,
-			_IPF_TEST_REQUEST_BLK_LEN*_IPF_RIJNDAEL_BLOCK_SIZE,
-			(struct sockaddr*)&sendaddr_rec,
-			(struct sockaddr*)&recvaddr_rec,&addrlen,&ipvn,
-			&conf_sender,&conf_receiver,sid,&tspec)) != IPFErrOK){
-		/*
-		 * INFO/WARNING indicates a request that we cannot honor.
-		 * FATAL indicates inproper formatting, and probable
-		 * control connection corruption.
-		 */
-		if(err_ret < IPFErrWARNING){
-			cntrl->state = _IPFStateInvalid;
-			*accept_ptr = IPF_CNTRL_INVALID;
-			return IPFErrFATAL;
-		}else if(accept_ret){
-			/*
-			 * only return in server context
-			 */
-			*accept_ptr = IPF_CNTRL_UNSUPPORTED;
-			return IPFErrFATAL;
+	_IPFDecodeTimeStamp(&tspec.req_time,&buf[8]);
+	if(!_IPFDecodeTimeStampErrEstimate(&tspec.req_time,&buf[24])){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"_IPFReadTestRequest: Invalid time errest");
+		goto error;
+	}
+	_IPFDecodeTimeStamp(&tstamp,&buf[16]);
+	tspec.latest_time = tstamp.ipftime;
+
+	/*
+	 * copy sid (will be ignored if this is an initial receive request)
+	 */
+	memcpy(sid,&buf[60],16);
+
+	if(*test_session){
+		tsession = *test_session;
+		if(memcmp(sid,tsession->sid,sizeof(sid)) != 0){
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"_IPFReadTestRequest: sid mismatch");
+			goto error;
 		}
+		tsession->test_spec.req_time = tspec.req_time;
+		tsession->test_spec.latest_time = tspec.latest_time;
 	}
-
-	/*
-	 * TestRequest Preamble is read, now ready to read slots.
-	 */
-	cntrl->state &= ~_IPFStateTestRequest;
-	cntrl->state |= _IPFStateTestRequestSlots;
-
-	/*
-	 * Prepare the address buffers.
-	 * (Don't bother checking for null return - it will be checked
-	 * by _IPFTestSessionAlloc.)
-	 */
-	SendAddr = AddrBySAddrRef(cntrl->ctx,(struct sockaddr*)&sendaddr_rec,
-								addrlen);
-	RecvAddr = AddrBySAddrRef(cntrl->ctx,(struct sockaddr*)&recvaddr_rec,
-								addrlen);
-
-	/*
-	 * Allocate a record for this test.
-	 */
-	if( !(tsession = _IPFTestSessionAlloc(cntrl,SendAddr,conf_sender,
-					RecvAddr,conf_receiver,&tspec))){
-		err_ret = IPFErrWARNING;
-		*accept_ptr = IPF_CNTRL_FAILURE;
-		goto error;
-	}
-
-	/*
-	 * copy sid into tsession - if the sid still needs to be
-	 * generated - it still will be in sapi.c:IPFProcessTestRequest
-	 */
-	memcpy(tsession->sid,sid,sizeof(sid));
-
-	/*
-	 * Allocate memory for slots...
-	 */
-	if(tsession->test_spec.nslots > _IPFSLOT_BUFSIZE){
+	else{
 		/*
-		 * Will check for memory allocation failure after
-		 * reading slots from socket. (We can gracefully
-		 * decline the request even if we can't allocate memory
-		 * to hold the slots this way.)
+		 * If *test_session is NULL, than there are currently no
+		 * outstanding reservations. Therefore, this is a new request
+		 * so decode it.
 		 */
-		tsession->test_spec.slots =
-			calloc(tsession->test_spec.nslots,sizeof(IPFSlot));
-	}else{
-		tsession->test_spec.slots = tsession->slot_buffer;
-	}
 
-	/*
-	 * Now, read the slots of the control socket.
-	 */
-	if( (rc = _IPFReadTestRequestSlots(cntrl,intr,
-					tsession->test_spec.nslots,
-					tsession->test_spec.slots)) < IPFErrOK){
-		cntrl->state = _IPFStateInvalid;
-		err_ret = (IPFErrSeverity)rc;
-		*accept_ptr = IPF_CNTRL_INVALID;
-		goto error;
-	}
+		ipvn = buf[1] & 0xF;
+		tspec.udp = (buf[1]>>4)?True:False;
 
-	/*
-	 * We were unable to save the slots - server should decline the request.
-	 */
-	if(!tsession->test_spec.slots){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-					"calloc(%d,IPFSlot): %M",
-					tsession->test_spec.nslots);
-		*accept_ptr = IPF_CNTRL_FAILURE;
-		err_ret = IPFErrFATAL;
-		goto error;
-	}
+		tspec.duration = *(u_int32_t*)&buf[4];
 
-	/*
-	 * In the server context, we are going to _IPFStateTestAccept.
-	 * In the client "fetching" context we are ready to read the
-	 * record header and the records.
-	 */
-	if(accept_ret){
-		cntrl->state |= _IPFStateTestAccept;
-	}else{
-		cntrl->state |= _IPFStateFetching;
+		switch(buf[2]){
+			case 0:
+				tspec.conf_sender = False;
+				break;
+			case 1:
+			default:
+				tspec.conf_sender = True;
+				break;
+		}
+		switch(buf[3]){
+			case 0:
+				tspec.conf_receiver = False;
+				break;
+			case 1:
+			default:
+				tspec.conf_receiver = True;
+				break;
+		}
+
+		if(tspec.conf_sender == tspec.conf_receiver){
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"_IPFReadTestRequest: Invalid req(send/recv?)");
+			goto error;
+		}
+
+		switch(ipvn){
+		struct sockaddr_in	*saddr4;
+#ifdef	AF_INET6
+		struct sockaddr_in6	*saddr6;
+			case 6:
+				if(addrlen < sizeof(struct sockaddr_in6)){
+					IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+		"_IPFReadTestRequest: socklen not large enough (%d < %d)",
+						addrlen,
+						sizeof(struct sockaddr_in6));
+					goto error;
+				}
+				addrlen = sizeof(struct sockaddr_in6);
+
+				/* sender address and port */
+				saddr6 = (struct sockaddr_in6*)&sendaddr_rec;
+				saddr6->sin6_family = AF_INET6;
+				memcpy(saddr6->sin6_addr.s6_addr,&buf[28],16);
+				saddr6->sin6_port = 0;
+
+				/* receiver address and port  */
+				saddr6 = (struct sockaddr_in6*)&recvaddr_rec;
+				saddr6->sin6_family = AF_INET6;
+				memcpy(saddr6->sin6_addr.s6_addr,&buf[32],16);
+				saddr6->sin6_port = 0;
+
+				break;
+#endif
+			case 4:
+				if(addrlen < sizeof(struct sockaddr_in)){
+					IPFError(cntrl->ctx,IPFErrFATAL,
+						IPFErrINVALID,
+		"_IPFReadTestRequest: socklen not large enough (%d < %d)",
+						addrlen,
+						sizeof(struct sockaddr_in));
+					goto error;
+				}
+				addrlen = sizeof(struct sockaddr_in);
+
+				/* sender address and port  */
+				saddr4 = (struct sockaddr_in*)&sendaddr_rec;
+				saddr4->sin_family = AF_INET;
+				saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[16];
+				saddr4->sin_port = 0;
+
+				/* receiver address and port  */
+				saddr4 = (struct sockaddr_in*)&recvaddr_rec;
+				saddr4->sin_family = AF_INET;
+				saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[32];
+				saddr4->sin_port = 0;
+
+				break;
+			default:
+				IPFError(cntrl->ctx,IPFErrWARNING,IPFErrINVALID,
+			"_IPFReadTestRequest: Unsupported IP version (%d)",
+									ipvn);
+				goto error;
+		}
+
+#ifdef	HAVE_STRUCT_SOCKADDR_SA_LEN
+		((struct sockaddr *)&sendaddr_rec)->sa_len =
+		((struct sockaddr *)&recvaddr_rec)->sa_len = addrlen;
+#endif
+		/*
+		 * Prepare the address buffers.
+		 * (Don't bother checking for null return - it will be checked
+		 * by _IPFTestSessionAlloc.)
+		 */
+		SendAddr = AddrBySAddrRef(cntrl->ctx,
+				(struct sockaddr*)&sendaddr_rec,addrlen,
+				(tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
+		RecvAddr = AddrBySAddrRef(cntrl->ctx,
+				(struct sockaddr*)&recvaddr_rec,addrlen,
+				(tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
+
+		tspec.bandwidth = ntohl(*(u_int32_t*)&buf[76]);
+		tspec.len_buffer = ntohl(*(u_int32_t*)&buf[80]);
+		tspec.window_size = ntohl(*(u_int32_t*)&buf[84]);
+		tspec.report_interval = ntohl(*(u_int32_t*)&buf[88]);
+
+		/*
+		 * Allocate a record for this test.
+		 */
+		if( !(tsession = _IPFTestSessionAlloc(cntrl,SendAddr,
+					RecvAddr,&tspec))){
+			err_ret = IPFErrWARNING;
+			*accept_ret = IPF_CNTRL_FAILURE;
+			goto error;
+		}
+
+		/*
+		 * copy sid into tsession - if the sid still needs to be
+		 * generated - it still will be in sapi.c:IPFProcessTestRequest
+		 */
+		memcpy(tsession->sid,&buf[48],16);
+
 	}
 
 	*test_session = tsession;
+	*accept_ret = IPF_CNTRL_ACCEPT;
+
+	cntrl->state &= ~_IPFStateTestRequest;
+	cntrl->state |= _IPFStateTestAccept;
 
 	return IPFErrOK;
 
@@ -1677,11 +1244,14 @@ error:
 		IPFAddrFree(RecvAddr);
 	}
 
-	return err_ret;
-#endif
+	if(err_ret < IPFErrWARNING){
+		cntrl->state = _IPFStateInvalid;
+	}
 
-	return IPFErrFATAL;
+	return err_ret;
 }
+
+
 
 /*
  *

@@ -258,14 +258,20 @@ typedef struct IPFEndpointRec{
 struct IPFTestSessionRec{
 	IPFControl			cntrl;
 	IPFSID				sid;
+	IPFNum64			res_time;
+	IPFNum64			latest_time;
+
 	IPFTestSpec			test_spec;
 
+	/*
+	 * TODO: Remove IPFEndpoint structure completely
+	 * 	There is no reason this record can't be used, is there?
+	 */
 	/* only used on server side */
 	IPFEndpoint			endpoint;
+	u_int16_t			recv_port;
 	void				*closure; /* per/test app data */
 
-	/* not really used - but will leave. */
-	IPFTestSession			next;
 };
 
 /*
@@ -451,13 +457,15 @@ _IPFWriteTimeRequest(
 
 extern IPFErrSeverity
 _IPFReadTimeRequest(
-	IPFControl	cntrl
+	IPFControl	cntrl,
+	int		*retn_on_intr
 	);
 
 extern IPFErrSeverity
 _IPFWriteTimeResponse(
 	IPFControl	cntrl,
-	IPFTimeStamp	tstamp
+	IPFTimeStamp	*tstamp,
+	int		*retn_on_intr
 	);
 
 extern IPFErrSeverity
@@ -466,41 +474,9 @@ _IPFReadTimeResponse(
 	IPFTimeStamp	*tstamp_ret
 	);
 
-extern int
-_IPFEncodeTestRequestPreamble(
-	IPFContext	ctx,
-	u_int32_t	*msg,
-	u_int32_t	*len_ret,
-	struct sockaddr	*sender,
-	struct sockaddr	*receiver,
-	IPFBoolean	server_conf_sender,
-	IPFBoolean	server_conf_receiver,
-	IPFSID		sid,
-	IPFTestSpec	*tspec
-	);
-
-extern IPFErrSeverity
-_IPFDecodeTestRequestPreamble(
-	IPFContext	ctx,
-	u_int32_t	*msg,
-	u_int32_t	msg_len,
-	struct sockaddr	*sender,
-	struct sockaddr	*receiver,
-	socklen_t	*socklen,
-	u_int8_t	*ipvn,
-	IPFBoolean	*server_conf_sender,
-	IPFBoolean	*server_conf_receiver,
-	IPFSID		sid,
-	IPFTestSpec	*test_spec
-	);
-
 extern IPFErrSeverity
 _IPFWriteTestRequest(
 	IPFControl	cntrl,
-	struct sockaddr	*sender,
-	struct sockaddr	*receiver,
-	IPFBoolean	server_conf_sender,
-	IPFBoolean	server_conf_receiver,
 	IPFSID		sid,
 	IPFTestSpec	*test_spec
 );
@@ -519,14 +495,6 @@ _IPFReadTestRequest(
 	int		*retn_on_intr,
 	IPFTestSession	*test_session,
 	IPFAcceptType	*accept_ret
-	);
-
-extern IPFBoolean
-_IPFEncodeDataRecord(
-	);
-
-extern IPFBoolean
-_IPFDecodeDataRecord(
 	);
 
 extern IPFErrSeverity
@@ -572,23 +540,6 @@ _IPFReadStopSession(
 );
 
 extern IPFErrSeverity
-_IPFWriteFetchSession(
-	IPFControl	cntrl,
-	u_int32_t	begin,
-	u_int32_t	end,
-	IPFSID		sid
-	);
-
-extern IPFErrSeverity
-_IPFReadFetchSession(
-	IPFControl	cntrl,
-	int		*retn_on_intr,
-	u_int32_t	*begin,
-	u_int32_t	*end,
-	IPFSID		sid
-);
-
-extern IPFErrSeverity
 _IPFWriteControlAck(
 	IPFControl	cntrl,
 	int		*retn_on_intr,
@@ -600,19 +551,6 @@ _IPFReadControlAck(
 	IPFControl	cntrl,
 	IPFAcceptType	*acceptval
 );
-
-extern IPFErrSeverity
-_IPFWriteFetchRecordsHeader(
-	IPFControl	cntrl,
-	int		*retn_on_intr,
-	u_int64_t	num_rec
-	);
-
-extern IPFErrSeverity
-_IPFReadFetchRecordsHeader(
-	IPFControl	cntrl,
-	u_int64_t	*num_rec
-	);
 
 /*
  * context.c

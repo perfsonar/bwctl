@@ -534,7 +534,6 @@ _IPFTestSessionFree(
 	IPFAcceptType	aval
 )
 {
-	IPFTestSession	*sptr;
 	IPFErrSeverity	err=IPFErrOK;
 
 	if(!tsession){
@@ -542,13 +541,10 @@ _IPFTestSessionFree(
 	}
 
 	/*
-	 * remove this tsession from the cntrl->tests lists.
+	 * remove this tsession from the cntrl->tests list.
 	 */
-	for(sptr = &tsession->cntrl->tests;*sptr;sptr = &(*sptr)->next){
-		if(*sptr == tsession){
-			*sptr = tsession->next;
-			break;
-		}
+	if(tsession->cntrl->tests == tsession){
+		tsession->cntrl->tests = NULL;
 	}
 
 	if(tsession->endpoint){
@@ -796,13 +792,10 @@ IPFSessionStatus(
 	/*
 	 * First find the tsession record for this test.
 	 */
-	for(tsession=cntrl->tests;tsession;tsession=tsession->next)
-		if(memcmp(sid,tsession->sid,sizeof(IPFSID)) == 0)
-			goto found;
+	tsession = cntrl->tests;
+	if(!tsession || (memcmp(sid,tsession->sid,sizeof(IPFSID)) != 0))
+		return False;
 
-	return False;
-
-found:
 	if(tsession->endpoint){
 		return _IPFEndpointStatus(tsession->endpoint,aval,&err);
 	}
@@ -817,26 +810,19 @@ IPFSessionsActive(
 		)
 {
 	IPFTestSession	tsession;
-	IPFAcceptType	laval;
-	IPFAcceptType	raval = 0;
-	int		n=0;
+	IPFAcceptType	laval_mem = 0;
+	IPFAcceptType	*laval = &laval_mem;
 	IPFErrSeverity	err;
 
-	for(tsession = cntrl->tests;tsession;tsession = tsession->next){
-		if((tsession->endpoint) &&
-				_IPFEndpointStatus(tsession->endpoint,
-								&laval,&err)){
-			if(laval < 0)
-				n++;
-			else
-				raval = MAX(laval,raval);
-		}
-	}
-
 	if(aval)
-		*aval = raval;
+		laval = aval;
 
-	return n;
+	tsession = cntrl->tests;
+	if(tsession && tsession->endpoint &&
+			_IPFEndpointStatus(tsession->endpoint,laval,&err) &&
+			(*laval < 0))
+		return 1;
+	return 0;
 }
 
 int

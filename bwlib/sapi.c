@@ -664,7 +664,7 @@ IPFProcessTestRequest(
 	int		*retn_on_intr
 		)
 {
-	IPFTestSession	tsession = NULL;
+	IPFTestSession	tsession = cntrl->tests;
 	IPFErrSeverity	err_ret=IPFErrOK;
 	u_int32_t	offset;
 	u_int16_t	port;
@@ -693,8 +693,6 @@ IPFProcessTestRequest(
 				abort();
 		}
 	}
-
-	assert(tsession);
 
 	/*
 	 * Determine how to decode the socket addresses.
@@ -852,7 +850,6 @@ IPFProcessTestRequest(
 	/*
 	 * Add tsession to list of tests managed by this control connection.
 	 */
-	tsession->next = cntrl->tests;
 	cntrl->tests = tsession;
 
 	return IPFErrOK;
