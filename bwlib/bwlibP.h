@@ -230,6 +230,7 @@ typedef struct BWLEndpointRec{
 	BWLAcceptType		acceptval;
 	pid_t			child;
 	int			wopts;
+	BWLBoolean		dont_kill;
 } BWLEndpointRec, *BWLEndpoint;
 
 struct BWLTestSessionRec{

@@ -1176,17 +1176,6 @@ AGAIN:
 				/*
 				 * Send TerminateSession
 				 */
-				fprintf(stdout,"SENDER START\n");
-				/* sender session to 'null' */
-				if( (err_ret = BWLEndSession(s[1]->cntrl,
-							&ip_intr,stdout))
-							< BWLErrWARNING){
-					CloseSessions();
-					goto next_test;
-				}
-				fprintf(stdout,"SENDER END\n");
-				fflush(stdout);
-				if(sig_check()) exit(1);
 				/* receiver session to STDOUT (for now) */
 				fprintf(stdout,"RECEIVER START\n");
 				if( (err_ret =BWLEndSession(s[0]->cntrl,
@@ -1198,6 +1187,19 @@ AGAIN:
 				fprintf(stdout,"RECEIVER END\n");
 				fflush(stdout);
 				if(sig_check()) exit(1);
+
+				/* sender session to 'null' */
+				fprintf(stdout,"SENDER START\n");
+				if( (err_ret = BWLEndSession(s[1]->cntrl,
+							&ip_intr,stdout))
+							< BWLErrWARNING){
+					CloseSessions();
+					goto next_test;
+				}
+				fprintf(stdout,"SENDER END\n");
+				fflush(stdout);
+				if(sig_check()) exit(1);
+
 				break;
 			}
 

@@ -162,14 +162,12 @@ tfile(
 		return NULL;
 	}
 
-#if	TODO
 	if(unlink(fname) != 0){
 		BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
 					"unlink(%s): %M",fname);
 		while((fclose(fp) != 0) && (errno == EINTR));
 		return NULL;
 	}
-#endif
 
 	return fp;
 }
@@ -363,15 +361,6 @@ run_iperf(
 	char			*iperf = (char*)BWLContextConfigGet(ctx,
 								BWLIperfCmd);
 	FILE			*nstdout;
-
-#if	NOT
-	{
-		int	waitfor=1;
-
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Waiting!!!:ipf_term=%d",ipf_term);
-		while(waitfor);
-	}
-#endif
 
 	/*
 	 * First figure out the args for iperf
@@ -849,8 +838,6 @@ ACCEPT:
 	reltime = BWLNum64Add(reltime,tsess->fuzz);
 	reltime = BWLNum64Add(reltime,
 			BWLULongToNum64(tsess->test_spec.duration));
-	/* TODO: remove after debugging */
-	reltime = BWLNum64Add(reltime,BWLULongToNum64(5));
 
 	memset(&itval,0,sizeof(itval));
 	BWLNum64ToTimeval(&itval.it_value,reltime);
@@ -919,6 +906,14 @@ select:
 	}
 
 end:
+	/*
+	 * reset itimer
+	 */
+	memset(&itval,0,sizeof(itval));
+	if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+		BWLError(ctx,BWLErrFATAL,errno,"setitimer(): %M");
+	}
+
 	if((kill(ep->child,SIGINT) != 0) && (errno != ESRCH)){
 		BWLError(ctx,BWLErrFATAL,errno,
 				"Unable to kill test endpoint, pid=%d: %M",
@@ -943,14 +938,6 @@ end:
 	}
 
 	if(do_read && !ipf_term){
-#if	NOT
-	{
-		int	waitfor=1;
-
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Waiting!!!:ipf_term=%d",ipf_term);
-		while(waitfor);
-	}
-#endif
 		msgtype = BWLReadRequestType(ep->rcntrl,&ipf_term);
 		if(msgtype == 0){
 			BWLError(ctx,BWLErrFATAL,errno,
@@ -1046,7 +1033,7 @@ _BWLEndpointStop(
 	/*
 	 * If child already exited, kill will come back with ESRCH
 	 */
-	if((kill(ep->child,SIGTERM) != 0) && (errno != ESRCH))
+	if(!ep->dont_kill && (kill(ep->child,SIGTERM) != 0) && (errno != ESRCH))
 		goto error;
 
 	/*

@@ -727,7 +727,10 @@ BWLProcessTestRequest(
 	tsession->fuzz = BWLNum64Add(tsession->fuzz,
 				BWLNum64Max(one64,
 				BWLGetTimeStampError(&tsession->localtime)));
+	/*
+	 * TODO: Add a constant?
 	tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLULongToNum64(2));
+	*/
 
 	/*
 	 * TODO:
@@ -1144,6 +1147,14 @@ AGAIN:
 	if(*err_ret != BWLErrOK){
 		*err_ret = _BWLFailControlSession(cntrl,*err_ret);
 		return -1;
+	}
+
+	/*
+	 * If StopSessions was sent with accept==0, then make EndpointStop
+	 * wait for the local endpoint to exit before continuing.
+	 */
+	if(*acceptval == 0){
+		cntrl->tests->endpoint->dont_kill = 1;
 	}
 
 	/*
