@@ -98,6 +98,12 @@ typedef struct BWLDLimRec{
 	BWLDLimitT	value;
 } BWLDLimRec;
 
+extern int
+BWLDstr2num(
+	BWLDLimitT	*numret,
+	char		*str
+	   );
+
 /* parent		cname		*/
 /* bandwidth		uint (bits/sec)*/
 /* delete_on_fetch	on/(off)	*/
@@ -466,6 +472,7 @@ BWLDPolicyInstall(
 	char		*datadir,	/* root dir for datafiles	*/
 	char		*confdir,	/* conf dir for policy		*/
 	char		*iperfcmd,	/* iperf exec path		*/
+	u_int64_t	*bottleneckcapacity,
 	int		*retn_on_intr,
 	char		**lbuf,
 	size_t		*lbuf_max

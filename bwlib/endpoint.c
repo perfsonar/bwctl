@@ -900,7 +900,6 @@ ACCEPT:
 	if(tsess->test_spec.dynamic_window_size){
 		/*
 		 * HERE:
-		 * Call function:
 		 * 	gets bottleneck capacity from context (set via config)
 		 * 	Uses BWLGetRTTBound(ep->rcntrl) for rtt estimate
 		 *
@@ -908,9 +907,17 @@ ACCEPT:
 		 * inter-packet arrival times to estimate bottleneck capacity.
 		 * (Will this take too much time for scheduling purposes?)
 		 *
-		 * If all this works, reset window_size based on the results.
+		 * Reset window_size based on the results.
 		 */
-		; /* nothing for now */
+		u_int64_t	*bottleneckcapacity;
+
+		if((bottleneckcapacity = (u_int64_t*)BWLContextConfigGet(ctx,
+						BWLBottleNeckCapacity))){
+			double	dbnc = (double)*bottleneckcapacity;
+			double	rtt = BWLNum64ToDouble(
+					BWLGetRTTBound(ep->rcntrl));
+			tsess->test_spec.window_size = dbnc * rtt / 8 * 1.1;
+		}
 	}
 
 	/*

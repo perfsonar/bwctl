@@ -395,6 +395,14 @@ BWLError_(
 #define	BWLIperfCmd		"BWLIperfCmd"
 
 /*
+ * This type is used to hold a pointer to an unsigned-64 bit int that
+ * holds a fallback value for the bottleneckcapacity. This is used with
+ * a rtt estimate to dynamically size the send/recv window sizes.
+ * (u_int64_t)
+ */
+#define BWLBottleNeckCapacity	"BWLBottleNeckCapacity"
+
+/*
  * This type is used to define the function that retrieves the shared
  * secret from whatever key-store is in use.
  * It should return True if it is able to fill in the key_ret variable that

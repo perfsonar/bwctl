@@ -1272,6 +1272,16 @@ LoadConfig(
 			}
 			opts.controltimeout = tlng;
 		}
+		else if(!strncasecmp(key,"bottleneckcapacity",19)){
+			BWLDLimitT	bneck;
+			if(BWLDstr2num(&bneck,key)){
+				fprintf(stderr,"Invalid value: %s\n",
+						strerror(errno));
+				rc=-rc;
+				break;
+			}
+			opts.bottleneckcapacity = (u_int64_t)bneck;
+		}
 		else{
 			fprintf(stderr,"Unknown key=%s\n",key);
 			rc = -rc;
@@ -1605,6 +1615,7 @@ main(int argc, char *argv[])
 	 */
 	if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
 					opts.iperfcmd,&ipfd_exit,
+					opts.bottleneckcapacity,
 					&lbuf,&lbuf_max))){
 		I2ErrLog(errhand, "PolicyInit failed. Exiting...");
 		exit(1);

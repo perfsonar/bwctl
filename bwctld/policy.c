@@ -128,7 +128,7 @@ parsekeys(
 }
 
 /*
- * Function:	str2num
+ * Function:	BWLDstr2num
  *
  * Description:	
  * 	This function converts a string representation of a number to
@@ -146,8 +146,8 @@ parsekeys(
  * Side Effect:	
  * 	This function is destructive to the passed in string.
  */
-static int
-str2num(
+int
+BWLDstr2num(
 		BWLDLimitT	*limnum,
 		char		*limstr
 		)
@@ -429,7 +429,7 @@ parselimitline(
 
 		case LIMINT:
 		case LIMFIXEDINT:
-			if(str2num(&limtemp[tnode.ilim].value,limval)){
+			if(BWLDstr2num(&limtemp[tnode.ilim].value,limval)){
 				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid value specified for \"%s\".",
 					limname);
@@ -901,6 +901,7 @@ BWLDPolicyInstall(
 	char		*datadir,
 	char		*confdir,
 	char		*iperfcmd,
+	u_int64_t	*bottleneckcapacity,
 	int		*retn_on_intr,
 	char		**lbuf,
 	size_t		*lbuf_max
@@ -1051,6 +1052,11 @@ BADLINE:
 		return NULL;
 	}
 	if(iperfcmd && !BWLContextConfigSet(ctx,BWLIperfCmd,(void*)iperfcmd)){
+		return NULL;
+	}
+	if(bottleneckcapacity && *bottleneckcapacity &&
+			!BWLContextConfigSet(ctx,BWLBottleNeckCapacity,
+				(void*)bottleneckcapacity)){
 		return NULL;
 	}
 	if(!BWLContextConfigSet(ctx,BWLGetAESKey,(void*)getaeskey)){
