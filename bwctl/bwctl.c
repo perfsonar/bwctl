@@ -1022,7 +1022,7 @@ AGAIN:
 			struct timespec	tspec;
 			BWLNum64	rel;
 
-			rel = BWLNum64Sub(currtime.tstamp,wake.tstamp);
+			rel = BWLNum64Sub(wake.tstamp,currtime.tstamp);
 			BWLNum64ToTimespec(&tspec,rel);
 			if((nanosleep(&tspec,NULL) == 0) ||
 					(errno == EINTR)){
