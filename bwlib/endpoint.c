@@ -282,12 +282,16 @@ getsidaeskey(
 
 	memcpy(key_ret,sidbytes,sizeof(BWLKey));
 
+	/*
+	 * DEBUG
+	 */
 	{
 		char	hbuf[(sizeof(BWLKey)*2)+1];
 
 		I2HexEncode(hbuf,sidbytes,sizeof(BWLKey));
 		BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
-				"getsidaeskey: key = '%s'",hbuf);
+				"getsidaeskey: key = '%s', size = %u",hbuf,
+				sizeof(BWLKey));
 	}
 
 	return True;
@@ -788,6 +792,18 @@ _BWLEndpointStart(
 	/********************************************************************
 	 * The remainder of this procedure is the endpoint control process  *
 	 ********************************************************************/
+
+	/*
+	 * DEBUG
+	 */
+	{
+		char	hbuf[(sizeof(BWLKey)*2)+1];
+
+		I2HexEncode(hbuf,tsess->sid,sizeof(BWLKey));
+		BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+				"ConfigSet: key = '%s', size = %u",hbuf,
+				sizeof(BWLKey));
+	}
 
 	/*
 	 * Reset the GetAESKey function to use the SID for the AESKey in
