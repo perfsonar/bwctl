@@ -19,5 +19,5 @@
 #	Description:	constructing owamp conf files from templates
 #		This doesn't really do this yet - it just provides
 #		examples.
-noinst_DATA	= bwctld.conf bwctld.limits
-EXTRA_DIST	= bwctld.conf bwctld.limits
+noinst_DATA	= README bwctld.conf bwctld.limits bwctld.sh
+EXTRA_DIST	= $(noinst_DATA)

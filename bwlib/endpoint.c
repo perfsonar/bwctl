@@ -526,7 +526,7 @@ run_iperf(
 
 	execv(iperf,ipargs);
 
-	BWLError(ctx,BWLErrFATAL,errno,"execv(): %M");
+	BWLError(ctx,BWLErrFATAL,errno,"execv(%s): %M",iperf);
 	exit(BWL_CNTRL_FAILURE);
 }
 

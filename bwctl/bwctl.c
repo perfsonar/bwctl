@@ -582,7 +582,7 @@ main(
 	char                    optstring[128];
 	static char		*conn_opts = "A:B:k:U:";
 	static char		*out_opts = "pxd:I:R:n:L:e:rvV";
-	static char		*test_opts = "i:l:uw:W:P:S:b:t:cs";
+	static char		*test_opts = "i:l:uw:W:P:S:b:t:c:s:";
 	static char		*gen_opts = "hW";
 
 	char			dirpath[PATH_MAX];
