@@ -1249,7 +1249,7 @@ _BWLReadTestRequest(
 			char	hbuf[(sizeof(BWLKey)*2)+1];
 	
 			I2HexEncode(hbuf,tsession->sid,sizeof(BWLKey));
-			BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+			BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
 				"ReadTestReq: key = '%s', size = %u",hbuf,
 					sizeof(BWLKey));
 		}
