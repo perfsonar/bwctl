@@ -85,10 +85,14 @@ print_test_args()
 "   -l len         length of read/write buffers (bytes)\n"
 "   -u             UDP test\n"
 "   -w window      TCP window size (bytes)\n"
+	);
+	fprintf(stderr,
 "   -P nThreads    number of concurrent connections (ENOTSUPPORTED)\n"
 "   -S TOS         type-of-service for outgoing packets (ENOTSUPPORTED)\n"
 "   -b bandwidth   bandwidth to use for UDP test (bits/sec KM) (Default: 1Mb)\n"
 "   -t time        duration of test (seconds) (Default: 10)\n"
+	);
+	fprintf(stderr,
 "   -c             local sender \"client in iperf speak\" (TAKES NO ARG)\n"
 "   -s             local receiver \"server in iperf speak\" (TAKES NO ARG)\n"
 "              [MUST SPECIFY EXACTLY ONE OF -c/-s]"
@@ -102,9 +106,13 @@ print_output_args()
 "              [Output Args]\n\n"
 "   -p             print completed filenames to stdout - not session data\n"
 "   -x             output sender session results\n"
+	);
+	fprintf(stderr,
 "   -d dir         directory to save session files in (only if -p)\n"
 "   -I Interval    time between BWL test sessions(seconds)\n"
 "   -n nIntervals  number of tests to perform (default: continuous)\n"
+	);
+	fprintf(stderr,
 "   -L LatestDelay latest time into an interval to run test(seconds)\n"
 "   -h             print this message and exit\n"
 "   -e             syslog facility to log to\n"
@@ -886,6 +894,11 @@ main(
 		BWLNum64	endtime;
 		u_int16_t	dataport;
 		BWLBoolean	stop;
+		char		recvfname[PATH_MAX];
+		char		sendfname[PATH_MAX];
+		FILE		*recvfp = NULL;
+		FILE		*sendfp = NULL;
+
 
 AGAIN:
 		if(sig_check()) exit(1);
@@ -1169,11 +1182,6 @@ AGAIN:
 		endtime = BWLNum64Add(endtime,fuzz64);
 		stop = False;
 
-	char	recvfname[PATH_MAX];
-	char	sendfname[PATH_MAX];
-	FILE	*recvfp = NULL;
-	FILE	*sendfp = NULL;
-
 		/*
 		 * Setup files for the results.
 		 */
@@ -1184,7 +1192,7 @@ AGAIN:
 			strcpy(sendfname,recvfname);
 
 			sprintf(&recvfname[ext_offset],"%s%s",
-					RECV_EXT,BW_FILE_EXT);
+					RECV_EXT,BWL_FILE_EXT);
 			if(!(recvfp = fopen(recvfname,"w"))){
 				I2ErrLog(eh,"Unable to write to %s %M",
 						recvfname);
@@ -1192,7 +1200,7 @@ AGAIN:
 			}
 			if(app.opt.sender_results){
 				sprintf(&sendfname[ext_offset],"%s%s",
-					RECV_EXT,BW_FILE_EXT);
+					RECV_EXT,BWL_FILE_EXT);
 				if(!(sendfp = fopen(sendfname,"w"))){
 					I2ErrLog(eh,"Unable to write to %s %M",
 						sendfname);
