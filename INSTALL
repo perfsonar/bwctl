@@ -31,8 +31,8 @@ then
 
 	  [This step is only required if you want to use encrypted or
 	  authenticated mode. Policy restrictions are based on identity
-	  if possible, and netmasks otherwise so it is possible to run
-	  the bwctld without these identities only using netmasks for
+	  if possible, and net-masks otherwise so it is possible to run
+	  the bwctld without these identities only using net-masks for
 	  policy determination.]
 
 	  % aespasswd -n -f bwctl-$VERS/conf/bwctld.keys ${userid}
@@ -47,7 +47,7 @@ then
 	* edit bwctl-$VERS/conf/bwctld.limits
 
 	  You can use either identities from the bwctld.keys file or
-	  setup netmasks within this file to define "classes" of users.
+	  setup net-masks within this file to define "classes" of users.
 	  This file is used to assign "limits" to those "classes" of users.
 
 	* copy bwctld.{conf,limits,keys} to the config directory.
@@ -93,7 +93,7 @@ Problems/Questions can be reported to bwctl-users@internet2.edu.
 
 Mailing Lists:
 
-I have created two email lists to support this softare:
+I have created two email lists to support this software:
 
 bwctl-users	A general discussion list for users to discuss problems.
 		I will monitor this list as I expect bug reports to be
