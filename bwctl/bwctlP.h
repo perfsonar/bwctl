@@ -109,7 +109,9 @@ typedef	struct {
 		u_int32_t	reportInterval;	/* -i (seconds) */
 		u_int32_t	lenBuffer;	/* -l (bytes)	*/
 		I2Boolean	udpTest;	/* -u	*/
+		I2Boolean	winset;		/* -w/-W specified */
 		u_int32_t	windowSize;	/* -w 	*/
+		I2Boolean	dynamicWindowSize;	/* -W used for -w */
 		u_int32_t	bandWidth;	/* -b (bits/sec) */
 		u_int32_t	timeDuration;	/* -t (secs) */
 		u_int32_t	parallel;	/* -P	*/

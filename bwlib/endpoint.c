@@ -759,27 +759,8 @@ _BWLEndpointStart(
 #endif
 
 	/*
-	 * Now fork again. The child will go on to "exec" iperf at the
-	 * appropriate time. The parent will open a connection to the other
-	 * endpoint for the test results exchange.
+	 * Now setup the peer control connection
 	 */
-	ep->child = fork();
-
-	if(ep->child < 0){
-		/* fork error */
-		BWLError(ctx,BWLErrFATAL,errno,"fork(): %M");
-		exit(BWL_CNTRL_FAILURE);
-	}
-
-	if(ep->child == 0){
-		/* go run iperf */
-		run_iperf(ep);
-		/* NOTREACHED */
-	}
-
-	/********************************************************************
-	 * The remainder of this procedure is the endpoint control process  *
-	 ********************************************************************/
 
 	/*
 	 * Reset the GetAESKey function to use the SID for the AESKey in
@@ -916,10 +897,45 @@ ACCEPT:
 	if(ipf_term)
 		goto end;
 
+	if(tsess->test_spec.dynamic_window_size){
+		/*
+		 * HERE:
+		 * Call function:
+		 * 	gets bottleneck capacity from context (set via config)
+		 * 	Uses BWLGetRTTBound(ep->rcntrl) for rtt estimate
+		 *
+		 * Eventually, this could send ICMP packets and use
+		 * inter-packet arrival times to estimate bottleneck capacity.
+		 * (Will this take too much time for scheduling purposes?)
+		 *
+		 * If all this works, reset window_size based on the results.
+		 */
+		; /* nothing for now */
+	}
+
 	/*
-	 * Now that we have established communication, reset the timer
-	 * for just past the end of the test period. (one second past
-	 * the session time plus the fuzz time.)
+	 * Now fork again. The child will go on to "exec" iperf at the
+	 * appropriate time. The parent will open a connection to the other
+	 * endpoint for the test results exchange.
+	 */
+	ep->child = fork();
+
+	if(ep->child < 0){
+		/* fork error */
+		BWLError(ctx,BWLErrFATAL,errno,"fork(): %M");
+		exit(BWL_CNTRL_FAILURE);
+	}
+
+	if(ep->child == 0){
+		/* go run iperf */
+		run_iperf(ep);
+		/* NOTREACHED */
+	}
+
+	/*
+	 * Now that we have established communication, and forked off the
+	 * test: reset the timer for just past the end of the test period.
+	 * (one second past the session time plus the fuzz time.)
 	 */
 	if(!BWLGetTimeStamp(ctx,&currtime)){
 		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
@@ -1031,16 +1047,24 @@ end:
 			BWLNum64ToDouble(currtime.tstamp)
 			);
 
-	if((kill(ep->child,SIGINT) != 0) && (errno != ESRCH)){
-		BWLError(ctx,BWLErrFATAL,errno,
+	if(!ep->child){
+		/*
+		 * Never even got to the point of forking off iperf
+		 */
+		ep->acceptval = BWL_CNTRL_FAILURE;
+	}else{
+		if((kill(ep->child,SIGINT) != 0) && (errno != ESRCH)){
+			BWLError(ctx,BWLErrFATAL,errno,
 				"Unable to kill test endpoint, pid=%d: %M",
 				ep->child);
-		exit(BWL_CNTRL_FAILURE);
+			exit(BWL_CNTRL_FAILURE);
+		}
+		ep->wopts &= ~WNOHANG;
+		if(!_BWLEndpointStatus(tsess,&ep->acceptval,err_ret)){
+			exit(BWL_CNTRL_FAILURE);
+		}
 	}
-	ep->wopts &= ~WNOHANG;
-	if(!_BWLEndpointStatus(tsess,&ep->acceptval,err_ret)){
-		exit(BWL_CNTRL_FAILURE);
-	}
+
 	if(ep->acceptval != BWL_CNTRL_ACCEPT){
 		ep->acceptval = BWL_CNTRL_FAILURE;
 		tsess->localfp = NULL;

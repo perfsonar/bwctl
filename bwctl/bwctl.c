@@ -87,7 +87,8 @@ print_test_args()
 "   -i interval    report interval (seconds)\n"
 "   -l len         length of read/write buffers (bytes)\n"
 "   -u             UDP test\n"
-"   -w window      TCP window size (bytes)\n"
+"   -w window      TCP window size (bytes) 0 indicates system defaults\n"
+"   -W window      Dynamic TCP window size: value used as fallback (bytes)\n"
 	);
 	fprintf(stderr,
 "   -P nThreads    number of concurrent connections (ENOTSUPPORTED)\n"
@@ -206,7 +207,7 @@ ip_set_auth(
 			I2MD5Final(aesbuff,&mdc);
 			aes = aesbuff;
 		}
-		else{
+		else if(pctx->opt.keyfile){
 			/* keyfile */
 			FILE	*fp;
 			int	rc = 0;
@@ -236,6 +237,10 @@ ip_set_auth(
 			"Unable to find key for id=\"%s\" from keyfile=\"%s\"",
 					pctx->opt.identity,pctx->opt.keyfile);
 			}
+		}else{
+			I2ErrLog(eh,
+			"Ignoring id %s, key not specified. (See -k/-K)",
+						pctx->opt.identity);
 		}
 DONE:
 		if(aes){
@@ -581,7 +586,7 @@ main(
 	char                    optstring[128];
 	static char		*conn_opts = "A:B:k:U:K";
 	static char		*out_opts = "pxd:I:R:n:L:e:rvV";
-	static char		*test_opts = "i:l:uw:P:S:b:t:cs";
+	static char		*test_opts = "i:l:uw:W:P:S:b:t:cs";
 	static char		*gen_opts = "hWY";
 
 	char			dirpath[PATH_MAX];
@@ -780,10 +785,18 @@ main(
 		case 'u':
 			app.opt.udpTest = True;
 			break;
+		case 'W':
+			app.opt.dynamicWin = True;
 		case 'w':
+			if(app.opt.winset){
+				usage(progname,
+			"Invalid args. Only one -w or -W may be set");
+				exit(1);
+			}
+			app.opt.winset++;
 			if(str2bytenum(&app.opt.windowSize,optarg) != 0){
 				usage(progname, 
-			"Invalid value. (-w) positive integer expected");
+			"Invalid value. (-w/-W) positive integer expected");
 				exit(1);
 			}
 			break;
@@ -1012,6 +1025,7 @@ main(
 		local.tspec.bandwidth = app.opt.bandWidth;
 	}
 	local.tspec.window_size = app.opt.windowSize;
+	local.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
 	local.tspec.len_buffer = app.opt.lenBuffer;
 	local.tspec.report_interval = app.opt.reportInterval;
 

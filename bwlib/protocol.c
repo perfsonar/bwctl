@@ -841,13 +841,18 @@ AddrBySAddrRef(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	88|                        Report Interval                        |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	92|                                MBZ                            |
+ *	92|    Dynamic    |                MBZ                            |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	96|                                                               |
  *     100|                Integrity Zero Padding (16 octets)             |
  *     104|                                                               |
  *     108|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ *	  Dynamic is a bit mask.
+ *	  BWL_DYNAMIC_WINSIZE = 0x1
+ *	  If this bit is set, the "Window Size" parameter is only used if
+ *	  the server can't determine a better dynamic one.
  */
 BWLErrSeverity
 _BWLWriteTestRequest(
@@ -972,6 +977,10 @@ _BWLWriteTestRequest(
 	*(u_int32_t*)&buf[80] = htonl(tspec->len_buffer);
 	*(u_int32_t*)&buf[84] = htonl(tspec->window_size);
 	*(u_int32_t*)&buf[88] = htonl(tspec->report_interval);
+
+	if(tspec->dynamic_window_size){
+		buf[92] |= _BWL_DYNAMIC_WINDOW_SIZE;
+	}
 
 	/*
 	 * Now - send the request! 112 octets == 7 blocks.
@@ -1226,6 +1235,8 @@ _BWLReadTestRequest(
 		tspec.len_buffer = ntohl(*(u_int32_t*)&buf[80]);
 		tspec.window_size = ntohl(*(u_int32_t*)&buf[84]);
 		tspec.report_interval = ntohl(*(u_int32_t*)&buf[88]);
+
+		tspec.dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
 
 		/*
 		 * Allocate a record for this test.

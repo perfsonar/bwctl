@@ -298,6 +298,7 @@ typedef struct{
 	u_int32_t	window_size;
 	u_int32_t	len_buffer;
 	u_int16_t	report_interval;
+	BWLBoolean	dynamic_window_size;
 } BWLTestSpec;
 
 typedef u_int32_t BWLPacketSizeT;

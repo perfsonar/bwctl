@@ -457,20 +457,14 @@ _BWLReadTimeResponse(
 	BWLTimeStamp	*tstamp_ret
 	);
 
+#define	_BWL_DYNAMIC_WINDOW_SIZE	(0x1)
+
 extern BWLErrSeverity
 _BWLWriteTestRequest(
 	BWLControl	cntrl,
 	BWLTestSession	tsession
 );
 
-/*
- * This function can be called from a server or client context. From the
- * server it is reading an actual new request. From the client it is part
- * of a FetchSession response. The server code MUST set the accept_ret
- * pointer to a valid BWLAcceptType record. This record will be filled
- * in with the appropriate AcceptType value for a response. The client
- * code MUST set this to NULL.
- */
 extern BWLErrSeverity
 _BWLReadTestRequest(
 	BWLControl	cntrl,
