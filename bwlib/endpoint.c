@@ -780,6 +780,8 @@ ACCEPT:
 				goto end;
 		}
 
+		IPFError(ctx,IPFErrINFO,IPFErrUNKNOWN,"PeerSockConnect: %u",
+								*dataport);
 		ep->rcntrl = IPFControlOpen(ctx,
 				_IPFAddrCopy(tsess->test_spec.sender),
 				remote,tsess->cntrl->mode,"endpoint",NULL,
