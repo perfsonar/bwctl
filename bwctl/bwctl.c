@@ -1296,15 +1296,8 @@ AGAIN:
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
 			if(!first.cntrl){
-				if(errno == EACCES){
-					I2ErrLog(eh,
-					"Invalid authorization: server= %s",
+				I2ErrLog(eh,"Unable to connect to %s: %M",
 								first.host);
-				}else{
-					I2ErrLog(eh,
-						"Unable to connect: server= %s",
-								first.host);
-				}
 				goto next_test;
 			}
 			first.sockfd = BWLControlFD(first.cntrl);
@@ -1372,15 +1365,8 @@ AGAIN:
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
 			if(!second.cntrl){
-				if(errno == EACCES){
-					I2ErrLog(eh,
-					"Invalid authorization: server= %s",
+				I2ErrLog(eh,"Unable to connect to %s: %M",
 								second.host);
-				}else{
-					I2ErrLog(eh,
-						"Unable to connect: server= %s",
-								second.host);
-				}
 				goto next_test;
 			}
 			second.sockfd = BWLControlFD(second.cntrl);
@@ -1578,7 +1564,7 @@ AGAIN:
 						 * interval.
 						 */
 						I2ErrLog(eh,
-			"SessionRequest: Server \'%s\'busy. (Try -L flag)",
+				"SessionRequest: %s busy. (Try -L flag)",
 						s[p]->host);
 					}
 					else{
@@ -1587,7 +1573,7 @@ AGAIN:
 						 * denied.
 						 */
 						I2ErrLog(eh,
-				"SessionRequest: Session denied by \'%s\'",
+					"SessionRequest: Denied by %s",
 						s[p]->host);
 					}
 
