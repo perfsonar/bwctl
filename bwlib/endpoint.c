@@ -907,7 +907,7 @@ AGAIN:
 				ep->acceptval =
 					(IPFAcceptType)WEXITSTATUS(childstatus);
 			}
-			else{
+			else if(!WIFSTOPPED(childstatus)){
 				ep->acceptval = IPF_CNTRL_FAILURE;
 				*err_ret = IPFErrWARNING;
 			}
