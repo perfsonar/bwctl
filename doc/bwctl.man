@@ -28,12 +28,21 @@ bwctl \- Client application to request throughput tests.
 [\fIoptions\fR] (\fI\-c recvhost | \-s sendhost\fR)
 .SH DESCRIPTION
 \fBbwctl\fR is a command line client application that is used to
-initiate \fBiperf\fR throughput tests. The application works by
+initiate \fBIperf\fR throughput tests.
+.TP
+From the \fBIperf\fR web site:
+Iperf is a tool to measure
+maximum TCP bandwidth, allowing the tuning of various parameters
+and UDP characteristics. Iperf reports bandwidth, delay jitter,
+datagram loss. 
+.PP
+.B bwctl
+works by
 contacting \fBbwctld\fR daemons on both the receiving host and
 the sending host. \fBbwctld\fR manages and schedules the resources
 of the host it runs on.
 .PP
-The \fBbwctl\fR client is used to request the type of \fBiperf\fR
+The \fBbwctl\fR client is used to request the type of \fBIperf\fR
 test wanted. Furthermore, it requests \fIwhen\fR the test is wanted.
 \fBbwctld\fR either responds with a tentative
 reservation or a test denied message. Once \fBbwctl\fR is able to get
@@ -45,9 +54,9 @@ test. Additionally, the \fBbwctld\fR processes share the results from
 their respective side of the test with each other.
 .PP
 \fBBWCTL\fR (\fBbwctl\fR and \fBbwctld\fR) is used to enable
-non-specific \fBiperf\fR tests
+non-specific \fBIperf\fR tests
 to hosts without having to give full user accounts on the given systems.
-Users want the ability to run \fBiperf\fR to determine the achievable
+Users want the ability to run \fBIperf\fR to determine the achievable
 or available bandwidth between a pair of hosts. It is often useful to test
 to multiple points along a network path to determine the network
 characteristics along that path. Typically, users that want to do this path
@@ -59,7 +68,7 @@ multiple administrators. These hurtles have made this kind of testing
 difficult in practice. 
 .PP
 \fBBWCTL\fR was designed to help with this problem. It allows an
-administrator to configure a given host as an \fBiperf\fR endpoint
+administrator to configure a given host as an \fBIperf\fR endpoint
 that can be shared by multiple users without concern that those
 users will interfere with each other. Specific policy limits can be
 applied to specific users, and individual tests are scheduled so they
@@ -70,19 +79,123 @@ are not required for the users running the tests.
 based upon a user name and AES key combination or alternatively based
 upon an IP/netmask.
 Once the connection is classified, the \fBbwctld\fR can determine the
-exact type and intensities of \fBiperf\fR tests that will be allowed.
+exact type and intensities of \fBIperf\fR tests that will be allowed.
 More information on the policy controls can be found in the \fBbwctld(8)\fR
 man page.
 .SH OPTIONS
-.SS Connection Arguments:
 .TP
 \fB\-c\fR \fIrecvhost\fR
-Specifies the host that will run the \fBiperf\fR server. Must specify
+Specifies the host that will run the \fBIperf\fR server. Must specify
 either the \fB\-c\fR or the \fB\-s\fR option.
 .TP
 \fB\-s\fR \fIsendhost\fR
-Specifies the host that will run the \fBiperf\fR client. Must specify
+Specifies the host that will run the \fBIperf\fR client. Must specify
 either the \fB\-c\fR or the \fB\-s\fR option.
+.SS Throughput Test Arguments:
+(These arguments were named to match their counterparts in \fBIperf\fR
+as closely as possible.)
+.TP
+\fB\-b\fR \fIbandwidth\fR
+Limit UDP send rate to \fIbandwidth\fR (bits/sec).
+.RS
+.IP Default:
+1 Mb.
+.RE
+.TP
+\fB\-i\fR \fIinterval\fR
+Report interval (seconds).
+.RS
+.IP Default:
+unset (no intervals reported).
+.RE
+.TP
+\fB\-l\fR \fIlen\fR
+length of read/write buffers (bytes).
+.RS
+.IP Default:
+8 KB TCP, 1470 bytes UDP.
+.RE
+.TP
+\fB\-P\fR \fInThreads\fR
+Generates an error message. The \fB\-P\fR option of \fBIperf\fR is not
+currently supported by \fBbwctl\fR.
+.TP
+\fB\-S\fR \fITOS\fR
+Generates an error message. The \fB\-S\fR option of \fBIperf\fR is not
+currently supported by \fBbwctl\fR.
+.TP
+\fB\-t\fR \fItime\fR
+Duration of test (seconds).
+.RS
+.IP Default:
+10.
+.RE
+.TP
+\fB\-u\fR
+UDP test.
+.RS
+.IP Default:
+TCP test.
+.RE
+.TP
+\fB\-W\fR \fIwindow\fR
+Same as the \fB\-w\fR option except that the value is advisory. \fBbwctl\fR
+will attempt to dynamically determine the appropriate TCP window based upon
+RTT information gathered from the control socket. If \fBbwctl\fR is unable
+to dynamically determine a window, the value \fIwindow\fR will be used.
+.RS
+.IP Default:
+Unset (system defaults).
+.RE
+.TP
+\fB\-w\fR \fIwindow\fR
+Socket buffer sizes (bytes). For TCP this sets the TCP window size. For UDP
+this sets the socket receive buffer size.
+.RS
+.IP Default:
+Unset (system defaults).
+.RE
+.SS Scheduling Arguments:
+.TP
+\fB\-I\fR \fIinterval\fR
+Specifies that \fBbwctl\fR should attempt to run the \fBIperf\fR test every
+\fIinterval\fR seconds.
+.RS
+.IP Default:
+Unset. If it is unset, \fBbwctl\fR only runs the test once.
+.RE
+.TP
+\fB\-L\fR \fIlatest\fR
+Specifies the latest time the client is willing to wait for a
+reservation window. When \fBbwctl\fR requests a test from the \fBbwctld\fR
+server it specifies the earliest time and the latest time it is willing
+to accept. The \fIlatest\fR option is specified as a number of seconds
+that will be added to the start time.
+.RS
+.IP Default:
+If \fIinterval\fR is set, the default is 50% of \fIinterval\fR. Otherwise,
+the default is twice the test duration \fItime\fR (See \fB\-t\fR).
+.RE
+.TP
+\fB\-n\fR \fInIntervals\fR
+Number of tests to perform if the \fB\-I\fR option is set.
+.RS
+.IP Default:
+Continuous.
+.RE
+.TP
+\fB\-R\fR \fIalpha\fR
+Randomize the start time of the test within this \fIalpha\fR percent of the
+\fIinterval\fR. Valid values for \fIalpha\fR are from 0\-50. \fBbwctl\fR
+will attempt to run the test every \fIinterval\fR +/\- \fIalpha\fR percent.
+For example, if the \fIinterval\fR is 300 seconds and \fIalpha\fR is
+set to 10 percent, then \fBbwctl\fR will attempt to run a test every
+270\-330 seconds. This option is only useful with the \fB\-I\fR option.
+.RS
+.IP Default:
+0 (no randomness).
+.RE
+.SS Connection/Authentication Arguments:
 .TP
 \fB\-A\fR \fIauthmode\fB
 Specify the authentication modes the client is willing to use for
@@ -106,15 +219,13 @@ will be selected.
 "AEO".
 .RE
 .TP
-\fB\-U\fR \fIusername\fR
-Specify the username that is used to identify the AES key to use for
-authenticated or encrypted modes. If the \fB\-k\fR option is specified,
-the key is retrieved from the \fIkeyfile\fR, otherwise \fBbwctl\fR prompts
-the user for a \fIpassphrase\fR. The \fIpassphrase\fR is used to generate
-the AES key.
+\fB\-B\fR \fIsrcaddr\fR
+Bind the local address of the client socket to \fIsrcaddr\fR. \fIsrcaddr\fR
+can be specified using a DNS name or using standard textual notations for
+the IP addresses.
 .RS
 .IP Default:
-Unset.
+Unspecified (wild-card address selection).
 .RE
 .TP
 \fB\-k\fR \fIkeyfile\fR
@@ -128,134 +239,20 @@ Unset. (If the \fB\-U\fR option was specified, user will be prompted for a
 \fIpassphrase\fR.)
 .RE
 .TP
-\fB\-B\fR \fIsrcaddr\fR
-Bind the local address of the client socket to \fIsrcaddr\fR. \fIsrcaddr\fR
-can be specified using a DNS name or using standard textual notations for
-the IP addresses.
+\fB\-U\fR \fIusername\fR
+Specify the username that is used to identify the AES key to use for
+authenticated or encrypted modes. If the \fB\-k\fR option is specified,
+the key is retrieved from the \fIkeyfile\fR, otherwise \fBbwctl\fR prompts
+the user for a \fIpassphrase\fR. The \fIpassphrase\fR is used to generate
+the AES key.
 .RS
 .IP Default:
-Unspecified (wild-card address selection).
-.RE
-.SS Throughput Test Arguments:
-(These are the arguments that are basically passed through to \fBiperf\fR. See
-\fBiperf\fR equivalent arguments in most cases):
-.TP
-\fB\-i\fR \fIinterval\fR
-Report interval (seconds).
-.RS
-.IP Default:
-unset (no intervals reported).
-.RE
-.TP
-\fB\-l\fR \fIlen\fR
-length of read/write buffers (bytes).
-.RS
-.IP Default:
-8 KB TCP, 1470 bytes UDP.
-.RE
-.TP
-\fB\-u\fR
-UDP test.
-.RS
-.IP Default:
-TCP test.
-.RE
-.TP
-\fB\-w\fR \fIwindow\fR
-Socket buffer sizes (bytes). For TCP this sets the TCP window size. For UDP
-this sets the socket receive buffer size.
-.RS
-.IP Default:
-Unset (system defaults).
-.RE
-.TP
-\fB\-W\fR \fIwindow\fR
-Same as the \fB\-w\fR option except that the value is advisory. \fBbwctl\fR
-will attempt to dynamically determine the appropriate TCP window based upon
-RTT information gathered from the control socket. If \fBbwctl\fR is unable
-to dynamically determine a window, the value \fIwindow\fR will be used.
-.RS
-.IP Default:
-Unset (system defaults).
-.RE
-.TP
-\fB\-P\fR \fInThreads\fR
-Generates an error message. The \fB\-P\fR option of \fBiperf\fR is not
-currently supported by \fBbwctl\fR.
-.TP
-\fB\-S\fR \fITOS\fR
-Generates an error message. The \fB\-S\fR option of \fBiperf\fR is not
-currently supported by \fBbwctl\fR.
-.TP
-\fB\-b\fR \fIbandwidth\fR
-Limit UDP send rate to \fIbandwidth\fR (bits/sec).
-.RS
-.IP Default:
-1 Mb.
-.RE
-.TP
-\fB\-t\fR \fItime\fR
-Duration of test (seconds).
-.RS
-.IP Default:
-10.
-.RE
-.SS Scheduling Arguments:
-.TP
-\fB\-I\fR \fIinterval\fR
-Specifies that \fBbwctl\fR should attempt to run the \fBiperf\fR test every
-\fIinterval\fR seconds.
-.RS
-.IP Default:
-Unset. If it is unset, \fBbwctl\fR only runs the test once.
-.RE
-.TP
-\fB\-n\fR \fInIntervals\fR
-Number of tests to perform if the \fB\-I\fR option is set.
-.RS
-.IP Default:
-Continuous.
-.RE
-.TP
-\fB\-R\fR \fIalpha\fR
-Randomize the start time of the test within this \fIalpha\fR percent of the
-\fIinterval\fR. Valid values for \fIalpha\fR are from 0\-50. \fBbwctl\fR
-will attempt to run the test every \fIinterval\fR +/\- \fIalpha\fR percent.
-For example, if the \fIinterval\fR is 300 seconds and \fIalpha\fR is
-set to 10 percent, then \fBbwctl\fR will attempt to run a test every
-270\-330 seconds. This option is only useful with the \fB\-I\fR option.
-.RS
-.IP Default:
-0 (no randomness).
-.RE
-.TP
-\fB\-L\fR \fIlatest\fR
-Specifies the latest time the client is willing to wait for a
-reservation window. When \fBbwctl\fR requests a test from the \fBbwctld\fR
-server it specifies the earliest time and the latest time it is willing
-to accept. The \fIlatest\fR option is specified as a number of seconds
-that will be added to the start time.
-.RS
-.IP Default:
-If \fIinterval\fR is set, the default is 50% of \fIinterval\fR. Otherwise,
-the default is twice the test duration \fItime\fR.
+Unset.
 .RE
 .SS Output Arguments:
 .TP
-\fB\-p\fR
-Place \fBiperf\fR results in files. Print the filenames to stdout when
-results are complete.
-.TP
-\fB\-x\fR
-Output sender (\fBiperf\fR client) results as well as receiver results.
-By default, sender results are not output. If the \fB\-p\fR option is
-specified, the sender results are placed in an additional file.
-.TP
 \fB\-d\fR \fIdir\fR
 Specifies directory for results files if the \fB\-p\fR option is set.
-.TP
-\fB\-h\fR
-Print a help message.
 .TP
 \fB\-e\fR \fIfacility\fR
 Syslog \fIfacility\fR to log messages to.
@@ -263,6 +260,16 @@ Syslog \fIfacility\fR to log messages to.
 .IP Default:
 LOG_USER.
 .RE
+.TP
+\fB\-h\fR
+Print a help message.
+.TP
+\fB\-p\fR
+Place \fBIperf\fR results in files. Print the filenames to stdout when
+results are complete.
+.TP
+\fB\-q\fR
+Quiet output. Output as little as possible.
 .TP
 \fB\-r\fR
 Send syslog messages to stderr.  This is the default unless the \fB\-q\fR
@@ -275,20 +282,21 @@ Print version information and exit.
 \fB\-v\fR
 Verbose output. Additional \fB\-v\fR's specified increases the verbosity.
 .TP
-\fB\-q\fR
-Quiet output. Output as little as possible.
+\fB\-x\fR
+Output sender (\fBIperf\fR client) results as well as receiver results.
+By default, sender results are not output. If the \fB\-p\fR option is
+specified, the sender results are placed in an additional file.
 .SH LIMITATIONS
-Currently it is only possible to specify either the
-.B iperf
-sender or the
-.B iperf
-receiver on the command line. The local host is assumed to be the other
-endpoint of the test.
+Currently it is only possible to specify either the \fBIperf\fR
+sender or the \fBIperf\fR receiver on the command line. The local
+host is assumed to be the other endpoint of the test.
+.PP
+Works with versions 1.7.0 and 2.0.b of \fBIperf\fR.
 .SH EXAMPLES
 .LP
 \fBbwctl -c somehost.com\fR
 .IP
-Run a default 10 second TCP \fBiperf\fR test as soon as possible with
+Run a default 10 second TCP \fBIperf\fR test as soon as possible with
 the local host as the sender and somehost.com as the receiver. Return
 the results from the receive side of the test.
 .LP
@@ -299,7 +307,7 @@ side of the test.
 .LP
 \fBbwctl -t 30 -s somehost.com\fR
 .IP
-Run a 30 second TCP \fBiperf\fR test with somehost.com as the sender
+Run a 30 second TCP \fBIperf\fR test with somehost.com as the sender
 and localhost as the receiver.
 .LP
 \fBbwctl -I 3600 -R 10 -t 10 -u -b 10m -s somehost.com\fR
@@ -310,7 +318,7 @@ the localhost.
 .LP
 \fBbwctl -U someuser -s somehost.com\fR
 .IP
-Run the default 10 second TCP \fBiperf\fR test. Authenticate using
+Run the default 10 second TCP \fBIperf\fR test. Authenticate using
 the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a \fIpassphrase\fR.
 .SH SEE ALSO
 .B bwctld(8)
@@ -321,7 +329,7 @@ the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a \fIpassphrase\fR.
 ,
 .B bwctld.keys(5)
 and the
-.B http://e2epi.internet2.edu/bwctl
+.B http://e2epi.internet2.edu/bwctl/
 and
 .B http://dast.nlanr.net/Projects/Iperf/
 web sites.
