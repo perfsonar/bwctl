@@ -79,7 +79,7 @@ print_conn_args(
             "            authmodes:\n"
             "                 [A]uthenticated, [E]ncrypted, [O]pen\n"
             "            AUTHMETHODS:\n"
-            "                 AES userid [keyfile]\n"
+            "                 AESKEY userid [keyfile]\n"
             "  -U             deprecated\n"
             "  -k             deprecated\n"
             "  -B srcaddr     use this as a local address for control connection and tests\n"
