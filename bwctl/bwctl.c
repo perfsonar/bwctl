@@ -977,7 +977,7 @@ main(
 		lockfd = open(lockpath,O_RDWR|O_CREAT,
 					S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 		if(lockfd < 0){
-		     I2ErrLog(eh,"open(%s):%M",lockpath);
+		     I2ErrLog(eh,"open(%s): %M",lockpath);
 		     exit(1);
 		}
 
@@ -987,7 +987,7 @@ main(
 		flk.l_whence = SEEK_SET;
 		while((rc = fcntl(lockfd,F_SETLK,&flk)) < 0 && errno == EINTR);
 		if(rc < 0){
-			I2ErrLog(eh,"Unable to lock file %s:%M",lockpath);
+			I2ErrLog(eh,"Unable to lock file %s: %M",lockpath);
 			if(I2Readn(lockfd,&ch,sizeof(ch)) == sizeof(ch)){
 				I2ErrLog(eh,"Possibly locked by pid(%d)",ch);
 			}
