@@ -1519,7 +1519,6 @@ AGAIN:
 		req_time.tstamp = BWLNum64Add(req_time.tstamp,
 							currtime.tstamp);
 
-I2ErrLog(eh,"ReqInitial: %24.10f",BWLNum64ToDouble(req_time.tstamp));
 		/*
 		 * Get a reservation:
 		 * 	s[0] == receiver
@@ -1533,7 +1532,10 @@ I2ErrLog(eh,"ReqInitial: %24.10f",BWLNum64ToDouble(req_time.tstamp));
 		s[1]->tspec.req_time.tstamp = zero64;
 		memset(sid,0,sizeof(sid));
 		recv_port = 0;
+#if	NOT
+I2ErrLog(eh,"ReqInitial: %24.10f",BWLNum64ToDouble(req_time.tstamp));
 I2ErrLog(eh,"LastTime: %24.10f",BWLNum64ToDouble(s[0]->tspec.latest_time));
+#endif
 
 		p=0;q=0;
 		while(1){

@@ -327,13 +327,15 @@ ChldReservationDemand(
 	 * The time period from res->start to res->end is completely
 	 * allocated to this test.
 	 */
+	res->start = BWLNum64Sub(rtime,ftime);
+#if	NOT
 I2ErrLog(errhand,"ResReq: %24.10f, Fuzz: %24.10f",
 		BWLNum64ToDouble(rtime),
 		BWLNum64ToDouble(ftime));
-	res->start = BWLNum64Sub(rtime,ftime);
 I2ErrLog(errhand,"Current: %24.10f, Start: %24.10f",
 		BWLNum64ToDouble(currtime.tstamp),
 		BWLNum64ToDouble(res->start));
+#endif
 	minstart =BWLNum64Add(currtime.tstamp,
 					BWLNum64Mult(
 						BWLNum64Add(rtttime,ftime),
@@ -350,9 +352,11 @@ I2ErrLog(errhand,"Current: %24.10f, Start: %24.10f",
 	}
 	res->restime = BWLNum64Add(res->start,ftime);
 
+#if	NOT
 I2ErrLog(errhand,"ResCompute: %24.10f, NewStart: %24.10f",
 		BWLNum64ToDouble(res->restime),
 		BWLNum64ToDouble(res->start));
+#endif
 	dtime = BWLNum64Add(BWLULongToNum64(duration),ftime);
 	res->end = BWLNum64Add(res->restime,dtime);
 	res->fuzz = ftime;
