@@ -33,7 +33,6 @@
 
 #include <bwlib/bwlib.h>
 #include "policy.h"
-#include "conf.h"
 
 /*
  * Function:	parsekeys
@@ -59,23 +58,22 @@ parsekeys(
 	size_t		*lbuf_max
 	)
 {
-	char		*line;
 	int		rc;
-	int		i;
 	BWLUserID	username;
-	const int	keylen=sizeof(BWLKey)*2; /* len hex-encoded key */
-	char		*keystart;
 	BWLKey		tkey;
 	I2Datum		key,val;
 	I2ErrHandle	eh = BWLContextGetErrHandle(policy->ctx);
 
-#if	(I2MAXIDENTITY > sizeof(username))
-#error	"I2util identity size mismatch"
-#endif
-
-#if	(I2KEYLEN != sizeof(BWLKey))
-#error	"I2util keylen mismatch"
-#endif
+	/*
+	 * TODO: Replace with an autoconf test
+	 */
+	{
+		size_t	tsize;
+		tsize = sizeof(username);
+		assert(I2MAXIDENTITYLEN <= tsize);
+		tsize = sizeof(BWLKey);
+		assert(I2KEYLEN == tsize);
+	}
 
 	if(!fp){
 		return 0;
@@ -291,7 +289,7 @@ parselimitline(
 	/*
 	 * Grab new classname
 	 */
-	if(!(line = strtok(line,BWLDWSPACESET))){
+	if(!(line = strtok(line,I2WSPACESET))){
 		return 1;
 	}
 	cname = line;
@@ -316,7 +314,7 @@ parselimitline(
 	/*
 	 * parse "with"
 	 */
-	if(!(line = strtok(NULL,BWLDWSPACESET))){
+	if(!(line = strtok(NULL,I2WSPACESET))){
 		return 1;
 	}
 	/* compare strings INCLUDING the '\0' */
@@ -577,7 +575,7 @@ parseassignline(
 	/*
 	 * Grab assign "type"
 	 */
-	if(!(line = strtok(line,BWLDWSPACESET))){
+	if(!(line = strtok(line,I2WSPACESET))){
 		return 1;
 	}
 
@@ -601,7 +599,7 @@ parseassignline(
 		/*
 		 * Grab addr/mask
 		 */
-		if(!(line = strtok(NULL,BWLDWSPACESET))){
+		if(!(line = strtok(NULL,I2WSPACESET))){
 			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 				"Invalid \"assign net\" argument.");
 			return 1;
@@ -715,7 +713,7 @@ parseassignline(
 		/*
 		 * Grab username
 		 */
-		if(!(line = strtok(NULL,BWLDWSPACESET))){
+		if(!(line = strtok(NULL,I2WSPACESET))){
 			return 1;
 		}
 		key.dptr = line;
@@ -741,7 +739,7 @@ parseassignline(
 	 * The Pid is valid - now parse and check for limits for
 	 * the "classname".
 	 */
-	if(!(line = strtok(NULL,BWLDWSPACESET))){
+	if(!(line = strtok(NULL,I2WSPACESET))){
 		return 1;
 	}
 
@@ -846,7 +844,7 @@ parselimits(
 
 		line = *lbuf;
 		if(sizeof(defline) > *lbuf_max){
-			*lbuf_max += BWLDLINEBUFINC;
+			*lbuf_max += I2LINEBUFINC;
 			*lbuf = realloc(line,sizeof(char) * *lbuf_max);
 			if(!*lbuf){
 				if(line){

@@ -152,10 +152,10 @@ usage(const char *progname, const char *msg)
 
 static BWLBoolean
 getclientkey(
-	BWLContext	ctx,
+	BWLContext	ctx __attribute__((unused)),
 	const BWLUserID	userid	__attribute__((unused)),
 	BWLKey		key_ret,
-	BWLErrSeverity	*err_ret
+	BWLErrSeverity	*err_ret __attribute__((unused))
 	)
 {
 	memcpy(key_ret,aesbuff,sizeof(aesbuff));
@@ -173,8 +173,6 @@ ip_set_auth(
 	ipapp_trec	*pctx
 	)
 {
-	BWLErrSeverity err_ret;
-
 	if(pctx->opt.identity){
 		u_int8_t	*aes = NULL;
 
@@ -183,11 +181,11 @@ ip_set_auth(
 		 * (md5 the passphrase to create an aes key.)
 		 */
 		if(pctx->opt.passphrase){
-			char	*passphrase;
-			char	ppbuf[MAX_PASSPHRASE];
-			char	prompt[MAX_PASSPROMPT];
-			MD5_CTX	mdc;
-			size_t	pplen;
+			unsigned char	*passphrase;
+			char		ppbuf[MAX_PASSPHRASE];
+			char		prompt[MAX_PASSPROMPT];
+			I2MD5_CTX	mdc;
+			size_t		pplen;
 
 			if(snprintf(prompt,MAX_PASSPROMPT,
 					"Enter passphrase for identity '%s': ",
@@ -196,16 +194,17 @@ ip_set_auth(
 				goto DONE;
 			}
 
-			if(!(passphrase = I2ReadPassPhrase(prompt,ppbuf,
+			if(!(passphrase = (unsigned char *)
+						I2ReadPassPhrase(prompt,ppbuf,
 						sizeof(ppbuf),I2RPP_ECHO_OFF))){
 				I2ErrLog(eh,"I2ReadPassPhrase(): %M");
 				goto DONE;
 			}
 			pplen = strlen(passphrase);
 
-			MD5Init(&mdc);
-			MD5Update(&mdc,passphrase,pplen);
-			MD5Final(aesbuff,&mdc);
+			I2MD5Init(&mdc);
+			I2MD5Update(&mdc,passphrase,pplen);
+			I2MD5Final(aesbuff,&mdc);
 			aes = aesbuff;
 		}
 		else{
