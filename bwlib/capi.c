@@ -60,63 +60,23 @@ _BWLClientBind(
 	BWLErrSeverity	*err_ret
 )
 {
+	struct addrinfo	*fai;
 	struct addrinfo	*ai;
 
 	*err_ret = BWLErrOK;
 
-	/*
-	 * Ensure local_addr is not from a fd.
-	 */
-	if(local_addr->fd > -1){
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-						"Invalid local_addr - ByFD");
-		*err_ret = BWLErrFATAL;
-		return False;
-	}
-
-	/*
-	 * if getaddrinfo has not been called for this BWLAddr, then call
-	 * it.
-	 */
-	if(!local_addr->ai){
-		/*
-		 * Call getaddrinfo to find useful addresses
-		 */
-		struct addrinfo	hints, *airet;
-		const char	*port=NULL;
-		int		gai;
-
-		if(!local_addr->node_set){
-			BWLError(cntrl->ctx,BWLErrFATAL,
-				BWLErrUNKNOWN,"Invalid localaddr specified");
-			*err_ret = BWLErrFATAL;
-			return False;
-		}
-
-		if(local_addr->port_set)
-			port = local_addr->port;
-
-		memset(&hints,0,sizeof(struct addrinfo));
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-
-		if(((gai = getaddrinfo(local_addr->node,port,&hints,&airet))!=0)
-							|| !airet){
-			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-					"getaddrinfo(): %s",gai_strerror(gai));
-			*err_ret = BWLErrFATAL;
-			return False;
-		}
-
-		local_addr->ai = airet;
-	}
+        if(!BWLAddrSetSocktype(local_addr,SOCK_STREAM) ||
+                !(fai = BWLAddrAddrInfo(local_addr,NULL,NULL))){
+            *err_ret = BWLErrFATAL;
+            return False;
+        }
 
 	/*
 	 * Now that we have a valid addrinfo list for this address, go
 	 * through each of those addresses and try to bind the first
 	 * one that matches addr family and socktype.
 	 */
-	for(ai=local_addr->ai;ai;ai = ai->ai_next){
+	for(ai=fai;ai;ai = ai->ai_next){
 		if(ai->ai_family != remote_addrinfo->ai_family)
 			continue;
 		if(ai->ai_socktype != remote_addrinfo->ai_socktype)
@@ -152,69 +112,6 @@ _BWLClientBind(
 	 * None found.
 	 */
 	return False;
-}
-
-/*
- * Function:	SetClientAddrInfo
- *
- * Description:	
- * 	PRIVATE function for initializing the addrinfo portion of
- * 	the given BWLAddr.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-static BWLBoolean
-SetClientAddrInfo(
-	BWLControl	cntrl,
-	BWLAddr		addr,
-	BWLErrSeverity	*err_ret
-	)
-{
-	struct addrinfo	*ai=NULL;
-	struct addrinfo	hints;
-	const char	*node=NULL;
-	const char	*port=NULL;
-	int		gai;
-
-	if(!addr){
-		*err_ret = BWLErrFATAL;
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-							"Invalid address");
-		return False;
-	}
-
-	if(addr->ai)
-		return True;
-
-	/*
-	 * Call getaddrinfo to find useful addresses
-	 */
-
-	if(addr->node_set)
-		node = addr->node;
-	if(addr->port_set)
-		port = addr->port;
-	else
-		port = BWL_CONTROL_SERVICE_NAME;
-
-	memset(&hints,0,sizeof(struct addrinfo));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-
-	if(((gai = getaddrinfo(node,port,&hints,&ai))!=0) || !ai){
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-					"getaddrinfo(): %s",gai_strerror(gai));
-		return False;
-	}
-
-	addr->ai = ai;
-	return True;
 }
 
 /*
@@ -310,7 +207,8 @@ _BWLClientConnect(
 )
 {
 	int		rc;
-	struct addrinfo	*ai=NULL;
+	struct addrinfo	*fai;
+	struct addrinfo	*ai;
 
 	if(!server_addr)
 		goto error;
@@ -318,17 +216,17 @@ _BWLClientConnect(
 	/*
 	 * Easy case - application provided socket directly.
 	 */
-	if(server_addr->fd > -1){
-		cntrl->remote_addr = server_addr;
-		cntrl->sockfd = server_addr->fd;
-		return 0;
-	}
+        if((cntrl->sockfd = BWLAddrFD(server_addr)) > -1){
+            cntrl->remote_addr = server_addr;
+            return 0;
+        }
 
 	/*
 	 * Initialize addrinfo portion of server_addr record.
 	 */
-	if(!SetClientAddrInfo(cntrl,server_addr,err_ret))
-		goto error;
+        if(!(fai = BWLAddrAddrInfo(server_addr,NULL,BWL_CONTROL_SERVICE_NAME))){
+            goto error;
+        }
 
 	/*
 	 * Now that we have addresses - see if it is valid by attempting
@@ -338,7 +236,7 @@ _BWLClientConnect(
 	 * (Binding will call the policy function internally.)
 	 */
 #ifdef	AF_INET6
-	for(ai=server_addr->ai;ai;ai=ai->ai_next){
+	for(ai=fai;ai;ai=ai->ai_next){
 
 		if(ai->ai_family != AF_INET6) continue;
 
@@ -351,7 +249,7 @@ _BWLClientConnect(
 	/*
 	 * Now try IPv4 addresses.
 	 */
-	for(ai=server_addr->ai;ai;ai=ai->ai_next){
+	for(ai=fai;ai;ai=ai->ai_next){
 
 		if(ai->ai_family != AF_INET) continue;
 
@@ -418,6 +316,9 @@ BWLControlOpen(
 	 */
 	if((!server_addr) &&
 		!(server_addr = BWLAddrByNode(cntrl->ctx,"localhost"))){
+		goto error;
+	}
+	if(!BWLAddrSetSocktype(server_addr,SOCK_STREAM)){
 		goto error;
 	}
 
@@ -662,170 +563,6 @@ error:
 }
 
 /*
- * Function:	SetEndpointAddrInfo
- *
- * Description:	
- * 	Initialize the BWLAddr record's addrinfo section for an Endpoint
- * 	of a test. (UDP test with no fixed port number.)
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-static BWLBoolean
-SetEndpointAddrInfo(
-	BWLControl	cntrl,
-	BWLAddr		addr,
-	int		socktype,
-	BWLErrSeverity	*err_ret
-)
-{
-	int			so_type;
-	socklen_t		so_typesize = sizeof(so_type);
-	struct sockaddr_storage	sbuff;
-	socklen_t		so_size = sizeof(sbuff);
-	struct sockaddr		*saddr=NULL;
-	struct addrinfo		*ai=NULL;
-	struct addrinfo		hints;
-	char			*port=NULL;
-	int			rc;
-
-	/*
-	 * Must specify an addr record to this function.
-	 */
-	if(!addr){
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-						"Invalid test address");
-		return False;
-	}
-
-	/*
-	 * Already done!
-	 */
-	if(addr->ai){
-		/*
-		 * If this is a faked ai record, then set the socktype
-		 */
-		if(addr->ai->ai_addr == addr->saddr){
-			addr->ai->ai_socktype = socktype;
-			addr->so_type = socktype;
-		}
-		return True;
-	}
-
-	/*
-	 * Addr was passed in as a fd so application created the
-	 * socket itself - determine as much information about the
-	 * socket as we can.
-	 */
-	if(addr->fd > -1){
-
-		/*
-		 * Get an saddr to describe the fd...
-		 */
-		if(getsockname(addr->fd,(void*)&sbuff,&so_size) != 0){
-			BWLError(cntrl->ctx,BWLErrFATAL,
-				errno,"getsockname():%s",
-				strerror(errno));
-			goto error;
-		}
-
-		/*
-		 * Determine "type" of socket.
-		 */
-		if(getsockopt(addr->fd,SOL_SOCKET,SO_TYPE,
-				(void*)&so_type,&so_typesize) != 0){
-			BWLError(cntrl->ctx,BWLErrFATAL,
-				errno,"getsockopt():%s",
-				strerror(errno));
-			goto error;
-		}
-
-		if(! (saddr = malloc(so_size))){
-			BWLError(cntrl->ctx,BWLErrFATAL,
-				errno,"malloc():%s",strerror(errno));
-			goto error;
-		}
-		memcpy((void*)saddr,(void*)&sbuff,so_size);
-		
-		/*
-		 * create an addrinfo to describe this sockaddr
-		 */
-		if(! (ai = malloc(sizeof(struct addrinfo)))){
-			BWLError(cntrl->ctx,BWLErrFATAL,
-				errno,"malloc():%s",strerror(errno));
-			goto error;
-		}
-
-		ai->ai_flags = 0;
-		ai->ai_family = saddr->sa_family;
-		ai->ai_socktype = so_type;
-		/*
-		 * all necessary info encapsalated by family/socktype,
-		 * so default proto to IPPROTO_IP(0).
-		 * (Could probably set this to IPPROTO_UDP/IPPROTO_TCP
-		 * based upon the socktype, but the 0 default fits
-		 * the model for most "socket" calls.)
-		 */
-		ai->ai_protocol = IPPROTO_IP;
-		ai->ai_addrlen = so_size;
-		ai->ai_canonname = NULL;
-		ai->ai_addr = saddr;
-		ai->ai_next = NULL;
-
-		/*
-		 * Set BWLAddr ai
-		 */
-		addr->ai = ai;
-		addr->ai_free = True;
-	}
-	else if(addr->node_set){
-		/*
-		 * Hey - do the normal thing, call getaddrinfo
-		 * to get an addrinfo, how novel!
-		 */
-		memset(&hints,0,sizeof(struct addrinfo));
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = socktype;
-
-		if(addr->port_set)
-			port = addr->port;
-		if(((rc = getaddrinfo(addr->node,port,&hints,&ai))!=0) || !ai){
-			BWLError(cntrl->ctx,BWLErrFATAL,
-				errno,"getaddrinfo(): %s", gai_strerror(rc));
-			goto error;
-		}
-		addr->ai = ai;
-
-	}else{
-		/*
-		 * Empty BWLAddr record - report error.
-		 */
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-						"Invalid test address");
-		goto error;
-	}
-
-	/*
-	 * success!
-	 */
-	return True;
-
-error:
-	/*
-	 * Failed - free memory and return negative.
-	 */
-	if(saddr) free(saddr);
-	if(ai) free(ai);
-	*err_ret = BWLErrFATAL;
-	return FALSE;
-}
-
-/*
  * Function:	_BWLClientRequestTestReadResponse
  *
  * Description:	
@@ -869,217 +606,6 @@ _BWLClientRequestTestReadResponse(
 }
 
 /*
- * Function:	BWLAddrByControl
- *
- * Description:	
- * 	Create an BWLAddr record for the remote address based upon the
- * 	control socket connection. (wrapper for getpeername)
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-BWLAddr
-BWLAddrByControl(
-		   BWLControl	cntrl
-		   )
-{
-	struct addrinfo		*ai=NULL;
-	BWLAddr			addr;
-	struct sockaddr_storage	saddr_rec;
-	struct sockaddr		*oaddr=(struct sockaddr*)&saddr_rec;
-	socklen_t		len;
-
-	/*
-	 * copy current socketaddr into saddr_rec
-	 */
-	if(cntrl->remote_addr && cntrl->remote_addr->saddr){
-		len = cntrl->remote_addr->saddrlen;
-		memcpy(&saddr_rec,cntrl->remote_addr->saddr,len);
-	}else{
-		memset(&saddr_rec,0,sizeof(saddr_rec));
-		len = sizeof(saddr_rec);
-		if(getpeername(cntrl->sockfd,oaddr,&len) != 0){
-			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-					"getpeername():%M");
-			return NULL;
-		}
-	}
-
-	/*
-	 * If copy was unsuccessful return error.
-	 */
-	if(!len)
-		return NULL;
-
-	/*
-	 * Allocate an BWLAddr record to assign the data into.
-	 */
-	if( !(addr = _BWLAddrAlloc(cntrl->ctx)))
-		return NULL;
-
-	if( !(ai = calloc(1,sizeof(struct addrinfo))) ||
-					!(addr->saddr = calloc(1,len))){
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,"malloc():%M");
-		goto error;
-	}
-
-	/*
-	 * Assign all the fields.
-	 */
-	memcpy(addr->saddr,oaddr,len);
-	ai->ai_addr = addr->saddr;
-	addr->saddrlen = len;
-	ai->ai_addrlen = len;
-
-	ai->ai_flags = 0;
-	ai->ai_family = oaddr->sa_family;
-	ai->ai_socktype = SOCK_STREAM;
-	ai->ai_protocol = IPPROTO_IP;	/* reasonable default */
-	ai->ai_canonname = NULL;
-	ai->ai_next = NULL;
-
-	addr->ai = ai;
-	addr->ai_free = True;
-	addr->so_type = SOCK_STREAM;
-	addr->so_protocol = IPPROTO_IP;
-
-	return addr;
-
-error:
-	if(addr)
-		BWLAddrFree(addr);
-	if(ai)
-		free(ai);
-
-	return NULL;
-}
-
-/*
- * Function:	BWLAddrByLocalControl
- *
- * Description:	
- * 	Create an BWLAddr record for the local address based upon the
- * 	control socket connection. (This is used to make a test request
- * 	to to the same address that the control connection is coming from -
- * 	it is very useful when you allow the local connection to wildcard
- * 	since the test connection cannot wildcard.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-BWLAddr
-BWLAddrByLocalControl(
-		   BWLControl	cntrl
-		   )
-{
-	struct addrinfo		*ai=NULL;
-	BWLAddr			addr;
-	struct sockaddr_storage	saddr_rec;
-	struct sockaddr		*oaddr=(struct sockaddr*)&saddr_rec;
-	socklen_t		len;
-	u_int16_t		*port=NULL;
-
-	/*
-	 * copy current socketaddr into saddr_rec
-	 */
-	if(cntrl->local_addr && cntrl->local_addr->saddr){
-		len = cntrl->local_addr->saddrlen;
-		memcpy(&saddr_rec,cntrl->local_addr->saddr,len);
-	}else{
-		memset(&saddr_rec,0,sizeof(saddr_rec));
-		len = sizeof(saddr_rec);
-		if(getsockname(cntrl->sockfd,oaddr,&len) != 0){
-			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-					"getsockname():%M");
-			return NULL;
-		}
-	}
-
-	/*
-	 * If copy was unsuccessful return error.
-	 */
-	if(!len)
-		return NULL;
-
-	/*
-	 * decode v4 and v6 sockaddrs.
-	 */
-	switch(oaddr->sa_family){
-		struct sockaddr_in	*saddr4;
-#ifdef	AF_INET6
-		struct sockaddr_in6	*saddr6;
-
-		case AF_INET6:
-			saddr6 = (struct sockaddr_in6*)oaddr;
-			port = &saddr6->sin6_port;
-			break;
-#endif
-		case AF_INET:
-			saddr4 = (struct sockaddr_in*)oaddr;
-			port = &saddr4->sin_port;
-			break;
-		default:
-			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-						"Invalid address family");
-			return NULL;
-	}
-
-	*port = htons(BWL_CONTROL_SERVICE_NUMBER);
-
-	/*
-	 * Allocate an BWLAddr record to assign the data into.
-	 */
-	if( !(addr = _BWLAddrAlloc(cntrl->ctx)))
-		return NULL;
-
-	if( !(ai = calloc(1,sizeof(struct addrinfo))) ||
-					!(addr->saddr = calloc(1,len))){
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,"malloc():%M");
-		goto error;
-	}
-
-	/*
-	 * Assign all the fields.
-	 */
-	memcpy(addr->saddr,oaddr,len);
-	ai->ai_addr = addr->saddr;
-	addr->saddrlen = len;
-	ai->ai_addrlen = len;
-
-	ai->ai_flags = 0;
-	ai->ai_family = oaddr->sa_family;
-	ai->ai_socktype = SOCK_STREAM;
-	ai->ai_protocol = IPPROTO_IP;	/* reasonable default */
-	ai->ai_canonname = NULL;
-	ai->ai_next = NULL;
-
-	addr->ai = ai;
-	addr->ai_free = True;
-	addr->so_type = SOCK_STREAM;
-	addr->so_protocol = IPPROTO_IP;
-
-	return addr;
-
-error:
-	if(addr)
-		BWLAddrFree(addr);
-	if(ai)
-		free(ai);
-
-	return NULL;
-}
-
-/*
  * Function:	BWLSessionRequest
  *
  * Description:	
@@ -1107,13 +633,14 @@ BWLSessionRequest(
 	BWLErrSeverity	*err_ret
 )
 {
+	struct addrinfo		*frai=NULL;
+	struct addrinfo		*fsai=NULL;
 	struct addrinfo		*rai=NULL;
 	struct addrinfo		*sai=NULL;
 	BWLTestSession		tsession = NULL;
 	int			rc=0;
 	BWLAddr			receiver=NULL;
 	BWLAddr			sender=NULL;
-	int			socktype;
 	BWLNum64		zero64=BWLULongToNum64(0);
 
 	*err_ret = BWLErrOK;
@@ -1152,9 +679,6 @@ BWLSessionRequest(
 			goto cancel;
 	}else{
 
-		/*
-		 * If NULL passed in for recv address - fill it in with local
-		 */
 		if(test_spec->receiver){
 			receiver = _BWLAddrCopy(test_spec->receiver);
 		}else{
@@ -1165,9 +689,6 @@ BWLSessionRequest(
 		if(!receiver)
 			goto error;
 	
-		/*
-		 * If NULL passed in for send address - fill it in with local
-		 */
 		if(test_spec->sender){
 			sender = _BWLAddrCopy(test_spec->sender);
 		}else{
@@ -1178,16 +699,28 @@ BWLSessionRequest(
 		if(!sender)
 			goto error;
 	
-		/*
-		 * Get addrinfo for address spec's so we can choose between
-		 * the different address possiblities in the next step.
-		 */
-		socktype = (test_spec->udp)? SOCK_DGRAM: SOCK_STREAM;
-		if(!SetEndpointAddrInfo(cntrl,receiver,socktype,err_ret) ||
-				!SetEndpointAddrInfo(cntrl,sender,socktype,
-								err_ret))
-			goto error;
-	
+                /*
+                 * Set the socktypes needed for this type of test so the
+                 * getaddrinfo happens correctly.
+                 */
+                if(     !BWLAddrSetSocktype(receiver,
+                            (test_spec->udp)? SOCK_DGRAM: SOCK_STREAM) ||
+                        !BWLAddrSetSocktype(sender,
+                            (test_spec->udp)? SOCK_DGRAM: SOCK_STREAM)){
+                    goto error;
+                }
+
+                /*
+                 * Get addrinfo for address spec's so we can choose between
+                 * the different address possiblities in the next step.
+                 */
+                if(     !(frai = BWLAddrAddrInfo(receiver,NULL,
+                                BWL_CONTROL_SERVICE_NAME)) ||
+                        !(fsai = BWLAddrAddrInfo(sender,NULL,
+                                BWL_CONTROL_SERVICE_NAME))){
+                    goto error;
+                }
+
 		/*
 		 * Determine proper address specifications for send/recv.
 		 * Loop on ai values to find a match and use that.
@@ -1195,9 +728,9 @@ BWLSessionRequest(
 		 * first...) Only supports AF_INET and AF_INET6.
 		 */
 	#ifdef	AF_INET6
-		for(rai = receiver->ai;rai;rai = rai->ai_next){
+		for(rai = frai;rai;rai = rai->ai_next){
 			if(rai->ai_family != AF_INET6) continue;
-			for(sai = sender->ai;sai;sai = sai->ai_next){
+			for(sai = fsai;sai;sai = sai->ai_next){
 				if(rai->ai_family != sai->ai_family) continue;
 				if(rai->ai_socktype != sai->ai_socktype)
 					continue;
@@ -1205,9 +738,9 @@ BWLSessionRequest(
 			}
 		}
 	#endif
-		for(rai = receiver->ai;rai;rai = rai->ai_next){
+		for(rai = frai;rai;rai = rai->ai_next){
 			if(rai->ai_family != AF_INET) continue;
-			for(sai = sender->ai;sai;sai = sai->ai_next){
+			for(sai = fsai;sai;sai = sai->ai_next){
 				if(rai->ai_family != sai->ai_family) continue;
 				if(rai->ai_socktype != sai->ai_socktype)
 					continue;

@@ -716,87 +716,6 @@ _BWLReadTimeResponse(
 }
 
 /*
- * Function:	AddrBySAddrRef
- *
- * Description:	
- * 	Construct an BWLAddr record given a sockaddr struct.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-static BWLAddr
-AddrBySAddrRef(
-	BWLContext	ctx,
-	struct sockaddr	*saddr,
-	socklen_t	saddrlen,
-	int		socktype
-	)
-{
-	BWLAddr		addr;
-	struct addrinfo	*ai=NULL;
-	int		gai;
-
-	if(!saddr){
-		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-				"AddrBySAddrRef:Invalid saddr");
-		return NULL;
-	}
-
-	if(!(addr = _BWLAddrAlloc(ctx)))
-		return NULL;
-
-	if(!(ai = malloc(sizeof(struct addrinfo)))){
-		BWLError(addr->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-				"malloc():%s",strerror(errno));
-		(void)BWLAddrFree(addr);
-		return NULL;
-	}
-
-	if(!(addr->saddr = malloc(saddrlen))){
-		BWLError(addr->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-				"malloc():%s",strerror(errno));
-		(void)BWLAddrFree(addr);
-		(void)free(ai);
-		return NULL;
-	}
-	memcpy(addr->saddr,saddr,saddrlen);
-	ai->ai_addr = addr->saddr;
-	addr->saddrlen = saddrlen;
-	ai->ai_addrlen = saddrlen;
-
-	ai->ai_flags = 0;
-	ai->ai_family = saddr->sa_family;
-	ai->ai_socktype = socktype;
-	ai->ai_protocol = IPPROTO_IP;	/* reasonable default.	*/
-	ai->ai_canonname = NULL;
-	ai->ai_next = NULL;
-
-	addr->ai = ai;
-	addr->ai_free = True;
-	addr->so_type = SOCK_DGRAM;
-	addr->so_protocol = IPPROTO_IP;
-
-	if( (gai = getnameinfo(addr->saddr,addr->saddrlen,
-				addr->node,sizeof(addr->node),
-				addr->port,sizeof(addr->port),
-				NI_NUMERICHOST | NI_NUMERICSERV)) != 0){
-		BWLError(addr->ctx,BWLErrWARNING,BWLErrUNKNOWN,
-				"getnameinfo(): %s",gai_strerror(gai));
-		strncpy(addr->node,"unknown",sizeof(addr->node));
-		strncpy(addr->port,"unknown",sizeof(addr->port));
-	}
-	addr->node_set = True;
-	addr->port_set = True;
-
-	return addr;
-}
-
-/*
  * 	TestRequest message format:
  *
  * 	size:112 octets
@@ -841,7 +760,7 @@ AddrBySAddrRef(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	88|                        Report Interval                        |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	92|    Dynamic    |                MBZ                            |
+ *	92|    Dynamic    |      TOS      |            MBZ                |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	96|                                                               |
  *     100|                Integrity Zero Padding (16 octets)             |
@@ -981,6 +900,10 @@ _BWLWriteTestRequest(
 	if(tspec->dynamic_window_size){
 		buf[92] |= _BWL_DYNAMIC_WINDOW_SIZE;
 	}
+
+        if(tspec->tos){
+            buf[93] = tspec->tos;
+        }
 
 	/*
 	 * Now - send the request! 112 octets == 7 blocks.
@@ -1224,10 +1147,10 @@ _BWLReadTestRequest(
 		 * (Don't bother checking for null return - it will be checked
 		 * by _BWLTestSessionAlloc.)
 		 */
-		SendAddr = AddrBySAddrRef(cntrl->ctx,
+		SendAddr = BWLAddrBySAddr(cntrl->ctx,
 				(struct sockaddr*)&sendaddr_rec,addrlen,
 				(tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
-		RecvAddr = AddrBySAddrRef(cntrl->ctx,
+		RecvAddr = BWLAddrBySAddr(cntrl->ctx,
 				(struct sockaddr*)&recvaddr_rec,addrlen,
 				(tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
 
@@ -1237,6 +1160,7 @@ _BWLReadTestRequest(
 		tspec.report_interval = ntohl(*(u_int32_t*)&buf[88]);
 
 		tspec.dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
+                tspec.tos = buf[93];
 
 		/*
 		 * Allocate a record for this test.

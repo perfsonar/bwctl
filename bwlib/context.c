@@ -102,6 +102,8 @@ BWLContextCreate(
 		ctx->eh = eh;
 	}
 
+        ctx->access_prio = BWLErrINFO;
+
 	if(_BWLInitNTP(ctx) != 0){
 		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"Unable to initialize clock interface.");
@@ -206,6 +208,30 @@ BWLContextGetErrHandle(
 	)
 {
 	return ctx->eh;
+}
+
+/*
+ * Function:    BWLContextSetAccessLogPriority
+ *
+ * Description:    
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+void
+BWLContextSetAccessLogPriority(
+        BWLContext  ctx,
+        int         prio
+        )
+{
+    ctx->access_prio = prio;
+
+    return;
 }
 
 struct _BWLContextHashRecord{

@@ -26,8 +26,6 @@ libbwlib_a_SOURCES	= api.c capi.c sapi.c context.c error.c bwlibP.h \
 			rijndael-alg-fst.c rijndael-alg-fst.h \
 			rijndael-api-fst.c rijndael-api-fst.h \
 			util.c schedule.c
-#			policy.h policy.c
-#			access2.c read_class2limits.c defaults.c print.c
 
 EXTRA_DIST		= bwlib.h
 

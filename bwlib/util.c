@@ -18,72 +18,102 @@
  *
  *	Description:	
  */
+#include <stdlib.h>
+#include <limits.h>
 #include <ctype.h>
+#include <errno.h>
 #include <bwlib/bwlib.h>
 
-/*
- * buff must be at least (nbytes*2) +1 long or memory will be over-run.
- */
-void
-BWLHexEncode(
-	char		*buff,
-	u_int8_t	*bytes,
-	unsigned int	nbytes
-	)
-{
-	char		hex[]="0123456789abcdef";
-	unsigned int	i;
-
-	for(i=0;i<nbytes;i++){
-		*buff++ = hex[*bytes >> 4];
-		*buff++ = hex[*bytes++ & 0x0f];
-	}
-	*buff = '\0';
-}
 
 /*
- * Function:	BWLHexDecode
+ * Function:    BWLParsePorts
  *
- * Description:	
- * 	Decode hex chars into bytes. Return True on success, False on error.
+ * Description:    
  *
- * In Args:	
+ * In Args:    
  *
- * Out Args:	
+ * Out Args:    
  *
- * Scope:	
- * Returns:	
- * Side Effect:	
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
  */
-BWLBoolean
-BWLHexDecode(
-	char		*buff,
-	u_int8_t	*bytes,
-	unsigned int	nbytes
-	)
+I2Boolean
+BWLParsePorts(
+        char            *pspec,
+        BWLPortRange    prange,
+        BWLPortRange    *prange_ret,
+        I2ErrHandle     ehand,
+        FILE            *fout
+        )
 {
-	char		hex[]="0123456789abcdef";
-	unsigned int	i,j,offset;
-	char		a;
+    char    *tstr,*endptr;
+    long    tint;
 
-	for(i=0;i<nbytes;i++,bytes++){
-		*bytes = 0;
-		for(j=0;(*buff != '\0')&&(j<2);j++,buff++){
-			a = tolower(*buff);
-			for(offset=0;offset<sizeof(hex);offset++){
-				if(a == hex[offset]){
-					*bytes |= offset;
-					if(!j)
-						*bytes <<= 4;
-					goto byteset;
-				}
-			}
-			return False;
-byteset:
-			;
-		}
-	}
+    if(!pspec) return False;
 
-	return True;
+    tstr = pspec;
+    endptr = NULL;
+
+    while(isspace(*tstr)) tstr++;
+    tint = strtol(tstr,&endptr,10);
+    if(!endptr || (tstr == endptr) || (tint < 0) || (tint > (int)0xffff)){
+        goto failed;
+    }
+    prange->low = (u_int16_t)tint;
+
+    while(isspace(*endptr)) endptr++;
+
+    switch(*endptr){
+        case '\0':
+            /* only allow a single value if it is 0 */
+            if(prange->low){
+                goto failed;
+            }
+            prange->high = prange->low;
+            goto done;
+            break;
+        case '-':
+            endptr++;
+            break;
+        default:
+            goto failed;
+    }
+
+    tstr = endptr;
+    endptr = NULL;
+    while(isspace(*tstr)) tstr++;
+    tint = strtol(tstr,&endptr,10);
+    if(!endptr || (tstr == endptr) || (tint < 0) || (tint > (int)0xffff)){
+        goto failed;
+    }
+    prange->high = (u_int16_t)tint;
+
+    if(prange->high < prange->low){
+        goto failed;
+    }
+
+done:
+    /*
+     * If ephemeral is specified, shortcut by not setting.
+     */
+    if(!prange->high && !prange->low)
+        return True;
+
+    /*
+     * Set.
+     */
+    *prange_ret = prange;
+
+    return True;
+
+failed:
+    if(ehand){
+        I2ErrLogP(ehand,EINVAL,"Invalid port-range: \"%s\"",pspec);
+    }
+    else if(fout){
+        fprintf(fout,"Invalid port-range: \"%s\"",pspec);
+    }
+
+    return False;
 }
-
