@@ -245,9 +245,11 @@ str2num(
 		case 'e':
 			mult = 1000000000000000000ULL;             /* 1e18 */
 			break;
+#if	NOTYET
 		case 'z':
 			mult = 1000000000000000000000ULL;          /* 1e21 */
 			break;
+#endif
 		default:
 			return -1;
 			/* UNREACHED */
