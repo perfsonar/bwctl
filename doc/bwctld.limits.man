@@ -182,9 +182,9 @@ of the \fIsubnet\fR specification. i.e., 192.168.1.1/24 would be
 an invalid \fIsubnet\fR due to the bit set in the fourth octet.
 .RE
 .TP
-.BI user " users"
-Assign a specific list of one or more \fIusers\fR to a given \fIuserclass\fR.
-The \fIusers\fR are defined in the \fBbwctld.keys\fR file.
+.BI user " user"
+Assign a specific \fIuser\fR to a given \fIuserclass\fR.
+The \fIuser\fR must be defined in the \fBbwctld.keys\fR file.
 .SH AUTHENTICATION PROCESS
 \fBbwctld\fR determines if it should allow a connection from
 the client based upon the authentication mode of the request and the source
@@ -295,7 +295,12 @@ assign net 192.168.1.0/24 \fBjail\fR
 .PP
 # network admins
 .br
-assign user joe jim bob \fBroot\fR
+assign user joe \fBroot\fR
+.br
+assign user jim \fBroot\fR
+.br
+assign user bob \fBroot\fR
+.br
 .RE
 .PP
 This set of \fIassign\fR lines specifically denies access from any
