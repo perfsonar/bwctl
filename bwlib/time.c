@@ -653,12 +653,12 @@ _BWLGetTimespec(
 
 	ntp_conf.modes = 0;
 
-	if(gettimeofday(&tod,NULL) != 0)
+	if(gettimeofday(&tod,NULL) != 0){
 		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday(): %M");
 		return NULL;
 	}
 
-	if(ntp_adjtime(&ntp_conf) < 0)
+	if(ntp_adjtime(&ntp_conf) < 0){
 		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
 		return NULL;
 	}
