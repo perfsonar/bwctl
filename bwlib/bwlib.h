@@ -279,11 +279,13 @@ typedef u_int8_t	BWLSequence[4];
 typedef char		BWLUserID[BWL_USERID_LEN+1];	/* add 1 for '\0' */
 typedef u_int8_t	BWLKey[16];
 
-#define	BWL_MODE_UNDEFINED		(0)
-#define	BWL_MODE_OPEN			(01)
-#define	BWL_MODE_AUTHENTICATED		(02)
-#define	BWL_MODE_ENCRYPTED		(04)
+#define	BWL_MODE_UNDEFINED		(0x0)
+#define	BWL_MODE_LEAST_RESTRICTIVE	(0x80)
+#define	BWL_MODE_OPEN			(0x1)
+#define	BWL_MODE_AUTHENTICATED		(0x2)
+#define	BWL_MODE_ENCRYPTED		(0x4)
 #define	BWL_MODE_DOCIPHER	(BWL_MODE_AUTHENTICATED|BWL_MODE_ENCRYPTED)
+#define BWL_MODE_ALLMODES	(BWL_MODE_DOCIPHER|BWL_MODE_OPEN)
 
 typedef u_int32_t	BWLSessionMode;
 

@@ -395,6 +395,7 @@ BWLControlOpen(
 	int		rc;
 	BWLControl	cntrl;
 	u_int32_t	mode_avail;
+	u_int32_t	do_mode;
 	u_int8_t	key_value[16];
 	u_int8_t	challenge[16];
 	u_int8_t	token[32];
@@ -402,6 +403,7 @@ BWLControlOpen(
 	BWLAcceptType	acceptval;
 	struct timeval	tvalstart,tvalend;
 	BWLNum64	uptime;
+	struct sockaddr	*lsaddr;
 
 	*err_ret = BWLErrOK;
 
@@ -463,37 +465,48 @@ BWLControlOpen(
 		mode_avail &= ~BWL_MODE_DOCIPHER;
 
 	/*
-	 * Pick "highest" level mode still available to this server.
+	 * Pick "highest" level mode still available unless
+	 * least_restrictive is in the bitmask, then pick the
+	 * "lowest" level mode.
 	 */
-	if((mode_avail & BWL_MODE_ENCRYPTED) &&
-			_BWLCallCheckControlPolicy(cntrl,BWL_MODE_ENCRYPTED,
-				cntrl->userid,
-				(local_addr)?local_addr->saddr:NULL,
-				server_addr->saddr,err_ret)){
-		cntrl->mode = BWL_MODE_ENCRYPTED;
+	lsaddr = (local_addr)?local_addr->saddr:NULL;
+	if(mode_req_mask & BWL_MODE_LEAST_RESTRICTIVE){
+		do_mode = BWL_MODE_OPEN;
+		while((*err_ret == BWLErrOK) &&(do_mode <= BWL_MODE_ENCRYPTED)){
+			if((mode_avail & do_mode) &&
+					_BWLCallCheckControlPolicy(cntrl,
+						do_mode,cntrl->userid,
+						lsaddr,server_addr->saddr,
+						err_ret)){
+				cntrl->mode = do_mode;
+				goto gotmode;
+			}
+			do_mode <<= 1;
+		}
+	}else{
+		do_mode = BWL_MODE_ENCRYPTED;
+		while((*err_ret == BWLErrOK) && (do_mode > BWL_MODE_UNDEFINED)){
+			if((mode_avail & do_mode) &&
+					_BWLCallCheckControlPolicy(cntrl,
+						do_mode,cntrl->userid,
+						lsaddr,server_addr->saddr,
+						err_ret)){
+				cntrl->mode = do_mode;
+				goto gotmode;
+			}
+			do_mode >>= 1;
+		}
 	}
-	else if((*err_ret == BWLErrOK) &&
-			(mode_avail & BWL_MODE_AUTHENTICATED) &&
-			_BWLCallCheckControlPolicy(cntrl,BWL_MODE_AUTHENTICATED,
-				cntrl->userid,
-				(local_addr)?local_addr->saddr:NULL,
-				server_addr->saddr,err_ret)){
-		cntrl->mode = BWL_MODE_AUTHENTICATED;
-	}
-	else if((*err_ret == BWLErrOK) &&
-			(mode_avail & BWL_MODE_OPEN) &&
-			_BWLCallCheckControlPolicy(cntrl,BWL_MODE_OPEN,
-				NULL,(local_addr)?local_addr->saddr:NULL,
-				server_addr->saddr,err_ret)){
-		cntrl->mode = BWL_MODE_OPEN;
-	}
-	else if(*err_ret != BWLErrOK){
+
+	if(*err_ret != BWLErrOK){
 		goto error;
 	}
 	else{
 		errno = EACCES;
 		goto denied;
 	}
+
+gotmode:
 
 	/*
 	 * Initialize all the encryption values as necessary.

@@ -826,32 +826,29 @@ _BWLEndpointStart(
 	 * Determine what "mode" the peer connection should happen at.
 	 * The server side should be willing to do anything as strict or
 	 * more strict than it does. The client should be the same, but
-	 * it needs to try each possibility in a loop to actually only
-	 * use the "least" strict mode that matches. BWLControlOpen
-	 * will automatically use the most strict mode that matches
-	 * the two.
+	 * it should use the "least" strict mode that matches so set
+	 * the BWL_MODE_LEAST_RESTRICTIVE bit for the call to BWLControlOpen.
 	 */
+	mode = BWL_MODE_LEAST_RESTRICTIVE;
+	switch(tsess->cntrl->mode){
+		case BWL_MODE_OPEN:
+			mode |= BWL_MODE_OPEN;
+			/*fall through*/
+		case BWL_MODE_AUTHENTICATED:
+			mode |= BWL_MODE_AUTHENTICATED;
+			/*fall through*/
+		case BWL_MODE_ENCRYPTED:
+			mode |= BWL_MODE_ENCRYPTED;
+			break;
+		default:
+			BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+					"Endpoint: Invalid session mode");
+	}
+
 	if(tsess->conf_receiver){
 		struct sockaddr_storage	sbuff;
 		socklen_t		sbuff_len;
 		int			connfd;
-
-		mode = BWL_MODE_UNDEFINED;
-		switch(tsess->cntrl->mode){
-			case BWL_MODE_OPEN:
-				mode |= BWL_MODE_OPEN;
-				/*fall through*/
-			case BWL_MODE_AUTHENTICATED:
-				mode |= BWL_MODE_AUTHENTICATED;
-				/*fall through*/
-			case BWL_MODE_ENCRYPTED:
-				mode |= BWL_MODE_ENCRYPTED;
-				break;
-			default:
-				BWLError(tsess->cntrl->ctx,BWLErrFATAL,
-						BWLErrINVALID,
-					"Endpoint: Invalid session mode");
-		}
 
 ACCEPT:
 		sbuff_len = sizeof(sbuff);
@@ -908,18 +905,8 @@ ACCEPT:
 			goto end;
 		}
 
-		/*
-		 * Loop through modes: Should be willing to do any
-		 * mode at least a strict as current.
-		 */
-		for(mode = tsess->cntrl->mode;
-				mode<=BWL_MODE_ENCRYPTED;
-					mode <<= 1){
-			ep->rcntrl = BWLControlOpen(ctx,local,remote,
-				mode,"endpoint",NULL,err_ret);
-			if(ep->rcntrl || (errno != EACCES))
-				break;
-		}
+		ep->rcntrl = BWLControlOpen(ctx,local,remote,mode,
+				"endpoint",NULL,err_ret);
 	}
 	if(!ep->rcntrl){
 		BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,

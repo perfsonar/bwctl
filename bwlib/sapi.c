@@ -460,6 +460,7 @@ BWLControlAccept(
 	}
 
 	*err_ret = BWLErrOK;
+	mode_offered &= BWL_MODE_ALLMODES;
 
 	if ( !(cntrl = _BWLControlAlloc(ctx,err_ret)))
 		goto error;
@@ -512,7 +513,7 @@ BWLControlAccept(
 
 	/*
 	 * If no mode offered, immediately close socket after sending
-	 * server greeting.
+	 * server greeting. (Nice way of saying goodbye.)
 	 */
 	if(!mode_offered){
 		BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,
