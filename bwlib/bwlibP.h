@@ -1,0 +1,788 @@
+/*
+**      $Id$
+*/
+/************************************************************************
+*									*
+*			     Copyright (C)  2002			*
+*				Internet2				*
+*			     All Rights Reserved			*
+*									*
+************************************************************************/
+/*
+**	File:		ipcntrlP.h
+**
+**	Author:		Jeff W. Boote
+**			Anatoly Karp
+**
+**	Date:		Wed Mar 20 11:10:33  2002
+**
+**	Description:	
+**	This header file describes the internal-private ipcntrl API.
+**
+**	testing
+*/
+#ifndef	OWAMPP_H
+#define	OWAMPP_H
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/socket.h>
+#include <sys/param.h>
+#include <netinet/in.h>
+
+#ifndef	MAXHOSTNAMELEN
+#define	MAXHOSTNAMELEN	64
+#endif
+
+#include <I2util/util.h>
+#include <ipcntrl/ipcntrl.h>
+
+/* 
+** Lengths (in 16-byte blocks) of various Control messages. 
+*/
+#define _IPF_RIJNDAEL_BLOCK_SIZE	16
+#define _IPF_TEST_REQUEST_BLK_LEN	7
+#define _IPF_START_SESSIONS_BLK_LEN	2
+#define _IPF_STOP_SESSIONS_BLK_LEN	2
+#define _IPF_FETCH_SESSION_BLK_LEN	3
+#define _IPF_CONTROL_ACK_BLK_LEN	2
+#define _IPF_MAX_MSG_BLK_LEN		_IPF_TEST_REQUEST_BLK_LEN
+#define _IPF_MAX_MSG	(_IPF_MAX_MSG_BLK_LEN*_IPF_RIJNDAEL_BLOCK_SIZE)
+#define _IPF_TEST_REQUEST_PREAMBLE_SIZE	(_IPF_TEST_REQUEST_BLK_LEN*_IPF_RIJNDAEL_BLOCK_SIZE)
+#define	_IPF_TESTREC_SIZE	24
+
+/*
+ * The FETCH buffer is the smallest multiple of both the _IPF_TS_REC_SIZE
+ * and the _IPF_RIJNDAEL_BLOCK_SIZE. The following must be true:
+ * _IPF_FETCH_AES_BLOCKS * _IPF_RIJNDAEL_BLOCK_SIZE == _IPF_FETCH_BUFFSIZE
+ * _IPF_FETCH_TESTREC_BLOCKS * _IPF_TESTREC_SIZE == _IPF_FETCH_BUFFSIZE
+ */
+#define _IPF_FETCH_BUFFSIZE		48
+#define _IPF_FETCH_AES_BLOCKS		3
+#define _IPF_FETCH_TESTREC_BLOCKS	2
+
+#if (_IPF_FETCH_BUFFSIZE != (_IPF_RIJNDAEL_BLOCK_SIZE * _IPF_FETCH_AES_BLOCKS))
+#error "Fetch Buffer is mis-sized for AES block size!"
+#endif
+#if (_IPF_FETCH_BUFFSIZE != (_IPF_TESTREC_SIZE * _IPF_FETCH_TESTREC_BLOCKS))
+#error "Fetch Buffer is mis-sized for Test Record Size!"
+#endif
+
+/*
+ * Control state constants.
+ */
+/* initial & invalid */
+#define	_IPFStateInitial		(0x0000)
+#define	_IPFStateInvalid		(0x0000)
+/* during negotiation */
+#define	_IPFStateSetup			(0x0001)
+#define	_IPFStateUptime			(_IPFStateSetup << 1)
+/* after negotiation ready for requests */
+#define	_IPFStateRequest		(_IPFStateUptime << 1)
+/* test sessions are active  */
+#define	_IPFStateTest			(_IPFStateRequest << 1)
+/*
+ * The following states are for partially read messages on the server.
+ */
+#define _IPFStateTestRequest		(_IPFStateTest << 1)
+#define _IPFStateTestRequestSlots	(_IPFStateTestRequest << 1)
+#define _IPFStateStartSessions		(_IPFStateTestRequestSlots << 1)
+#define _IPFStateStopSessions		(_IPFStateStartSessions << 1)
+#define _IPFStateFetchSession		(_IPFStateStopSessions << 1)
+#define _IPFStateTestAccept		(_IPFStateFetchSession << 1)
+#define _IPFStateControlAck		(_IPFStateTestAccept << 1)
+/* during fetch-session */
+#define _IPFStateFetching		(_IPFStateControlAck << 1)
+#define _IPFStateFetchingRecords	(_IPFStateFetching << 1)
+
+/* Reading indicates partial read request-ReadRequestType without remainder */
+#define _IPFStateReading	(_IPFStateTestRequest|_IPFStateStartSessions|_IPFStateStopSessions|_IPFStateFetchSession)
+
+/*
+ * "Pending" indicates waiting for server response to a request.
+ */
+#define	_IPFStatePending	(_IPFStateTestAccept|_IPFStateControlAck|_IPFStateStopSessions)
+
+
+#define	_IPFStateIsInitial(c)	(!(c)->state)
+#define	_IPFStateIsSetup(c)	(!(_IPFStateSetup ^ (c)->state))
+
+#define _IPFStateIs(teststate,c)	((teststate & (c)->state))
+
+#define	_IPFStateIsRequest(c)	_IPFStateIs(_IPFStateRequest,c)
+#define	_IPFStateIsReading(c)	_IPFStateIs((_IPFStateReading),c)
+#define _IPFStateIsPending(c)	_IPFStateIs(_IPFStatePending,c)
+#define _IPFStateIsFetchSession(c)	_IPFStateIs(_IPFStateFetchSession,c)
+#define _IPFStateIsFetching(c)	_IPFStateIs(_IPFStateFetching,c)
+#define	_IPFStateIsTest(c)	_IPFStateIs(_IPFStateTest,c)
+
+/*
+ * other useful constants.
+ */
+#define _IPF_ERR_MAXSTRING	(1024)
+#define _IPF_MAGIC_FILETYPE	"OwA"
+
+/*
+ * Data structures
+ */
+typedef struct IPFContextRec IPFContextRec;
+typedef struct IPFAddrRec IPFAddrRec;
+typedef struct IPFControlRec IPFControlRec;
+
+#define _IPF_CONTEXT_TABLE_SIZE	64
+#define _IPF_CONTEXT_MAX_KEYLEN	64
+
+struct IPFContextRec{
+	IPFBoolean		lib_eh;
+	I2ErrHandle		eh;
+	I2Table			table;
+	I2RandomSource		rand_src;
+	IPFControlRec		*cntrl_list;
+};
+
+struct IPFAddrRec{
+	IPFContext	ctx;
+
+	IPFBoolean	node_set;
+	char		node[MAXHOSTNAMELEN+1];
+
+	IPFBoolean	port_set;
+	char		port[MAXHOSTNAMELEN+1];
+
+	IPFBoolean	ai_free;	/* free ai list directly...*/
+	struct addrinfo	*ai;
+
+	struct sockaddr	*saddr;
+	socklen_t	saddrlen;
+	int		so_type;	/* socktype saddr works with	*/
+	int		so_protocol;	/* protocol saddr works with	*/
+
+	IPFBoolean	fd_user;
+	int		fd;
+};
+
+typedef struct IPFTestSessionRec IPFTestSessionRec, *IPFTestSession;
+struct IPFControlRec{
+	/*
+	 * Application configuration information.
+	 */
+	IPFContext		ctx;
+
+	/*
+	 * Hash for maintaining Policy state data.
+	 */
+	I2Table			table;
+
+	/*
+	 * Control connection state information.
+	 */
+	IPFBoolean		server;	/* this record represents server */
+	int			state;	/* current state of connection */
+	IPFSessionMode		mode;
+
+				/*
+				 * Very rough upper bound estimate of
+				 * rtt.
+				 * Used by clients to estimate a
+				 * good "start" time for tests that
+				 * is just beyond the amount of time
+				 * it takes to request the test.
+				 */
+	IPFNum64		rtt_bound;
+	/*
+	 * This field is initialized to zero and used for comparisons
+	 * to ensure AES is working.
+	 */
+	u_int8_t		zero[16];
+
+				/* area for peer's messages		*/
+				/* make u_int32_t to get wanted alignment */
+				/* Usually cast to u_int8_t when used... */
+	u_int32_t		msg[_IPF_MAX_MSG/sizeof(u_int32_t)];
+
+	/*
+	 * Address specification and "network" information.
+	 * (Control socket addr information)
+	 */
+	IPFAddr			remote_addr;
+	IPFAddr			local_addr;
+	int			sockfd;
+
+	/*
+	 * Encryption fields
+	 */
+				/* null if not set - else userid_buffer */
+	u_int8_t		*userid;
+	IPFUserID		userid_buffer;
+	keyInstance             encrypt_key;
+	keyInstance             decrypt_key;
+	u_int8_t		session_key[16];
+	u_int8_t		readIV[16];
+	u_int8_t		writeIV[16];
+
+	struct IPFControlRec	*next;
+	IPFTestSession		tests;
+};
+
+typedef struct IPFLostPacketRec IPFLostPacketRec, *IPFLostPacket;
+struct IPFLostPacketRec{
+	u_int64_t	seq;
+	IPFBoolean	hit;
+	IPFNum64	relative;
+	struct timespec	absolute;	/* absolute time */
+	IPFLostPacket	next;
+};
+
+
+/*
+ * This type holds all the information needed for an endpoint to be
+ * managed.
+ */
+typedef struct IPFEndpointRec{
+	IPFControl		cntrl;
+	IPFTestSession		tsession;
+
+#ifndef	NDEBUG
+	I2Boolean		childwait;
+#endif
+
+	IPFAcceptType		acceptval;
+	pid_t			child;
+	int			wopts;
+	IPFBoolean		send;
+	int			sockfd;
+	IPFAddr			remoteaddr;
+
+	char			fname[PATH_MAX];
+	FILE			*userfile;	/* from _IPFOpenFile */
+	FILE			*datafile;	/* correct buffering */
+	char			*fbuff;
+
+	struct timespec		start;
+	u_int8_t		*payload;
+
+	size_t			len_payload;
+
+	IPFLostPacket		freelist;
+	IPFLostPacket		begin;
+	IPFLostPacket		end;
+	u_int64_t		numalist;
+	I2Table			lost_packet_buffer;
+
+} IPFEndpointRec, *IPFEndpoint;
+
+#define _IPFSLOT_BUFSIZE	10
+struct IPFTestSessionRec{
+	IPFControl			cntrl;
+	IPFSID				sid;
+	IPFAddr				sender;
+	IPFAddr				receiver;
+	IPFBoolean			conf_sender;
+	IPFBoolean			conf_receiver;
+	IPFTestSpec			test_spec;
+	IPFSlot				slot_buffer[_IPFSLOT_BUFSIZE];
+
+	IPFEndpoint			endpoint;
+	void				*closure; /* per/test app data */
+
+	IPFScheduleContext		sctx;
+	IPFTestSession			next;
+};
+
+/*
+ * Private api.c prototypes
+ */
+extern IPFAddr
+_IPFAddrAlloc(
+	IPFContext	ctx
+	);
+
+extern IPFAddr
+_IPFAddrCopy(
+	IPFAddr		from
+	);
+
+extern IPFTestSession
+_IPFTestSessionAlloc(
+	IPFControl	cntrl,
+	IPFAddr		sender,
+	IPFBoolean	server_conf_sender,
+	IPFAddr		receiver,
+	IPFBoolean	server_conf_receiver,
+	IPFTestSpec	*test_spec
+	);
+
+extern IPFErrSeverity
+_IPFTestSessionFree(
+	IPFTestSession	tsession,
+	IPFAcceptType	aval
+	);
+
+extern int
+_IPFCreateSID(
+	IPFTestSession	tsession
+	);
+
+#define	_IPF_SESSION_FIN_ERROR	0
+#define	_IPF_SESSION_FIN_NORMAL	1
+#define _IPF_SESSION_FIN_INCOMPLETE	2
+
+extern int
+_IPFWriteDataHeaderFinished(
+		IPFContext	ctx,
+		FILE		*fp,
+		u_int32_t	finished
+		);
+
+extern int
+_IPFReadDataHeaderInitial(
+		IPFContext	ctx,
+		FILE		*fp,
+		u_int32_t	*ver,
+		u_int32_t	*fin,	/* only set if (*ver >= 2) */
+		off_t		*hdr_off,
+		struct stat	*stat_buf
+		);
+
+/*
+ * io.c prototypes
+ */
+extern int
+_IPFSendBlocksIntr(
+	IPFControl	cntrl,
+	u_int8_t	*buf,
+	int		num_blocks,
+	int		*retn_on_intr
+	      );
+
+extern int
+_IPFReceiveBlocksIntr(
+	IPFControl	cntrl,
+	u_int8_t	*buf,
+	int		num_blocks,
+	int		*retn_on_intr
+		);
+
+extern int
+_IPFSendBlocks(
+	IPFControl	cntrl,
+	u_int8_t	*buf,
+	int		num_blocks
+	      );
+
+extern int
+_IPFReceiveBlocks(
+	IPFControl	cntrl,
+	u_int8_t	*buf,
+	int		num_blocks
+		);
+
+extern int
+_IPFEncryptBlocks(
+	IPFControl	cntrl,
+	u_int8_t	*in_buf,
+	int		num_blocks,
+	u_int8_t	*out_buf
+		);
+
+extern int
+_IPFDecryptBlocks(
+	IPFControl	cntrl,
+	u_int8_t	*in_buf,
+	int		num_blocks,
+	u_int8_t	*out_buf
+		);
+
+extern void
+_IPFMakeKey(
+	IPFControl	cntrl,
+	u_int8_t	*binKey
+	);
+
+extern int
+IPFEncryptToken(
+	u_int8_t	*binKey,
+	u_int8_t	*token_in,
+	u_int8_t	*token_out
+	);
+
+extern int
+IPFDecryptToken(
+	u_int8_t	*binKey,
+	u_int8_t	*token_in,
+	u_int8_t	*token_out
+	);
+
+/*
+ * protocol.c
+ */
+
+extern IPFErrSeverity
+_IPFWriteServerGreeting(
+	IPFControl	cntrl,
+	u_int32_t	avail_modes,
+	u_int8_t	*challenge,	/* [16] */
+	int		*retn_on_intr
+	);
+
+extern IPFErrSeverity
+_IPFReadServerGreeting(
+	IPFControl	cntrl,
+	u_int32_t	*mode,		/* modes available - returned	*/
+	u_int8_t	*challenge	/* [16] : challenge - returned	*/
+);
+
+extern IPFErrSeverity
+_IPFWriteClientGreeting(
+	IPFControl	cntrl,
+	u_int8_t	*token	/* [32]	*/
+	);
+
+extern IPFErrSeverity
+_IPFReadClientGreeting(
+	IPFControl	cntrl,
+	u_int32_t	*mode,
+	u_int8_t	*token,		/* [32] - return	*/
+	u_int8_t	*clientIV,	/* [16] - return	*/
+	int		*retn_on_intr
+	);
+
+extern IPFErrSeverity
+_IPFWriteServerOK(
+	IPFControl	cntrl,
+	IPFAcceptType	code,
+	IPFNum64	uptime,
+	int		*retn_on_intr
+	);
+
+extern IPFErrSeverity
+_IPFReadServerOK(
+	IPFControl	cntrl,
+	IPFAcceptType	*acceptval	/* ret	*/
+	);
+
+extern IPFErrSeverity
+_IPFReadServerUptime(
+	IPFControl	cntrl,
+	IPFNum64	*uptime_ret
+	);
+
+extern int
+_IPFEncodeTestRequestPreamble(
+	IPFContext	ctx,
+	u_int32_t	*msg,
+	u_int32_t	*len_ret,
+	struct sockaddr	*sender,
+	struct sockaddr	*receiver,
+	IPFBoolean	server_conf_sender,
+	IPFBoolean	server_conf_receiver,
+	IPFSID		sid,
+	IPFTestSpec	*tspec
+	);
+
+extern IPFErrSeverity
+_IPFDecodeTestRequestPreamble(
+	IPFContext	ctx,
+	u_int32_t	*msg,
+	u_int32_t	msg_len,
+	struct sockaddr	*sender,
+	struct sockaddr	*receiver,
+	socklen_t	*socklen,
+	u_int8_t	*ipvn,
+	IPFBoolean	*server_conf_sender,
+	IPFBoolean	*server_conf_receiver,
+	IPFSID		sid,
+	IPFTestSpec	*test_spec
+	);
+
+extern IPFErrSeverity
+_IPFEncodeSlot(
+	u_int32_t	*msg,	/* [4] - one block/ 16 bytes 32 bit aligned */
+	IPFSlot		*slot
+	);
+extern IPFErrSeverity
+_IPFDecodeSlot(
+	IPFSlot		*slot,
+	u_int32_t	*msg	/* [4] - one block/ 16 bytes 32 bit aligned */
+	);
+
+extern IPFErrSeverity
+_IPFWriteTestRequest(
+	IPFControl	cntrl,
+	struct sockaddr	*sender,
+	struct sockaddr	*receiver,
+	IPFBoolean	server_conf_sender,
+	IPFBoolean	server_conf_receiver,
+	IPFSID		sid,
+	IPFTestSpec	*test_spec
+);
+
+/*
+ * This function can be called from a server or client context. From the
+ * server it is reading an actual new request. From the client it is part
+ * of a FetchSession response. The server code MUST set the accept_ret
+ * pointer to a valid IPFAcceptType record. This record will be filled
+ * in with the appropriate AcceptType value for a response. The client
+ * code MUST set this to NULL.
+ */
+extern IPFErrSeverity
+_IPFReadTestRequest(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	IPFTestSession	*test_session,
+	IPFAcceptType	*accept_ret
+	);
+
+extern IPFBoolean
+_IPFEncodeDataRecord(
+	u_int8_t	buf[24],
+	IPFDataRec	*rec
+	);
+
+extern IPFBoolean
+_IPFDecodeDataRecord(
+	IPFDataRec	*rec,
+	u_int8_t	buf[24]
+	);
+
+extern IPFErrSeverity
+_IPFWriteTestAccept(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	IPFAcceptType	acceptval,
+	u_int16_t	port,
+	IPFSID		sid
+	);
+
+extern IPFErrSeverity
+_IPFReadTestAccept(
+	IPFControl	cntrl,
+	IPFAcceptType	*acceptval,
+	u_int16_t	*port,
+	IPFSID		sid
+	);
+
+extern IPFErrSeverity
+_IPFWriteStartSessions(
+	IPFControl	cntrl
+	);
+
+extern IPFErrSeverity
+_IPFReadStartSessions(
+	IPFControl	cntrl,
+	int		*retn_on_intr
+);
+
+extern IPFErrSeverity
+_IPFWriteStopSessions(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	IPFAcceptType	acceptval
+	);
+
+extern IPFErrSeverity
+_IPFReadStopSessions(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	IPFAcceptType	*acceptval
+);
+
+extern IPFErrSeverity
+_IPFWriteFetchSession(
+	IPFControl	cntrl,
+	u_int32_t	begin,
+	u_int32_t	end,
+	IPFSID		sid
+	);
+
+extern IPFErrSeverity
+_IPFReadFetchSession(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	u_int32_t	*begin,
+	u_int32_t	*end,
+	IPFSID		sid
+);
+
+extern IPFErrSeverity
+_IPFWriteControlAck(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	IPFAcceptType	acceptval
+	);
+
+extern IPFErrSeverity
+_IPFReadControlAck(
+	IPFControl	cntrl,
+	IPFAcceptType	*acceptval
+);
+
+extern IPFErrSeverity
+_IPFWriteFetchRecordsHeader(
+	IPFControl	cntrl,
+	int		*retn_on_intr,
+	u_int64_t	num_rec
+	);
+
+extern IPFErrSeverity
+_IPFReadFetchRecordsHeader(
+	IPFControl	cntrl,
+	u_int64_t	*num_rec
+	);
+
+/*
+ * context.c
+ */
+
+extern IPFControl
+_IPFControlAlloc(
+	IPFContext	ctx,
+	IPFErrSeverity	*err_ret
+	);
+
+extern IPFBoolean
+_IPFCallGetAESKey(
+	IPFContext	ctx,		/* context record	*/
+	const char	*userid,	/* identifies key	*/
+	u_int8_t	*key_ret,	/* key - return		*/
+	IPFErrSeverity	*err_ret	/* error - return	*/
+);
+
+extern IPFBoolean
+_IPFCallCheckControlPolicy(
+	IPFControl	cntrl,		/* control record		*/
+	IPFSessionMode	mode,		/* requested mode       	*/
+	const char	*userid,	/* key identity			*/
+	struct sockaddr	*local_sa_addr,	/* local addr or NULL		*/
+	struct sockaddr	*remote_sa_addr,/* remote addr			*/
+	IPFErrSeverity	*err_ret	/* error - return		*/
+);
+
+extern IPFBoolean
+_IPFCallCheckTestPolicy(
+	IPFControl	cntrl,		/* control handle		*/
+	IPFBoolean	local_sender,	/* Is local send or recv	*/
+	struct sockaddr	*local,		/* local endpoint		*/
+	struct sockaddr	*remote,	/* remote endpoint		*/
+	socklen_t	sa_len,		/* saddr sizes			*/
+	IPFTestSpec	*test_spec,	/* test requested		*/
+	void		**closure,	/* app data/per test		*/
+	IPFErrSeverity	*err_ret	/* error - return		*/
+);
+
+extern void
+_IPFCallTestComplete(
+	IPFTestSession	tsession,
+	IPFAcceptType	aval
+	);
+
+/*
+ * non-NULL closure indicates "receiver" - NULL indicates R/O Fetch.
+ */
+extern FILE *
+_IPFCallOpenFile(
+	IPFControl	cntrl,		/* control handle		*/
+	void		*closure,	/* app data/per test		*/
+	IPFSID		sid,		/* sid for datafile		*/
+	char		fname_ret[PATH_MAX+1]
+	);
+
+extern void
+_IPFCallCloseFile(
+	IPFControl	cntrl,
+	void		*closure,
+	FILE		*fp,
+	IPFAcceptType	aval
+	);
+
+
+/* endpoint.c */
+
+/*
+ * The endpoint init function is responsible for opening a socket, and
+ * allocating a local port number.
+ * If this is a recv endpoint, it is also responsible for allocating a
+ * session id.
+ */
+extern IPFBoolean
+_IPFEndpointInit(
+	IPFControl	cntrl,
+	IPFTestSession	tsession,
+	IPFAddr		localaddr,
+	FILE		*fp,
+	IPFErrSeverity	*err_ret
+);
+
+extern IPFBoolean
+_IPFEndpointInitHook(
+        IPFControl      cntrl,
+	IPFTestSession	tsession,
+	IPFErrSeverity  *err_ret
+);
+
+extern IPFBoolean
+_IPFEndpointStart(
+	IPFEndpoint	ep,
+	IPFErrSeverity	*err_ret
+	);
+
+extern IPFBoolean
+_IPFEndpointStatus(
+	IPFEndpoint	ep,
+	IPFAcceptType	*aval,
+	IPFErrSeverity	*err_ret
+	);
+
+extern IPFBoolean
+_IPFEndpointStop(
+	IPFEndpoint	ep,
+	IPFAcceptType	aval,
+	IPFErrSeverity	*err_ret
+	);
+
+/*
+ * error.c
+ */
+extern IPFErrSeverity
+_IPFFailControlSession(
+	IPFControl	cntrl,
+	int		err
+	);
+
+/*
+ * time.c
+ */
+
+/*
+ * En/DecodeTimeStamp functions do not assume any alignment requirements
+ * for buf. (Most functions in protocol.c assume u_int32_t alignment.)
+ */
+extern void
+_IPFEncodeTimeStamp(
+	u_int8_t	buf[8],
+	IPFTimeStamp	*tstamp
+	);
+extern IPFBoolean
+_IPFEncodeTimeStampErrEstimate(
+	u_int8_t	buf[2],
+	IPFTimeStamp	*tstamp
+	);
+extern void
+_IPFDecodeTimeStamp(
+	IPFTimeStamp	*tstamp,
+	u_int8_t	buf[8]
+	);
+extern IPFBoolean
+_IPFDecodeTimeStampErrEstimate(
+	IPFTimeStamp	*tstamp,
+	u_int8_t	buf[2]
+	);
+
+#endif	/* OWAMPP_H */

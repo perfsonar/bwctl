@@ -1,0 +1,16 @@
+$Id$
+
+	iperfc
+
+
+iperfc [iperf control program/daemon]
+
+It is organized as follows:
+
+config/		holds autoconf junk.
+I2util/		convienient utility functions... Error reporting, hash funcs...
+ipcntrl		directory for api - a high level abstraction for
+		speaking the iperfc protocol.
+iperfcd/	An owamp server implementation.
+iperfc/		A command line iperfc client. (Takes *most* iperf args.)
+piperfc/	A client-daemon for continuous tests.

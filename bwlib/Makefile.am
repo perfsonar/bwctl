@@ -1,0 +1,37 @@
+#
+#      $Id$
+#
+#########################################################################
+#									#
+#			   Copyright (C)  2003				#
+#	     			Internet2				#
+#			   All Rights Reserved				#
+#									#
+#########################################################################
+#
+#	File:		Makefile.am
+#
+#	Author:		Jeff Boote
+#			Internet2
+#
+#	Date:		Tue Sep 16 14:23:59 MDT 2003
+#
+#	Description:	libipcntrl build description.
+
+INCLUDES		= $(IPFINCS) $(I2UTILINCS)
+
+lib_LIBRARIES		= libipcntrl.a
+libipcntrl_a_SOURCES	= api.c capi.c sapi.c context.c error.c ipcntrlP.h \
+			protocol.c io.c endpoint.c time.c arithm64.c \
+			rijndael-alg-fst.c rijndael-alg-fst.h \
+			rijndael-api-fst.c rijndael-api-fst.h \
+			util.c unixtime.c schedule.c
+#			policy.h policy.c
+#			access2.c read_class2limits.c defaults.c print.c
+
+EXTRA_DIST		= ipcntrl.h
+
+# Need to rewrite this test slightly before making it a build test...
+#TESTS			= rijndael-test-fst
+#noinst_PROGRAMS		= rijndael-test-fst
+#test_hash_SOURCES	= rijndael-test-fst.c
