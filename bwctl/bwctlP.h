@@ -32,8 +32,16 @@
  * americans have very short attention spans...)
  */
 #define	SETUP_ESTIMATE	2
+
+/*
+ * Reasonable limits on these so dynamic memory is not needed.
+ */
 #define	MAX_PASSPROMPT	256
 #define	MAX_PASSPHRASE	256
+
+/*
+ * Default for UDP tests.
+ */
 #define DEF_UDP_RATE	1000000
 
 /*
