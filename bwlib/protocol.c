@@ -1104,7 +1104,7 @@ _IPFReadTestRequest(
 		ipvn = buf[1] & 0xF;
 		tspec.udp = (buf[1]>>4)?True:False;
 
-		tspec.duration = *(u_int32_t*)&buf[4];
+		tspec.duration = ntohl(*(u_int32_t*)&buf[4]);
 
 		switch(buf[2]){
 			case 0:
