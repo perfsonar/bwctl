@@ -74,6 +74,7 @@ typedef	struct {
 		I2Boolean	sender_results;	/* -x (xmit)*/
 		char		*savedir;	/* -d */
 		u_int32_t	seriesInterval;	/* -I (seconds) */
+		u_int32_t	randomizeStart;	/* -R (alpha[0-50])	*/
 		u_int32_t	nIntervals;	/* -n */
 		I2Boolean	continuous;	/* == !nIntervals && seriesI */
 		u_int32_t	seriesWindow;	/* -L (seconds) */
@@ -92,6 +93,7 @@ typedef	struct {
 		int		facility;	/* -e */
 						/* -r stderr too */
 		I2Boolean	version;	/* -v */
+		I2Boolean	verbose;	/* -V */
 
 		u_int32_t	reportInterval;	/* -i (seconds) */
 		u_int32_t	lenBuffer;	/* -l (bytes)	*/

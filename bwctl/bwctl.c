@@ -111,6 +111,8 @@ print_output_args()
 "   -d dir         directory to save session files in (only if -p)\n"
 "   -I Interval    time between BWL test sessions(seconds)\n"
 "   -n nIntervals  number of tests to perform (default: continuous)\n"
+"   -R alpha       randomize the start time within this alpha(0-50%%)\n"
+"                  (default: 0 - start time not randomized)\n"
 	);
 	fprintf(stderr,
 "   -L LatestDelay latest time into an interval to run test(seconds)\n"
@@ -118,6 +120,10 @@ print_output_args()
 "   -e             syslog facility to log to\n"
 "   -r             send syslog to stderr\n"
 		);
+	fprintf(stderr,
+"   -v             print version and exit\n"
+"   -V             verbose output to syslog\n"
+	);
 }
 
 static void
@@ -419,6 +425,64 @@ str2bytenum(
 	return ((*num_ret < npart) || (*num_ret < mult))? (-1): 0;
 }
 
+/*
+ * Generate the next "interval" randomized by +-alpha
+ */
+static BWLNum64
+next_start(
+	I2RandomSource	rsrc,
+	u_int32_t	interval,
+	u_int32_t	alpha,
+	BWLNum64	*base
+	)
+{
+	u_int32_t	r;
+	double		a,b;
+	BWLNum64	inc;
+
+	if(alpha > 0){
+		/*
+		 * compute normalized range for alpha
+		 */
+		a = (double)interval * (double)alpha;
+
+		/*
+		 * compute minimum start for interval
+		 * (random number will be added to this).
+		 */
+		b = (double)interval - a;
+
+		/*
+		 * get a random u_int32_t
+		 */
+		if(I2RandomBytes(rsrc,(u_int8_t*)&r,4) != 0){
+			exit(1);
+		}
+
+		/*
+		 * Use the random number to pick a random value in the range
+		 * of [0,2alpha]. Add that to b to get a value of
+		 * interval +- alpha
+		 */
+		inc = BWLDoubleToNum64(b + ((double)r /0xffffffff) * 2.0 * a);
+	}
+	else{
+		inc = BWLULongToNum64(interval);
+	}
+
+	/*
+	 * Add the relative offset to the base to get the next "wake" time.
+	 */
+	inc = BWLNum64Add(*base,inc);
+
+	/*
+	 * Now update base for the next time through the loop.
+	 */
+	*base = BWLNum64Add(*base,BWLULongToNum64(interval));
+
+	return inc;
+}
+
 int
 main(
 	int	argc,
@@ -437,7 +501,7 @@ main(
 	char                    *endptr = NULL;
 	char                    optstring[128];
 	static char		*conn_opts = "A:B:k:U:";
-	static char		*out_opts = "pxd:I:n:L:e:rv";
+	static char		*out_opts = "pxd:I:R:n:L:e:rvV";
 	static char		*test_opts = "i:l:uw:P:S:b:t:cs";
 	static char		*gen_opts = "hWY";
 
@@ -446,8 +510,8 @@ main(
 	BWLNum64		latest64;
 	u_int32_t		p,q;
 	I2RandomSource		rsrc;
-	BWLScheduleContext	sctx;
 	BWLTimeStamp		wake;
+	BWLTimeStamp		base;
 	struct sigaction	act;
 	sigset_t		sigs;
 
@@ -560,7 +624,20 @@ main(
 			app.opt.seriesInterval =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
 				usage(progname, 
-				"Invalid value. Positive integer expected");
+			"Invalid value. (-I) Positive integer expected");
+				exit(1);
+			}
+			break;
+		case 'R':
+			app.opt.randomizeStart = strtoul(optarg,&endptr,10);
+			if(*endptr != '\0'){
+				usage(progname,
+			"Invalid value. (-R) Positive integer expected");
+				exit(1);
+			}
+			if(app.opt.randomizeStart > 50){
+				usage(progname,
+				"Invalid value. (-R) Value must be <= 50");
 				exit(1);
 			}
 			break;
@@ -583,6 +660,9 @@ main(
 		case 'e':
 		case 'r':
 			/* handled in prior getopt call... */
+			break;
+		case 'V':
+			app.opt.verbose = True;
 			break;
 		case 'v':
 			app.opt.version = True;
@@ -738,8 +818,6 @@ main(
 	 * resonable default for seriesWindow if needed.
 	 */
 	if(app.opt.seriesInterval){
-		u_int8_t	seed[16];
-
 		if(app.opt.seriesInterval <
 				(app.opt.timeDuration + SETUP_ESTIMATE)){
 			usage(progname,"-I: interval too small relative to -t");
@@ -748,17 +826,6 @@ main(
 
 		if( !(rsrc = I2RandomSourceInit(eh,I2RAND_DEV,NULL))){
 			I2ErrLog(eh,"Failed to initialize Random Numbers");
-			exit(1);
-		}
-		if(I2RandomBytes(rsrc,seed,16) != 0){
-			exit(1);
-		}
-
-		/*
-		 * Setup the pseudoPoisson generator...
-		 */
-		if( !(sctx = BWLScheduleContextCreate(ctx,seed,
-				(double)app.opt.seriesInterval))){
 			exit(1);
 		}
 
@@ -891,18 +958,6 @@ main(
 		exit(1);
 	}
 
-#if	NOT
-	act.sa_handler = SIG_DFL;
-	if(	(sigaction(SIGTERM,&act,NULL) != 0) ||
-		(sigaction(SIGHUP,&act,NULL) != 0) ||
-		(sigaction(SIGINT,&act,NULL) != 0)
-		){
-
-		I2ErrLog(eh,"sigaction(): %M");
-		exit(1);
-	}
-#endif
-
 	/*
 	 * Initialize wake time to current time. If this is a single test,
 	 * this will indicate an immediate test. If seriesInterval is set,
@@ -913,7 +968,7 @@ main(
 		exit(1);
 	}
 
-	if(app.opt.seriesInterval){
+	if(app.opt.seriesInterval && app.opt.randomizeStart){
 		/*
 		 * sleep for rand([0,1])*sessionInterval
 		 * (spread out start time)
@@ -929,6 +984,7 @@ main(
 			BWLDoubleToNum64((double)app.opt.seriesInterval*
 				r/0xffffffff));
 	}
+	base = wake;
 
 	do{
 		BWLTimeStamp	req_time;
@@ -940,6 +996,8 @@ main(
 		char		sendfname[PATH_MAX];
 		FILE		*recvfp = NULL;
 		FILE		*sendfp = NULL;
+		BWLTimeStamp	time1,time2;
+		double		t1,e1,t2,e2,tr,er;
 
 
 AGAIN:
@@ -962,6 +1020,13 @@ AGAIN:
 
 			rel = BWLNum64Sub(wake.tstamp,currtime.tstamp);
 			BWLNum64ToTimespec(&tspec,rel);
+
+			if(app.opt.verbose && (tspec.tv_sec > 3)){
+				BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+					"%lu seconds until next testing period",
+					tspec.tv_sec);
+			}
+
 			if((nanosleep(&tspec,NULL) == 0) ||
 					(errno == EINTR)){
 				goto AGAIN;
@@ -1039,9 +1104,18 @@ AGAIN:
 		req_time.tstamp = zero64;
 
 		/*
+		 * Get current time (used to verify remote time)
+		 */
+		if(!BWLGetTimeStamp(ctx,&time1)){
+			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+			exit(1);
+		}
+
+		/*
 		 * Query remote time error and update round-trip bound.
-		 * (The time will be over-written later, we really only
-		 * care about the errest portion of the timestamp.)
+		 * (The time will be over-written later, we only need it
+		 * to verify the time for now. The errest will continue
+		 * to be used to determine "fuzz" space between sessions.)
 		 */
 		if(BWLControlTimeCheck(remote.cntrl,&local.tspec.req_time) !=
 								BWLErrOK){
@@ -1050,6 +1124,28 @@ AGAIN:
 			goto next_test;
 		}
 		if(sig_check()) exit(1);
+
+		/*
+		 * Get current time (used to verify remote time)
+		 */
+		if(!BWLGetTimeStamp(ctx,&time2)){
+			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+			exit(1);
+		}
+
+		t1 = BWLNum64ToDouble(time1.tstamp);
+		t2 = BWLNum64ToDouble(time2.tstamp);
+		tr = BWLNum64ToDouble(local.tspec.req_time.tstamp);
+		e1 = BWLNum64ToDouble(BWLGetTimeStampError(&time1));
+		e2 = BWLNum64ToDouble(BWLGetTimeStampError(&time2));
+		er = BWLNum64ToDouble(
+			BWLGetTimeStampError(&local.tspec.req_time));
+
+		if((t1-e1) > (tr+er) || (tr-er) > (t2+e2)){
+			I2ErrLogP(eh,errno,"Remote server timestamp invalid!");
+			exit(1);
+		}
+
 		/*
 		 * req_time.tstamp += (4*round-trip-bound)
 		 * (4) -- 1 test_req, 1 start session, 2 for server-2-server
@@ -1059,6 +1155,13 @@ AGAIN:
 		req_time.tstamp = BWLNum64Add(req_time.tstamp,
 			BWLNum64Mult(remote.rttbound,BWLULongToNum64(4)));
 
+		/*
+		 * Get current time (used to verify local server time)
+		 */
+		if(!BWLGetTimeStamp(ctx,&time1)){
+			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+			exit(1);
+		}
 		/*
 		 * Query local time error and update round-trip bound.
 		 * (The time will be over-written later, we really only
@@ -1072,6 +1175,21 @@ AGAIN:
 		}
 		if(sig_check()) exit(1);
 
+		/*
+		 * Get current time (used to verify remote time)
+		 */
+		if(!BWLGetTimeStamp(ctx,&time2)){
+			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+			exit(1);
+		}
+
+		t1 = BWLNum64ToDouble(time1.tstamp);
+		t2 = BWLNum64ToDouble(time2.tstamp);
+		tr = BWLNum64ToDouble(remote.tspec.req_time.tstamp);
+		e1 = BWLNum64ToDouble(BWLGetTimeStampError(&time1));
+		e2 = BWLNum64ToDouble(BWLGetTimeStampError(&time2));
+		er = BWLNum64ToDouble(
+			BWLGetTimeStampError(&remote.tspec.req_time));
 
 		/*
 		 * req_time.tstamp += (3*round-trip-bound)
@@ -1364,8 +1482,8 @@ AGAIN:
 		 */
 next_test:
 		if(app.opt.continuous || --app.opt.nIntervals){
-			wake.tstamp = BWLNum64Add(wake.tstamp,
-				BWLScheduleContextGenerateNextDelta(sctx));
+			wake.tstamp = next_start(rsrc,app.opt.seriesInterval,
+					app.opt.randomizeStart,&base.tstamp);
 		}
 
 		if(sig_check()) exit(1);
