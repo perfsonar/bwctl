@@ -177,3 +177,8 @@ the \fBhttp://e2epi.internet2.edu/bwctl/\fR web site.
 .PP
 For details on \fBIperf\fR, see the \fBhttp://dast.nlanr.net/Projects/Iperf/\fR
 web site.
+.SH ACKNOWLEDGMENTS
+This material is based in part on work supported by the National Science
+Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
+conclusions or recommendations expressed in this material are those of
+the author(s) and do not necessarily reflect the views of the NSF.
