@@ -574,7 +574,7 @@ _IPFEndpointStart(
 		/* parent */
 		int	cstatus;
 
-		if(sigprocmask(SIG_BLOCK,&osigs,NULL) != 0){
+		if(sigprocmask(SIG_SETMASK,&osigs,NULL) != 0){
 			IPFError(ctx,IPFErrFATAL,errno,"sigprocmask(): %M");
 			kill(ep->child,SIGINT);
 			ep->wopts &= ~WNOHANG;
@@ -627,7 +627,7 @@ _IPFEndpointStart(
 		exit(IPF_CNTRL_FAILURE);
 	}
 
-	if(sigprocmask(SIG_BLOCK,&osigs,NULL) != 0){
+	if(sigprocmask(SIG_SETMASK,&osigs,NULL) != 0){
 		IPFError(ctx,IPFErrFATAL,errno,"sigprocmask(): %M");
 		exit(IPF_CNTRL_FAILURE);
 	}
