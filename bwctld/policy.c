@@ -1116,7 +1116,7 @@ BWLDGetAESKey(
 		return False;
 	}
 
-	memcpy(key_ret,val.dptr,sizeof(key_ret));
+	memcpy(key_ret,val.dptr,val.dsize);
 
 	return True;
 }
