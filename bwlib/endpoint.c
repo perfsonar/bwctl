@@ -945,6 +945,16 @@ end:
 		BWLError(ctx,BWLErrFATAL,errno,"setitimer(): %M");
 	}
 
+	if(!BWLGetTimeStamp(ctx,&currtime)){
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+				"BWLGetTimeStamp(): %M");
+		abort();
+	}
+	BWLError(ctx,BWLErrINFO,BWLErrINVALID,
+			"End of test: currtime = %f",
+			BWLNum64ToDouble(currtime.tstamp)
+			);
+
 	if((kill(ep->child,SIGINT) != 0) && (errno != ESRCH)){
 		BWLError(ctx,BWLErrFATAL,errno,
 				"Unable to kill test endpoint, pid=%d: %M",
