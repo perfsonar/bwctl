@@ -47,6 +47,12 @@ works by
 contacting a \fBbwctld\fR daemon on both the receiving host and
 the sending host. \fBbwctld\fR manages and schedules the resources
 of the host it runs on.
+In the case where only one of the receiving host or
+sending host is specified \fBbwctl\fR assumes the local host is the
+other endpoint. \fBbwctl\fR will attempt to contact a local \fBbwctld\fR
+if it can. If there is no local \fBbwctld\fR running, \fBbwctl\fR assumes
+the local host does not require policy controls and will execute the
+\fBbwctld\fR functionality required to run the test directly.
 .PP
 The \fBbwctl\fR client is used to request the type of \fBIperf\fR
 test wanted. Furthermore, it requests when the test is wanted.
@@ -405,6 +411,26 @@ Verbose output. Specifying additional \fB\-v\fR's increases the verbosity.
 Output sender (\fBIperf\fR client) results as well as receiver results.
 By default, sender results are not output. If the \fB\-p\fR option is
 specified, the sender results are placed in an additional file.
+.SH ENVIRONMENT VARIABLES
+If \fBbwctl\fR is directly running the \fBIperf\fR test on the host then
+it will be executing some of the \fRbwctld\fR functionality directly. In some
+cases it might be useful to specify some of the configuration options that can
+be specified for \fBbwctld\fR in this context. The following Environment
+Variables can be used to specify those configuration options:
+.TS
+lb lb
+_ _
+lb li .
+bwctl Environment Variable	bwctld.conf Option
+BWCTL_IPERFPORTRANGE	iperfport
+BWCTL_IPERFCMD	iperfcmd
+BWCTL_BOTTLENECKCAPACITY	bottleneckcapacity
+BWCTL_SYNCFUZZ	syncfuzz
+BWCTL_CONTROLTIMEOUT	controltimeout
+BWCTL_PEERPORTS	peerports
+.TE
+.PP
+See the bwctld.conf(5) man page for details on these options.
 .SH LIMITATIONS
 Only tested with versions 1.7.0 and 2.0.b of \fBIperf\fR.
 .SH EXAMPLES

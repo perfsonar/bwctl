@@ -132,10 +132,12 @@ can be specified using a valid group name on the system or by using -gid.
 This option is only used if \fBbwctld\fR is started as root.
 .TP
 .BI iperfcmd " iperfcmd"
-The full path to the \fBIperf\fR on the system.
+The path to the \fBIperf\fR command on the system. If the \fIiperfcmd\fR
+does not contain a '/' character, then the PATH of the \fBbwctld\fR
+environment will be searched to find the \fBIperf\fR executable.
 .RS
 .IP Default:
-/usr/local/bin/iperf
+iperf
 .RE
 .TP
 .BI iperfport " iperfport"

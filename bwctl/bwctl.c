@@ -894,7 +894,7 @@ portdone:
      *  BWCTL_IPERFPORTRANGE        (above)
      *  BWCTL_CHILDWAIT             (debugging)
      *  BWCTL_IPERFCMD              IperfCmd
-     *  BWCTL_BOTTLENECTCAPACITY    BottleNeckCapacity
+     *  BWCTL_BOTTLENECKCAPACITY    BottleNeckCapacity
      *  BWCTL_SYNCFUZZ              SyncFuzz
      *  BWCTL_CONTROLTIMEOUT        ControlTimeout
      *  BWCTL_PEERPORTS             PeerPorts
