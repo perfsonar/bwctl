@@ -553,6 +553,8 @@ _IPFEndpointInit(
 error:
 	EndpointFree(ep,IPF_CNTRL_FAILURE);
 	return False;
+#else
+	return False;
 #endif
 }
 
@@ -1783,12 +1785,14 @@ parenterr:
 	IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
 			"Shouldn't get to this line of code... Hmmpf.");
 	exit(IPF_CNTRL_FAILURE);
+#else
+	return False;
 #endif
 }
 
 IPFBoolean
 _IPFEndpointStart(
-	IPFEndpoint	ep,
+	IPFTestSession	tsession,
 	IPFErrSeverity	*err_ret
 	)
 {
@@ -1802,12 +1806,14 @@ _IPFEndpointStart(
 	IPFError(ep->tsession->cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 			"EndpointStart:Can't signal child #%d: %M",ep->child);
 	return False;
+#else
+	return False;
 #endif
 }
 
 IPFBoolean
 _IPFEndpointStatus(
-	IPFEndpoint	ep,
+	IPFTestSession	tsession,
 	IPFAcceptType	*aval,		/* out */
 	IPFErrSeverity	*err_ret
 	)
@@ -1837,13 +1843,15 @@ AGAIN:
 	*err_ret = IPFErrOK;
 	*aval = ep->acceptval;
 	return True;
+#else
+	return False;
 #endif
 }
 
 
 IPFBoolean
 _IPFEndpointStop(
-	IPFEndpoint	ep,
+	IPFTestSession	tsession,
 	IPFAcceptType	aval,
 	IPFErrSeverity	*err_ret
 	)
@@ -1899,5 +1907,7 @@ done:
 	EndpointFree(ep,aval);
 
 	return retval;
+#else
+	return False;
 #endif
 }

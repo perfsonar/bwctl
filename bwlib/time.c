@@ -39,8 +39,11 @@
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
+#include <signal.h>
 #include <string.h>
 #include <assert.h>
+#include <sys/timex.h>
+#include <sys/types.h>
 #include <ipcntrl/ipcntrl.h>
 
 /*
@@ -581,7 +584,7 @@ _IPFInitNTP(
 	return 0;
 }
 
-struct timespec *
+static struct timespec *
 _IPFGetTimespec(
 	IPFContext	ctx,
 	struct timespec	*ts,
@@ -639,7 +642,7 @@ IPFGetTimestamp(
 	if(!tstamp)
 		return NULL;
 
-	if(!IPFGetTimespec(ctx,&ts,&errest,&sync))
+	if(!_IPFGetTimespec(ctx,&ts,&errest,&sync))
 		return NULL;
 
 	/* type conversion */

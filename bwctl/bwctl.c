@@ -750,7 +750,7 @@ main(
 		 * time from 'now' that a test could be held. Get the current
 		 * time and add to make that an 'absolute' value.
 		 */
-		if(!IPFGetTimeOfDay(&currtime)){
+		if(!IPFGetTimestamp(ctx,&currtime)){
 			I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
 			exit(1);
 		}
