@@ -61,9 +61,9 @@ difficult in practice.
 \fBBWCTL\fR was designed to help with this problem. It allows an
 administrator to configure a given host as an \fBiperf\fR endpoint
 that can be shared by multiple users without concern that those
-users will interfer with each other. Specific policy limits can be
+users will interfere with each other. Specific policy limits can be
 applied to specific users, and individual tests are scheduled so they
-will not interfer with each other. Additionally, full user accounts
+will not interfere with each other. Additionally, full user accounts
 are not required for the users running the tests.
 .PP
 \fBBWCTL\fR allows the administrator to classify incoming connections
@@ -134,11 +134,11 @@ can be specified using a DNS name or using standard textual notations for
 the IP addresses.
 .RS
 .IP Default:
-Unspecified (wildcard address selection).
+Unspecified (wild-card address selection).
 .RE
 .SS Throughput Test Arguments:
-(These are the arguements that are basically passed through to iperf. See
-iperf equivalent args in most cases):
+(These are the arguments that are basically passed through to \fBiperf\fR. See
+\fBiperf\fR equivalent arguments in most cases):
 .TP
 \fB\-i\fR \fIinterval\fR
 Report interval (seconds).
@@ -273,7 +273,7 @@ option.
 Print version information and exit.
 .TP
 \fB\-v\fR
-Verbose output. Addional \fB\-v\fR's specified increases the verbosity.
+Verbose output. Additional \fB\-v\fR's specified increases the verbosity.
 .TP
 \fB\-q\fR
 Quiet output. Output as little as possible.
@@ -304,7 +304,7 @@ and localhost as the receiver.
 .LP
 \fBbwctl -I 3600 -R 10 -t 10 -u -b 10m -s somehost.com\fR
 .IP
-Run a 10 second udp test about every hour (3600 +/- 360 seconds) with
+Run a 10 second UDP test about every hour (3600 +/- 360 seconds) with
 the sender rate limited to 10 Mbits per second from somehost.com to
 the localhost.
 .LP
