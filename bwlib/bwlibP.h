@@ -47,6 +47,7 @@
 ** Lengths (in 16-byte blocks) of various Control messages. 
 */
 #define _IPF_RIJNDAEL_BLOCK_SIZE	16
+#define	_IPF_TIME_REQUEST_BLK_LEN	2
 #define _IPF_TEST_REQUEST_BLK_LEN	7
 #define _IPF_START_SESSIONS_BLK_LEN	2
 #define _IPF_STOP_SESSIONS_BLK_LEN	2
@@ -78,14 +79,15 @@
 #define _IPFStateTestAccept		(_IPFStateStopSession << 1)
 #define _IPFStateControlAck		(_IPFStateTestAccept << 1)
 #define _IPFStateTimeRequest		(_IPFStateControlAck << 1)
+#define _IPFStateTimeResponse		(_IPFStateTimeRequest << 1)
 
 /* Reading indicates partial read request-ReadRequestType without remainder */
-#define _IPFStateReading	(_IPFStateTestRequest|_IPFStateStartSession|_IPFStateStopSession)
+#define _IPFStateReading	(_IPFStateTestRequest|_IPFStateStartSession|_IPFStateStopSession|_IPFStateTimeRequest)
 
 /*
  * "Pending" indicates waiting for server response to a request.
  */
-#define	_IPFStatePending	(_IPFStateTestAccept|_IPFStateControlAck|_IPFStateStopSession|_IPFStateTimeRequest)
+#define	_IPFStatePending	(_IPFStateTestAccept|_IPFStateControlAck|_IPFStateStopSession|_IPFStateTimeResponse)
 
 #define	_IPFStateIsInitial(c)	(!(c)->state)
 #define	_IPFStateIsSetup(c)	(!(_IPFStateSetup ^ (c)->state))
@@ -256,16 +258,13 @@ typedef struct IPFEndpointRec{
 struct IPFTestSessionRec{
 	IPFControl			cntrl;
 	IPFSID				sid;
-	IPFAddr				sender;
-	IPFAddr				receiver;
-	IPFBoolean			conf_sender;
-	IPFBoolean			conf_receiver;
 	IPFTestSpec			test_spec;
 
+	/* only used on server side */
 	IPFEndpoint			endpoint;
 	void				*closure; /* per/test app data */
 
-	IPFScheduleContext		sctx;
+	/* not really used - but will leave. */
 	IPFTestSession			next;
 };
 
@@ -286,9 +285,7 @@ extern IPFTestSession
 _IPFTestSessionAlloc(
 	IPFControl	cntrl,
 	IPFAddr		sender,
-	IPFBoolean	server_conf_sender,
 	IPFAddr		receiver,
-	IPFBoolean	server_conf_receiver,
 	IPFTestSpec	*test_spec
 	);
 
@@ -763,6 +760,18 @@ extern IPFBoolean
 _IPFDecodeTimeStampErrEstimate(
 	IPFTimeStamp	*tstamp,
 	u_int8_t	buf[2]
+	);
+extern int
+_IPFInitNTP(
+	IPFContext	ctx
+	);
+
+extern struct timespec *
+_IPFGetTimespec(
+	IPFContext	ctx,
+	struct timespec	*ts,
+	u_int32_t	*esterr,
+	int		*sync
 	);
 
 #endif	/* IPCNTRLP_H */

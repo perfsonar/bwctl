@@ -109,6 +109,7 @@ signal_catch(
 			break;
 		case SIGCHLD:
 			ipfd_chld = 1;
+			break;
 		case SIGALRM:
 			ipfd_alrm = 1;
 			break;
@@ -540,8 +541,12 @@ ACCEPT:
 			IPFErrSeverity	rc;
 
 			rc = IPFErrOK;
+
 			/*
 			 * reset signal vars
+			 * TODO: If there is a pending reservation,
+			 * timer should be reduced to:
+			 * 	MIN(time-util-start,reserve-timeout)
 			 */
 			ipfd_intr = ipfd_alrm = ipfd_chld = 0;
 			itval.it_value.tv_sec = opts.controltimeout;
@@ -556,6 +561,10 @@ ACCEPT:
 
 			case IPFReqTest:
 				rc = IPFProcessTestRequest(cntrl,&ipfd_intr);
+				break;
+
+			case IPFReqTime:
+				rc = IPFProcessTimeRequest(cntrl,&ipfd_intr);
 				break;
 
 			case IPFReqStartSession:

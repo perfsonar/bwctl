@@ -499,6 +499,11 @@ main(
 	}
 
 	/*
+	 * Useful constant
+	 */
+	zero64 = IPFULongToNum64(0);
+
+	/*
 	 * Check savedir option. Make sure it will not make fnames
 	 * exceed PATH_MAX even with the nul byte.
 	 * Also set file_offset and ext_offset to the lengths needed.
@@ -591,9 +596,16 @@ main(
 			exit(1);
 		}
 	}
-
 	file_offset = strlen(dirpath);
 	ext_offset = file_offset + TSTAMPCHARS;
+
+	/*
+	 * Initialize library with configuration functions.
+	 */
+	if( !(ctx = IPFContextCreate(eh))){
+		I2ErrLog(eh, "Unable to initialize IPF library.");
+		exit(1);
+	}
 
 	/*
 	 * Initialize session records
@@ -609,25 +621,31 @@ main(
 	local.tspec.len_buffer = app.opt.lenBuffer;
 	local.tspec.report_interval = app.opt.reportInterval;
 
-	memcpy(&remote,&local,sizeof(local));
-
-	if(app.opt.send){
-		s[0] = &remote;
-		s[1] = &local;
-	}else{
-		s[0] = &local;
-		s[1] = &remote;
-	}
-
-	zero64 = IPFULongToNum64(0);
+	/*
+	 * Setup addresses of test endpoints.
+	 */
+	local.tspec.sender = (app.opt.send)?
+				IPFAddrByNode(ctx,app.opt.srcaddr):
+					IPFAddrByNode(ctx,app.remote_test);
+	local.tspec.receiver = (!app.opt.send)?
+				IPFAddrByNode(ctx,app.opt.srcaddr):
+					IPFAddrByNode(ctx,app.remote_test);
 
 	/*
-	 * Initialize library with configuration functions.
+	 * copy local tspec to remote record.
 	 */
-	if( !(ctx = IPFContextCreate(eh))){
-		I2ErrLog(eh, "Unable to initialize IPF library.");
-		exit(1);
-	}
+	memcpy(&remote,&local,sizeof(local));
+
+
+	/* s[0] == reciever, s[1] == sender */
+	s[0] = (app.opt.send)? &remote: &local;
+	s[1] = (!app.opt.send)? &remote: &local;
+
+	/*
+	 * Set "conf" variables for tspecs
+	 */
+	s[0]->tspec.conf_receiver = True;
+	s[1]->tspec.conf_sender = True;
 
 	/*
 	 * TODO: Fix this.
@@ -648,6 +666,7 @@ main(
 		I2ErrLog(eh,"sigaction(): %M");
 		exit(1);
 	}
+
 
 	/*
 	 * TODO

@@ -192,106 +192,6 @@ reopen_datafile(
 }
 
 /*
- * Function:	InitNTP
- *
- * Description:	
- * 	Initialize NTP. Make sure it is working and that the endpoint
- * 	can access it.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- *
- * If STA_NANO is defined, we insist it is set, this way we can be sure that
- * ntp_gettime is returning a timespec and not a timeval.
- *
- * TODO: The correct way to fix this is:
- * 1. If ntptimeval contains a struct timespec - then use nano's period.
- * 2. else if STA_NANO is set, then use nano's.
- * 3. else ???(mills solution requires root - ugh)
- *    will this work?
- *    (do a timing test:
- * 		gettimeofday(A);
- * 		getntptime(B);
- * 		nanosleep(1000);
- * 		getntptime(C);
- * 		gettimeofday(D);
- *
- * 		1. Interprete B and C as usecs
- * 			if(D-A < C-B)
- * 				nano's
- * 			else
- * 				usecs
- */
-static int
-InitNTP(
-	IPFContext	ctx
-	)
-{
-	struct timex	ntp_conf;
-
-	ntp_conf.modes = 0;
-
-	if(ntp_adjtime(&ntp_conf) < 0)
-		return 1;
-#ifdef	STA_NANO
-	if( !(ntp_conf.status & STA_NANO)){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-		"InitNTP:STA_NANO must be set! - try /usr/sbin/ntptime -N");
-		return 1;
-	}
-#endif
-
-	return 0;
-}
-
-static struct timespec *
-GetTimespec(
-		struct timespec		*ts,
-		u_int32_t		*esterr,
-		int			*sync
-		)
-{
-	struct ntptimeval	ntv;
-	int			status;
-
-	status = ntp_gettime(&ntv);
-
-	if(status < 0)
-		return NULL;
-	if(status > 0)
-		*sync = 0;
-	else
-		*sync = 1;
-
-	*esterr = (u_int32_t)ntv.esterror;
-	assert((long)*esterr == ntv.esterror);
-
-	/*
-	 * Error estimate should never be 0, but I've seen ntp do it!
-	 */
-	if(!*esterr){
-		*esterr = 1;
-	}
-
-#ifdef	STA_NANO
-	*ts = ntv.time;
-#else
-	/*
-	 * convert usec to nsec if not STA_NANO
-	 */
-	*(struct timeval*)ts = ntv.time;
-	ts->tv_nsec *= 1000;
-#endif
-
-	return ts;
-}
-
-/*
  * Function:	CmpLostPacket
  *
  * Description:	
@@ -368,12 +268,6 @@ _IPFEndpointInit(
 	IPFTimeStamp		tstamp;
 
 	*err_ret = IPFErrFATAL;
-
-	if(InitNTP(cntrl->ctx) != 0){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"Unable to initialize clock interface.");
-		return False;
-	}
 
 	if( !(ep=EndpointAlloc(cntrl)))
 		return False;
@@ -854,7 +748,7 @@ AGAIN:
 			exit(IPF_CNTRL_ACCEPT);
 		}
 
-		if(!GetTimespec(&currtime,&esterror,&sync)){
+		if(!_IPFGetTimespec(ep->cntrl->ctx,&currtime,&esterror,&sync)){
 			IPFError(ep->cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 				"Problem retrieving time");
 			exit(IPF_CNTRL_FAILURE);
@@ -972,7 +866,7 @@ AGAIN:
 					ep->tsession->test_spec.loss_timeout)+1;
 
 	while(!owp_usr2 && !owp_int){
-		if(!GetTimespec(&currtime,&esterror,&sync)){
+		if(!_IPFGetTimespec(ep->cntrl->ctx,&currtime,&esterror,&sync)){
 			IPFError(ep->cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 					"Problem retrieving time");
 			exit(IPF_CNTRL_FAILURE);
@@ -1344,7 +1238,7 @@ again:
 		/*
 		 * Fetch time before ANYTHING else to minimize time errors.
 		 */
-		if(!GetTimespec(&currtime,&esterror,&sync)){
+		if(!_IPFGetTimespec(ep->cntrl->ctx,&currtime,&esterror,&sync)){
 			IPFError(ep->cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 				"Problem retrieving time");
 			goto error;
@@ -1862,7 +1756,7 @@ parenterr:
 			exit(IPF_CNTRL_FAILURE);
 		}
 
-		if(!GetTimespec(&currtime,&esterror,&sync)){
+		if(!_IPFGetTimespec(ep->cntrl->ctx,&currtime,&esterror,&sync)){
 			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
 					"Unable to fetch current time...");
 			exit(IPF_CNTRL_FAILURE);

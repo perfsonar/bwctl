@@ -680,6 +680,7 @@ static IPFBoolean
 SetEndpointAddrInfo(
 	IPFControl	cntrl,
 	IPFAddr		addr,
+	int		socktype,
 	IPFErrSeverity	*err_ret
 )
 {
@@ -781,7 +782,7 @@ SetEndpointAddrInfo(
 		 */
 		memset(&hints,0,sizeof(struct addrinfo));
 		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_DGRAM;
+		hints.ai_socktype = socktype;
 
 		if(addr->port_set)
 			port = addr->port;
@@ -835,11 +836,9 @@ error:
 static int
 _IPFClientRequestTestReadResponse(
 	IPFControl	cntrl,
-	IPFAddr		sender,
-	IPFBoolean	server_conf_sender,
-	IPFAddr		receiver,
-	IPFBoolean	server_conf_receiver,
+	IPFBoolean	sender,
 	IPFTestSpec	*test_spec,
+	IPFTimeStamp	*avail_time_ret,
 	IPFSID		sid,		/* ret iff conf_receiver else set */
 	IPFErrSeverity	*err_ret
 	)
@@ -850,9 +849,7 @@ _IPFClientRequestTestReadResponse(
 	u_int16_t	port_ret=NULL;
 	u_int8_t	*sid_ret=NULL;
 
-	if((rc = _IPFWriteTestRequest(cntrl, sender->saddr, receiver->saddr,
-				      server_conf_sender, server_conf_receiver,
-				      sid, test_spec)) < IPFErrOK){
+	if((rc = _IPFWriteTestRequest(cntrl,sender,sid,test_spec)) < IPFErrOK){
 		*err_ret = (IPFErrSeverity)rc;
 		return 1;
 	}
@@ -1054,10 +1051,10 @@ error:
 IPFBoolean
 IPFSessionRequest(
 	IPFControl	cntrl,
-	IPFBoolean	sender,
+	IPFBoolean	send,
 	IPFTestSpec	*test_spec,
-	u_int32_t	*avail_time_ret,
-	IPFSID		sid_ret,
+	IPFTimeStamp	*avail_time_ret,
+	IPFSID		sid,
 	IPFErrSeverity	*err_ret
 )
 {
@@ -1065,11 +1062,15 @@ IPFSessionRequest(
 	struct addrinfo		*sai=NULL;
 	IPFTestSession		tsession = NULL;
 	int			rc=0;
+	IPFAddr			receiver;
+	IPFAddr			sender;
+	int			socktype;
 
 	*err_ret = IPFErrOK;
 
-	assert(avail_time_ret);
-	*avail_time_ret = 0; /* TODO: set to non-zero if request params ok */
+	/* TODO: set to non-zero if request params ok */
+	avail_time_ret->ipftime = IPFULongToNum64(0);
+
 	/*
 	 * Check cntrl state is appropriate for this call.
 	 * (this would happen as soon as we tried to call the protocol
@@ -1082,234 +1083,139 @@ IPFSessionRequest(
 		goto error;
 	}
 
+	if(!test_spec->conf_sender == !test_spec->conf_receiver){
+		*err_ret = IPFErrFATAL;
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"IPFSessionRequest: Invalid test specification");
+		goto error;
+	}
 
 	/*
-	 * If NULL passed in for recv address - fill it in with local
+	 * TODO: Look for existing TestSession with this SID!
 	 */
-	if(!receiver){
-		if(server_conf_receiver)
+	if(cntrl->tests){
+		if(memcmp(sid,cntrl->tests->sid,sizeof(IPFSID))){
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"IPFSessionRequest: sid mis-match");
+			goto error;
+		}
+		tsession = cntrl->tests;
+		tsession->test_spec.req_time = test_spec->req_time;
+		tsession->test_spec.latest_time = test_spec->latest_time;
+	}else{
+
+		/*
+		 * If NULL passed in for recv address - fill it in with local
+		 */
+		if(test_spec->receiver){
+			receiver = _IPFAddrCopy(test_spec->receiver);
+		}else if(test_spec->conf_receiver){
 			receiver = IPFAddrByNode(cntrl->ctx,"localhost");
-		else
+		}else{
 			receiver = IPFAddrByLocalControl(cntrl);
+		}
 		if(!receiver)
 			goto error;
-	}
-
-	/*
-	 * If NULL passed in for send address - fill it in with local
-	 */
-	if(!sender){
-		if(server_conf_sender)
+	
+		/*
+		 * If NULL passed in for send address - fill it in with local
+		 */
+		if(test_spec->sender){
+			sender = _IPFAddrCopy(test_spec->sender);
+		}else if(test_spec->conf_sender){
 			sender = IPFAddrByNode(cntrl->ctx,"localhost");
-		else
+		}else{
 			sender = IPFAddrByLocalControl(cntrl);
+		}
 		if(!sender)
 			goto error;
-	}
-
-	/*
-	 * Get addrinfo for address spec's so we can choose between
-	 * the different address possiblities in the next step. (These
-	 * ai will be SOCK_DGRAM unless an fd was passed in directly, in
-	 * which case we trust the application knows what it is doing...)
-	 */
-	if(!SetEndpointAddrInfo(cntrl,receiver,err_ret) ||
-				!SetEndpointAddrInfo(cntrl,sender,err_ret))
+	
+		/*
+		 * Get addrinfo for address spec's so we can choose between
+		 * the different address possiblities in the next step. (These
+		 * ai will be SOCK_DGRAM unless an fd was passed in directly, in
+		 * which case we trust the application knows what it is doing...)
+		 */
+		socktype = (test_spec->udp)? SOCK_DGRAM: SOCK_STREAM;
+		if(!SetEndpointAddrInfo(cntrl,receiver,socktype,err_ret) ||
+				!SetEndpointAddrInfo(cntrl,sender,socktype,err_ret))
+			goto error;
+	
+		/*
+		 * Determine proper address specifications for send/recv.
+		 * Loop on ai values to find a match and use that.
+		 * (We prefer IPV6 over others, so loop over IPv6 addrs first...)
+		 * We only support AF_INET and AF_INET6.
+		 */
+	#ifdef	AF_INET6
+		for(rai = receiver->ai;rai;rai = rai->ai_next){
+			if(rai->ai_family != AF_INET6) continue;
+			for(sai = sender->ai;sai;sai = sai->ai_next){
+				if(rai->ai_family != sai->ai_family) continue;
+				if(rai->ai_socktype != sai->ai_socktype) continue;
+				goto foundaddr;
+			}
+		}
+	#endif
+		for(rai = receiver->ai;rai;rai = rai->ai_next){
+			if(rai->ai_family != AF_INET) continue;
+			for(sai = sender->ai;sai;sai = sai->ai_next){
+				if(rai->ai_family != sai->ai_family) continue;
+				if(rai->ai_socktype != sai->ai_socktype) continue;
+				goto foundaddr;
+			}
+		}
+	
+		/*
+		 * Didn't find compatible addrs - return error.
+		 */
+		*err_ret = IPFErrWARNING;
+		IPFError(cntrl->ctx,*err_ret,IPFErrINVALID,
+			"IPFSessionRequest called with incompatible addresses");
 		goto error;
-	/*
-	 * Determine proper address specifications for send/recv.
-	 * Loop on ai values to find a match and use that.
-	 * (We prefer IPV6 over others, so loop over IPv6 addrs first...)
-	 * We only support AF_INET and AF_INET6.
-	 */
-#ifdef	AF_INET6
-	for(rai = receiver->ai;rai;rai = rai->ai_next){
-		if(rai->ai_family != AF_INET6) continue;
-		for(sai = sender->ai;sai;sai = sai->ai_next){
-			if(rai->ai_family != sai->ai_family) continue;
-			if(rai->ai_socktype != sai->ai_socktype) continue;
-			goto foundaddr;
-		}
-	}
-#endif
-	for(rai = receiver->ai;rai;rai = rai->ai_next){
-		if(rai->ai_family != AF_INET) continue;
-		for(sai = sender->ai;sai;sai = sai->ai_next){
-			if(rai->ai_family != sai->ai_family) continue;
-			if(rai->ai_socktype != sai->ai_socktype) continue;
-			goto foundaddr;
-		}
+	
+	foundaddr:
+		/*
+		 * Fill IPFAddr records with "selected" addresses for test.
+		 */
+		receiver->saddr = rai->ai_addr;
+		receiver->saddrlen = rai->ai_addrlen;
+		receiver->so_type = rai->ai_socktype;
+		receiver->so_protocol = rai->ai_protocol;
+		sender->saddr = sai->ai_addr;
+		sender->saddrlen = sai->ai_addrlen;
+		sender->so_type = sai->ai_socktype;
+		sender->so_protocol = sai->ai_protocol;
+	
+		/*
+		 * Create a structure to store the stuff we need to keep for
+		 * later calls.
+		 */
+		if( !(tsession = _IPFTestSessionAlloc(cntrl,sender,receiver,
+								test_spec)))
+			goto error;
 	}
 
 	/*
-	 * Didn't find compatible addrs - return error.
+	 * Request the server create the receiver & possibly the
+	 * sender.
 	 */
-	*err_ret = IPFErrWARNING;
-	IPFError(cntrl->ctx,*err_ret,IPFErrINVALID,
-		"IPFSessionRequest called with incompatible addresses");
-	goto error;
-
-foundaddr:
-	/*
-	 * Fill IPFAddr records with "selected" addresses for test.
-	 */
-	receiver->saddr = rai->ai_addr;
-	receiver->saddrlen = rai->ai_addrlen;
-	receiver->so_type = rai->ai_socktype;
-	receiver->so_protocol = rai->ai_protocol;
-	sender->saddr = sai->ai_addr;
-	sender->saddrlen = sai->ai_addrlen;
-	sender->so_type = sai->ai_socktype;
-	sender->so_protocol = sai->ai_protocol;
-
-	/*
-	 * Create a structure to store the stuff we need to keep for
-	 * later calls.
-	 */
-	if( !(tsession = _IPFTestSessionAlloc(cntrl,sender,server_conf_sender,
-				receiver,server_conf_receiver,test_spec)))
+	if((rc = _IPFClientRequestTestReadResponse(cntrl,sender,
+					&tsession->test_spec,*avail_time_ret,
+					tsession->sid,err_ret)) != 0){
 		goto error;
-
-	/*
-	 * This section initializes the two endpoints for the test.
-	 * EndpointInit is used to create a local socket and allocate
-	 * a port for the local side of the test.
-	 *
-	 * EndpointInitHook is used to set the information for the
-	 * remote side of the test and then the Endpoint process
-	 * is forked off.
-	 *
-	 * The request to the server is interwoven in based upon which
-	 * side needs to happen first. (The receiver needs to be initialized
-	 * first because the SID comes from there - so, if conf_receiver
-	 * then the request is sent to the server, and then other work
-	 * happens. If the client is the receiver, then the local
-	 * initialization needs to happen before sending the request.)
-	 */
-
-	/*
-	 * Configure receiver first since the sid comes from there.
-	 */
-	if(server_conf_receiver){
-		/*
-		 * If send local, check local policy for sender
-		 */
-		if(!server_conf_sender){
-			/*
-			 * create the local sender
-			 */
-			if(!_IPFEndpointInit(cntrl,tsession,sender,NULL,
-								err_ret)){
-				goto error;
-			}
-		}
-		else{
-			/*
-			 * This request will fail with the sample implementation
-			 * ipcntrld. ipcntrld is not prepared to configure both
-			 * endpoints - but let the test request go through
-			 * here anyway.  It will allow a client of the
-			 * sample implementation to be used with a possibly
-			 * more robust server.
-			 */
-			;
-		}
-
-		/*
-		 * Request the server create the receiver & possibly the
-		 * sender.
-		 */
-		if((rc = _IPFClientRequestTestReadResponse(cntrl,
-					sender,server_conf_sender,
-					receiver,server_conf_receiver,
-					test_spec,tsession->sid,err_ret)) != 0){
-			goto error;
-		}
-
-		/*
-		 * If sender is local, complete it's initialization now that
-		 * we know the receiver port number.
-		 */
-		if(!server_conf_sender){
-			/*
-			 * check local policy for this sender
-			 * (had to call policy check after initialize
-			 * because schedule couldn't be computed until
-			 * we got the SID from the server.)
-			 */
-			if(!_IPFCallCheckTestPolicy(cntrl,True,
-					sender->saddr,receiver->saddr,
-					sender->saddrlen,
-					test_spec,&tsession->closure,err_ret)){
-				IPFError(cntrl->ctx,*err_ret,IPFErrPOLICY,
-					"Test not allowed");
-				goto error;
-			}
-
-			if(!_IPFEndpointInitHook(cntrl,tsession,err_ret)){
-				goto error;
-			}
-		}
-	}
-	else{
-		/*
-		 * local receiver - create SID and compute schedule.
-		 */
-		if(_IPFCreateSID(tsession) != 0){
-			goto error;
-		}
-
-		/*
-		 * Local receiver - first check policy, then create.
-		 */
-		if(!_IPFCallCheckTestPolicy(cntrl,False,receiver->saddr,
-					sender->saddr,sender->saddrlen,
-					test_spec,
-					&tsession->closure,err_ret)){
-			IPFError(cntrl->ctx,*err_ret,IPFErrPOLICY,
-					"Test not allowed");
-			goto error;
-		}
-		if(!_IPFEndpointInit(cntrl,tsession,receiver,fp,err_ret)){
-			goto error;
-		}
-
-
-		/*
-		 * If conf_sender - make request to server
-		 */
-		if(server_conf_sender){
-			if((rc = _IPFClientRequestTestReadResponse(cntrl,
-					sender,server_conf_sender,
-					receiver,server_conf_receiver,
-					test_spec,tsession->sid,err_ret)) != 0){
-				goto error;
-			}
-		}
-		else{
-			/*
-			 * This is a VERY strange situation - the
-			 * client is setting up a test session without
-			 * making a request to the server...
-			 *
-			 * Just return an error here...
-			 */
-			IPFError(cntrl->ctx,*err_ret,IPFErrPOLICY,
-					"Test not allowed");
-			goto error;
-		}
-		if(!_IPFEndpointInitHook(cntrl,tsession,err_ret)){
-			goto error;
-		}
 	}
 
+	tsession->test_spec.req_time.ipftime = avail_time_ret->ipftime;
+
 	/*
-	 * Server accepted our request, and we were able to initialize our
+	 * Server accepted our request, and we were able to initialize this
 	 * side of the test. Add this "session" to the tests list for this
-	 * control connection.
+	 * control connection if it isn't there already.
 	 */
-	tsession->next = cntrl->tests;
-	cntrl->tests = tsession;
+	if(cntrl->tests != tsession){
+		cntrl->tests = tsession;
+	}
 
 	/*
 	 * return the SID for this session to the caller.

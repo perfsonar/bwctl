@@ -477,9 +477,7 @@ IPFTestSession
 _IPFTestSessionAlloc(
 	IPFControl	cntrl,
 	IPFAddr		sender,
-	IPFBoolean	conf_sender,
 	IPFAddr		receiver,
-	IPFBoolean	conf_receiver,
 	IPFTestSpec	*test_spec
 )
 {
@@ -504,11 +502,13 @@ _IPFTestSessionAlloc(
 	 * Initialize address records and test description record fields.
 	 */
 	test->cntrl = cntrl;
-	test->sender = sender;
-	test->conf_sender = conf_sender;
-	test->receiver = receiver;
-	test->conf_receiver = conf_receiver;
 	memcpy(&test->test_spec,test_spec,sizeof(IPFTestSpec));
+
+	/*
+	 * Overwrite sender/receiver with passed-in values
+	 */
+	test->test_spec.sender = sender;
+	test->test_spec.receiver = receiver;
 
 	return test;
 }
@@ -559,12 +559,8 @@ _IPFTestSessionFree(
 		_IPFCallTestComplete(tsession,aval);
 	}
 
-	IPFAddrFree(tsession->sender);
-	IPFAddrFree(tsession->receiver);
-
-	if(tsession->sctx){
-		IPFScheduleContextFree(tsession->sctx);
-	}
+	IPFAddrFree(tsession->test_spec.sender);
+	IPFAddrFree(tsession->test_spec.receiver);
 
 	free(tsession);
 
@@ -596,18 +592,18 @@ _IPFCreateSID(
 	u_int8_t	*aptr;
 
 #ifdef	AF_INET6
-	if(tsession->receiver->saddr->sa_family == AF_INET6){
+	if(tsession->test_spec.receiver->saddr->sa_family == AF_INET6){
 		struct sockaddr_in6	*s6;
 
-		s6 = (struct sockaddr_in6*)tsession->receiver->saddr;
+		s6 = (struct sockaddr_in6*)tsession->test_spec.receiver->saddr;
 		/* point at last 4 bytes of addr */
 		aptr = &s6->sin6_addr.s6_addr[12];
 	}else
 #endif
-	if(tsession->receiver->saddr->sa_family == AF_INET){
+	if(tsession->test_spec.receiver->saddr->sa_family == AF_INET){
 		struct sockaddr_in	*s4;
 
-		s4 = (struct sockaddr_in*)tsession->receiver->saddr;
+		s4 = (struct sockaddr_in*)tsession->test_spec.receiver->saddr;
 		aptr = (u_int8_t*)&s4->sin_addr;
 	}
 	else{
@@ -618,7 +614,8 @@ _IPFCreateSID(
 
 	memcpy(&tsession->sid[0],aptr,4);
 
-	(void)IPFGetTimeOfDay(&tstamp);
+	if(!IPFGetTimestamp(tsession->cntrl->ctx,&tstamp))
+		return 1;
 	_IPFEncodeTimeStamp(&tsession->sid[4],&tstamp);
 
 	if(I2RandomBytes(tsession->cntrl->ctx->rand_src,&tsession->sid[12],4)

@@ -873,6 +873,33 @@ err2:
 }
 
 IPFErrSeverity
+IPFProcessTimeRequest(
+	IPFControl	cntrl,
+	int		*retn_on_intr
+	)
+{
+	int		rc;
+	int		ival=0;
+	int		*intr = &ival;
+	IPFTimeStamp	tstamp;
+
+	if(retn_on_intr){
+		intr = retn_on_intr;
+	}
+
+	if( (rc = _IPFReadTimeRequest(cntrl,intr)) < IPFErrOK)
+		return _IPFFailControlSession(cntrl,rc);
+
+	if(!IPFGetTimestamp(cntrl->ctx,&tstamp))
+		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+
+	if( (rc = _IPFWriteTimeResponse(cntrl,&tstamp,intr)) < IPFErrOK)
+		return _IPFFailControlSession(cntrl,rc);
+
+	return IPFErrOK;
+}
+
+IPFErrSeverity
 IPFProcessStartSession(
 	IPFControl	cntrl,
 	int		*retn_on_intr

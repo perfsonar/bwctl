@@ -293,6 +293,10 @@ typedef u_int8_t	IPFKey[16];
 typedef u_int32_t	IPFSessionMode;
 
 typedef struct{
+	IPFBoolean	conf_sender;
+	IPFAddr		sender;
+	IPFBoolean	conf_receiver;
+	IPFAddr		receiver;
 	IPFTimeStamp	req_time;
 	IPFNum64	latest_time;
 	u_int32_t	duration;
@@ -350,7 +354,7 @@ IPFScheduleContextGenerateNextDelta(
  * 	}
  *
  *
- * (Sure would be nice if it were possible to to vararg macros...)
+ * (Sure would be nice if it were possible to do vararg macros...)
  */
 #define IPFError	I2ErrLocation_(__FILE__,__DATE__,__LINE__);	\
 			IPFError_
@@ -701,9 +705,18 @@ IPFControlClose(
 );
 
 /*
- * Request a test session - if the function returns True, then the function
- * returns a valid SID for the session, and avail_time_ret holds the time
- * of the reservation.
+ * Request a test session - if the function returns True, then avail_time_ret
+ * holds the time of the reservation. The first time this function is called
+ * to configure a 'receiver', the sid will be returned. If it is called to
+ * configure a 'sender', then sid MUST be passed in. (This function
+ * can be called with a req_time later than the latest_time to cancel
+ * a session.) This function can be called repeatedly to change the reservation
+ * time. All future calls MUST pass in the same sid until this session is
+ * declared invalid. (For these modify calls - the only parameters that
+ * are looked at in the test_spec are the req_time and the latest_time. All
+ * other parameters are preserved from the previous call.)
+ *
+ * Exactly one of a receiver OR a sender may be configured with each call.
  *
  * If the function returns False - check err_ret. If err_ret is ErrOK, the
  * session was denied by the server, and the control connection is still
@@ -711,7 +724,7 @@ IPFControlClose(
  * acceptible to the parameters of the request, but simply did not have
  * the resources available.
  *
- * Reasons this function will return False (with avail_time_ret == 0):
+ * Reasons this function will return False:
  * 1. Server denied test: err_ret==ErrOK
  * 	If avail_time_ret == 0, than no reason can be determined.
  * 	If avail_time_ret != 0, the client should interpret this is "busy".
@@ -918,7 +931,8 @@ typedef enum IPFRequestType{
 	IPFReqSockClose=0,
 	IPFReqTest=1,
 	IPFReqStartSession=2,
-	IPFReqStopSession=3
+	IPFReqStopSession=3,
+	IPFReqTime=4
 } IPFRequestType;
 
 extern IPFRequestType
@@ -1091,7 +1105,8 @@ IPFGetTimeStampError(
 	);
 
 extern IPFTimeStamp *
-IPFGetTimeOfDay(
+IPFGetTimestamp(
+	IPFContext	ctx,
 	IPFTimeStamp	*tstamp
 );
 

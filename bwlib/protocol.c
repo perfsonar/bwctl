@@ -478,6 +478,9 @@ IPFReadRequestType(
 		case	3:
 			cntrl->state |= _IPFStateStopSession;
 			break;
+		case	4:
+			cntrl->state |= _IPFStateTimeRequest;
+			break;
 		default:
 			cntrl->state = _IPFStateInvalid;
 			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
@@ -530,56 +533,221 @@ _IPFWriteTimeRequest(
 		return IPFErrFATAL;
 	}
 
-	cntrl->state |= _IPFStateTimeRequest;
+	cntrl->state |= _IPFStateTimeResponse;
+
+	return IPFErrOK;
+}
+IPFErrSeverity
+_IPFReadTimeRequest(
+	IPFControl	cntrl,
+	int		*retn_on_intr
+	)
+{
+	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	int		ival=0;
+	int		*intr=&ival;
+
+	if(!_IPFStateIs(_IPFStateTimeRequest,cntrl)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"_IPFReadTimeRequest: called in wrong state.");
+		return IPFErrFATAL;
+	}
+
+	if(retn_on_intr){
+		intr = retn_on_intr;
+	}
+
+	/*
+	 * Already read the first block - read the rest for this message
+	 * type.
+	 */
+	if(_IPFReceiveBlocksIntr(cntrl,&buf[16],1,intr) != 1){
+		IPFError(cntrl->ctx,IPFErrFATAL,errno,
+		"_IPFReadTimeRequest: Unable to read from socket.");
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	/*
+	 * Check integrity bits.
+	 */
+	if(memcmp(cntrl->zero,&buf[16],16) != 0){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"_IPFReadTimeRequest: Invalid MBZ bits");
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	cntrl->state &= ~_IPFStateTimeRequest;
+	cntrl->state |= _IPFStateTimeResponse;
 
 	return IPFErrOK;
 }
 
 /*
- * 	TestRequestPreamble message format:
+ * 	TimeResponse message format:
+ *
+ * 	size:32 octets
+ *
+ * 	   0                   1                   2                   3
+ * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	00|                          Timestamp                            |
+ *	04|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	08|        Error Estimate         |                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |
+ *	12|                            UNUSED                             |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	16|                                                               |
+ *      20|                Integrity Zero Padding (16 octets)             |
+ *      24|                                                               |
+ *      28|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+IPFErrSeverity
+_IPFWriteTimeResponse(
+	IPFControl	cntrl,
+	IPFTimeStamp	*tstamp,
+	int		*ret_on_intr
+	)
+{
+	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	int		ival=0;
+	int		*intr=&ival;
+
+	if(!_IPFStateIs(cntrl,_IPFStateTimeResponse)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"_IPFWriteTimeResponse: called in wrong state.");
+		return IPFErrFATAL;
+	}
+
+	if(ret_on_intr)
+		intr = ret_on_intr;
+
+	/*
+	 * zero everything
+	 */
+	memset(&buf[0],0,32);
+
+	/*
+	 * Encode time and time  error estimate
+	 */
+	_IPFEncodeTimeStamp(&buf[0],&tstamp);
+	if(!_IPFEncodeTimeStampErrEstimate(&buf[8],&tstamp)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+						"Invalid Timestamp Error");
+		return IPFErrFATAL;
+	}
+
+	/*
+	 * Send the TimeResponse message
+	 */
+	if(_IPFSendBlocksIntr(cntrl,buf,2,intr) != 2){
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	cntrl->state &= ~_IPFStateTimeResponse;
+
+	return IPFErrOK;
+}
+IPFErrSeverity
+_IPFReadTimeResponse(
+	IPFControl	cntrl,
+	IPFTimeStamp	*tstamp
+	)
+{
+	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+
+	if(!_IPFStateIs(_IPFStateTimeResponse,cntrl)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"_IPFReadTimeResponse: called in wrong state.");
+		return IPFErrFATAL;
+	}
+
+	/*
+	 * Already read the first block - read the rest for this message
+	 * type.
+	 */
+	if(_IPFReceiveBlocks(cntrl,&buf[0],2) != 2){
+		IPFError(cntrl->ctx,IPFErrFATAL,errno,
+			"_IPFReadTimeResponse: Unable to read from socket.");
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	/*
+	 * Check integrity bits.
+	 */
+	if(memcmp(cntrl->zero,&buf[16],16) != 0){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"_IPFReadTimeRequest: Invalid MBZ bits");
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	/*
+	 * Decode time and time error estimate
+	 */
+	_IPFDecodeTimeStamp(tstamp,&buf[0]);
+	if(!_IPFDecodeTimeStampErrEstimate(tstamp,&buf[12])){
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	cntrl->state &= ~_IPFStateTimeResponse;
+
+	return IPFErrOK;
+}
+
+/*
+ * 	TestRequest message format:
  *
  * 	size:112 octets
  *
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|      1        |  MBZ  | IPVN  | Conf-Sender   | Conf-Receiver |
+ *	00|      1        |  UDP  | IPVN  | Conf-Sender   | Conf-Receiver |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                  Number of Schedule Slots                     |
+ *	04|                            Duration                           |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                      Number of Packets                        |
+ *	08|                            Req Time                           |
+ *	12|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	12|          Sender Port          |         Receiver Port         |
+ *	16|                          Latest Time                          |
+ *	20|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	16|                        Sender Address                         |
+ *	24|        Time Error Estimate    |         Receiver Port         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	20|              Sender Address (cont.) or Unused                 |
- *	24|                                                               |
- *	28|                                                               |
+ *	28|                        Sender Address                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	32|                        Receiver Address                       |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	36|              Receiver Address (cont.) or Unused               |
+ *	32|              Sender Address (cont.) or Unused                 |
+ *	36|                                                               |
  *	40|                                                               |
- *	44|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	48|                                                               |
- *	52|                        SID (16 octets)                        |
+ *	44|                        Receiver Address                       |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	48|              Receiver Address (cont.) or Unused               |
+ *	52|                                                               |
  *	56|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	60|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	64|                          Padding Length                       |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	68|                            Start Time                         |
+ *	64|                        SID (16 octets)                        |
+ *	68|                                                               |
  *	72|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	76|                             Timeout                           |
- *	80|                                                               |
+ *	76|                          Bandwidth                            |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	84|                         Type-P Descriptor                     |
+ *	80|                          Buffer Length                        |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	88|                                MBZ                            |
- *	92|                                                               |
+ *	84|                          Window Size                          |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	88|                        Report Interval                        |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	92|                                MBZ                            |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	96|                                                               |
  *     100|                Integrity Zero Padding (16 octets)             |
@@ -587,6 +755,76 @@ _IPFWriteTimeRequest(
  *     108|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
+IPFErrSeverity
+_IPFWriteTestRequest(
+	IPFControl	cntrl,
+	IPFBoolean	sender,
+	IPFSID		sid,
+	IPFTestSpec	*test_spec
+)
+{
+	/*
+	 * Ensure cntrl is in correct state.
+	 */
+	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsPending(cntrl)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			"_IPFWriteTestRequest:called in wrong state.");
+		return IPFErrFATAL;
+	}
+
+#if	TODO
+	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	u_int32_t	buf_len = sizeof(cntrl->msg);
+	u_int32_t	i;
+
+	/*
+	 * Encode test request variables that were passed in into
+	 * the "buf" in the format required by V5 of ipcntrl spec section 4.3.
+	 */
+	if((_IPFEncodeTestRequestPreamble(cntrl->ctx,cntrl->msg,&buf_len,
+				sender,receiver,server_conf_sender,
+				server_conf_receiver,sid,test_spec) != 0) ||
+							(buf_len != 112)){
+		return IPFErrFATAL;
+	}
+
+	/*
+	 * Now - send the request! 112 octets == 7 blocks.
+	 */
+	if(_IPFSendBlocks(cntrl,buf,7) != 7){
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	/*
+	 * Send slots
+	 */
+	for(i=0;i<test_spec->nslots;i++){
+		if(_IPFEncodeSlot(cntrl->msg,&test_spec->slots[i]) != IPFErrOK){
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"_IPFWriteTestRequest: Invalid slot record");
+			cntrl->state = _IPFStateInvalid;
+			return IPFErrFATAL;
+		}
+		if(_IPFSendBlocks(cntrl,buf,1) != 1){
+			cntrl->state = _IPFStateInvalid;
+			return IPFErrFATAL;
+		}
+	}
+
+	/*
+	 * Send 1 block of Integrity Zero Padding.
+	 */
+	if(_IPFSendBlocks(cntrl,cntrl->zero,1) != 1){
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+#endif
+	cntrl->state |= _IPFStateTestAccept;
+
+	return IPFErrOK;
+}
 #if	NOT
 int
 _IPFEncodeTestRequestPreamble(
@@ -1002,80 +1240,6 @@ _IPFDecodeSlot(
 	return IPFErrOK;
 }
 #endif
-
-IPFErrSeverity
-_IPFWriteTestRequest(
-	IPFControl	cntrl,
-	struct sockaddr	*sender		__attribute__((unused)),
-	struct sockaddr	*receiver		__attribute__((unused)),
-	IPFBoolean	server_conf_sender		__attribute__((unused)),
-	IPFBoolean	server_conf_receiver		__attribute__((unused)),
-	IPFSID		sid		__attribute__((unused)),
-	IPFTestSpec	*test_spec		__attribute__((unused))
-)
-{
-	/*
-	 * Ensure cntrl is in correct state.
-	 */
-	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsPending(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteTestRequest:called in wrong state.");
-		return IPFErrFATAL;
-	}
-
-#if	TODO
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	u_int32_t	buf_len = sizeof(cntrl->msg);
-	u_int32_t	i;
-
-	/*
-	 * Encode test request variables that were passed in into
-	 * the "buf" in the format required by V5 of ipcntrl spec section 4.3.
-	 */
-	if((_IPFEncodeTestRequestPreamble(cntrl->ctx,cntrl->msg,&buf_len,
-				sender,receiver,server_conf_sender,
-				server_conf_receiver,sid,test_spec) != 0) ||
-							(buf_len != 112)){
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * Now - send the request! 112 octets == 7 blocks.
-	 */
-	if(_IPFSendBlocks(cntrl,buf,7) != 7){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-	/*
-	 * Send slots
-	 */
-	for(i=0;i<test_spec->nslots;i++){
-		if(_IPFEncodeSlot(cntrl->msg,&test_spec->slots[i]) != IPFErrOK){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFWriteTestRequest: Invalid slot record");
-			cntrl->state = _IPFStateInvalid;
-			return IPFErrFATAL;
-		}
-		if(_IPFSendBlocks(cntrl,buf,1) != 1){
-			cntrl->state = _IPFStateInvalid;
-			return IPFErrFATAL;
-		}
-	}
-
-	/*
-	 * Send 1 block of Integrity Zero Padding.
-	 */
-	if(_IPFSendBlocks(cntrl,cntrl->zero,1) != 1){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
-	}
-
-#endif
-	cntrl->state |= _IPFStateTestAccept;
-
-	return IPFErrOK;
-}
 
 
 #if	NOT

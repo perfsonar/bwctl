@@ -521,3 +521,127 @@ IPFGetTimeStampError(
 	 */
 	return IPFNum64ToDouble(err);
 }
+
+/*
+ * Function:	_IPFInitNTP
+ *
+ * Description:	
+ * 	Initialize NTP.
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ *
+ * If STA_NANO is defined, we insist it is set, this way we can be sure that
+ * ntp_gettime is returning a timespec and not a timeval.
+ *
+ * TODO: The correct way to fix this is:
+ * 1. If ntptimeval contains a struct timespec - then use nano's period.
+ * 2. else if STA_NANO is set, then use nano's.
+ * 3. else ???(mills solution requires root - ugh)
+ *    will this work?
+ *    (do a timing test:
+ * 		gettimeofday(A);
+ * 		getntptime(B);
+ * 		nanosleep(1000);
+ * 		getntptime(C);
+ * 		gettimeofday(D);
+ *
+ * 		1. Interprete B and C as usecs
+ * 			if(D-A < C-B)
+ * 				nano's
+ * 			else
+ * 				usecs
+ */
+int
+_IPFInitNTP(
+	IPFContext	ctx
+	)
+{
+	struct timex	ntp_conf;
+
+	ntp_conf.modes = 0;
+
+	if(ntp_adjtime(&ntp_conf) < 0){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"ntp_adjtime(): %M");
+		return 1;
+	}
+
+#ifdef	STA_NANO
+	if( !(ntp_conf.status & STA_NANO)){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		"_IPFInitNTP: STA_NANO must be set! - try \"ntptime -N\"");
+		return 1;
+	}
+#endif
+	return 0;
+}
+
+struct timespec *
+_IPFGetTimespec(
+	IPFContext	ctx,
+	struct timespec	*ts,
+	u_int32_t	*esterr,
+	int		*sync
+	)
+{
+	struct ntptimeval	ntv;
+	int			status;
+
+	status = ntp_gettime(&ntv);
+
+	if(status < 0){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"ntp_gettime(): %M");
+		return NULL;
+	}
+	if(status > 0)
+		*sync = 0;
+	else
+		*sync = 1;
+
+	*esterr = (u_int32_t)ntv.esterror;
+	assert((long)*esterr == ntv.esterror);
+
+	/*
+	 * Error estimate should never be 0, but I've seen ntp do it!
+	 */
+	if(!*esterr){
+		*esterr = 1;
+	}
+
+#ifdef	STA_NANO
+	*ts = ntv.time;
+#else
+	/*
+	 * convert usec to nsec if not STA_NANO
+	 */
+	*(struct timeval*)ts = ntv.time;
+	ts->tv_nsec *= 1000;
+#endif
+
+	return ts;
+}
+
+IPFTimeStamp *
+IPFGetTimestamp(
+	IPFContext	ctx,
+	IPFTimeStamp	*tstamp
+	       )
+{
+	struct timespec		ts;
+	u_int32_t		errest;
+	int			sync;
+
+	if(!tstamp)
+		return NULL;
+
+	if(!IPFGetTimespec(ctx,&ts,&errest,&sync))
+		return NULL;
+
+	/* type conversion */
+	return IPFTimespecToTimestamp(tstamp,&ts,&errest,NULL);
+}

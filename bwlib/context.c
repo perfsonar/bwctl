@@ -72,6 +72,13 @@ IPFContextCreate(
 		ctx->eh = eh;
 	}
 
+	if(_IPFInitNTP(ctx) != 0){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+				"Unable to initialize clock interface.");
+		IPFContextFree(ctx);
+		return NULL;
+	}
+
 	if( !(ctx->table = I2HashInit(ctx->eh,_IPF_CONTEXT_TABLE_SIZE,
 								NULL,NULL))){
 		IPFContextFree(ctx);
