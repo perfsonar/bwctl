@@ -398,7 +398,7 @@ run_iperf(
 
 	if(tsess->test_spec.udp){
 		ipargs[a++] = "-u";
-		if(tsess->test_spec.bandwidth){
+		if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
 			ipargs[a++] = "-b";
 			ipargs[a++] = uint32dup(ctx,tsess->test_spec.bandwidth);
 		}
@@ -732,7 +732,6 @@ _BWLEndpointStart(
 		goto end;
 	}
 
-
 	if(BWLNum64Cmp(tsess->reserve_time,currtime.tstamp) < 0){
 		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
 				"endpoint to endpoint setup too late");
@@ -804,6 +803,7 @@ ACCEPT:
 		 * Copy remote address, then modify port number
 		 * for contacting remote host.
 		 */
+		BWLAddr local = _BWLAddrCopy(tsess->test_spec.sender);
 		BWLAddr	remote = _BWLAddrCopy(tsess->test_spec.receiver);
 		switch(remote->saddr->sa_family){
 			struct sockaddr_in	*saddr4;
@@ -826,10 +826,11 @@ ACCEPT:
 					remote->saddr->sa_family);
 				goto end;
 		}
+		local->so_type = SOCK_STREAM;
+		remote->so_type = SOCK_STREAM;
 
-		ep->rcntrl = BWLControlOpen(ctx,
-				_BWLAddrCopy(tsess->test_spec.sender),
-				remote,tsess->cntrl->mode,"endpoint",NULL,
+		ep->rcntrl = BWLControlOpen(ctx,local,remote,
+				tsess->cntrl->mode,"endpoint",NULL,
 				err_ret);
 	}
 	if(!ep->rcntrl){
