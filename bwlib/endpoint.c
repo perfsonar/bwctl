@@ -280,7 +280,7 @@ getsidaeskey(
 		return False;
 	}
 
-	memcpy(key_ret,sidbytes,sizeof(key_ret));
+	memcpy(key_ret,sidbytes,sizeof(BWLKey));
 
 	return True;
 }
