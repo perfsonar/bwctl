@@ -27,26 +27,26 @@ bwctl \- Client application to request throughput tests.
 .B bwctl 
 [\fIoptions\fR] (\fI\-c recvhost | \-s sendhost\fR)
 .SH DESCRIPTION
-.B bwctl
-is a command line client application that is used to initiate
-.B iperf
-throughput tests.
-The application works by contacting \fBbwctld\fR
-daemons on both the receiving host and the sending host.
-The \fBbwctld\fR processes manage the resources of the hosts they run on.
-.B bwctl
-requests the type of \fBiperf\fR test it wants including an indication
-of when it wants the test. \fBbwctld\fR either responds with a tentative
+\fBbwctl\fR is a command line client application that is used to
+initiate \fBiperf\fR throughput tests. The application works by
+contacting \fBbwctld\fR daemons on both the receiving host and
+the sending host. \fBbwctld\fR manages and schedules the resources
+of the host it runs on.
+.PP
+The \fBbwctl\fR client is used to request the type of \fBiperf\fR
+test wanted. Furthermore, it requests \fIwhen\fR the test is wanted.
+\fBbwctld\fR either responds with a tentative
 reservation or a test denied message. Once \fBbwctl\fR is able to get
-a matching reservation from both \fBbwctld\fR processes, it confirms the
-reservation and the \fBbwctld\fR processes run the test and return the
+a matching reservation from both \fBbwctld\fR processes (one for each
+host involved in the test), it confirms the
+reservation. Then the \fBbwctld\fR processes run the test and return the
 results. The results are returned to the client from both sides of the
 test. Additionally, the \fBbwctld\fR processes share the results from
 their respective side of the test with each other.
 .PP
-The reason to use \fBBWCTL\fR (\fBbwctl\fR and \fBbwctld\fR) is to enable
+\fBBWCTL\fR (\fBbwctl\fR and \fBbwctld\fR) is used to enable
 non-specific \fBiperf\fR tests
-to a host without having to give full user accounts on the given system.
+to hosts without having to give full user accounts on the given systems.
 Users want the ability to run \fBiperf\fR to determine the achievable
 or available bandwidth between a pair of hosts. It is often useful to test
 to multiple points along a network path to determine the network
@@ -54,19 +54,25 @@ characteristics along that path. Typically, users that want to do this path
 decomposition have to directly contact the network/system administrators
 that control the hosts along the path. The administrator needs to either
 run half of the test for the user or give them a user account on the host.
-Also typically, network paths of interest are usually controlled by
+Also typically, network paths of interest are controlled by
 multiple administrators. These hurtles have made this kind of testing
 difficult in practice. 
 .PP
 \fBBWCTL\fR was designed to help with this problem. It allows an
-administrator to configure a given host as an \fBiperf\fR endpoint.
-It does not require a complete login from the remote testing point.
-It allows the administrator to classify incoming connections based upon a
-user name and AES key combination or alternatively based upon an IP/netmask.
-This allows the administrator to limit the types of \fBiperf\fR tests and
-the intensities of those tests based upon the remote user requesting the
-test. It also allows the administrator to allow for a limited amount of
-completely open tests. 
+administrator to configure a given host as an \fBiperf\fR endpoint
+that can be shared by multiple users without concern that those
+users will interfer with each other. Specific policy limits can be
+applied to specific users, and individual tests are scheduled so they
+will not interfer with each other. Additionally, full user accounts
+are not required for the users running the tests.
+.PP
+\fBBWCTL\fR allows the administrator to classify incoming connections
+based upon a user name and AES key combination or alternatively based
+upon an IP/netmask.
+Once the connection is classified, the \fBbwctld\fR can determine the
+exact type and intensities of \fBiperf\fR tests that will be allowed.
+More information on the policy controls can be found in the \fBbwctld(8)\fR
+man page.
 .SH OPTIONS
 .SS Connection Arguments:
 .TP
@@ -87,8 +93,9 @@ any or all of the characters "AEO". The modes are:
 [\fBA\fR]uthenticated. This encrypts the control connection.
 .IP \fBE\fR
 [\fBE\fR]ncrypted. The encrypts the control connection. If the test supports
-encryption, this mode will additionally encrypt the test stream. (This is
-currently done using iperf, which does not support encryption.)
+encryption, this mode will additionally encrypt the test stream. (Encryption
+of the test stream is not currently supported, so this mode is currently
+identical to authenticated.)
 .IP \fBO\fR
 [\fBO\fR]pen. No encryption of any kind is done.
 .PP
@@ -101,19 +108,13 @@ will be selected.
 .TP
 \fB\-U\fR \fIusername\fR
 Specify the username that is used to identify the AES key to use for
-authenticated or encrypted modes.
+authenticated or encrypted modes. If the \fB\-k\fR option is specified,
+the key is retrieved from the \fIkeyfile\fR, otherwise \fBbwctl\fR prompts
+the user for a \fIpassphrase\fR. The \fIpassphrase\fR is used to generate
+the AES key.
 .RS
 .IP Default:
 Unset.
-.RE
-.TP
-\fB\-K\fR
-Prompt the user for a \fIpassphrase\fR. This will be used to generate an AES
-key for authenticated or encrypted modes. The \fB\-U\fR option MUST be
-specified for this to be useful.
-.RS
-.IP Default:
-No passphrase prompt.
 .RE
 .TP
 \fB\-k\fR \fIkeyfile\fR
@@ -123,7 +124,8 @@ Indicates that \fBbwctl\fR should use the AES key in \fIkeyfile\fR for
 application.
 .RS
 .IP Default:
-Unset.
+Unset. (If the \fB\-U\fR option was specified, user will be prompted for a
+\fIpassphrase\fR.)
 .RE
 .TP
 \fB\-B\fR \fIsrcaddr\fR
@@ -216,7 +218,7 @@ Continuous.
 .RE
 .TP
 \fB\-R\fR \fIalpha\fR
-Randomize the start time of the test within this \fIalpha\fR of the
+Randomize the start time of the test within this \fIalpha\fR percent of the
 \fIinterval\fR. Valid values for \fIalpha\fR are from 0\-50. \fBbwctl\fR
 will attempt to run the test every \fIinterval\fR +/\- \fIalpha\fR percent.
 For example, if the \fIinterval\fR is 300 seconds and \fIalpha\fR is
@@ -236,7 +238,7 @@ that will be added to the start time.
 .RS
 .IP Default:
 If \fIinterval\fR is set, the default is 50% of \fIinterval\fR. Otherwise,
-the default is twice \fItime\fR.
+the default is twice the test duration \fItime\fR.
 .RE
 .SS Output Arguments:
 .TP
@@ -305,6 +307,11 @@ and localhost as the receiver.
 Run a 10 second udp test about every hour (3600 +/- 360 seconds) with
 the sender rate limited to 10 Mbits per second from somehost.com to
 the localhost.
+.LP
+\fBbwctl -U someuser -s somehost.com\fR
+.IP
+Run the default 10 second TCP \fBiperf\fR test. Authenticate using
+the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a \fIpassphrase\fR.
 .SH SEE ALSO
 .B bwctld(8)
 ,
@@ -313,4 +320,6 @@ the localhost.
 .B bwctld.limits(5)
 ,
 .B bwctld.keys(5)
-and \fBhttp://e2epi.internet2.edu/bwctl\fR.
+and the
+.B http://e2epi.internet2.edu/bwctl
+web site.
