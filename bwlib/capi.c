@@ -1062,11 +1062,11 @@ IPFSessionRequest(
 		 */
 		if(test_spec->receiver){
 			receiver = _IPFAddrCopy(test_spec->receiver);
-		}else if(!send){
-			receiver = IPFAddrByNode(cntrl->ctx,"localhost");
 		}else{
-			receiver = IPFAddrByLocalControl(cntrl);
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"IPFSessionRequest:Invalid receive address");
 		}
+
 		if(!receiver)
 			goto error;
 	
@@ -1075,11 +1075,11 @@ IPFSessionRequest(
 		 */
 		if(test_spec->sender){
 			sender = _IPFAddrCopy(test_spec->sender);
-		}else if(send){
-			sender = IPFAddrByNode(cntrl->ctx,"localhost");
 		}else{
-			sender = IPFAddrByLocalControl(cntrl);
+			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"IPFSessionRequest:Invalid receive address");
 		}
+
 		if(!sender)
 			goto error;
 	

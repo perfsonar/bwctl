@@ -742,12 +742,36 @@ ACCEPT:
 				&ipf_term,err_ret);
 	}
 	else{
+		/*
+		 * Copy remote address, then modify port number
+		 * for contacting remote host.
+		 */
+		IPFAddr	remote = _IPFAddrCopy(tsess->cntrl->remote_addr);
+		switch(remote->saddr->sa_family){
+			struct sockaddr_in	*saddr4;
+#ifdef	AF_INET6
+			struct sockaddr_in6	*saddr6;
+
+			case AF_INET6:
+				saddr6 = (struct sockaddr_in6 *)saddr;
+				saddr6->sin6_port = ntohs(*dataport);
+				break;
+#endif
+			case AF_INET:
+				saddr4 = (struct sockaddr_in *)saddr;
+				saddr4->sin_port = ntohs(*dataport);
+				break;
+			default:
+				IPFError(tsess->cntrl->ctx,IPFErrFATAL,
+						IPFErrINVALID,
+				"Endpoint control socket: Invalid AF(%d)",
+					remote->saddr->sa_family);
+				goto end;
+		}
+
 		ep->rcntrl = IPFControlOpen(ctx,
 				IPFAddrByLocalControl(tsess->cntrl),
-				_IPFAddrCopy(tsess->cntrl->remote_addr),
-				tsess->cntrl->mode,
-				"endpoint",
-				NULL,
+				remote,tsess->cntrl->mode,"endpoint",NULL,
 				err_ret);
 	}
 	if(!ep->rcntrl)

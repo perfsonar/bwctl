@@ -812,6 +812,13 @@ main(
 	local.tspec.report_interval = app.opt.reportInterval;
 
 	/*
+	 * TODO:
+	 * make remote connection here so the addresses used for the
+	 * connection can be pulled back in and used as test endpoint
+	 * addresses.
+	 */
+
+	/*
 	 * Setup addresses of test endpoints.
 	 */
 	local.tspec.sender = (app.opt.send)?
