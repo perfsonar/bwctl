@@ -522,8 +522,7 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
 
 extern BWLContext
 BWLContextCreate(
-	I2ErrHandle	eh,
-	I2Boolean	allowunsync
+	I2ErrHandle	eh
 );
 
 extern void

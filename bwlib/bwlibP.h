@@ -678,8 +678,7 @@ _BWLDecodeTimeStampErrEstimate(
 	);
 extern int
 _BWLInitNTP(
-	BWLContext	ctx,
-	I2Boolean	allowunsync
+	BWLContext	ctx
 	);
 
 extern struct timespec *

@@ -974,9 +974,7 @@ ACCEPT:
 		goto end;
 
 	if(tsess->conf_receiver){
-		BWLErrSeverity	rc;
-
-		if(BWLReadReqType(ep->rcntrl,&ipf_term) != BWLReqTime){
+		if(BWLReadRequestType(ep->rcntrl,&ipf_term) != BWLReqTime){
 			BWLError(ctx,BWLErrFATAL,errno,
 					"Invalid message from peer");
 			goto end;
@@ -993,7 +991,6 @@ ACCEPT:
 		 * sessions will start when they should.
 		 */
 
-		BWLTimeStamp	rtime;
 		double		t1,t2,tr;
 		double		e1,e2,er;
 
