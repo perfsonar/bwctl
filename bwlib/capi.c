@@ -619,6 +619,49 @@ denied:
 }
 
 /*
+ * Function:	IPFControlTimeCheck
+ *
+ * Description:	
+ * 	Public function used to request the current time from the server.
+ * 	(Including the servers "estimate" of it's timestamp.)
+ * 	Also updates the clients idea of the rtt_bound to this server.
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ */
+IPFErrSeverity
+IPFControlTimeCheck(
+	IPFControl	cntrl,
+	IPFTimeStamp	*time_ret
+)
+{
+	IPFErrSeverity		err;
+	IPFTimeStamp		tstamp;
+
+	if((err = _IPFWriteTimeRequest(cntrl)) != IPFErrOK){
+		goto error;
+	}
+
+	if((err = _IPFReadTimeResponse(cntrl,&tstamp)) != IPFErrOK){
+		goto error;
+	}
+
+	if(time_ret){
+		*time_ret = tstamp;
+	}
+
+	return IPFErrOK;
+
+error:
+	return _IPFFailControlSession(cntrl,IPFErrFATAL);
+}
+
+/*
  * Function:	SetEndpointAddrInfo
  *
  * Description:	
@@ -1011,12 +1054,8 @@ error:
 IPFBoolean
 IPFSessionRequest(
 	IPFControl	cntrl,
-	IPFAddr		sender,
-	IPFBoolean	server_conf_sender,
-	IPFAddr		receiver,
-	IPFBoolean	server_conf_receiver,
+	IPFBoolean	sender,
 	IPFTestSpec	*test_spec,
-	FILE		*fp,
 	u_int32_t	*avail_time_ret,
 	IPFSID		sid_ret,
 	IPFErrSeverity	*err_ret

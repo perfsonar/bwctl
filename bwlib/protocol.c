@@ -489,6 +489,53 @@ IPFReadRequestType(
 }
 
 /*
+ * 	TimeRequest message format:
+ *
+ * 	size:32 octets
+ *
+ * 	   0                   1                   2                   3
+ * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	00|      4        |                                               |
+ *	  +-+-+-+-+-+-+-+-+                                               |
+ *	04|                        Unused                                 |
+ *	08|                                                               |
+ *	12|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	16|                                                               |
+ *      20|                Integrity Zero Padding (16 octets)             |
+ *      24|                                                               |
+ *      28|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ */
+IPFErrSeverity
+_IPFWriteTimeRequest(
+	IPFControl	cntrl
+	)
+{
+	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+
+	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsPending(cntrl)){
+		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+				"_IPFWriteTimeRequest: called in wrong state.");
+		return IPFErrFATAL;
+	}
+
+	buf[0] = 4;	/* Request-Time message # */
+	memset(&buf[1],0,31);
+
+	if(_IPFSendBlocks(cntrl,buf,2) != 2){
+		cntrl->state = _IPFStateInvalid;
+		return IPFErrFATAL;
+	}
+
+	cntrl->state |= _IPFStateTimeRequest;
+
+	return IPFErrOK;
+}
+
+/*
  * 	TestRequestPreamble message format:
  *
  * 	size:112 octets

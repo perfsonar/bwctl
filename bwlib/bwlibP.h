@@ -77,6 +77,7 @@
 #define _IPFStateStopSession		(_IPFStateStartSession << 1)
 #define _IPFStateTestAccept		(_IPFStateStopSession << 1)
 #define _IPFStateControlAck		(_IPFStateTestAccept << 1)
+#define _IPFStateTimeRequest		(_IPFStateControlAck << 1)
 
 /* Reading indicates partial read request-ReadRequestType without remainder */
 #define _IPFStateReading	(_IPFStateTestRequest|_IPFStateStartSession|_IPFStateStopSession)
@@ -84,8 +85,7 @@
 /*
  * "Pending" indicates waiting for server response to a request.
  */
-#define	_IPFStatePending	(_IPFStateTestAccept|_IPFStateControlAck|_IPFStateStopSession)
-
+#define	_IPFStatePending	(_IPFStateTestAccept|_IPFStateControlAck|_IPFStateStopSession|_IPFStateTimeRequest)
 
 #define	_IPFStateIsInitial(c)	(!(c)->state)
 #define	_IPFStateIsSetup(c)	(!(_IPFStateSetup ^ (c)->state))
@@ -445,6 +445,28 @@ extern IPFErrSeverity
 _IPFReadServerUptime(
 	IPFControl	cntrl,
 	IPFNum64	*uptime_ret
+	);
+
+extern IPFErrSeverity
+_IPFWriteTimeRequest(
+	IPFControl	cntrl
+	);
+
+extern IPFErrSeverity
+_IPFReadTimeRequest(
+	IPFControl	cntrl
+	);
+
+extern IPFErrSeverity
+_IPFWriteTimeResponse(
+	IPFControl	cntrl,
+	IPFTimeStamp	tstamp
+	);
+
+extern IPFErrSeverity
+_IPFReadTimeResponse(
+	IPFControl	cntrl,
+	IPFTimeStamp	*tstamp_ret
 	);
 
 extern int

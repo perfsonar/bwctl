@@ -49,18 +49,18 @@ int optreset;
 /*
  * The iperfc context
  */
-static	ipapp_trec		appctx;
+static	ipapp_trec		app;
 static	I2ErrHandle		eh;
-static	u_int32_t		sessionTime;
 static	u_int32_t		file_offset,ext_offset;
 static	int			ip_reset = 0;
 static	int			ip_exit = 0;
 static	int			ip_error = SIGCONT;
-static	double			inf_delay;
 static	IPFContext		ctx;
 static	ipsess_trec		local;
 static	ipsess_trec		remote;
-static	ipsess_t		sender,receiver;
+static	IPFNum64		zero64;
+static	IPFSID			sid;
+static	ipsess_t		s[2];	/* receiver == 0, sender == 1 */
 
 static void
 print_conn_args()
@@ -99,6 +99,7 @@ print_output_args()
 "              [Output Args]\n\n"
 "   -d dir         directory to save session file in (only if -p)\n"
 "   -I Interval    time between IPF test sessions(seconds)\n"
+"   -L LatestDelay latest time into an interval to run test(seconds)\n"
 "   -p             print completed filenames to stdout - not session data\n"
 "   -h             print this message and exit\n"
 "   -e             syslog facility to log to\n"
@@ -138,7 +139,7 @@ ip_set_auth(
 {
 #if	NOT
 #ifndef	NDEBUG
-	somestate.childwait = appctx.opt.childwait;
+	somestate.childwait = app.opt.childwait;
 #endif
 #endif
 #if	NOT
@@ -164,7 +165,7 @@ ip_set_auth(
 	 * Verify/decode auth options.
 	 */
 	if(pctx->opt.authmode){
-		char	*s = appctx.opt.authmode;
+		char	*s = app.opt.authmode;
 		pctx->auth_mode = 0;
 		while(*s != '\0'){
 			switch (toupper(*s)){
@@ -200,14 +201,14 @@ CloseSessions()
 	/* TODO: Handle clearing other state. Canceling tests nicely? */
 
 	if(remote.cntrl){
-		IPFCloseConnection(remote.cntrl);
+		IPFControlClose(remote.cntrl);
 		remote.cntrl = NULL;
-		remote.starttime = 0;
+		remote.tspec.req_time.ipftime = zero64;
 	}
 	if(local.cntrl){
-		IPFCloseConnection(local.cntrl);
+		IPFControlClose(local.cntrl);
 		local.cntrl = NULL;
-		local.starttime = 0;
+		local.tspec.req_time.ipftime = zero64;
 	}
 
 	return;
@@ -271,20 +272,21 @@ main(
 	int			rc;
 	IPFErrSeverity		err_ret = IPFErrOK;
 	I2ErrLogSyslogAttr	syslogattr;
-	IPFContext		ctx;
 
 	int			fname_len;
 	int			ch;
 	char                    *endptr = NULL;
 	char                    optstring[128];
 	static char		*conn_opts = "A:B:k:U:";
-	static char		*out_opts = "d:I:pe:rv";
+	static char		*out_opts = "d:I:L:pe:rv";
 	static char		*test_opts = "i:l:uw:P:S:b:t:cs";
 	static char		*gen_opts = "hW";
 
 	char			dirpath[PATH_MAX];
 	struct flock		flk;
 	struct sigaction	act;
+	IPFNum64		latest64;
+	u_int32_t		p,q;
 
 	progname = (progname = strrchr(argv[0], '/')) ? ++progname : *argv;
 
@@ -333,32 +335,32 @@ main(
 	}
 
 	/* Set default options. */
-	memset(&appctx,0,sizeof(appctx));
-	appctx.opt.timeDuration = 10;
+	memset(&app,0,sizeof(app));
+	app.opt.timeDuration = 10;
 
 	while ((ch = getopt(argc, argv, optstring)) != -1)
 		switch (ch) {
 		/* Connection options. */
 		case 'A':
-			if (!(appctx.opt.authmode = strdup(optarg))) {
+			if (!(app.opt.authmode = strdup(optarg))) {
 				I2ErrLog(eh,"malloc:%M");
 				exit(1);
 			}
 			break;
 		case 'B':
-			if (!(appctx.opt.srcaddr = strdup(optarg))) {
+			if (!(app.opt.srcaddr = strdup(optarg))) {
 				I2ErrLog(eh,"malloc:%M");
 				exit(1);
 			}
 			break;
 		case 'U':
-			if (!(appctx.opt.identity = strdup(optarg))) {
+			if (!(app.opt.identity = strdup(optarg))) {
 				I2ErrLog(eh,"malloc:%M");
 				exit(1);
 			}
 			break;
 		case 'k':
-			if (!(appctx.opt.keyfile = strdup(optarg))) {
+			if (!(app.opt.keyfile = strdup(optarg))) {
 				I2ErrLog(eh,"malloc:%M");
 				exit(1);
 			}
@@ -366,40 +368,48 @@ main(
 
 		/* OUTPUT OPTIONS */
 		case 'd':
-			if (!(appctx.opt.savedir = strdup(optarg))) {
+			if (!(app.opt.savedir = strdup(optarg))) {
 				I2ErrLog(eh,"malloc:%M");
 				exit(1);
 			}
 			break;
 		case 'I':
-			appctx.opt.seriesInterval =strtoul(optarg, &endptr, 10);
+			app.opt.seriesInterval =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
 				usage(progname, 
 				"Invalid value. Positive integer expected");
 				exit(1);
 			}
 			break;
+		case 'L':
+			app.opt.seriesWindow = strtoul(optarg,&endptr,10);
+			if(*endptr != '\0'){
+				usage(progname, 
+				"Invalid value. Positive integer expected");
+				exit(1);
+			}
+			break;
 		case 'p':
-			appctx.opt.printfiles = True;
+			app.opt.printfiles = True;
 			break;
 		case 'e':
 		case 'r':
 			/* handled in prior getopt call... */
 			break;
 		case 'v':
-			appctx.opt.version = True;
+			app.opt.version = True;
 			I2ErrLog(eh,"Version: $Revision$");
 			exit(0);
 
 		/* TEST OPTIONS */
 		case 'c':
-			appctx.opt.send = True;
+			app.opt.send = True;
 			break;
 		case 's':
-			appctx.opt.recv = True;
+			app.opt.recv = True;
 			break;
 		case 'i':
-			appctx.opt.reportInterval =strtoul(optarg, &endptr, 10);
+			app.opt.reportInterval =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
 				usage(progname, 
 				"Invalid value. Positive integer expected");
@@ -407,7 +417,7 @@ main(
 			}
 			break;
 		case 'l':
-			appctx.opt.lenBuffer =strtoul(optarg, &endptr, 10);
+			app.opt.lenBuffer =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
 				usage(progname, 
 				"Invalid value. Positive integer expected");
@@ -415,10 +425,10 @@ main(
 			}
 			break;
 		case 'u':
-			appctx.opt.udpTest = True;
+			app.opt.udpTest = True;
 			break;
 		case 'w':
-			appctx.opt.windowSize =strtoul(optarg, &endptr, 10);
+			app.opt.windowSize =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
 				usage(progname, 
 				"Invalid value. Positive integer expected");
@@ -426,7 +436,7 @@ main(
 			}
 			break;
 		case 'P':
-			appctx.opt.parallel =strtoul(optarg, &endptr, 10);
+			app.opt.parallel =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
 				usage(progname, 
 				"Invalid value. Positive integer expected");
@@ -436,7 +446,7 @@ main(
 			exit(1);
 			break;
 		case 'S':
-			appctx.opt.tos =strtoul(optarg, &endptr, 10);
+			app.opt.tos =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
 				usage(progname, 
 				"Invalid value. Positive integer expected");
@@ -446,7 +456,7 @@ main(
 			exit(1);
 			break;
 		case 'b':
-			appctx.opt.bandWidth =strtoul(optarg, &endptr, 10);
+			app.opt.bandWidth =strtoul(optarg, &endptr, 10);
 			if (*endptr != '\0') {
 				usage(progname, 
 				"Invalid value. Positive integer expected");
@@ -454,8 +464,8 @@ main(
 			}
 			break;
 		case 't':
-			appctx.opt.timeDuration = strtoul(optarg, &endptr, 10);
-			if((*endptr != '\0') || (appctx.opt.timeDuration == 0)){
+			app.opt.timeDuration = strtoul(optarg, &endptr, 10);
+			if((*endptr != '\0') || (app.opt.timeDuration == 0)){
 				usage(progname, 
 				"Invalid value. Positive integer expected");
 				exit(1);
@@ -463,7 +473,7 @@ main(
 			break;
 #ifndef	NDEBUG
 		case 'W':
-			appctx.opt.childwait = True;
+			app.opt.childwait = True;
 			break;
 #endif
 		/* Generic options.*/
@@ -481,9 +491,9 @@ main(
 		usage(progname, NULL);
 		exit(1);
 	}
-	appctx.remote_test = argv[0];
+	app.remote_test = argv[0];
 
-	if(appctx.opt.recv == appctx.opt.send){
+	if(app.opt.recv == app.opt.send){
 		usage(progname,"Exactly one of -s or -c must be specified.");
 		exit(1);
 	}
@@ -495,32 +505,56 @@ main(
 	 */
 	fname_len = TSTAMPCHARS + strlen(IPF_FILE_EXT) + strlen(SUMMARY_EXT);
 	assert((fname_len+1)<PATH_MAX);
-	if(appctx.opt.savedir){
-		if((strlen(appctx.opt.savedir) + strlen(IPF_PATH_SEPARATOR)+
+	if(app.opt.savedir){
+		if((strlen(app.opt.savedir) + strlen(IPF_PATH_SEPARATOR)+
 						fname_len + 1) > PATH_MAX){
 			usage(progname,"-d: pathname too long.");
 			exit(1);
 		}
-		strcpy(dirpath,appctx.opt.savedir);
+		strcpy(dirpath,app.opt.savedir);
 		strcat(dirpath,IPF_PATH_SEPARATOR);
 	}else
 		dirpath[0] = '\0';
 
-	if(!appctx.opt.timeDuration){
-		appctx.opt.timeDuration = 10; /* 10 second default */
+	if(!app.opt.timeDuration){
+		app.opt.timeDuration = 10; /* 10 second default */
 	}
 
-	if(appctx.opt.seriesInterval <
-				(appctx.opt.timeDuration + SETUP_ESTIMATE)){
-		usage(progname,"-I: interval too small relative to -t");
-		exit(1);
+	/*
+	 * If seriesInterval is in use, verify the args and pick a
+	 * resonable default for seriesWindow if needed.
+	 */
+	if(app.opt.seriesInterval){
+		if(app.opt.seriesInterval <
+				(app.opt.timeDuration + SETUP_ESTIMATE)){
+			usage(progname,"-I: interval too small relative to -t");
+			exit(1);
+		}
+		/*
+		 * Make sure tests start before 50% of the 'interval' is
+		 * gone.
+		 */
+		if(!app.opt.seriesWindow){
+			app.opt.seriesWindow = MIN(
+			app.opt.seriesInterval-app.opt.timeDuration,
+			app.opt.seriesInterval * 0.5);
+		}
+	}
+	else{
+		/*
+		 * Make sure tests start within 2 test durations.
+		 */
+		if(!app.opt.seriesWindow){
+			app.opt.seriesWindow = app.opt.timeDuration * 2;
+		}
+	}
+	latest64 = IPFULongToNum64(app.opt.seriesWindow);
+
+	if(app.opt.udpTest && !app.opt.bandWidth){
+		app.opt.bandWidth = DEF_UDP_RATE;
 	}
 
-	if(appctx.opt.udpTest && !appctx.opt.bandWidth){
-		appctx.opt.bandWidth = DEF_UDP_RATE;
-	}
-
-	if(appctx.opt.bandWidth && !appctx.opt.udpTest){
+	if(app.opt.bandWidth && !app.opt.udpTest){
 		usage(progname,"-b: only valid with -u");
 		exit(1);
 	}
@@ -528,7 +562,7 @@ main(
 	/*
 	 * Lock the directory for iperfc if it is in printfiles mode.
 	 */
-	if(appctx.opt.printfiles){
+	if(app.opt.printfiles){
 		strcpy(lockpath,dirpath);
 		strcat(lockpath,IPLOCK);
 		lockfd = open(lockpath,O_RDWR|O_CREAT,
@@ -566,38 +600,52 @@ main(
 	 */
 	memset(&local,0,sizeof(local));
 	/* skip req_time/latest_time - set per/test */
-	local.tspec.duration = appctx.opt.timeDuration;
-	local.tspec.udp = appctx.opt.udpTest;
+	local.tspec.duration = app.opt.timeDuration;
+	local.tspec.udp = app.opt.udpTest;
 	if(local.tspec.udp){
-		local.tspec.bandwidth = appctx.opt.bandWidth;
+		local.tspec.bandwidth = app.opt.bandWidth;
 	}
-	local.tspec.window_size = appctx.opt.windowSize;
-	local.tspec.len_buffer = appctx.opt.lenBuffer;
-	local.tspec.report_interval = appctx.opt.reportInterval;
+	local.tspec.window_size = app.opt.windowSize;
+	local.tspec.len_buffer = app.opt.lenBuffer;
+	local.tspec.report_interval = app.opt.reportInterval;
 
 	memcpy(&remote,&local,sizeof(local));
 
-	if(appctx.opt.send){
-		sender = &local;
-		receiver = &remote;
+	if(app.opt.send){
+		s[0] = &remote;
+		s[1] = &local;
 	}else{
-		sender = &remote;
-		receiver = &local;
+		s[0] = &local;
+		s[1] = &remote;
 	}
 
 	zero64 = IPFULongToNum64(0);
-
-	/*
-	 * TODO: Fix this.
-	 * Setup policy stuff - this currently sucks.
-	 */
-	ip_set_auth(&appctx,progname,ctx); 
 
 	/*
 	 * Initialize library with configuration functions.
 	 */
 	if( !(ctx = IPFContextCreate(eh))){
 		I2ErrLog(eh, "Unable to initialize IPF library.");
+		exit(1);
+	}
+
+	/*
+	 * TODO: Fix this.
+	 * Setup policy stuff - this currently sucks.
+	 */
+	ip_set_auth(&app,progname,ctx); 
+
+	/*
+	 * setup sighandlers
+	 */
+	ip_reset = ip_exit = 0;
+	act.sa_handler = sig_catch;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags = 0;
+	if(		(sigaction(SIGTERM,&act,NULL) != 0) ||
+			(sigaction(SIGINT,&act,NULL) != 0) ||
+			(sigaction(SIGHUP,&act,NULL) != 0)){
+		I2ErrLog(eh,"sigaction(): %M");
 		exit(1);
 	}
 
@@ -613,12 +661,14 @@ main(
 		IPFTimeStamp	req_time;
 		IPFTimeStamp	currtime;
 
+		if(sig_check()) exit(1);
+
 		/* Open remote connection */
 		if(!remote.cntrl){
 			remote.cntrl = IPFControlOpen(ctx,
-				IPFAddrByNode(ctx,appctx.opt.srcaddr),
-				IPFAddrByNode(ctx,appctx.remote_test),
-				appctx.auth_mode,appctx.opt.identity,
+				IPFAddrByNode(ctx,app.opt.srcaddr),
+				IPFAddrByNode(ctx,app.remote_test),
+				app.auth_mode,app.opt.identity,
 				NULL,&err_ret);
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
@@ -629,7 +679,7 @@ main(
 			local.cntrl = IPFControlOpen(ctx,
 				NULL,
 				IPFAddrByLocalControl(remote.cntrl),
-				appctx.auth_mode,appctx.opt.identity,
+				app.auth_mode,app.opt.identity,
 				NULL,&err_ret);
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
@@ -643,8 +693,13 @@ main(
 		/* initialize */
 		req_time.ipftime = zero64;
 
-		/* Determine round-trip time to remote host */
-		if(IPFControlTimeCheck(remote.cntrl,NULL) != IPFErrOK){
+		/*
+		 * Query remote time error and update round-trip bound.
+		 * (The time will be over-written later, we really only
+		 * care about the errest portion of the timestamp.)
+		 */
+		if(IPFControlTimeCheck(remote.cntrl,&local.tspec.req_time) !=
+								IPFErrOK){
 			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
 			exit(1);
 		}
@@ -653,8 +708,13 @@ main(
 				IPFNum64Mult(IPFGetRTTBound(remote.cntrl),
 							IPFULongToNum64(3)));
 
-		/* Determine round-trip time to local host */
-		if(IPFControlTimeCheck(local.cntrl,NULL) != IPFErrOK){
+		/*
+		 * Query local time error and update round-trip bound.
+		 * (The time will be over-written later, we really only
+		 * care about the errest portion of the timestamp.)
+		 */
+		if(IPFControlTimeCheck(local.cntrl,&remote.tspec.req_time) !=
+								IPFErrOK){
 			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
 			exit(1);
 		}
@@ -683,70 +743,66 @@ main(
 							currtime.ipftime);
 		/*
 		 * Get a reservation:
+		 * 	s[0] == receiver
+		 * 	s[1] == sender
 		 * 	initialize req_time/latest_time
 		 * 	keep querying each server in turn until satisfied,
 		 * 	or denied.
 		 */
-		/* TODO: Come up with a reasonable 'latest' time */
-		sender->tspec.latest_time = receiver->tspec.latest_time= zero64;
-		sender->tspec.req_time = INFINITY;
+		s[0]->tspec.latest_time = s[1]->tspec.latest_time =
+					IPFNum64Add(req_time.ipftime, latest64);
+		s[1]->tspec.req_time.ipftime = zero64;
 		memset(sid,0,sizeof(sid));
-		do{
-			/*
-			 * Must start with receiver because the first time
-			 * allocates/creates the sid.
-			 */
 
-			receiver->tspec.req_time = req_time.ipftime;
-			/* TODO: do something with return values. */
-			if(!IPFSessionRequest(receiver->cntrl,False,
-					&receiver->tspec,STDOUT,&req_time,
+		p=0;q=0;
+		while(1){
+
+			/*
+			 * p is the current connection we are talking to,
+			 * q is the "other" one.
+			 * (Logic is started so the first time through this loop
+			 * we are talking to the "receiver". That is required
+			 * to initialize the sid.)
+			 */
+			p = q++;
+			q %= 2;
+
+			s[p]->tspec.req_time.ipftime = req_time.ipftime;
+
+			/* TODO: do something with return values.
+			 * 	open tempfile instead of stdout
+			 */
+			if(!IPFSessionRequest(s[p]->cntrl,False,
+					&s[p]->tspec,&req_time,
 					sid,&err_ret)){
 				if((err_ret == IPFErrOK) &&
 						(IPFNum64Cmp(req_time.ipftime,
 							     zero64) != 0)){
-					/* TODO: clear connections? */
+					/*
+					 * Request is ok, but server is too
+					 * busy. Skip this test and proceed
+					 * to next session interval.
+					 */
+					I2ErrLog(eh,
+						"SessionRequest: Server busy.");
 					goto next_test;
 				}
-				/* TODO: handle error */
-				exit(1);
+				CloseSessions();
+				I2ErrLog(eh,
+					"SessionRequest failure. Skipping.");
+				goto next_test;
 			}else{
-				receiver->tspec.req_time = req_time.ipftime;
+				s[p]->tspec.req_time.ipftime = req_time.ipftime;
 			}
 
 			/*
 			 * Do we have a meeting?
 			 */
-			if(IPFNum64Cmp(receiver->tspec.req_time,
-						sender->tspec.req_time) == 0){
+			if(IPFNum64Cmp(s[p]->tspec.req_time.ipftime,
+					s[q]->tspec.req_time.ipftime) == 0){
 				break;
 			}
-
-			sender->tspec.req_time = req_time.ipftime;
-			/* TODO: do something with return values. */
-			if(!IPFSessionRequest(sender->cntrl,False,
-					&sender->tspec,STDOUT,&req_time,
-					sid,&err_ret)){
-				if((err_ret == IPFErrOK) &&
-						(IPFNum64Cmp(req_time.ipftime,
-							     zero64) != 0)){
-					/* TODO: clear connections? */
-					goto next_test;
-				}
-				/* TODO: handle error */
-				exit(1);
-			}else{
-				sender->tspec.req_time = req_time.ipftime;
-			}
-
-			/*
-			 * Do we have a meeting?
-			 */
-			if(IPFNum64Cmp(receiver->tspec.req_time,
-						sender->tspec.req_time) == 0){
-				break;
-			}
-		}while(1);
+		}
 
 		/* TODO: Add sighandler for SIGINT that sends StopSessions? */
 

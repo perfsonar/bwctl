@@ -64,6 +64,7 @@ typedef	struct {
 
 		char		*savedir;	/* -d */
 		u_int32_t	seriesInterval;	/* -I (seconds) */
+		u_int32_t	seriesWindow;	/* -L (seconds) */
 		I2Boolean	printfiles;	/* -p */
 		int		facility;	/* -e */
 						/* -r stderr too */

@@ -49,7 +49,7 @@ IPFContextCreate(
 
 	if(!ctx){
 		IPFError(eh,
-			IPFErrFATAL,ENOMEM,":calloc(1,%d):%M",
+			IPFErrFATAL,ENOMEM,":calloc(1,%d): %M",
 						sizeof(IPFContextRec));
 		return NULL;
 	}
