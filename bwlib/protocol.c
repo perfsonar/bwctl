@@ -1747,7 +1747,11 @@ datadone:
 		}
 	}
 
-	if(_BWLSendBlocksIntr(cntrl,cntrl->zero,1,retn_on_intr) != 1){
+	/*
+	 * Send a final block of zero
+	 */
+	memset(buf,0,_BWL_RIJNDAEL_BLOCK_SIZE);
+	if(_BWLSendBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
 		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
