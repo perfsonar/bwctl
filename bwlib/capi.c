@@ -866,8 +866,6 @@ _BWLClientRequestTestReadResponse(
 	if(acceptval == BWL_CNTRL_ACCEPT)
 		return 0;
 
-	BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,"Server denied test");
-
 	*err_ret = BWLErrOK;
 	return 1;
 }
@@ -1258,14 +1256,16 @@ BWLSessionRequest(
 
 	/*
 	 * Request the server create the receiver & possibly the
-	 * sender.
+	 * sender. (copy reservation time so a denied response can be
+	 * differentiated from a "busy" response.)
 	 */
-	if((rc = _BWLClientRequestTestReadResponse(cntrl,tsession,err_ret))
-									!= 0){
+	rc = _BWLClientRequestTestReadResponse(cntrl,tsession,err_ret);
+	avail_time_ret->tstamp = tsession->reserve_time;
+
+	if(rc != 0){
 		goto error;
 	}
 
-	avail_time_ret->tstamp = tsession->reserve_time;
 	if(recv_port){
 		*recv_port = tsession->recv_port;
 	}

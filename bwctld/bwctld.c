@@ -332,8 +332,10 @@ ChldReservationDemand(
 	/*
 	 * Open slot too late
 	 */
-	if(ltime && (BWLNum64Cmp(res->restime,ltime) > 0))
+	if(ltime && (BWLNum64Cmp(res->restime,ltime) > 0)){
+		*restime = res->restime;
 		goto denied;
+	}
 
 	/********************************
 	 * Find an open slot		*

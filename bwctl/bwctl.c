@@ -998,6 +998,10 @@ main(
 		app.send_sess = (app.recv_sess == &first)?&second:&first;
 	}
 	app.send_sess->send = True;
+	if(!second_set && !(second.host = strdup("localhost"))){
+		I2ErrLog(eh,"malloc:%M");
+		exit(1);
+	}
 
 	/*
 	 * Useful constant
@@ -1548,21 +1552,44 @@ AGAIN:
 			s[p]->tspec.req_time.tstamp = req_time.tstamp;
 
 			/*
-			 * TODO: do something with return values.
+			 * Make the request
 			 */
 			if(!BWLSessionRequest(s[p]->cntrl,s[p]->send,
 					&s[p]->tspec,&req_time,&recv_port,
 					sid,&err_ret)){
-				if((err_ret == BWLErrOK) &&
-						(BWLNum64Cmp(req_time.tstamp,
-							     zero64) == 0)){
+				/*
+				 * Session was not accepted.
+				 */
+
+				/*
+				 * If control connection is still ok...
+				 */
+				if(err_ret == BWLErrOK){
+
 					/*
-					 * Request is ok, but server is too
-					 * busy. Skip this test and proceed
-					 * to next session interval.
+					 * If server is busy, req_time will
+					 * be non-zero.
 					 */
-					I2ErrLog(eh,
-						"SessionRequest: Server busy. (Try -L flag)");
+					if(req_time.tstamp != zero64){
+						/*
+						 * Request is ok, but server
+						 * is too busy. Skip this test
+						 * and proceed to next session
+						 * interval.
+						 */
+						I2ErrLog(eh,
+			"SessionRequest: Server \'%s\'busy. (Try -L flag)",
+						s[p]->host);
+					}
+					else{
+						/*
+						 * Don't know why it was
+						 * denied.
+						 */
+						I2ErrLog(eh,
+					"SessionRequest: Session denied");
+					}
+
 					/*
 					 * Reset other servers reservation if
 					 * needed.
@@ -1586,17 +1613,17 @@ AGAIN:
 							goto sess_req_err;
 						}
 					}
-						
-					goto next_test;
 				}
+				else{
 sess_req_err:
-				/*
-				 * TODO: Differentiate failure from not allowed.
-				 * (? Does it make a difference ?)
-				 */
-				CloseSessions();
-				I2ErrLog(eh,
+					/*
+					 * Control connection failed, close
+					 * it down.
+					 */
+					CloseSessions();
+					I2ErrLog(eh,
 					"SessionRequest failure. Skipping.");
+				}
 				goto next_test;
 			}
 			if(sig_check()) exit(1);
@@ -1604,12 +1631,8 @@ sess_req_err:
 			if(BWLNum64Cmp(req_time.tstamp,
 						s[p]->tspec.latest_time) > 0){
 				I2ErrLog(eh,
-					"SessionRequest: returned bad time!");
-				/*
-				 * TODO: Send SessionRequest of time==0
-				 * 	to clear current reservation instead
-				 * 	of closing sockets.
-				 */
+		"SessionRequest: \'%s\' returned bad reservation time!",
+					s[p]->host);
 				CloseSessions();
 				goto next_test;
 			}
