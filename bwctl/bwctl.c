@@ -100,11 +100,12 @@ print_output_args()
 {
 	fprintf(stderr,
 "              [Output Args]\n\n"
-"   -d dir         directory to save session file in (only if -p)\n"
+"   -p             print completed filenames to stdout - not session data\n"
+"   -x             output sender session results\n"
+"   -d dir         directory to save session files in (only if -p)\n"
 "   -I Interval    time between BWL test sessions(seconds)\n"
 "   -n nIntervals  number of tests to perform (default: continuous)\n"
 "   -L LatestDelay latest time into an interval to run test(seconds)\n"
-"   -p             print completed filenames to stdout - not session data\n"
 "   -h             print this message and exit\n"
 "   -e             syslog facility to log to\n"
 "   -r             send syslog to stderr\n"
@@ -520,6 +521,12 @@ main(
 			break;
 
 		/* OUTPUT OPTIONS */
+		case 'p':
+			app.opt.printfiles = True;
+			break;
+		case 'x':
+			app.opt.sender_results = True;
+			break;
 		case 'd':
 			if (!(app.opt.savedir = strdup(optarg))) {
 				I2ErrLog(eh,"malloc:%M");
@@ -549,9 +556,6 @@ main(
 				"Invalid value. Positive integer expected");
 				exit(1);
 			}
-			break;
-		case 'p':
-			app.opt.printfiles = True;
 			break;
 		case 'e':
 		case 'r':
@@ -669,7 +673,7 @@ main(
 	 * exceed PATH_MAX even with the nul byte.
 	 * Also set file_offset and ext_offset to the lengths needed.
 	 */
-	fname_len = TSTAMPCHARS + strlen(BWL_FILE_EXT) + strlen(SUMMARY_EXT);
+	fname_len = BWL_TSTAMPCHARS + DIRECTION_EXT_LEN + strlen(BWL_FILE_EXT);
 	assert((fname_len+1)<PATH_MAX);
 	if(app.opt.savedir){
 		if((strlen(app.opt.savedir) + strlen(BWL_PATH_SEPARATOR)+
@@ -679,8 +683,11 @@ main(
 		}
 		strcpy(dirpath,app.opt.savedir);
 		strcat(dirpath,BWL_PATH_SEPARATOR);
-	}else
+	}else{
 		dirpath[0] = '\0';
+	}
+	file_offset = strlen(dirpath);
+	ext_offset = file_offset + BWL_TSTAMPCHARS;
 
 	if(!app.opt.timeDuration){
 		app.opt.timeDuration = 10; /* 10 second default */
@@ -770,7 +777,7 @@ main(
 	 */
 	if(app.opt.printfiles){
 		strcpy(lockpath,dirpath);
-		strcat(lockpath,IPLOCK);
+		strcat(lockpath,BWLOCK);
 		lockfd = open(lockpath,O_RDWR|O_CREAT,
 					S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
 		if(lockfd < 0){
@@ -797,8 +804,6 @@ main(
 			exit(1);
 		}
 	}
-	file_offset = strlen(dirpath);
-	ext_offset = file_offset + TSTAMPCHARS;
 
 	/*
 	 * Initialize session records
@@ -828,9 +833,11 @@ main(
 	/*
 	 * TODO: Fix this.
 	 * Setup policy stuff - this currently sucks.
+	 * (add passphrase, etc...)
 	 */
 	ip_set_auth(&app,progname,ctx); 
 
+#if	NOT
 	/*
 	 * setup sighandlers
 	 */
@@ -844,6 +851,7 @@ main(
 		I2ErrLog(eh,"sigaction(): %M");
 		exit(1);
 	}
+#endif
 
 	/*
 	 * Initialize wake time to current time. If this is a single test,
@@ -956,7 +964,8 @@ AGAIN:
 		if(BWLControlTimeCheck(remote.cntrl,&local.tspec.req_time) !=
 								BWLErrOK){
 			I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
-			exit(1);
+			CloseSessions();
+			goto next_test;
 		}
 		if(sig_check()) exit(1);
 		/*
@@ -976,6 +985,7 @@ AGAIN:
 		if(BWLControlTimeCheck(local.cntrl,&remote.tspec.req_time) !=
 								BWLErrOK){
 			I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
+			CloseSessions();
 			goto next_test;
 		}
 		if(sig_check()) exit(1);
@@ -1097,7 +1107,6 @@ AGAIN:
 					 * busy. Skip this test and proceed
 					 * to next session interval.
 					 */
-					CloseSessions();
 					I2ErrLog(eh,
 						"SessionRequest: Server busy.");
 					goto next_test;
@@ -1160,6 +1169,45 @@ AGAIN:
 		endtime = BWLNum64Add(endtime,fuzz64);
 		stop = False;
 
+	char	recvfname[PATH_MAX];
+	char	sendfname[PATH_MAX];
+	FILE	*recvfp = NULL;
+	FILE	*sendfp = NULL;
+
+		/*
+		 * Setup files for the results.
+		 */
+		if(app.opt.printfiles){
+			strcpy(recvfname,dirpath);
+			sprintf(&recvfname[file_offset],BWL_TSTAMPFMT,
+					local.tspec.req_time.tstamp);
+			strcpy(sendfname,recvfname);
+
+			sprintf(&recvfname[ext_offset],"%s%s",
+					RECV_EXT,BW_FILE_EXT);
+			if(!(recvfp = fopen(recvfname,"w"))){
+				I2ErrLog(eh,"Unable to write to %s %M",
+						recvfname);
+				exit(1);
+			}
+			if(app.opt.sender_results){
+				sprintf(&sendfname[ext_offset],"%s%s",
+					RECV_EXT,BW_FILE_EXT);
+				if(!(sendfp = fopen(sendfname,"w"))){
+					I2ErrLog(eh,"Unable to write to %s %M",
+						sendfname);
+					exit(1);
+				}
+			}
+
+		}
+		else{
+			recvfp = stdout;
+			if(app.opt.sender_results){
+				sendfp = stdout;
+			}
+		}
+
 		/*
 		 * 	WaitForStopSessions
 		 */
@@ -1176,28 +1224,45 @@ AGAIN:
 				/*
 				 * Send TerminateSession
 				 */
-				/* receiver session to STDOUT (for now) */
-				fprintf(stdout,"RECEIVER START\n");
+				if(recvfp == stdout){
+					fprintf(stdout,"RECEIVER START\n");
+				}
 				if( (err_ret =BWLEndSession(s[0]->cntrl,
-							&ip_intr,stdout))
+							&ip_intr,recvfp))
 							< BWLErrWARNING){
 					CloseSessions();
 					goto next_test;
 				}
-				fprintf(stdout,"RECEIVER END\n");
-				fflush(stdout);
+				if(recvfp == stdout){
+					fprintf(stdout,"RECEIVER END\n");
+					fflush(stdout);
+				}
+				else{
+					fclose(recvfp);
+					recvfp = NULL;
+				}
+
 				if(sig_check()) exit(1);
 
-				/* sender session to 'null' */
-				fprintf(stdout,"SENDER START\n");
+				/* sender session */
+				if(sendfp == stdout){
+					fprintf(stdout,"SENDER START\n");
+				}
 				if( (err_ret = BWLEndSession(s[1]->cntrl,
-							&ip_intr,stdout))
+							&ip_intr,sendfp))
 							< BWLErrWARNING){
 					CloseSessions();
 					goto next_test;
 				}
-				fprintf(stdout,"SENDER END\n");
-				fflush(stdout);
+				if(sendfp == stdout){
+					fprintf(stdout,"SENDER END\n");
+					fflush(stdout);
+				}
+				else if(sendfp){
+					fclose(sendfp);
+					sendfp = NULL;
+				}
+
 				if(sig_check()) exit(1);
 
 				break;

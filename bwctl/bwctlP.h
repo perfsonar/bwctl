@@ -38,10 +38,17 @@
  * Lock file name. This file is created in the output directory to ensure
  * there is not more than one bwctl process writing there.
  */
-#define	IPLOCK	".iplock"
+#define	BWLOCK	".bwctllock"
 /* TSTAMP FMT YYYYMMDDTHHMMSS	*/
 #define TSTAMPCHARS	15
 #define SUMMARY_EXT	".sum"
+
+#define	SEND_EXT	".send"
+#define RECV_EXT	".recv"
+/*
+ * MAX(SEND_EXT,RECV_EXT)
+ */
+#define DIRECTION_EXT_LEN	5
 
 /*
  * Application "context" structure
@@ -63,6 +70,8 @@ typedef	struct {
 		I2Boolean	childwait;	/* -W */
 #endif
 
+		I2Boolean	printfiles;	/* -p */
+		I2Boolean	sender_results;	/* -x (xmit)*/
 		char		*savedir;	/* -d */
 		u_int32_t	seriesInterval;	/* -I (seconds) */
 		u_int32_t	nIntervals;	/* -n */
@@ -80,7 +89,6 @@ typedef	struct {
 						 * being used, than defaults
 						 * to 2xtest duration.
 						 */
-		I2Boolean	printfiles;	/* -p */
 		int		facility;	/* -e */
 						/* -r stderr too */
 		I2Boolean	version;	/* -v */

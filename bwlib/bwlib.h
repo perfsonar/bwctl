@@ -107,14 +107,6 @@
 #define BWL_TSTAMPCHARS  20
 #endif
 
-/*
- * Char used between start_end.ipf files.
- */
-#ifndef BWL_NAME_SEP
-#define BWL_NAME_SEP    "_"
-#endif
-
-
 #include <bwlib/rijndael-api-fst.h>
 
 /* Default mode offered by the server */
