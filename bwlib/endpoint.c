@@ -31,6 +31,8 @@
 #include "ipcntrlP.h"
 
 static int ipf_term;
+static int ipf_chld;
+static int ipf_intr;
 
 /*
  * Function:	EndpointAlloc
@@ -308,6 +310,19 @@ sig_catch(
 	return;
 }
 
+/*
+ * This function redirects stdout to the tmpfile that was created
+ * to hold the result, and then waits until it should fire off
+ * the test - and then exec's.
+ */
+static void
+iperf(
+		IPFEndpoint	ep
+		)
+{
+	exit(IPF_CNTRL_FAILURE);
+}
+
 IPFBoolean
 _IPFEndpointStart(
 	IPFTestSession	tsess,
@@ -317,8 +332,6 @@ _IPFEndpointStart(
 {
 	IPFContext		ctx = tsess->cntrl->ctx;
 	IPFEndpoint		ep;
-	int			ssockfd;
-	char			fname[PATH_MAX+1];
 	IPFGetAESKeyFunc	getaeskey = getsidaeskey;
 	sigset_t		sigs;
 	sigset_t		osigs;
@@ -326,9 +339,11 @@ _IPFEndpointStart(
 	IPFTimeStamp		currtime;
 	IPFNum64		reltime;
 	struct itimerval	itval;
+	IPFAcceptType		aval;
+	int			wstatus;
 
 	if( !(tsess->localfp = tfile(tsess)) ||
-			!(tsess->remotefp = tfile(tsess))){
+					!(tsess->remotefp = tfile(tsess))){
 		return False;
 	}
 
@@ -337,7 +352,7 @@ _IPFEndpointStart(
 	}
 
 	if(tsess->conf_receiver &&
-			((ssockfd = epssock(tsess,dataport)) < 0)){
+			((ep->ssockfd = epssock(tsess,dataport)) < 0)){
 		EndpointFree(ep);
 		return False;
 	}
@@ -390,6 +405,13 @@ _IPFEndpointStart(
 
 		EndpointClear(ep);
 
+		/*
+		 * close the remotefp - this process no longer needs it.
+		 * keep localfp so the test results can be sent to client.
+		 */
+		fclose(tsess->remotefp);
+		tsess->remotefp = NULL;
+
 		return True;
 	}
 
@@ -437,7 +459,6 @@ _IPFEndpointStart(
 	 * appropriate time. The parent will open a connection to the other
 	 * endpoint for the test results exchange.
 	 */
-
 	ep->child = fork();
 
 	if(ep->child < 0){
@@ -447,6 +468,7 @@ _IPFEndpointStart(
 	}
 
 	if(ep->child == 0){
+		/* go run iperf */
 		iperf(ep);
 		/* NOTREACHED */
 	}
@@ -480,29 +502,29 @@ _IPFEndpointStart(
 		goto end;
 	}
 
-	if(IPFNum64Cmp(tsess->reserve_time,currtime->ipftime) < 0){
+	if(IPFNum64Cmp(tsess->reserve_time,currtime.ipftime) < 0){
 		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
 				"endpoint to endpoint setup too late");
 		goto end;
 	}
 
-	reltime = IPFNum64Sub(tsess->reserve_time,currtime->ipftime);
+	reltime = IPFNum64Sub(tsess->reserve_time,currtime.ipftime);
 
 	memset(&itval,0,sizeof(itval));
-	IPFNum64ToTimeval(&itval.itvalue,reltime);
+	IPFNum64ToTimeval(&itval.it_value,reltime);
 	if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
 		IPFError(ctx,IPFErrFATAL,errno,"setitimer(): %M");
 		goto end;
 	}
 
-	if(tsess->conf_recv){
+	if(tsess->conf_receiver){
 		struct sockaddr_storage	sbuff;
 		socklen_t		sbuff_len;
 		int			connfd;
 
 ACCEPT:
 		sbuff_len = sizeof(sbuff);
-		connfd = accept(ssockfd,(struct sockaddr *)&sbuff,
+		connfd = accept(ep->ssockfd,(struct sockaddr *)&sbuff,
 								&sbuff_len);
 		if(ipf_term)
 			goto end;
@@ -519,9 +541,9 @@ ACCEPT:
 		/*
 		 * Only allow connections from the remote testaddr
 		 */
-		if(I2SockAddrEqual(cntrl->remote_addr->saddr,
-					cntrl->remote_addr->saddrlen,
-					(struct sockaddr *)sbuff,sbuff_len,
+		if(I2SockAddrEqual(tsess->cntrl->remote_addr->saddr,
+					tsess->cntrl->remote_addr->saddrlen,
+					(struct sockaddr *)&sbuff,sbuff_len,
 					I2SADDR_ADDR) <= 0){
 			IPFError(ctx,IPFErrFATAL,IPFErrPOLICY,
 					"Connect from invalid addr");
@@ -529,12 +551,12 @@ ACCEPT:
 			goto ACCEPT;
 		}
 
-		close(ssockfd);
-		ssockfd = -1;
+		close(ep->ssockfd);
+		ep->ssockfd = -1;
 
 		ep->rcntrl = IPFControlAccept(ctx,connfd,
-				(struct sockaddr *)sbuff,sbuff_len,
-				tsess->cntrl->mode,currtime->ipftime,
+				(struct sockaddr *)&sbuff,sbuff_len,
+				tsess->cntrl->mode,currtime.ipftime,
 				&ipf_term,err_ret);
 	}
 	else{
@@ -548,6 +570,8 @@ ACCEPT:
 	}
 	if(!ep->rcntrl)
 		goto end;
+	if(ipf_term)
+		goto end;
 
 	/*
 	 * Now that we have established communication, reset the timer
@@ -559,36 +583,48 @@ ACCEPT:
 		goto end;
 	}
 
-	if(IPFNum64Cmp(tsess->reserve_time,currtime->ipftime) < 0){
+	if(IPFNum64Cmp(tsess->reserve_time,currtime.ipftime) < 0){
 		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
 				"endpoint to endpoint setup too late");
 		goto end;
 	}
 
-	reltime = IPFNum64Sub(tsess->reserve_time,currtime->ipftime);
+	reltime = IPFNum64Sub(tsess->reserve_time,currtime.ipftime);
 	reltime = IPFNum64Add(reltime,
 			IPFULongToNum64(tsess->test_spec.duration + 1));
 
 	memset(&itval,0,sizeof(itval));
-	IPFNum64ToTimeval(&itval.itvalue,reltime);
+	IPFNum64ToTimeval(&itval.it_value,reltime);
 	if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
 		IPFError(ctx,IPFErrFATAL,errno,"setitimer(): %M");
 		goto end;
 	}
 
+	if(ipf_term)
+		goto end;
+
 	/*
 	 * Fake lcntrl socket into "test" mode and set it up with the
 	 * same tsess record as the parent process.
+	 * Then wait for StopSession to trade results.
 	 */
 	ep->rcntrl->tests = tsess;
 	ep->rcntrl->state |= _IPFStateTest;
+	
+wait:
+	wstatus = IPFStopSessionWait(ep->rcntrl,NULL,&ipf_term,&aval,err_ret);
 
-	HERE
-	FIGURE OUT FILE I/O StopSessionsWait is messed up!
+	if(wstatus == 0)
+		exit(aval);
+
+	if((wstatus > 0) && !ipf_term)
+		goto wait;
 
 end:
 
 	if(ep->child > 0){
+		int	cstatus;
+
 		kill(ep->child,SIGINT);
 		ep->wopts &= ~WNOHANG;
 		while((waitpid(ep->child,&cstatus,ep->wopts) < 0) &&
@@ -604,9 +640,12 @@ _IPFEndpointStatus(
 	IPFErrSeverity	*err_ret
 	)
 {
-#if	NOT
 	pid_t			p;
 	int			childstatus;
+	IPFEndpoint		ep = tsess->endpoint;
+
+	if(!ep)
+		return True;
 
 	if(ep->acceptval < 0){
 AGAIN:
@@ -629,9 +668,6 @@ AGAIN:
 	*err_ret = IPFErrOK;
 	*aval = ep->acceptval;
 	return True;
-#else
-	return False;
-#endif
 }
 
 
@@ -642,17 +678,12 @@ _IPFEndpointStop(
 	IPFErrSeverity	*err_ret
 	)
 {
-#if	NOT
-	int		sig;
 	int		teststatus;
 	IPFBoolean	retval;
+	IPFEndpoint	ep = tsess->endpoint;
 
-	/*
-	 * TODO: v6 This function should "retrieve" the last seq_no/or
-	 * num_packets sent. From the child and it should take as an arg
-	 * the last_seq from the other side if it is available to send
-	 * to the endpoint if needed.
-	 */
+	if(!ep)
+		return True;
 
 	if((ep->acceptval >= 0) || (ep->child == 0)){
 		*err_ret = IPFErrOK;
@@ -661,15 +692,10 @@ _IPFEndpointStop(
 
 	*err_ret = IPFErrFATAL;
 
-	if(aval)
-		sig = SIGINT;
-	else
-		sig = SIGUSR2;
-
 	/*
 	 * If child already exited, kill will come back with ESRCH
 	 */
-	if((kill(ep->child,sig) != 0) && (errno != ESRCH))
+	if((kill(ep->child,SIGTERM) != 0) && (errno != ESRCH))
 		goto error;
 
 	/*
@@ -678,7 +704,7 @@ _IPFEndpointStop(
 	 * (Should we add a timer to break out? No - not that paranoid yet.)
 	 */
 	ep->wopts &= ~WNOHANG;
-	retval = _IPFEndpointStatus(ep,&teststatus,err_ret);
+	retval = _IPFEndpointStatus(tsess,&teststatus,err_ret);
 	if(teststatus >= 0)
 		goto done;
 
@@ -690,10 +716,7 @@ done:
 		aval = ep->acceptval;
 	}
 	ep->tsess->endpoint = NULL;
-	EndpointFree(ep,aval);
+	EndpointFree(ep);
 
 	return retval;
-#else
-	return False;
-#endif
 }

@@ -1290,7 +1290,7 @@ IPFEndSession(
 		return _IPFFailControlSession(cntrl,rc);
 	}
 
-	return IPFErrOK;
+	return _IPFTestSessionFree(cntrl->tests,*aptr);
 }
 
 /*

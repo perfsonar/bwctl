@@ -868,8 +868,6 @@ IPFSessionStatus(
 		return False;
 
 	return _IPFEndpointStatus(tsession,aval,&err);
-
-	return False;
 }
 
 int
@@ -923,7 +921,7 @@ IPFStopSession(
 	 * Stop the local endpoint. This should not return until
 	 * the datafile is "flushed" into "localfp".
 	 */
-	(void)_IPFEndpointStop(cntrl->tests,*acceptval,&err);
+	(void)_IPFEndpointStop(cntrl->tests,*acceptval,&err2);
 
 	/*
 	 * If acceptval would have been "success", but stopping of local

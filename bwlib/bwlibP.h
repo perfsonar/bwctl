@@ -220,6 +220,7 @@ typedef struct IPFEndpointRec{
 	IPFControl		cntrl;		/* To client		*/
 	IPFTestSession		tsess;
 
+	int			ssockfd;
 	IPFControl		rcntrl;		/* To other endpoint	*/
 
 	IPFAcceptType		acceptval;
