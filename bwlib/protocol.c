@@ -1791,22 +1791,6 @@ _BWLReadStopSession(
 		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
-	/*
-	 * DEBUG
-	 */
-	{
-		char	hbuf[33];
-
-		I2HexEncode(hbuf,&buf[0],16);
-		BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
-			"ReadStopSession: msg[0-15] = '%s'",hbuf);
-		I2HexEncode(hbuf,&buf[16],16);
-		BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
-			"ReadStopSession: msg[16-31] = '%s'",hbuf);
-		I2HexEncode(hbuf,cntrl->zero,16);
-		BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
-			"ReadStopSession: cntrl->zero = '%s'",hbuf);
-	}
 	if(memcmp(cntrl->zero,&buf[16],16)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 				"_BWLReadStopSession: Invalid zero padding");
