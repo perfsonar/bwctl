@@ -825,7 +825,7 @@ _BWLEndpointStart(
 
 	reltime = BWLNum64Sub(tsess->reserve_time,currtime.tstamp);
 
-	BWLError(ctx,BWLErrINFO,BWLErrINVALID,
+	BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
 			"currtime = %f, reservation = %f, reltime = %f",
 			BWLNum64ToDouble(currtime.tstamp),
 			BWLNum64ToDouble(tsess->reserve_time),
@@ -1026,7 +1026,7 @@ end:
 				"BWLGetTimeStamp(): %M");
 		abort();
 	}
-	BWLError(ctx,BWLErrINFO,BWLErrINVALID,
+	BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
 			"End of test: currtime = %f",
 			BWLNum64ToDouble(currtime.tstamp)
 			);
