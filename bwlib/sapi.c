@@ -727,6 +727,8 @@ IPFProcessTestRequest(
 	tsession->fuzz = IPFNum64Add(tsession->fuzz,
 				IPFNum64Max(one64,
 				IPFGetTimeStampError(&tsession->localtime)));
+	tsession->fuzz = IPFNum64Add(tsession->fuzz,IPFULongToNum64(1));
+
 	/*
 	 * TODO:
 	 * Determine if this check is really needed... The StartSession
