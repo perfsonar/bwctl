@@ -31,7 +31,7 @@
 
 <center>
 <h1>
-BWCTL Version 1.0b <font color="#FF0000">(beta)</font></h1></center>
+BWCTL Version 1.0c <font color="#FF0000">(beta)</font></h1></center>
 
 <center>(<b>B</b>and<b>w</b>idth <b>C</b>on<b>t</b>ro<b>l</b>)
 <br><a href="http://e2epi.internet2.edu/bwctl">http://e2epi.internet2.edu/bwctl/</a></center>
@@ -166,7 +166,9 @@ of configurable options.
 <blockquote>
 <pre>% gzip -cd bwctl-$VERS.tar.gz | tar xf -
 % cd bwctl-$VERS
-% ./configure --prefix=/inst/root # --prefix is only needed if you don't like the default (/usr/local on most systems)
+  # --prefix is only needed if you don't like the default
+  #   (/usr/local on most systems)
+% ./configure --prefix=/inst/root
 % make
 % make install</pre>
 </blockquote>
