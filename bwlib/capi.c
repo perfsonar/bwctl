@@ -506,6 +506,7 @@ BWLControlOpen(
 	else{
 		BWLError(ctx,BWLErrINFO,BWLErrPOLICY,
 				"BWLControlOpen:No Common Modes");
+		errno = EACCES;
 		goto denied;
 	}
 
@@ -574,6 +575,7 @@ BWLControlOpen(
 	if(acceptval != BWL_CNTRL_ACCEPT){
 		BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,
 							"Server denied access");
+		errno = EACCES;
 		goto denied;
 	}
 

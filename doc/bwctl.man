@@ -25,7 +25,13 @@
 bwctl \- Client application to request throughput tests.
 .SH SYNOPSIS
 .B bwctl 
-[\fIoptions\fR] (\fI\-c recvhost | \-s sendhost\fR)
+[\fIoptions\fR] \fI\-c recvhost \-s sendhost\fR
+.br
+.B bwctl 
+[\fIoptions\fR] \fI\-c recvhost\fR
+.br
+.B bwctl 
+[\fIoptions\fR] \fI\-s sendhost\fR
 .SH DESCRIPTION
 \fBbwctl\fR is a command line client application that is used to
 initiate \fBIperf\fR throughput tests.
@@ -38,19 +44,20 @@ datagram loss.
 .PP
 .B bwctl
 works by
-contacting \fBbwctld\fR daemons on both the receiving host and
+contacting a \fBbwctld\fR daemon on both the receiving host and
 the sending host. \fBbwctld\fR manages and schedules the resources
 of the host it runs on.
 .PP
 The \fBbwctl\fR client is used to request the type of \fBIperf\fR
-test wanted. Furthermore, it requests \fIwhen\fR the test is wanted.
-\fBbwctld\fR either responds with a tentative
+test wanted. Furthermore, it requests when the test is wanted.
+\fBbwctld\fR on each endpoint host either responds with a tentative
 reservation or a test denied message. Once \fBbwctl\fR is able to get
 a matching reservation from both \fBbwctld\fR processes (one for each
 host involved in the test), it confirms the
 reservation. Then, the \fBbwctld\fR processes run the test and return the
 results. The results are returned to the client from both sides of the
-test. Additionally, the \fBbwctld\fR processes share the results from
+test from the respective \fBbwctld\fR processes. Additionally, the
+\fBbwctld\fR processes share the results from
 their respective side of the test with each other.
 .PP
 \fBBWCTL\fR (\fBbwctl\fR and \fBbwctld\fR) is used to enable
@@ -68,8 +75,10 @@ multiple administrators. These hurdles have made this kind of testing
 difficult in practice. 
 .PP
 \fBBWCTL\fR was designed to help with this problem. It allows an
-administrator to configure a given host as an \fBIperf\fR endpoint
-that can be shared by multiple users without concern that those
+administrator to configure a given host as an \fBIperf\fR endpoint.
+The endpoint can be a packet sender (\fBIperf\fR client) or a 
+packet receiver (\fBIperf\fR server). It can be shared by multiple
+users without concern that those
 users will interfere with each other. Specific policy limits can be
 applied to specific users, and individual tests are scheduled so they
 will not interfere with each other. Additionally, full user accounts
@@ -82,29 +91,166 @@ Once the connection is classified, the \fBbwctld\fR can determine the
 exact type and intensities of \fBIperf\fR tests that will be allowed.
 More information on the policy controls can be found in the bwctld(8)
 man page.
-.SH OPTIONS
+.SH ARGUMENTS
+.SS Connection/Authentication Arguments:
 .TP
-\fB\-c\fR \fIrecvhost[:port]\fR
-Specifies the host that will run the \fBIperf\fR server. Must specify
-either the \fB\-c\fR or the \fB\-s\fR option.
+\fB\-A\fR \fIauthmethod\fB
+\fIauthmethod\fR is used to specify the authentication method the
+\fBbwctl\fR client is willing to use for communication with the \fBbwctld\fR
+on the \fIsendhost\fR and \fIrecvhost\fR.
+The authentication options of
+\fBbwctl\fR are intended to be extensible. The communication from the
+\fBbwctl\fR client to each \fBbwctld\fR server may take different options
+for different types of authentication.
+If the \fIauthmethod\fR option is specified for either the \fB\-s\fR,
+or the \fB\-c\fR argument, it overrides the \fIauthmethod\fR specified
+with the \fB\-A\fR option for communication with that particular host.
+(Therefore, the \fB\-A\fR argument is really only useful if the same
+authentication can be used with both hosts.)
+.RS
+.PP
+Allowing different authentication methods for each connection should allow
+a client to use different authentication methods with different servers
+which should in turn allow cross-domain tests to occur more easily.
+.PP
+The format for \fIauthmethod\fR is:
+.PP
+\fIauthmode [authscheme schemeopts]\fR
+.TP
+\fIauthmode\fR
+Specifies the authentication mode the client is willing to speak with
+a client. It must be set as a character string with
+any or all of the characters "AEO". The modes are:
+.RS
+.IP \fBA\fR
+[\fBA\fR]uthenticated. This mode encrypts the control connection.
+.IP \fBE\fR
+[\fBE\fR]ncrypted. This mode encrypts the control connection. If the
+test supports encryption, this mode will additionally encrypt the test
+stream. (Encryption of the test stream is not currently supported, so
+this mode is currently identical to authenticated.)
+.IP \fBO\fR
+[\fBO\fR]pen. No encryption of any kind is done.
+.PP
+The client can specify all the modes with which it is willing to communicate.
+The most strict mode that both the server and the client are willing to use
+will be selected.
+.IP Default:
+"AEO".
+.RE
+.TP
+\fIauthscheme schemeopts\fR
+\fIauthscheme\fR indicates the authentication scheme that should be used to
+achieve the \fBauthenticated\fR or \fBencrypted\fR modes.
+\fIschemeopts\fR are a list of arguments specific to each particular
+authentication scheme. Supported \fIauthscheme\fR values follow
+(listed with the \fIschemeopts\fR each scheme requires):
+.RS
+.TP
+\fBAESKEY\fR \fIuserid [keyfile]\fR
+This is the initial "simple" shared secret (AES key) model. \fIuserid\fR
+is required to identify which shared secret the server and client should
+use. \fIkeyfile\fR optionally specifies a file to retrieve the AES key
+from. If \fIkeyfile\fR is not specified, the user will be prompted for a
+\fIpassphrase\fR. \fIkeyfile\fR can be generated using the aespasswd(1)
+application.
+.IP "Default:"
+Unauthenticated.
+.RE
+.PP
+\fIauthscheme\fR and \fIschemeopts\fR are only needed if authenticated
+communication (\fBA\fR or \fBE\fR modes of \fIauthmode\fR)
+is wanted with \fIsendhost\fR and \fIrecvhost\fR.
+.RE
+.TP
+\fB\-B\fR \fIsrcaddr\fR
+Bind the local address of the client socket to \fIsrcaddr\fR. \fIsrcaddr\fR
+can be specified using a DNS name or using standard textual notations for
+the IP addresses.
+.RS
+.IP Default:
+Unspecified (wild-card address selection).
+.RE
+.TP
+\fB\-c\fR \fIrecvhost[:port] [authmethod]\fR
+Specifies the host that will run the \fBIperf\fR server.
 The :port suffix is optional
-and is only needed if \fBbwcltd\fR is being run on a non-default
+and is only needed if \fBbwctld\fR is being run on a non-default
 port number. If an IPv6 address is being specified, note that the accepted
 format contains the \fIrecvhost\fR portion of the specification in square
 brackets as: [fe80::fe9f:62d8]:4823.
 This ensures the port number is distinct from the address specification, and
 is not needed if the :port suffix is not being used.
+.RS
+.PP
+At least one of the \fB\-c\fR or \fB\-s\fR options must be specified. If
+one of them is not specified, it is assumed to be the localhost.
+.PP
+\fIauthmethod\fR is a specifically ordered list of keywords that
+is only needed if authenticated communication is wanted with \fIrecvhost\fR.
+These keywords are used
+to describe the type of communication and authentication that should be
+used to contact the \fIrecvhost\fR.
+If \fIrecvhost\fR and \fIsendhost\fR share
+the same authentication methods and identities, it is possible to
+specify the authmethod for both \fIrecvhost\fR and \fIsendhost\fR
+using the \fB\-A\fR argument.
+An \fIauthmethod\fR specified with
+the \fB\-c\fR option will override an \fIauthmethod\fR specified
+with the \fB\-A\fR argument for communication with the \fIrecvhost\fR.
+.PP
+The format for \fIauthmethod\fR and a description of the
+currently available authentication
+methods are described with the \fB\-A\fR argument.
+.RE
 .TP
-\fB\-s\fR \fIsendhost[:port]\fR
-Specifies the host that will run the \fBIperf\fR client. Must specify
-either the \fB\-c\fR or the \fB\-s\fR option.
+\fB\-k\fR
+This option has been deprecated. It was used to specify the
+keyfile for authentication.
+All authentication options can now be specified
+using the \fB\-A\fR argument.
+For the next several versions this option will
+report an error. Eventually it may be reclaimed for another purpose.
+.TP
+\fB\-s\fR \fIsendhost[:port] [authmethod]\fR
+Specifies the host that will run the \fBIperf\fR client.
 The :port suffix is optional
-and is only needed if \fBbwcltd\fR is being run on a non-default
+and is only needed if \fBbwctld\fR is being run on a non-default
 port number. If an IPv6 address is being specified, note that the accepted
 format contains the \fIsendhost\fR portion of the specification in square
 brackets as: [fe80::fe9f:62d8]:4823.
 This ensures the port number is distinct from the address specification, and
 is not needed if the :port suffix is not being used.
+.RS
+.PP
+At least one of the \fB\-c\fR or \fB\-s\fR options must be specified. If
+one of them is not specified, it is assumed to be the localhost.
+.PP
+\fIauthmethod\fR is a specifically ordered list of keywords that
+is only needed if authenticated communication is wanted with \fIsendhost\fR.
+These keywords are used
+to describe the type of communication and authentication that should be
+used to contact the \fIsendhost\fR.
+If \fIrecvhost\fR and \fIsendhost\fR share
+the same authentication methods and identities, it is possible to
+specify the authmethod for both \fIrecvhost\fR and \fIsendhost\fR
+using the \fB\-A\fR argument.
+An \fIauthmethod\fR specified with
+the \fB\-s\fR option will override an \fIauthmethod\fR specified
+with the \fB\-A\fR argument for communication with the \fIsendhost\fR.
+.PP
+The format for \fIauthmethod\fR and a description of the
+currently available authentication
+methods are described with the \fB\-A\fR argument.
+.RE
+.TP
+\fB\-U\fR
+This option has been deprecated. It was used to specify the username
+to identify the AES key for authentication.
+All authentication options can now be specified
+using the \fB\-A\fR argument.
+For the next several versions this option will
+report an error. Eventually it may be reclaimed for another purpose.
 .SS Throughput Test Arguments:
 (These arguments were named to match their counterparts in \fBIperf\fR
 as closely as possible.)
@@ -209,60 +355,6 @@ set to 10 percent, then \fBbwctl\fR will attempt to run a test every
 .IP Default:
 0 (no randomness).
 .RE
-.SS Connection/Authentication Arguments:
-.TP
-\fB\-A\fR \fIauthmode\fB
-Specify the authentication modes the client is willing to use for
-communication. \fIauthmode\fR should be set as a character string with
-any or all of the characters "AEO". The modes are:
-.RS
-.IP \fBA\fR
-[\fBA\fR]uthenticated. This mode encrypts the control connection.
-.IP \fBE\fR
-[\fBE\fR]ncrypted. This mode encrypts the control connection. If the
-test supports encryption, this mode will additionally encrypt the test
-stream. (Encryption of the test stream is not currently supported, so
-this mode is currently identical to authenticated.)
-.IP \fBO\fR
-[\fBO\fR]pen. No encryption of any kind is done.
-.PP
-The client can specify all the modes with which it is willing to communicate. The
-most strict mode that both the server and the client are willing to use
-will be selected.
-.IP Default:
-"AEO".
-.RE
-.TP
-\fB\-B\fR \fIsrcaddr\fR
-Bind the local address of the client socket to \fIsrcaddr\fR. \fIsrcaddr\fR
-can be specified using a DNS name or using standard textual notations for
-the IP addresses.
-.RS
-.IP Default:
-Unspecified (wild-card address selection).
-.RE
-.TP
-\fB\-k\fR \fIkeyfile\fR
-Indicates that \fBbwctl\fR should use the AES key in \fIkeyfile\fR for
-\fIusername\fB. \fIusername\fR must have a valid key in \fIkeyfile\fR.
-\fIkeyfile\fR should have been generated using the aespasswd(1)
-application.
-.RS
-.IP Default:
-Unset. (If the \fB\-U\fR option was specified, user will be prompted for a
-\fIpassphrase\fR.)
-.RE
-.TP
-\fB\-U\fR \fIusername\fR
-Specify the username that is used to identify the AES key for
-authenticated or encrypted modes. If the \fB\-k\fR option is specified,
-the key is retrieved from the \fIkeyfile\fR, otherwise \fBbwctl\fR prompts
-the user for a \fIpassphrase\fR. The \fIpassphrase\fR is used to generate
-the AES key.
-.RS
-.IP Default:
-Unset.
-.RE
 .SS Output Arguments:
 .TP
 \fB\-d\fR \fIdir\fR
@@ -301,39 +393,41 @@ Output sender (\fBIperf\fR client) results as well as receiver results.
 By default, sender results are not output. If the \fB\-p\fR option is
 specified, the sender results are placed in an additional file.
 .SH LIMITATIONS
-Currently it is only possible to specify either the \fBIperf\fR
-sender or the \fBIperf\fR receiver on the command line. The local
-host is assumed to be the other endpoint of the test.
-.PP
-Works with versions 1.7.0 and 2.0.b of \fBIperf\fR.
+Only tested with versions 1.7.0 and 2.0.b of \fBIperf\fR.
 .SH EXAMPLES
 .LP
-\fBbwctl -c somehost.com\fR
+\fBbwctl -c somehost.example.com\fR
 .IP
 Run a default 10 second TCP \fBIperf\fR test as soon as possible with
-localhost as the sender and somehost.com as the receiver. Return
+localhost as the sender and somehost.example.com as the receiver. Return
 the results from the receive side of the test.
 .LP
-\fBbwctl -x -c somehost.com\fR
+\fBbwctl -x -c somehost.example.com\fR
 .IP
 Like the previous test, but also return the results from the sender
 side of the test.
 .LP
-\fBbwctl -t 30 -s somehost.com\fR
+\fBbwctl -x -c somehost.example.com -s otherhost.example.com\fR
 .IP
-Run a 30 second TCP \fBIperf\fR test with somehost.com as the sender
+Like the previous test, but with otherhost.example.com as the
+sender instead of localhost.
+.LP
+\fBbwctl -t 30 -s somehost.example.com\fR
+.IP
+Run a 30 second TCP \fBIperf\fR test with somehost.example.com as the sender
 and localhost as the receiver.
 .LP
-\fBbwctl -I 3600 -R 10 -t 10 -u -b 10m -s somehost.com\fR
+\fBbwctl -I 3600 -R 10 -t 10 -u -b 10m -s somehost.example.com\fR
 .IP
 Run a 10 second UDP test about every hour (3600 +/- 360 seconds) with
-the sender rate limited to 10 Mbits per second from somehost.com to
+the sender rate limited to 10 Mbits per second from somehost.example.com to
 localhost.
 .LP
-\fBbwctl -U someuser -s somehost.com\fR
+\fBbwctl -s somehost.example.com AE AESKEY someuser\fR
 .IP
 Run the default 10 second TCP \fBIperf\fR test. Authenticate using
-the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a \fIpassphrase\fR.
+the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a passphrase
+that will be used to create an AES key.
 .SH SEE ALSO
 bwctld(8) and the \%http://e2epi.internet2.edu/bwctl/
 and \%http://dast.nlanr.net/Projects/Iperf/ web sites.
