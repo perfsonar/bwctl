@@ -58,7 +58,7 @@ parsekeys(
 	size_t		*lbuf_max
 	)
 {
-	int		rc;
+	int		rc=0;
 	BWLUserID	username;
 	BWLKey		tkey;
 	I2Datum		key,val;
