@@ -229,6 +229,7 @@ CloseSessions()
 	return;
 }
 
+#if	NOT
 static void
 sig_catch(
 		int	signo
@@ -251,6 +252,7 @@ sig_catch(
 
 	return;
 }
+#endif
 
 static int
 sig_check()
@@ -437,18 +439,20 @@ main(
 	char                    *endptr = NULL;
 	char                    optstring[128];
 	static char		*conn_opts = "A:B:k:U:";
-	static char		*out_opts = "d:I:n:L:pe:rv";
+	static char		*out_opts = "pxd:I:n:L:e:rv";
 	static char		*test_opts = "i:l:uw:P:S:b:t:cs";
 	static char		*gen_opts = "hWY";
 
 	char			dirpath[PATH_MAX];
 	struct flock		flk;
-	struct sigaction	act;
 	BWLNum64		latest64;
 	u_int32_t		p,q;
 	I2RandomSource		rsrc;
 	BWLScheduleContext	sctx;
 	BWLTimeStamp		wake;
+#if	NOT
+	struct sigaction	act;
+#endif
 
 	progname = (progname = strrchr(argv[0], '/')) ? ++progname : *argv;
 
@@ -1200,7 +1204,7 @@ AGAIN:
 			}
 			if(app.opt.sender_results){
 				sprintf(&sendfname[ext_offset],"%s%s",
-					RECV_EXT,BWL_FILE_EXT);
+					SEND_EXT,BWL_FILE_EXT);
 				if(!(sendfp = fopen(sendfname,"w"))){
 					I2ErrLog(eh,"Unable to write to %s %M",
 						sendfname);
@@ -1248,6 +1252,7 @@ AGAIN:
 				else{
 					fclose(recvfp);
 					recvfp = NULL;
+					fprintf(stdout,"%s\n",recvfname);
 				}
 
 				if(sig_check()) exit(1);
@@ -1269,6 +1274,7 @@ AGAIN:
 				else if(sendfp){
 					fclose(sendfp);
 					sendfp = NULL;
+					fprintf(stdout,"%s\n",sendfname);
 				}
 
 				if(sig_check()) exit(1);
@@ -1300,12 +1306,14 @@ AGAIN:
 				 * the test.)
 				 */
 				stop = True;
+#if	NOT
 				if(FD_ISSET(local.sockfd,&readfds)){
 					I2ErrLogP(eh,0,"Local readable!");
 				}
 				if(FD_ISSET(remote.sockfd,&readfds)){
 					I2ErrLogP(eh,0,"Remote readable!");
 				}
+#endif
 			}
 			if(sig_check()) exit(1);
 		}
