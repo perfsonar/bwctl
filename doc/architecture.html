@@ -77,7 +77,7 @@ time will be reached. If the <i>request broker</i> can not fulfill the
 request before the latest time specified in the request, it will return
 a server too busy message. If the client gets the same time from both servers,
 it must then confirm the reservation with a <b>start session</b> message.
-The <b>start session</b> message must be recieved before a configurable
+The <b>start session</b> message must be received before a configurable
 timeout period and before the reservation time, or the server will disallow
 the reservation.
 <p>Once the client sends the the <b>start session</b> message, the <i>request
@@ -104,7 +104,7 @@ Local bwctld not available</h3></center>
 <img SRC="bwctl_arch_servless.png" height=501 width=601></h5></center>
 The same basic communication takes place between the different processes
 in this alignment. The main difference is that the client has no need of
-a resource broker. This is the expected usage scenerio for end user workstations
+a resource broker. This is the expected usage scenario for end user workstations
 to run tests to well defined BWCTL measurement beacons.
 <p>* The images above shows a dashed blue line around the processes that
 occur on each host.

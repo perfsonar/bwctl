@@ -53,9 +53,10 @@ between two servers on two different systems. If the local system is intended
 to be one of the endpoints of the test a local <b>bwctld</b> is not required,
 <b>bwctl</b>
 will detect that there is no local server and execute the required <b>bwctld
-</b>functionality directly. <b>bwctld</b> manages and schedules the resources
-of the host on which it runs. A more detailed description of the architecture
-is available in the <a href="architecture.html">architecture documentation</a>.
+</b>functionality
+directly. <b>bwctld</b> manages and schedules the resources of the host
+on which it runs. A more detailed description of the architecture is available
+in the <a href="architecture.html">architecture documentation</a>.
 <p>The <b>bwctl</b> client is used to request the type of <i>Iperf</i>
 test wanted. Furthermore, it requests when the test is wanted. <b>bwctld</b>
 either responds with a tentative reservation or a test denied message.
@@ -100,7 +101,7 @@ on one of the endpoint hosts.</li>
 <ul>
 <li>
 Modified authentication options to allow the client to authenticate to
-each side of the test using differnet authentication.</li>
+each side of the test using different authentication.</li>
 </ul>
 
 <li>
@@ -213,7 +214,7 @@ but most recent versions of UNIX should work.
 <h3>
 
 <hr WIDTH="100%">Recommended Hardware</h3>
-BWCTL does not have any strict hardware requirements. The limits impossed
+BWCTL does not have any strict hardware requirements. The limits imposed
 by the specific <b>Iperf</b> tests are more taxing to hardware than the
 scheduling and policy functions added by BWCTL. The hardware requirements
 are therefore a function of the specific <b>Iperf</b> tests that are desired.
