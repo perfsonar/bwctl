@@ -724,6 +724,15 @@ main(
 	}
 
 	/*
+	 * Set the retn_on_intr flag.
+	 */
+	if(!BWLContextConfigSet(ctx,BWLInterruptIO,(void*)&ip_intr)){
+		BWLError(ctx,BWLErrFATAL,errno,
+				"Unable to set Context var: %M");
+		exit(1);
+	}
+
+	/*
 	 * If seriesInterval is in use, verify the args and pick a
 	 * resonable default for seriesWindow if needed.
 	 */

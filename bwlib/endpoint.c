@@ -695,10 +695,12 @@ _BWLEndpointStart(
 	if(		!BWLContextConfigSet(ctx,BWLGetAESKey,
 							(void*)getaeskey) ||
 			!BWLContextConfigSet(ctx,_BWLGetSIDAESKEY,
-							(void*)tsess->sid)
+							(void*)tsess->sid) ||
+			!BWLContextConfigSet(ctx,BWLInterruptIO,
+							(void*)&ipf_term)
 			){
 		BWLError(ctx,BWLErrFATAL,errno,
-				"Unable to setup SID for endpoint: %M");
+			"Unable to set for Context vars for endpoint: %M");
 		goto end;
 	}
 	(void)BWLContextConfigDelete(ctx,BWLCheckControlPolicy);

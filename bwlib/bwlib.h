@@ -378,6 +378,16 @@ BWLError_(
  */
 
 /*
+ * This type is used to hold a pointer to an integer pointer. That pointer
+ * points at a value that determines if the low/level i/o functions should
+ * return on interrupt. If it is non-zero an interrupt will cause the i/o
+ * routine to fail and return. If it is zero, the low level i/o routine will
+ * ignore the interrupt and restart the i/o.
+ * (this can be used to ignore some signals and return on others.)
+ */
+#define BWLInterruptIO		"BWLInterruptIO"
+
+/*
  * This type is used to hold the path to the iperf executable.
  * (char *)
  */

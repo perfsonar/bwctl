@@ -86,8 +86,13 @@ _BWLSendBlocks(
 	)
 {
 	int	intr=0;
+	int	*retn_on_intr = &intr;
 
-	return _BWLSendBlocksIntr(cntrl,buf,num_blocks,&intr);
+	if(cntrl->retn_on_intr){
+		retn_on_intr = cntrl->retn_on_intr;
+	}
+
+	return _BWLSendBlocksIntr(cntrl,buf,num_blocks,retn_on_intr);
 }
 
 int
@@ -98,8 +103,13 @@ _BWLReceiveBlocks(
 	)
 {
 	int	intr=0;
+	int	*retn_on_intr = &intr;
 
-	return _BWLReceiveBlocksIntr(cntrl,buf,num_blocks,&intr);
+	if(cntrl->retn_on_intr){
+		retn_on_intr = cntrl->retn_on_intr;
+	}
+
+	return _BWLReceiveBlocksIntr(cntrl,buf,num_blocks,retn_on_intr);
 }
 
 /*

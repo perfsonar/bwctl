@@ -361,6 +361,11 @@ _BWLControlAlloc(
 	cntrl->sockfd = -1;
 
 	/*
+	 * Init I/O fields
+	 */
+	cntrl->retn_on_intr = (int *)BWLContextConfigGet(ctx,BWLInterruptIO);
+
+	/*
 	 * Init encryption fields
 	 */
 	memset(cntrl->userid_buffer,'\0',sizeof(cntrl->userid_buffer));

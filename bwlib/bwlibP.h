@@ -212,6 +212,7 @@ struct BWLControlRec{
 	u_int8_t		session_key[16];
 	u_int8_t		readIV[16];
 	u_int8_t		writeIV[16];
+	int			*retn_on_intr;
 
 	struct BWLControlRec	*next;
 	BWLTestSession		tests;
