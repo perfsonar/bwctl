@@ -827,17 +827,23 @@ ACCEPT:
 #ifndef	NDEBUG
 		int		childwait;
 
-		childwait = opts.childwait;
-		/* busy loop to wait for debug-attach */
-		while(childwait);
-		/*
-		 * set IPFChildWait if you want to attach
-		 * to them... (by resetting childwait back to non-zero)
-		 */
-		if(childwait && !IPFContextConfigSet(policy->ctx,IPFChildWait,
-							(void*)childwait)){
+		if((childwait = opts.childwait)){
 			IPFError(policy->ctx,IPFErrWARNING,IPFErrUNKNOWN,
-			"IPFContextConfigSet(): Unable to set IPFChildWait?!");
+					"Waiting for Debugger.");
+			/* busy loop to wait for debug-attach */
+			while(childwait);
+
+			/*
+			 * set IPFChildWait if you want to attach
+			 * to them... (by resetting childwait back to non-zero)
+			 */
+			if(childwait && !IPFContextConfigSet(policy->ctx,
+						IPFChildWait,(void*)childwait)){
+				IPFError(policy->ctx,IPFErrWARNING,
+						IPFErrUNKNOWN,
+						"IPFContextConfigSet(): "
+						"Unable to set IPFChildWait?!");
+			}
 		}
 #endif
 		/*
