@@ -186,7 +186,7 @@ ip_set_auth(
 
 			if(!(fp = fopen(pctx->opt.keyfile,"r"))){
 				I2ErrLog(eh,"Unable to open %s: %M",
-						app.opt.keyfile);
+						pctx->opt.keyfile);
 				goto DONE;
 			}
 
@@ -264,7 +264,7 @@ DONE:
 	 * Verify/decode auth options.
 	 */
 	if(pctx->opt.authmode){
-		char	*s = app.opt.authmode;
+		char	*s = pctx->opt.authmode;
 		pctx->auth_mode = 0;
 		while(*s != '\0'){
 			switch (toupper(*s)){

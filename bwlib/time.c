@@ -559,8 +559,7 @@ BWLGetTimeStampError(
  */
 int
 _BWLInitNTP(
-	BWLContext	ctx,
-	I2Boolean	allowunsync
+	BWLContext	ctx
 	)
 {
 	struct timex	ntp_conf;
@@ -574,8 +573,6 @@ _BWLInitNTP(
 
 	if(ntp_conf.status & STA_UNSYNC){
 		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
-		if(!allowunsync)
-			return 1;
 	}
 
 #ifdef	STA_NANO
