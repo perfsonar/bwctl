@@ -835,7 +835,10 @@ main(
 				NULL,&err_ret);
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
-			if(!remote.cntrl) exit(1);
+			if(!remote.cntrl){
+				I2ErrLog(eh,"Unable to connect to remote server, will try again next period: %M");
+				goto next_test;
+			}
 			remote.sockfd = IPFControlFD(remote.cntrl);
 		}
 		/* Open local connection */
@@ -847,7 +850,10 @@ main(
 				NULL,&err_ret);
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
-			if(!local.cntrl) exit(1);
+			if(!local.cntrl){
+				I2ErrLog(eh,"Unable to connect to remote server, will try again next period: %M");
+				goto next_test;
+			}
 			local.sockfd = IPFControlFD(remote.cntrl);
 		}
 
@@ -882,7 +888,7 @@ main(
 		if(IPFControlTimeCheck(local.cntrl,&remote.tspec.req_time) !=
 								IPFErrOK){
 			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
-			exit(1);
+			goto next_test;
 		}
 		if(sig_check()) exit(1);
 		/* req_time.ipftime += (2*round-trip-bound) */
@@ -960,6 +966,7 @@ main(
 					 * busy. Skip this test and proceed
 					 * to next session interval.
 					 */
+					CloseSessions();
 					I2ErrLog(eh,
 						"SessionRequest: Server busy.");
 					goto next_test;

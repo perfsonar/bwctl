@@ -129,7 +129,9 @@ struct ChldStateRec{
 	pid_t		pid;
 	int		fd;
 	IPFDPolicyNode	node;
+#if	NOT
 	IPFDLimRec	used[2];	/* disk/bandwidth */
+#endif
 };
 
 typedef struct ChldStateRec ChldStateRec, *ChldState;
@@ -218,16 +220,6 @@ FreeChldState(
 	 * and report errors if there are still any allocated?)
 	 */
 
-
-	/*
-	 * TODO: If exit was not normal... Should we be looking at
-	 * disk usage for this class and adjusting for the fact that
-	 * the file was not completely saved?
-	 * (this would be expensive...  It would require the same algorithm
-	 * that initializes disk usage, but would have to take the outstanding
-	 * tests into account... Hopefully !normal exits should be rare, and
-	 * this can be ignored.)
-	 */
 	free(cstate);
 
 	return;
@@ -305,28 +297,67 @@ CheckFD(
 	 * Get classname and find policy node for that class.
 	 */
 	if(!cstate->node){
-		cstate->node = IPFDReadClass(cstate->policy,cstate->fd,&err);
+		cstate->node = IPFDReadClass(cstate->policy,cstate->fd,
+				&ipfd_exit,&err);
 	}
 	else{
 		IPFDMesgT	query;
 		IPFDMesgT	resp;
 		IPFDLimRec	lim;
 
-		/* read child request for resources */
-		if(!IPFDReadQuery(cstate->fd,&query,&lim,&err)){
-			goto done;
+		IPFSID		sid;
+		IPFNum64	rtime,ftime,ltime,restime;
+		u_int32_t	duration;
+		u_int16_t	port;
+
+		switch(IPFDReadReqType(cstate->fd,&ipfd_exit,&err)){
+			case IPFDMESGRESOURCE:
+
+				/* read child request for resources */
+				if(!IPFDReadQuery(cstate->fd,&ipfd_exit,&query,
+							&lim,&err)){
+					goto done;
+				}
+
+				/*
+				 * parse tree for resource request/release
+				 */
+				resp = IPFDResourceDemand(cstate->node,query,
+						lim) ?
+						IPFDMESGOK : IPFDMESGDENIED;
+				/*
+				 * Send response
+				 */
+				err = IPFDSendResponse(cstate->fd,&ipfd_exit,
+						resp);
+				break;
+			case IPFDMESGRESERVATION:
+
+				/* read child request for reservation */
+				if(!IPFDReadReservationQuery(cstate->fd,
+							&ipfd_exit,sid,
+							&rtime,&ftime,&ltime,
+							&duration,&err)){
+					goto done;
+				}
+
+				/*
+				 * Look for open slot to run test
+				 */
+				resp = IPFDReservationDemand(cstate->node,
+						sid,rtime,ftime,ltime,
+						duration,&restime,&port)?
+					IPFDMESGOK : IPFDMESGDENIED;
+				/*
+				 * Send response
+				 */
+				err = IPFDSendReservation(cstate->fd,&ipfd_exit,
+						resp,restime,port);
+				break;
+			default:
+				break;
 		}
 
-		/*
-		 * parse tree for resource request/release
-		 */
-		resp = IPFDResourceDemand(cstate->node,query,lim) ?
-				IPFDMESGOK : IPFDMESGDENIED;
-
-		/*
-		 * Send response
-		 */
-		err = IPFDSendResponse(cstate->fd,resp);
 	}
 
 done:
@@ -1173,7 +1204,7 @@ main(int argc, char *argv[])
 	 * Install policy for "ctx" - and return policy record.
 	 */
 	if(!(policy = IPFDPolicyInstall(ctx,opts.datadir,opts.confdir,
-					opts.iperfcmd,
+					opts.iperfcmd,&ipfd_exit,
 					&lbuf,&lbuf_max))){
 		I2ErrLog(errhand, "PolicyInit failed. Exiting...");
 		exit(1);

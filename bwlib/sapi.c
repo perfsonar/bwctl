@@ -671,6 +671,7 @@ IPFProcessTestRequest(
 	int		ival=0;
 	int		*intr = &ival;
 	IPFNum64	one64 = IPFULongToNum64(1);
+	IPFAddr		raddr;
 
 	if(retn_on_intr){
 		intr = retn_on_intr;
@@ -726,35 +727,27 @@ IPFProcessTestRequest(
 	tsession->fuzz = IPFNum64Add(tsession->fuzz,
 				IPFNum64Max(one64,
 				IPFGetTimeStampError(&tsession->localtime)));
-
-
 	/*
-	 * Is this request allowed? Is there time (a reservation slot) for it?
+	 * Check for possible DoS.
+	 * (control-client MUST be same address as remote test if openmode.)
 	 */
-#if	NOT
-		/*
-		 * Check for possible DoS as advised in Section 7 of owdp
-		 * spec.
-		 * (control-client MUST be receiver if openmode.)
-		 * TODO: Move this into _IPFCallCheckTestPolicy.
-		 */
-	if(tsession->conf_sender){
-		if(!(cntrl->mode & IPF_MODE_DOCIPHER) &&
-				(I2SockAddrEqual(cntrl->remote_addr->saddr,
+	raddr = (tsession->conf_sender)?
+			tsession->test_spec.receiver:
+					tsession->test_spec.sender;
+
+	if(!(cntrl->mode & IPF_MODE_DOCIPHER) &&
+			(I2SockAddrEqual(cntrl->remote_addr->saddr,
 					 cntrl->remote_addr->saddrlen,
-					 tsession->receiver->saddr,
-					 tsession->receiver->saddrlen,
+					 raddr->saddr,raddr->saddrlen,
 					 I2SADDR_ADDR) <= 0)){
-			IPFError(cntrl->ctx,IPFErrINFO,IPFErrPOLICY,
-		"Test Denied: OpenMode recieve_addr(%s) != control_client(%s)",
-					tsession->receiver->node,
-					cntrl->remote_addr->node);
-			acceptval = IPF_CNTRL_REJECT;
-			err_ret = IPFErrINFO;
-			goto error;
-		}
+		IPFError(cntrl->ctx,IPFErrINFO,IPFErrPOLICY,
+		"Test Denied: OpenMode remote_addr(%s) != control_client(%s)",
+					raddr->node,cntrl->remote_addr->node);
+		acceptval = IPF_CNTRL_REJECT;
+		err_ret = IPFErrINFO;
+		goto error;
 	}
-#endif
+
 	if(!_IPFCallCheckTestPolicy(cntrl,tsession,&err_ret)){
 		if(err_ret < IPFErrOK)
 			goto error;

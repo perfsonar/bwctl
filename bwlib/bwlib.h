@@ -123,7 +123,8 @@
 /*
  * TODO: 4822 should eventually be replaced by an IANA blessed service name.
  */
-#define IPF_CONTROL_SERVICE_NAME	"4822"
+#define IPF_CONTROL_SERVICE_NUMBER	4823
+#define IPF_CONTROL_SERVICE_NAME	"4823"
 
 /*
  * Default value to use for the listen backlog. We pick something large
@@ -455,11 +456,14 @@ typedef IPFBoolean (*IPFCheckControlPolicyFunc)(
 #define IPFCheckTestPolicy	"IPFCheckTestPolicy"
 typedef IPFBoolean (*IPFCheckTestPolicyFunc)(
 	IPFControl	cntrl,
+	IPFSID		sid,
 	IPFBoolean	local_sender,
 	struct sockaddr	*local_sa_addr,
 	struct sockaddr	*remote_sa_addr,
 	socklen_t	sa_len,
 	IPFTestSpec	*test_spec,
+	IPFNum64	*reservation_ret,
+	u_int16_t	*port_ret,
 	void		**closure,
 	IPFErrSeverity	*err_ret
 );
@@ -594,7 +598,7 @@ IPFAddrBySockFD(
  */
 IPFAddr
 IPFAddrByLocalControl(
-	IPFControl cntrl
+	IPFControl	cntrl
 	);
 
 void

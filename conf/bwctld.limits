@@ -72,7 +72,6 @@
 #			--------------------------------------------------------
 #			parent		previously defined $classname	null
 #			bandwidth	integer bytes/s			0
-#			disk		integer bytes			0
 #			delete_on_fetch	on/off				off
 #			allow_open_mode	on/off				on
 #
@@ -92,33 +91,6 @@
 #			root must be unlimited, and the whole path down
 #			to the given class.)
 #			(default: 0 - no limit)
-#
-#		disk:
-#			This limits the amount of diskspace that can be
-#			consumed be each class. The files are stored in
-#			a hierarchical directory structure (surprise, surprise)
-#			that mirrors the class hierarchy. The disk limit
-#			has a soft/hard component to it. When a test is
-#			requested, the soft limit is used to determine
-#			if the test should be allowed. However, because
-#			of the possibility of duplicate packets, the file
-#			could end up being larger than that estimate. If
-#			that happens - the limit set by this $key will be
-#			multiplied by the "diskfudge" factor before being
-#			compared with the usage. If the file size is still
-#			larger than the limit*"diskfudge", then the file
-#			will be unlinked immediately. (Therefore, if your
-#			tests are likely to measure a larger amount of
-#			duplicates, I recommend using larger values
-#			for "diskfudge". (diskfudge is a float value between
-#			1.0 and 10.0 - it defaults to 1.0.)
-#			(default: 0 - no limit)
-#
-#		delete_on_fetch:
-#			This limit is really more of a behavior option. It
-#			is used to mark session files such that they are
-#			deleted immediately after being fetched.
-#			(default: off)
 #
 #		allow_open_mode:
 #			This limit is only useful if the class is assigned
@@ -155,16 +127,13 @@
 #		using the "username" joe the limits specified for the classname
 #		paradise.
 
-# setup the root node with unlimited disk and bandwidth
-limit root with disk=0,\
-		bandwidth=0
+# setup the root node with unlimited bandwidth
+limit root with bandwidth=0
 
-# limit box with parent=root,disk=1,bandwidth=1,allow_open_mode=off
+# limit box with parent=root,bandwidth=1,allow_open_mode=off
 limit box with parent=root,bandwidth=1k
 limit sand with parent=box,\
-		disk=10M,\
-		bandwidth=1k,\
-		delete_on_fetch=on
+		bandwidth=1k
 
 assign default sand
 assign net ::/127 root

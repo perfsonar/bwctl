@@ -706,8 +706,16 @@ SetEndpointAddrInfo(
 	/*
 	 * Already done!
 	 */
-	if(addr->ai)
+	if(addr->ai){
+		/*
+		 * If this is a faked ai record, then set the socktype
+		 */
+		if(addr->ai->ai_addr == addr->saddr){
+			addr->ai->ai_socktype = socktype;
+			addr->so_type = socktype;
+		}
 		return True;
+	}
 
 	/*
 	 * Addr was passed in as a fd so application created the
@@ -936,7 +944,8 @@ IPFAddrByLocalControl(
 						"Invalid address family");
 			return NULL;
 	}
-	*port = 0;
+
+	*port = htons(IPF_CONTROL_SERVICE_NUMBER);
 
 	/*
 	 * Allocate an IPFAddr record to assign the data into.
@@ -960,14 +969,14 @@ IPFAddrByLocalControl(
 
 	ai->ai_flags = 0;
 	ai->ai_family = oaddr->sa_family;
-	ai->ai_socktype = SOCK_DGRAM;
+	ai->ai_socktype = SOCK_STREAM;
 	ai->ai_protocol = IPPROTO_IP;	/* reasonable default */
 	ai->ai_canonname = NULL;
 	ai->ai_next = NULL;
 
 	addr->ai = ai;
 	addr->ai_free = True;
-	addr->so_type = SOCK_DGRAM;
+	addr->so_type = SOCK_STREAM;
 	addr->so_protocol = IPPROTO_IP;
 
 	return addr;

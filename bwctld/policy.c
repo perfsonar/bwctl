@@ -269,24 +269,28 @@ str2num(
 	return (*limnum < ret || *limnum < mult)? (-1) : 0;
 }
 
-enum limtype{LIMINTVAL,LIMBOOLVAL,LIMNOT};
+/*
+ * INTVAL are consumables that are tracked in the "used" limits of
+ * each node. The other limits are fixed values with a yes/no at each
+ * level of the tree.
+ */
+enum limtype{LIMINT,LIMBOOL,LIMFIXEDINT,LIMNOT};
 struct limdesc{
 	IPFDMesgT	limit;
 	char		*lname;
 	enum limtype	ltype;
-	IPFBoolean	release_on_exit;
 	IPFDLimitT	def_value;
 };
 
 static struct limdesc	limkeys[] = {
-{IPFDLimParent,		"parent",		LIMNOT,		0,	0},
-{IPFDLimBandwidth,	"bandwidth",		LIMINTVAL,	1,	0},
-{IPFDLimPending,	"pending",		LIMINTVAL,	1,	0},
-{IPFDLimEventHorizon,	"event_horizon",	LIMINTVAL,	1,	0},
-{IPFDLimDuration,	"duration",		LIMINTVAL,	1,	0},
-{IPFDLimAllowOpenMode,	"allow_open_mode",	LIMBOOLVAL,	0,	1},
-{IPFDLimAllowTCP,	"allow_tcp",		LIMBOOLVAL,	0,	1},
-{IPFDLimAllowUDP,	"allow_udp",		LIMBOOLVAL,	0,	0}
+{IPFDLimParent,		"parent",		LIMNOT,		0},
+{IPFDLimBandwidth,	"bandwidth",		LIMFIXEDINT,	0},
+{IPFDLimPending,	"pending",		LIMINT,		0},
+{IPFDLimEventHorizon,	"event_horizon",	LIMFIXEDINT,	0},
+{IPFDLimDuration,	"duration",		LIMFIXEDINT,	0},
+{IPFDLimAllowOpenMode,	"allow_open_mode",	LIMBOOL,	1},
+{IPFDLimAllowTCP,	"allow_tcp",		LIMBOOL,	1},
+{IPFDLimAllowUDP,	"allow_udp",		LIMBOOL,	0}
 };
 
 static IPFDLimitT
@@ -476,7 +480,8 @@ parselimitline(
 		limtemp[tnode.ilim].limit = limkeys[i].limit;
 		switch(limkeys[i].ltype){
 
-		case LIMINTVAL:
+		case LIMINT:
+		case LIMFIXEDINT:
 			if(str2num(&limtemp[tnode.ilim].value,limval)){
 				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
 					"Invalid value specified for \"%s\".",
@@ -484,7 +489,7 @@ parselimitline(
 				return 1;
 			}
 			break;
-		case LIMBOOLVAL:
+		case LIMBOOL:
 			if(!strncasecmp(limval,"on",3)){
 				limtemp[tnode.ilim].value = 1;
 			}else if(strncasecmp(limval,"off",4)){
@@ -872,74 +877,6 @@ parselimits(
 }
 
 /*
- * Function:	node_dir
- *
- * Description:	
- * 	This function creates a directory hierarchy based at datadir equivalent
- * 	to the "class" hierarchy reference by node. i.e. It traverses up
- * 	the "node" to determine all the parent nodes that should be above
- * 	it and uses the node names to create directory names.
- *
- * 	The "memory" record is PATH_MAX+1 bytes long - add_chars is used
- * 	to keep track of the number of bytes that are needed "after" this
- * 	node in the recursion to allow for graceful failure.
- *
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-static char *
-node_dir(
-		IPFContext	ctx,
-		IPFBoolean	make,
-		char		*datadir,
-		IPFDPolicyNode	node,
-		unsigned int	add_chars,
-		char		*memory
-	      )
-{
-	char		*path;
-	int		len;
-
-	if(node){
-		path = node_dir(ctx,make,datadir,node->parent,
-				strlen(node->nodename) +
-				IPF_PATH_SEPARATOR_LEN + add_chars, memory);
-		if(!path)
-			return NULL;
-		strcat(path,IPF_PATH_SEPARATOR);
-		strcat(path,node->nodename);
-	} 
-	else {
-		len = strlen(datadir) + IPF_PATH_SEPARATOR_LEN
-			+ strlen(IPF_HIER_DIR) + add_chars;
-		if(len > PATH_MAX){
-			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"Data file path length too long.");
-			return NULL;
-		}
-		path = memory;
-		
-		strcpy(path,datadir);
-		strcat(path,IPF_PATH_SEPARATOR);
-		strcat(path, IPF_HIER_DIR);
-	}
-	
-	if(make && (mkdir(path,0755) != 0) && (errno != EEXIST)){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"Unable to mkdir(%s): %M",path);
-		return NULL;
-	}
-
-	return path;
-}
-
-/*
  * Function:	IPFDPolicyInstall
  *
  * Description:	
@@ -972,6 +909,7 @@ IPFDPolicyInstall(
 	char		*datadir,
 	char		*confdir,
 	char		*iperfcmd,
+	int		*retn_on_intr,
 	char		**lbuf,
 	size_t		*lbuf_max
 	)
@@ -1006,6 +944,7 @@ IPFDPolicyInstall(
 	}
 
 	policy->ctx = ctx;
+	policy->retn_on_intr = retn_on_intr;
 
 	/*
 	 * copy datadir
@@ -1330,11 +1269,12 @@ static IPFBoolean
 IntegerResourceDemand(
 	IPFDPolicyNode	node,
 	IPFDMesgT	query,
-	IPFDLimRec	lim
+	IPFDLimRec	lim,
+	enum limtype	limkind
 	)
 {
+	float	fudge = 1.0;
 	size_t	i;
-	double	fudge = 1.0;
 
 	/*
 	 * terminate recursion
@@ -1370,13 +1310,19 @@ found:
 	 * If no limit at this level, go on to next.
 	 */
 	if(!node->limits[i].value){
-		return IntegerResourceDemand(node->parent,query,lim);
+		return IntegerResourceDemand(node->parent,query,lim,limkind);
 	}
 
 	/*
 	 * Deal with resource releases.
 	 */
 	else if(query == IPFDMESGRELEASE){
+		/*
+		 * don't need to release fixed limits - so shortcut.
+		 */
+		if(limkind == LIMFIXEDINT)
+			return True;
+
 		if(lim.value > node->used[i].value){
 			IPFError(node->policy->ctx,IPFErrFATAL,IPFErrPOLICY,
 				"Request to release unallocated resouces: "
@@ -1387,7 +1333,7 @@ found:
 			return False;
 		}
 		
-		if(!IntegerResourceDemand(node->parent,query,lim)){
+		if(!IntegerResourceDemand(node->parent,query,lim,limkind)){
 			return False;
 		}
 
@@ -1425,19 +1371,22 @@ found:
 
 	/*
 	 * If this level doesn't have the resources available - return false.
+	 * (If LIMFIXEDINT, then "used" value will be 0.)
 	 */
-	if((lim.value+node->used[i].value) > (node->limits[i].value * fudge)){
+	if((lim.value+node->used[i].value) >
+				(node->limits[i].value * fudge)){
 		return False;
 	}
 
 	/*
 	 * Are the resource available the next level up?
 	 */
-	if(!IntegerResourceDemand(node->parent,query,lim)){
+	if(!IntegerResourceDemand(node->parent,query,lim,limkind)){
 		return False;
 	}
 
-	node->used[i].value += lim.value;
+	if(limkind == LIMINT)
+		node->used[i].value += lim.value;
 
 	return True;
 }
@@ -1465,16 +1414,26 @@ IPFDResourceDemand(
 	if(limkind == LIMNOT){
 		return False;
 	}
-
-	if(limkind == LIMBOOLVAL){
+	else if(limkind == LIMBOOL){
 		if(query == IPFDMESGRELEASE){
 			return True;
 		}
 		val = GetLimit(node,lim.limit);
 		return (val == lim.value);
 	}
+	else if(limkind == LIMFIXEDINT){
+		if(query == IPFDMESGRELEASE){
+			return True;
+		}
+		/* fallthrough to IntegerResourceDemand */
+	}
+	else if(limkind != LIMINT){
+		IPFError(node->policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				"IPFDResourceDemand: Invalid limit kind.");
+		return False;
+	}
 
-	ret = IntegerResourceDemand(node,query,lim);
+	ret = IntegerResourceDemand(node,query,lim,limkind);
 
 	/*
 	 * These messages are printed to INFO so they can be selected
@@ -1523,16 +1482,21 @@ IPFDResourceDemand(
 int
 IPFDSendResponse(
 		int		fd,
+		int		*retn_on_intr,
 		IPFDMesgT	mesg
 		)
 {
 	IPFDMesgT	buf[3];
 	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(retn_on_intr)
+		intr = retn_on_intr;
 
 	buf[0] = buf[2] = IPFDMESGMARK;
 	buf[1] = mesg;
 
-	if(I2Writeni(fd,&buf[0],12,&fail_on_intr) != 12){
+	if(I2Writeni(fd,&buf[0],12,intr) != 12){
 		return 1;
 	}
 
@@ -1554,13 +1518,18 @@ IPFDSendResponse(
  */
 static IPFDMesgT
 IPFDReadResponse(
-		int		fd
+		int		fd,
+		int		*retn_on_intr
 		)
 {
 	IPFDMesgT	buf[3];
 	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
 
-	if(I2Readni(fd,&buf[0],12,&fail_on_intr) != 12){
+	if(retn_on_intr)
+		intr = retn_on_intr;
+
+	if(I2Readni(fd,&buf[0],12,intr) != 12){
 		return IPFDMESGINVALID;
 	}
 
@@ -1593,6 +1562,7 @@ IPFDPolicyNode
 IPFDReadClass(
 	IPFDPolicy	policy,
 	int		fd,
+	int		*retn_on_intr,
 	int		*err
 	)
 {
@@ -1602,13 +1572,17 @@ IPFDReadClass(
 	u_int8_t	buf[IPFDMAXCLASSLEN+1 + sizeof(IPFDMesgT)*3];
 	I2Datum		key,val;
 	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(retn_on_intr)
+		intr = retn_on_intr;
 
 	*err = 1;
 
 	/*
 	 * Read message header
 	 */
-	if((i = I2Readni(fd,&buf[0],8,&fail_on_intr)) != 8){
+	if((i = I2Readni(fd,&buf[0],8,intr)) != 8){
 		if(i == 0){
 			*err = 0;
 		}
@@ -1624,7 +1598,7 @@ IPFDReadClass(
 	 * read classname
 	 */
 	for(i=0;i<= IPFDMAXCLASSLEN;i++){
-		if(I2Readni(fd,&buf[i],1,&fail_on_intr) != 1){
+		if(I2Readni(fd,&buf[i],1,intr) != 1){
 			return NULL;
 		}
 
@@ -1644,20 +1618,20 @@ IPFDReadClass(
 	 * read message trailer.
 	 */
 	i++;
-	if((I2Readni(fd,&buf[i],4,&fail_on_intr) != 4) ||
+	if((I2Readni(fd,&buf[i],4,intr) != 4) ||
 			memcmp(&buf[i],&mark,sizeof(IPFDMesgT))){
 		return NULL;
 	}
 
 	if(I2HashFetch(policy->limits,key,&val)){
-		if(IPFDSendResponse(fd,IPFDMESGOK) != 0){
+		if(IPFDSendResponse(fd,intr,IPFDMESGOK) != 0){
 			return NULL;
 		}
 		*err = 0;
 		return val.dptr;
 	}
 
-	(void)IPFDSendResponse(fd,IPFDMESGDENIED);
+	(void)IPFDSendResponse(fd,intr,IPFDMESGDENIED);
 	return NULL;
 }
 
@@ -1671,6 +1645,10 @@ IPFDSendClass(
 	IPFDMesgT	mesg;
 	ssize_t		len;
 	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(policy->retn_on_intr)
+		intr = policy->retn_on_intr;
 
 	mesg = IPFDMESGMARK;
 	memcpy(&buf[0],&mesg,4);
@@ -1684,58 +1662,97 @@ IPFDSendClass(
 	memcpy(&buf[len],&mesg,4);
 	len += 4;
 
-	if(I2Writeni(policy->fd,buf,len,&fail_on_intr) != len){
+	if(I2Writeni(policy->fd,buf,len,intr) != len){
 		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 			"IPFDCheckControlPolicy: Unable to contact parent");
 		return IPFDMESGINVALID;
 	}
 
-	return IPFDReadResponse(policy->fd);
+	return IPFDReadResponse(policy->fd,intr);
 }
 
 /*
- * True if there is a request
+ * return the request type, or 0.
+ * err will be 0 for a 0 length read. (i.e. no error)
  */
-IPFBoolean
-IPFDReadQuery(
-	int		fd,
-	IPFDMesgT	*query,
-	IPFDLimRec	*lim_ret,
-	int		*err
+int
+IPFDReadReqType(
+	int	fd,
+	int	*retn_on_intr,
+	int	*err
 	)
 {
 	ssize_t		i;
-	IPFDMesgT	buf[7];
+	IPFDMesgT	buf[2];
 	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(retn_on_intr)
+		intr = retn_on_intr;
 
 	*err = 1;
 
 	/*
 	 * Read message header
 	 */
-	if((i = I2Readni(fd,&buf[0],28,&fail_on_intr)) != 28){
+	if((i = I2Readni(fd,&buf[0],8,intr)) != 8){
 		if(i == 0){
 			*err = 0;
 		}
-		return False;
+		return 0;
 	}
 
-	if((buf[0] != IPFDMESGMARK) || (buf[6] != IPFDMESGMARK) ||
-			(buf[1] != IPFDMESGRESOURCE)){
-		return False;
+	if(buf[0] != IPFDMESGMARK){
+		return 0;
 	}
 
-	switch(buf[2]){
+	*err = 0;
+	return buf[1];
+}
+
+/*
+ * True if the request is read without error
+ */
+IPFBoolean
+IPFDReadQuery(
+	int		fd,
+	int		*retn_on_intr,
+	IPFDMesgT	*query,
+	IPFDLimRec	*lim_ret,
+	int		*err
+	)
+{
+	ssize_t		i;
+	IPFDMesgT	buf[5];
+	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(retn_on_intr)
+		intr = retn_on_intr;
+
+	*err = 1;
+
+	/*
+	 * Read message header
+	 */
+	if((i = I2Readni(fd,&buf[0],20,intr)) != 20)
+		return False;
+
+	if(buf[4] != IPFDMESGMARK)
+		return False;
+
+	switch(buf[0]){
 		case IPFDMESGREQUEST:
 		case IPFDMESGRELEASE:
-			*query = buf[2];
+		case IPFDMESGCLAIM:
+			*query = buf[0];
 			break;
 		default:
 			return False;
 	}
 
-	lim_ret->limit = buf[3];
-	memcpy(&lim_ret->value,&buf[4],8);
+	lim_ret->limit = buf[1];
+	memcpy(&lim_ret->value,&buf[2],8);
 
 	*err = 0;
 
@@ -1751,6 +1768,10 @@ IPFDQuery(
 {
 	IPFDMesgT	buf[7];
 	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(policy->retn_on_intr)
+		intr = policy->retn_on_intr;
 
 	buf[0] = buf[6] = IPFDMESGMARK;
 	buf[1] = IPFDMESGRESOURCE;
@@ -1758,13 +1779,92 @@ IPFDQuery(
 	buf[3] = lim.limit;
 	memcpy(&buf[4],&lim.value,8);
 
-	if(I2Writeni(policy->fd,buf,28,&fail_on_intr) != 28){
+	if(I2Writeni(policy->fd,buf,28,intr) != 28){
 		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 			"IPFDQuery: Unable to contact parent");
 		return IPFDMESGINVALID;
 	}
 
-	return IPFDReadResponse(policy->fd);
+	return IPFDReadResponse(policy->fd,intr);
+}
+
+/*
+ * True if the request is read without error
+ */
+IPFBoolean
+IPFDReadReservationQuery(
+	int		fd,
+	int		*retn_on_intr,
+	IPFSID		sid,
+	IPFNum64	*req_time,
+	IPFNum64	*fuzz_time,
+	IPFNum64	*last_time,
+	u_int32_t	*duration,
+	int		*err
+	)
+{
+	ssize_t		i;
+	IPFDMesgT	buf[12];
+	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(retn_on_intr)
+		intr = retn_on_intr;
+
+	*err = 1;
+
+	/*
+	 * Read message header
+	 */
+	if((i = I2Readni(fd,&buf[0],48,intr)) != 48)
+		return False;
+
+	if(buf[11] != IPFDMESGMARK)
+		return False;
+
+	memcpy(sid,&buf[0],sizeof(sid));
+	memcpy(req_time,&buf[4],sizeof(IPFNum64));
+	memcpy(fuzz_time,&buf[6],sizeof(IPFNum64));
+	memcpy(last_time,&buf[8],sizeof(IPFNum64));
+	memcpy(duration,&buf[10],sizeof(u_int32_t));
+
+	*err = 0;
+
+	return True;
+}
+
+static IPFDMesgT
+IPFDReservationQuery(
+	IPFDPolicy	policy,
+	IPFSID		sid,
+	IPFNum64	req_time,
+	IPFNum64	fuzz_time,
+	IPFNum64	last_time,
+	u_int32_t	duration
+	)
+{
+	IPFDMesgT	buf[14];
+	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(policy->retn_on_intr)
+		intr = policy->retn_on_intr;
+
+	buf[0] = buf[13] = IPFDMESGMARK;
+	buf[1] = IPFDMESGRESERVATION;
+	memcpy(&buf[2],sid,16);
+	memcpy(&buf[6],&req_time,8);
+	memcpy(&buf[8],&fuzz_time,8);
+	memcpy(&buf[10],&last_time,8);
+	memcpy(&buf[12],&duration,4);
+
+	if(I2Writeni(policy->fd,buf,56,intr) != 56){
+		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			"IPFDQuery: Unable to contact parent");
+		return IPFDMESGINVALID;
+	}
+
+	return IPFDReadReservationResponse(policy->fd,intr);
 }
 
 /*
@@ -1906,40 +2006,30 @@ IPFDCheckControlPolicy(
 }
 
 /*
- * This structure is used to keep track of the path information used by
- * a fp allocated by the IPFDOpenFile function.
- * This macro is the prefix for a given finfo in the cntrl Config table. The
- * fd number is concatenated to this string (in ascii) to get a key for
- * adding and removing a finfo record to the Config table.
- */
-#define	IPFDPOLICY_KEYLEN	64
-#define	IPFDPOLICY_FILEINFO	"IPFDPOLICY_FILEINFO"
-typedef struct IPFDFileInfoRec{
-	FILE			*fp;
-	char			filepath[PATH_MAX+1];
-	char			linkpath[PATH_MAX+1];
-	IPFDPolicyNode	node;
-} IPFDFileInfoRec, *IPFDFileInfo;
-
-/*
  * This structure is returned in the "closure" pointer of the CheckTestPolicy
  * pointer - and provided to the Open/Close file functions as well as the
  * TestComplete function.
  */
 typedef struct IPFDTestInfoRec{
 	IPFDPolicyNode	node;
-	IPFDFileInfo	finfo;
-	IPFDLimRec	res[2];	/* 0=bandwidth,1=disk */
+	IPFDLimRec	res[1];	/* keep track of "consumable" resources
+				 * resouces listed here will be "released"
+				 * in TestComplete.
+				 */
 } IPFDTestInfoRec, *IPFDTestInfo;
 
 IPFBoolean
 IPFDCheckTestPolicy(
 	IPFControl	cntrl,
+	IPFSID		sid,
 	IPFBoolean	local_sender,
 	struct sockaddr	*local_sa_addr	__attribute__((unused)),
 	struct sockaddr	*remote_sa_addr,
 	socklen_t	sa_len	__attribute__((unused)),
-	IPFTestSpec	*test_spec,
+	IPFTestSpec	*tspec,
+	IPFNum64	fuzz_time,
+	IPFNum64	*reservation_return,
+	u_int16_t	*port_ret,
 	void		**closure,
 	IPFErrSeverity	*err_ret
 )
@@ -1948,8 +2038,22 @@ IPFDCheckTestPolicy(
 	IPFDPolicyNode	node;
 	IPFDTestInfo	tinfo;
 	IPFDMesgT	ret;
+	IPFDLimRec	lim;
 
 	*err_ret = IPFErrOK;
+
+	tinfo = (IPFDTestInfo)*closure;
+
+	/*
+	 * If this is just an update to the reservation...
+	 */
+	if(tinfo){
+		node = tinfo->node;
+		goto reservation;
+	}
+	/*
+	 * this is an new request
+	 */
 
 	/*
 	 * Fetch the "user class" for this connection.
@@ -1957,7 +2061,7 @@ IPFDCheckTestPolicy(
 	if(!(node = (IPFDPolicyNode)IPFControlConfigGet(cntrl,
 						IPFDPOLICY_NODE))){
 		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-			"IPFDCheckTestPolicy: IPFDPOLICY_NODE not set");
+				"IPFDCheckTestPolicy: IPFDPOLICY_NODE not set");
 		*err_ret = IPFErrFATAL;
 		return False;
 	}
@@ -1971,50 +2075,64 @@ IPFDCheckTestPolicy(
 
 	tinfo->node = node;
 
-	/* TODO: VAlIDATE THE REQUEST! */
-#if	TODO
+	/* VAlIDATE THE REQUEST! */
+
 	/*
-	 * Check bandwidth
+	 * First check fixed limits that don't need to be communicated
+	 * with the parent for global state.
 	 */
-	tinfo->res[0].limit = IPFDLimBandwidth;
-	tinfo->res[0].value = IPFTestPacketBandwidth(ctx,
-			remote_sa_addr->sa_family,IPFGetMode(cntrl),test_spec);
+
+	/* duration */
+	lim.limit = IPFDLimDuration;
+	lim.value = tspec->duration;
+	if(!IPFDResourceDemand(node,IPFDMESGREQUEST,lim))
+		goto done;
+
+	/*
+	 * TCP/UDP
+	 */
+	if(tspec->udp){
+		lim.limit = IPFDLimAllowUDP;
+		lim.value = True;
+		if(!IPFDResourceDemand(node,IPFDMESGREQUEST,lim))
+			goto done;
+		lim.limit = IPFDLimBandwidth;
+		lim.value = tspec->bandwidth;
+		if(!IPFDResourceDemand(node,IPFDMESGREQUEST,lim))
+			goto done;
+	}
+	else{
+		lim.limit = IPFDLimAllowTCP;
+		lim.value = True;
+		if(!IPFDResourceDemand(node,IPFDMESGREQUEST,lim))
+			goto done;
+	}
+
+	/*
+	 * Now request consumable resources
+	 */
+	tinfo->res[0].limit = IPFDLimPending;
+	tinfo->res[0].value = 1;
 	if((ret = IPFDQuery(node->policy,IPFDMESGREQUEST,tinfo->res[0]))
 							== IPFDMESGDENIED){
 		goto done;
 	}
-	if(ret == IPFDMESGINVALID){
-		*err_ret = IPFErrFATAL;
-		goto done;
-	}
 
+reservation:
 
 	/*
-	 * If we are receiver - check disk-space.
+	 * Request a reservation.
 	 */
-	if(!local_sender){
-		/*
-		 * Request 10% more than our estimate to cover duplicates.
-		 * reality will be adjusted in CloseFile.
-		 */
-		tinfo->res[1].limit = IPFDLimDisk;
-		tinfo->res[1].value = IPFTestDiskspace(test_spec);
-
-		if((ret = IPFDQuery(node->policy,IPFDMESGREQUEST,tinfo->res[1]))
-							== IPFDMESGDENIED){
-			IPFDQuery(node->policy,IPFDMESGRELEASE,tinfo->res[0]);
-			goto done;
-		}
-		if(ret == IPFDMESGINVALID){
-			*err_ret = IPFErrFATAL;
-			goto done;
-		}
+	if( (ret = IPFDReservationQuery(node->policy,sid,
+					tspec->req_time.ipftime,fuzz_time,
+					tspec->latest_time,tspec->duration))
+			!= IPFDMESGOK){
+		goto done;
 	}
-#endif
-
 	*closure = tinfo;
 	return True;
 done:
+	*closure = NULL;
 	free(tinfo);
 	return False;
 }
@@ -2027,9 +2145,10 @@ IPFDTestComplete(
 	)
 {
 	IPFDTestInfo	tinfo = (IPFDTestInfo)closure;
-	int		i;
+	unsigned int	i,n;
 
-	for(i=0;i<2;i++){
+	n = I2Number(tinfo->res);
+	for(i=0;i<n;i++){
 		if(!tinfo->res[i].limit){
 			continue;
 		}

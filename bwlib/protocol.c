@@ -693,7 +693,7 @@ _IPFReadTimeResponse(
 	 * Decode time and time error estimate
 	 */
 	_IPFDecodeTimeStamp(tstamp,&buf[0]);
-	if(!_IPFDecodeTimeStampErrEstimate(tstamp,&buf[12])){
+	if(!_IPFDecodeTimeStampErrEstimate(tstamp,&buf[8])){
 		cntrl->state = _IPFStateInvalid;
 		return IPFErrFATAL;
 	}
@@ -927,22 +927,22 @@ _IPFWriteTestRequest(
 	struct sockaddr_in6	*saddr6;
 		case 6:
 			/* sender address */
-			saddr6 = (struct sockaddr_in6*)sender;
+			saddr6 = (struct sockaddr_in6*)sender->saddr;
 			memcpy(&buf[28],saddr6->sin6_addr.s6_addr,16);
 
 			/* receiver address and port  */
-			saddr6 = (struct sockaddr_in6*)receiver;
+			saddr6 = (struct sockaddr_in6*)receiver->saddr;
 			memcpy(&buf[44],saddr6->sin6_addr.s6_addr,16);
 
 			break;
 #endif
 		case 4:
 			/* sender address */
-			saddr4 = (struct sockaddr_in*)sender;
+			saddr4 = (struct sockaddr_in*)sender->saddr;
 			*(u_int32_t*)&buf[28] = saddr4->sin_addr.s_addr;
 
 			/* receiver address */
-			saddr4 = (struct sockaddr_in*)receiver;
+			saddr4 = (struct sockaddr_in*)receiver->saddr;
 			*(u_int32_t*)&buf[44] = saddr4->sin_addr.s_addr;
 
 			break;

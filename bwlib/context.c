@@ -641,30 +641,39 @@ _IPFCallCheckControlPolicy(
 IPFBoolean
 _IPFCallCheckTestPolicy(
 	IPFControl	cntrl,		/* control handle		*/
-	IPFTestSession	tsession,
+	IPFTestSession	tsess,
 	IPFErrSeverity	*err_ret	/* error - return		*/
 )
 {
 	IPFCheckTestPolicyFunc	func;
+	IPFAddr			local;
+	IPFAddr			remote;
 
 	*err_ret = IPFErrOK;
 
 	func = (IPFCheckTestPolicyFunc)IPFContextConfigGet(cntrl->ctx,
 							IPFCheckTestPolicy);
 	/*
-	 * Default action is to allow anything.
+	 * Default action is to fail since the function needs to
+	 * return the reservation time and the port for the test.
 	 */
 	if(!func){
-		return True;
+		return False;
 	}
 
-#if	TODO
-	return func(cntrl,local_sender,local,remote,sa_len,test_spec,
-			closure,err_ret);
-#else
-	if(!tsession) return False;
-	return True;
-#endif
+	if(tsess->conf_sender){
+		local = tsess->test_spec.sender;
+		remote = tsess->test_spec.receiver;
+	}
+	else{
+		local = tsess->test_spec.receiver;
+		remote = tsess->test_spec.sender;
+	}
+
+	return func(cntrl,tsess->sid,tsess->conf_sender,local->saddr,
+			remote->saddr,local->saddrlen,&tsess->test_spec,
+			&tsess->reserve_time,&tsess->recv_port,
+			&tsess->closure,err_ret);
 }
 
 /*

@@ -36,25 +36,6 @@
 #endif
 
 /*
- * Defines for path elements of the server datastore:
- * 	datadir/
- * 		catalog/
- * 			(symlinks named by SID pointing to real files
- * 			in datadir/nodes.)
- * 		nodes/
- * 			(dir hier based on user classification hier.)
- * 			This allows filesystem based limits to be used
- * 			by mounting a particular filesystem into this
- * 			hierarchy.
- */
-#ifndef	IPF_CATALOG_DIR
-#define	IPF_CATALOG_DIR         "catalog"
-#endif
-#ifndef	IPF_HIER_DIR
-#define	IPF_HIER_DIR            "hierarchy"
-#endif
-
-/*
  * Holds the policy record that was parsed and contains all the "limits"
  * and identity information.
  *
@@ -84,10 +65,10 @@ typedef struct IPFDPolicyKeyRec IPFDPolicyKeyRec, *IPFDPolicyKey;
 struct IPFDPolicyRec{
 	IPFContext		ctx;
 
-	double			diskfudge;
-
 	int			fd;	/* socket to parent. */
 	char			*datadir;
+
+	int			*retn_on_intr;	/* If one, exit I/O on sigs */
 
 	IPFDPolicyNode		root;
 
@@ -138,7 +119,6 @@ struct IPFDPolicyNodeRec{
 	size_t			ilim;
 	IPFDLimRec		*limits;
 	IPFDLimRec		*used;
-	off_t			initdisk;
 };
 
 typedef enum{
@@ -176,6 +156,7 @@ typedef union IPFDPidUnion{
 #define	IPFDMESGMARK		0xfefefefe
 #define	IPFDMESGCLASS		0xcdef
 #define	IPFDMESGRESOURCE	0xbeef
+#define	IPFDMESGRESERVATION	0xdeadbeef
 #define	IPFDMESGREQUEST		0xfeed
 #define	IPFDMESGRELEASE		0xdead
 #define	IPFDMESGCLAIM		0x1feed1
@@ -214,11 +195,11 @@ typedef union IPFDPidUnion{
  *	00|                      IPFDMESGMARK                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
- * There is one other child message format. This message is used to either
- * request or release resources. (The parent should release all "temporary"
- * resources (i.e. bandwidth) on exit of the child if the child does not
- * explicitly release the resource. More "permenent" resources should only
- * be released explicitly (i.e. disk-space).
+ * This is a child message format that is used to request or release resources.
+ * (The parent should release all "temporary" resources (i.e. bandwidth)
+ * on exit of the child if the child does not explicitly release the resource.
+ * More "permenent" resources should only be released explicitly
+ * (i.e. disk-space).
  *
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -227,7 +208,7 @@ typedef union IPFDPidUnion{
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	04|                     IPFDMESGRESOURCE                          |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                IPFDMESGWANT|IPFDMESGRELEASE                   |
+ *	08|          IPFDMESGWANT|IPFDMESGRELEASE|IPFDMESGCLAIM           |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	12|                      IPFDMesgT(limit name)                    |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -237,7 +218,7 @@ typedef union IPFDPidUnion{
  *	24|                      IPFDMESGMARK                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
- * Parent responses are all of the format:
+ * Parent responses to the previous two messages are of the format:
  *
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -247,6 +228,51 @@ typedef union IPFDPidUnion{
  *	04|                IPFDMESGOK|IPFDMESGDENIED                      |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	08|                      IPFDMESGMARK                             |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * This is a child message format that is used to request reservations.
+ *
+ * 	   0                   1                   2                   3
+ * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	00|                         IPFDMESGMARK                          |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	04|                      IPFDMESGRESERVATION                      |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	08|                                                               |
+ *	12|                              SID                              |
+ *	16|                                                               |
+ *	20|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	24|                        Request Time                           |
+ *	28|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	32|                           Fuzz TIME                           |
+ *	36|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	40|                          Latest Time                          |
+ *	44|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	48|                            Duration                           |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	52|                          IPFDMESGMARK                         |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ * Parent responses to the reservation request are of the format:
+ *
+ * 	   0                   1                   2                   3
+ * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	00|                          IPFDMESGMARK                         |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	04|                   IPFDMESGOK|IPFDMESGDENIED                   |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	08|                        Request Time                           |
+ *	12|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	16|                           Recv Port                           |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	20|                          IPFDMESGMARK                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
@@ -261,9 +287,18 @@ extern IPFDPolicyNode
 IPFDReadClass(
 	IPFDPolicy	policy,
 	int		fd,
+	int		*retn_on_intr,
 	int		*err
 	);
 
+/*
+ * Returns the request type or 0.
+ */
+extern int
+IPFDReadReqType(
+		int	fd,
+		int	*retn_on_intr,
+		int	*err);
 /*
  * returns True on success - query/lim_ret will contain request
  * err will be non-zero on error. 0 on empty read.
@@ -271,14 +306,28 @@ IPFDReadClass(
 extern IPFBoolean
 IPFDReadQuery(
 	int		fd,
+	int		*retn_on_intr,
 	IPFDMesgT	*query,
 	IPFDLimRec	*lim_ret,
+	int		*err
+	);
+
+extern IPFBoolean
+IPFDReadReservationQuery(
+	int		fd,
+	int		*retn_on_intr,
+	IPFSID		sid,
+	IPFNum64	*req_time,
+	IPFNum64	*fuzz_time,
+	IPFNum64	*last_time,
+	u_int32_t	*duration,
 	int		*err
 	);
 
 extern int
 IPFDSendResponse(
 	int		fd,
+	int		*retn_on_intr,
 	IPFDMesgT	mesg
 	);
 
@@ -329,11 +378,14 @@ IPFDCheckControlPolicy(
 extern IPFBoolean
 IPFDCheckTestPolicy(
 	IPFControl	cntrl,
+	IPFSID		sid,
 	IPFBoolean	local_sender,
 	struct sockaddr	*local_saddr,
 	struct sockaddr	*remote_saddr,
 	socklen_t	sa_len,
 	IPFTestSpec	*test_spec,
+	IPFNum64	*reservation_return,
+	u_int16_t	*port_ret,
 	void		**closure,
 	IPFErrSeverity	*err_ret
 	);
@@ -351,6 +403,7 @@ IPFDPolicyInstall(
 	char		*datadir,	/* root dir for datafiles	*/
 	char		*confdir,	/* conf dir for policy		*/
 	char		*iperfcmd,	/* iperf exec path		*/
+	int		*retn_on_intr,
 	char		**lbuf,
 	size_t		*lbuf_max
 	);
