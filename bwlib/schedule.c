@@ -443,7 +443,7 @@ IPFScheduleContextGenerateNextDelta(
 	if(sctx->i >= sctx->maxi){
 		IPFError(sctx->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 		"IPFScheduleContextGenerateNextDelta: Schedule complete");
-		return IPFErrFATAL;
+		return 0;
 	}
 	slot = &sctx->slots[sctx->i++ % sctx->nslots];
 

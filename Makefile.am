@@ -18,7 +18,7 @@
 #
 #	Description:	toplevel build for iperfc
 #
-SUBDIRS = @TOP_BUILD_DIRS@ ipcntrl iperfcd iperfc piperfc conf
+SUBDIRS = @TOP_BUILD_DIRS@ ipcntrl iperfcd iperfc conf
 
 # uncomment this when we stop using broken automake 1.5
 # (then remove from DIST_EXTRA in subdir)

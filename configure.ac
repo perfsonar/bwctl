@@ -161,6 +161,6 @@ AC_CHECK_DECLS([fseeko])
 # AC_CONFIG_FILES([Makefile owamp/Makefile])
 
 AC_SUBST(ac_aux_dir)
-AC_OUTPUT([Makefile ipcntrl/Makefile iperfcd/Makefile iperfc/Makefile piperfc/Makefile conf/Makefile ],
+AC_OUTPUT([Makefile ipcntrl/Makefile iperfcd/Makefile iperfc/Makefile conf/Makefile ],
 	[test -z "$CONFIG_HEADERS" || echo timestamp > ipcntrl/stamp-h.in])
 

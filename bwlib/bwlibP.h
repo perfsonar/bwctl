@@ -3,7 +3,7 @@
 */
 /************************************************************************
 *									*
-*			     Copyright (C)  2002			*
+*			     Copyright (C)  2003			*
 *				Internet2				*
 *			     All Rights Reserved			*
 *									*
@@ -12,17 +12,16 @@
 **	File:		ipcntrlP.h
 **
 **	Author:		Jeff W. Boote
-**			Anatoly Karp
 **
-**	Date:		Wed Mar 20 11:10:33  2002
+**	Date:		Thu Sep 18 13:26:19 MDT 2003
 **
 **	Description:	
 **	This header file describes the internal-private ipcntrl API.
 **
 **	testing
 */
-#ifndef	OWAMPP_H
-#define	OWAMPP_H
+#ifndef	IPCNTRLP_H
+#define	IPCNTRLP_H
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -51,29 +50,11 @@
 #define _IPF_TEST_REQUEST_BLK_LEN	7
 #define _IPF_START_SESSIONS_BLK_LEN	2
 #define _IPF_STOP_SESSIONS_BLK_LEN	2
-#define _IPF_FETCH_SESSION_BLK_LEN	3
 #define _IPF_CONTROL_ACK_BLK_LEN	2
 #define _IPF_MAX_MSG_BLK_LEN		_IPF_TEST_REQUEST_BLK_LEN
 #define _IPF_MAX_MSG	(_IPF_MAX_MSG_BLK_LEN*_IPF_RIJNDAEL_BLOCK_SIZE)
 #define _IPF_TEST_REQUEST_PREAMBLE_SIZE	(_IPF_TEST_REQUEST_BLK_LEN*_IPF_RIJNDAEL_BLOCK_SIZE)
 #define	_IPF_TESTREC_SIZE	24
-
-/*
- * The FETCH buffer is the smallest multiple of both the _IPF_TS_REC_SIZE
- * and the _IPF_RIJNDAEL_BLOCK_SIZE. The following must be true:
- * _IPF_FETCH_AES_BLOCKS * _IPF_RIJNDAEL_BLOCK_SIZE == _IPF_FETCH_BUFFSIZE
- * _IPF_FETCH_TESTREC_BLOCKS * _IPF_TESTREC_SIZE == _IPF_FETCH_BUFFSIZE
- */
-#define _IPF_FETCH_BUFFSIZE		48
-#define _IPF_FETCH_AES_BLOCKS		3
-#define _IPF_FETCH_TESTREC_BLOCKS	2
-
-#if (_IPF_FETCH_BUFFSIZE != (_IPF_RIJNDAEL_BLOCK_SIZE * _IPF_FETCH_AES_BLOCKS))
-#error "Fetch Buffer is mis-sized for AES block size!"
-#endif
-#if (_IPF_FETCH_BUFFSIZE != (_IPF_TESTREC_SIZE * _IPF_FETCH_TESTREC_BLOCKS))
-#error "Fetch Buffer is mis-sized for Test Record Size!"
-#endif
 
 /*
  * Control state constants.
@@ -92,23 +73,18 @@
  * The following states are for partially read messages on the server.
  */
 #define _IPFStateTestRequest		(_IPFStateTest << 1)
-#define _IPFStateTestRequestSlots	(_IPFStateTestRequest << 1)
-#define _IPFStateStartSessions		(_IPFStateTestRequestSlots << 1)
-#define _IPFStateStopSessions		(_IPFStateStartSessions << 1)
-#define _IPFStateFetchSession		(_IPFStateStopSessions << 1)
-#define _IPFStateTestAccept		(_IPFStateFetchSession << 1)
+#define _IPFStateStartSessions		(_IPFStateTestRequest << 1)
+#define _IPFStateStopSession		(_IPFStateStartSessions << 1)
+#define _IPFStateTestAccept		(_IPFStateStopSession << 1)
 #define _IPFStateControlAck		(_IPFStateTestAccept << 1)
-/* during fetch-session */
-#define _IPFStateFetching		(_IPFStateControlAck << 1)
-#define _IPFStateFetchingRecords	(_IPFStateFetching << 1)
 
 /* Reading indicates partial read request-ReadRequestType without remainder */
-#define _IPFStateReading	(_IPFStateTestRequest|_IPFStateStartSessions|_IPFStateStopSessions|_IPFStateFetchSession)
+#define _IPFStateReading	(_IPFStateTestRequest|_IPFStateStartSessions|_IPFStateStopSessions)
 
 /*
  * "Pending" indicates waiting for server response to a request.
  */
-#define	_IPFStatePending	(_IPFStateTestAccept|_IPFStateControlAck|_IPFStateStopSessions)
+#define	_IPFStatePending	(_IPFStateTestAccept|_IPFStateControlAck|_IPFStateStopSession)
 
 
 #define	_IPFStateIsInitial(c)	(!(c)->state)
@@ -119,8 +95,6 @@
 #define	_IPFStateIsRequest(c)	_IPFStateIs(_IPFStateRequest,c)
 #define	_IPFStateIsReading(c)	_IPFStateIs((_IPFStateReading),c)
 #define _IPFStateIsPending(c)	_IPFStateIs(_IPFStatePending,c)
-#define _IPFStateIsFetchSession(c)	_IPFStateIs(_IPFStateFetchSession,c)
-#define _IPFStateIsFetching(c)	_IPFStateIs(_IPFStateFetching,c)
 #define	_IPFStateIsTest(c)	_IPFStateIs(_IPFStateTest,c)
 
 /*
@@ -287,7 +261,6 @@ struct IPFTestSessionRec{
 	IPFBoolean			conf_sender;
 	IPFBoolean			conf_receiver;
 	IPFTestSpec			test_spec;
-	IPFSlot				slot_buffer[_IPFSLOT_BUFSIZE];
 
 	IPFEndpoint			endpoint;
 	void				*closure; /* per/test app data */
@@ -500,17 +473,6 @@ _IPFDecodeTestRequestPreamble(
 	IPFBoolean	*server_conf_receiver,
 	IPFSID		sid,
 	IPFTestSpec	*test_spec
-	);
-
-extern IPFErrSeverity
-_IPFEncodeSlot(
-	u_int32_t	*msg,	/* [4] - one block/ 16 bytes 32 bit aligned */
-	IPFSlot		*slot
-	);
-extern IPFErrSeverity
-_IPFDecodeSlot(
-	IPFSlot		*slot,
-	u_int32_t	*msg	/* [4] - one block/ 16 bytes 32 bit aligned */
 	);
 
 extern IPFErrSeverity
@@ -785,4 +747,4 @@ _IPFDecodeTimeStampErrEstimate(
 	u_int8_t	buf[2]
 	);
 
-#endif	/* OWAMPP_H */
+#endif	/* IPCNTRLP_H */

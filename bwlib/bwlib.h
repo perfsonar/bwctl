@@ -292,50 +292,15 @@ typedef u_int8_t	IPFKey[16];
 
 typedef u_int32_t	IPFSessionMode;
 
-typedef enum {
-	IPFSlotUnspecifiedType = -1,	/* invalid value	*/
-	IPFSlotRandExpType = 0,
-	IPFSlotLiteralType = 1
-} IPFSlotType;
-
 typedef struct{
-	IPFSlotType	slot_type;
-	IPFNum64	mean;
-} IPFSlotRandExp;
-
-typedef struct{
-	IPFSlotType	slot_type;
-	IPFNum64	offset;
-} IPFSlotLiteral;
-
-/*
- * For now - all current slot types are of the exact same format, and
- * the "time" element can be interpreted as the mean_delay between packets
- * for the purposes of bandwidth calculations. If that is ever not true,
- * this type should be removed, and any code that uses it will need to
- * have a switch statement to do whatever is appropriate for each individual
- * slot type.
- */
-typedef struct{
-	IPFSlotType	slot_type;
-	IPFNum64	mean_delay;
-} IPFSlotAny;
-
-typedef union IPFSlotUnion{
-	IPFSlotType	slot_type;
-	IPFSlotRandExp	rand_exp;
-	IPFSlotLiteral	literal;
-	IPFSlotAny	any;
-} IPFSlot;
-
-typedef struct{
-	IPFNum64	start_time;
-	IPFNum64	loss_timeout;
-	u_int32_t	typeP;
-	u_int32_t	packet_size_padding;
-	u_int32_t	npackets;
-	u_int32_t	nslots;
-	IPFSlot		*slots;
+	u_int32_t	req_time;
+	u_int32_t	latest_time;
+	u_int32_t	duration;
+	IPFBoolean	udp;
+	u_int32_t	bandwidth;
+	u_int32_t	window_size;
+	u_int32_t	len_buffer;
+	u_int16_t	report_interval;
 } IPFTestSpec;
 
 typedef u_int32_t IPFPacketSizeT;
@@ -350,8 +315,7 @@ typedef struct IPFScheduleContextRec	*IPFScheduleContext;
 IPFScheduleContext
 IPFScheduleContextCreate(
 		IPFContext	ctx,
-		IPFSID		sid,
-		IPFTestSpec	*tspec
+		IPFSID		sid
 		);
 
 void
@@ -362,8 +326,7 @@ IPFScheduleContextFree(
 IPFErrSeverity
 IPFScheduleContextReset(
 	IPFScheduleContext	sctx,
-		IPFSID		sid,
-		IPFTestSpec	*tspec
+		IPFSID		sid
 		);
 
 IPFNum64
@@ -484,6 +447,7 @@ typedef IPFBoolean (*IPFCheckTestPolicyFunc)(
 	struct sockaddr	*local_sa_addr,
 	struct sockaddr	*remote_sa_addr,
 	socklen_t	sa_len,
+	u_int32_t	req_time,
 	IPFTestSpec	*test_spec,
 	void		**closure,
 	IPFErrSeverity	*err_ret
@@ -713,6 +677,21 @@ IPFControlOpen(
 );
 
 /*
+ * The following function is used to query the time/errest from
+ * the remote server. This is useful for determining if a control
+ * connection is still valid and to fetch the current NTP errest
+ * from that system since it could change. It also updates the
+ * control connections idea of the IPFGetRTTBound
+ *
+ * Client
+ */
+extern IPFErrSeverity
+IPFControlTimeCheck(
+	IPFControl	cntrl,
+	IPFTimeStamp	*remote_time
+	);
+
+/*
  * Client and Server
  */
 extern IPFErrSeverity
@@ -722,15 +701,16 @@ IPFControlClose(
 
 /*
  * Request a test session - if the function returns True, then the function
- * returns a valid SID for the session.
+ * returns a valid SID for the session, and avail_time_ret holds the time
+ * of the reservation.
  *
  * If the function returns False - check err_ret. If err_ret is ErrOK, the
  * session was denied by the server, and the control connection is still
- * valid.
+ * valid. In this case, if (avail_time_ret != 0), then the server was
+ * acceptible to the parameters of the request, but simply did not have
+ * the resources available.
  *
- * TODO:Add IPFControlStatus(cntrl) function to determine cntrl status...
- *
- * Reasons this function will return False:
+ * Reasons this function will return False (with avail_time_ret == 0):
  * 1. Server denied test: err_ret==ErrOK
  * 2. Control connection failure: err_ret == ErrFATAL
  * 3. Local resource problem (malloc/fork/fdopen): err_ret == ErrFATAL
@@ -740,8 +720,7 @@ IPFControlClose(
  * is automatically free'd. It should not be referenced again in any way.
  *
  * Conversely, the test_spec is completely copied, and the caller continues
- * to "own" all memory associated with it after this call. (Including
- * the "slots" array that is part of the test_spec.)
+ * to "own" all memory associated with it after this call.
  *
  * Client
  */
@@ -753,7 +732,8 @@ IPFSessionRequest(
 	IPFAddr		receiver,
 	IPFBoolean	server_conf_receiver,
 	IPFTestSpec	*test_spec,
-	FILE		*fp,		/* only used if !server_conf_receiver */
+	FILE		*fp,		/* where to direct the results */
+	u_int32_t	*avail_time_ret,
 	IPFSID		sid_ret,
 	IPFErrSeverity	*err_ret
 );
