@@ -1126,6 +1126,12 @@ BWLGetRTTBound(
 	BWLControl	cntrl
 	);
 
+extern void
+BWLSetTimeStampError(
+	BWLTimeStamp	*tstamp,
+	BWLNum64	err
+	);
+
 extern BWLNum64
 BWLGetTimeStampError(
 	BWLTimeStamp	*tstamp

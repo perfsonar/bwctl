@@ -332,6 +332,96 @@ BWLTimeStampToTimeval(
 }
 
 /*
+ * Function:	BWLSetTimeStampError
+ *
+ * Description:	
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ */
+void
+BWLSetTimeStampError(
+	BWLTimeStamp	*tstamp,
+	BWLNum64	val
+		)
+{
+	BWLNum64	err;
+	/*
+	 * Just in the unlikely event that val is represented
+	 * by a type larger than 64 bits...
+	 * (This ensures that scale will not overflow the
+	 * 6 bits available to it.)
+	 */
+	err = val & (u_int64_t)0xFFFFFFFFFFFFFFFFULL;
+
+	/*
+	 * Now shift err until it will fit in an 8 bit
+	 * multiplier (after adding one for rounding err: this
+	 * is the reason a value of 0xFF is shifted one last
+	 * time), counting the shifts to set the scale.
+	 */
+	tstamp->scale = 0;
+	while(err >= 0xFF){
+		err >>= 1;
+		tstamp->scale++;
+	}
+	err++;	/* rounding error:represents shifted off bits */
+	tstamp->multiplier = 0xFF & err;
+
+	return;
+}
+
+/*
+ * Function:	BWLGetTimeStampError
+ *
+ * Description:	
+ * 	Retrieve the timestamp error estimate as a double in seconds.
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ */
+BWLNum64
+BWLGetTimeStampError(
+	BWLTimeStamp	*tstamp
+	)
+{
+	BWLNum64	err;
+	u_int8_t	scale;
+
+	if(!tstamp)
+		return 0;
+
+	/*
+	 * Place multiplier in 64bit int large enough to hold full value.
+	 * (Due to the interpretation of BWLNum64 being 32 bits of seconds,
+	 * and 32 bits of "fraction", this effectively divides by 2^32.)
+	 */
+	err = tstamp->multiplier & 0xFF;
+
+	/*
+	 * Now shift it based on the "scale".
+	 * (This affects the 2^scale multiplication.)
+	 */
+	scale = tstamp->scale & 0x3F;
+	while(scale>0){
+		err <<= 1;
+		scale--;
+	}
+
+	return err;
+}
+
+/*
  * Function:	BWLTimespecToTimeStamp
  *
  * Description:	
@@ -397,34 +487,7 @@ BWLTimespecToTimeStamp(
 		 * already correct.
 		 */
 		if(!last_errest || (*errest != *last_errest)){
-			BWLNum64	err;
-
-			/*
-			 * First normalize errest to 32bit fractional seconds.
-			 */
-			err = BWLUsecToNum64(*errest);
-
-			/*
-			 * Just in the unlikely event that err is represented
-			 * by a type larger than 64 bits...
-			 * (This ensures that scale will not overflow the
-			 * 6 bits available to it.)
-			 */
-			err &= (u_int64_t)0xFFFFFFFFFFFFFFFFULL;
-
-			/*
-			 * Now shift err until it will fit in an 8 bit
-			 * multiplier (after adding one for rounding err: this
-			 * is the reason a value of 0xFF is shifted one last
-			 * time), counting the shifts to set the scale.
-			 */
-			tstamp->scale = 0;
-			while(err >= 0xFF){
-				err >>= 1;
-				tstamp->scale++;
-			}
-			err++;	/* rounding error:represents shifted off bits */
-			tstamp->multiplier = 0xFF & err;
+			BWLSetTimeStampError(BWLUsecToNum64(*errest));
 		}
 	}
 	else{
@@ -476,51 +539,6 @@ BWLTimeStampToTimespec(
 	BWLNum64ToTimespec(tval,tstamp->tstamp);
 
 	return tval;
-}
-
-/*
- * Function:	BWLGetTimeStampError
- *
- * Description:	
- * 	Retrieve the timestamp error estimate as a double in seconds.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-BWLNum64
-BWLGetTimeStampError(
-	BWLTimeStamp	*tstamp
-	)
-{
-	BWLNum64	err;
-	u_int8_t	scale;
-
-	if(!tstamp)
-		return 0.0;
-
-	/*
-	 * Place multiplier in 64bit int large enough to hold full value.
-	 * (Due to the interpretation of BWLNum64 being 32 bits of seconds,
-	 * and 32 bits of "fraction", this effectively divides by 2^32.)
-	 */
-	err = tstamp->multiplier & 0xFF;
-
-	/*
-	 * Now shift it based on the "scale".
-	 * (This affects the 2^scale multiplication.)
-	 */
-	scale = tstamp->scale & 0x3F;
-	while(scale>0){
-		err <<= 1;
-		scale--;
-	}
-
-	return err;
 }
 
 /*
