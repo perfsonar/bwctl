@@ -112,11 +112,8 @@
 /* Default mode offered by the server */
 #define BWL_DEFAULT_OFFERED_MODE 	(BWL_MODE_OPEN|BWL_MODE_AUTHENTICATED|BWL_MODE_ENCRYPTED)
 
-/* Default accepted synchronization "fuzz" */
-#define BWL_DEFAULT_SYNCFUZZ	0.020
-
 /*
- * TODO: 4822 should eventually be replaced by an IANA blessed service name.
+ * TODO: 4823 should eventually be replaced by an IANA blessed service name.
  */
 #define BWL_CONTROL_SERVICE_NUMBER	4823
 #define BWL_CONTROL_SERVICE_NAME	"4823"
@@ -509,6 +506,12 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
 	FILE		*sendfp,
 	FILE		*recvfp
 	);
+
+/*
+ * This value is used to increase the tolerance of bwctld to deal
+ * with incorrectly configured ntpd processes. Specified as a (*double).
+ */
+#define BWLSyncFuzz	"BWLSyncFuzz"
 
 #ifndef	NDEBUG
 /*

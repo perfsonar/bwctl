@@ -599,6 +599,8 @@ _BWLGetTimespec(
 	struct timeval	tod;
 	struct timex	ntp_conf;
 	long		sec;
+	static long	syncfuzz = 0;
+	static double	*dbptr = NULL;
 
 	ntp_conf.modes = 0;
 
@@ -659,9 +661,25 @@ _BWLGetTimespec(
 		*sync = 1;
 
 	/*
+	 * See if SyncFuzz was set.
+	 * Used to increase tolerance for incomplete NTP configs.
+	 */
+	if(!dbptr){
+		dbptr = (double*)BWLContextConfigGet(ctx,BWLSyncFuzz);
+		if(dbptr){
+			/*
+			 * BWLSyncFuzz is specified as a double (sec)
+			 * ntp errors are long (usec) convert.
+			 */
+			syncfuzz = *dbptr * 1000000;
+		}
+		dbptr = 1; /* not a valid pointer - just non-null */
+	}
+
+	/*
 	 * Set estimated error
 	 */
-	*esterr = (u_int32_t)ntp_conf.maxerror;
+	*esterr = (u_int32_t)ntp_conf.maxerror + syncfuzz;
 	assert((long)*esterr == ntp_conf.maxerror);
 
 	/*

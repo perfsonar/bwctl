@@ -1287,6 +1287,26 @@ LoadConfig(
 			}
 			opts.bottleneckcapacity = (u_int64_t)bneck;
 		}
+		else if(!strncasecmp(key,"syncfuzz",9)){
+			char	*end=NULL;
+			double	tdbl;
+
+			errno = 0;
+			tdbl = strtod(val,&end);
+			if((end == val) || (errno == ERANGE)){
+				fprintf(stderr,"strtod(): %s\n",
+							strerror(errno));
+				rc=-rc;
+				break;
+			}
+			if(tdbl < 0.0){
+				fprintf(stderr,"Invalid value syncfuzz: %f\n",
+								tdbl);
+				rc=-rc;
+				break;
+			}
+			opts.syncfuzz = tdbl;
+		}
 		else{
 			fprintf(stderr,"Unknown key=%s\n",key);
 			rc = -rc;
@@ -1333,9 +1353,9 @@ main(int argc, char *argv[])
 	sigset_t		sigs;
 
 #ifndef NDEBUG
-	char *optstring = "hvc:d:R:a:S:e:ZU:G:w";
+	char *optstring = "hvc:d:R:a:S:e:ZU:G:qw";
 #else	
-	char *optstring = "hvc:d:R:a:S:e:ZU:G:";
+	char *optstring = "hvc:d:R:a:S:e:ZU:G:q";
 #endif
 
 	/*
@@ -1542,6 +1562,13 @@ main(int argc, char *argv[])
 	 * one.)
 	 */
 	if(!(ctx = BWLContextCreate(errhand))){
+		exit(1);
+	}
+
+	if((opts.syncfuzz != 0.0) &&
+			!BWLContextConfigSet(ctx,BWLSyncFuzz,
+						(void*)&opts.syncfuzz)){
+		I2ErrLog(errhand,"Unable to set SyncFuzz.");
 		exit(1);
 	}
 

@@ -53,68 +53,6 @@ separated by whitespace.
 .RE
 .SH CONFIGURATION OPTIONS
 .TP
-.BI iperfcmd " iperfcmd"
-The full path to the \fBIperf\fR on the system.
-.RS
-.IP Default:
-/usr/local/bin/iperf
-.RE
-.TP
-.BI iperfport " iperfport"
-The port number(s) that \fBIperf\fR receivers will use.
-Currently, \fBbwctld\fR simply cycles through this range linearly.
-\fIiperfport\fR can be specified as a single valid port number or as
-a range as \fIlow\fR-\fIhigh\fR. The range must be specified as two valid
-port numbers with the '-' character separating them. Whitespace is
-not allowed within the \fIiperfport\fR. For example, \fB"5001-5004"\fR would
-be valid, but \fB"5001 - 5004"\fR would be invalid.
-.RS
-.IP Default:
-5001
-.RE
-.TP
-.BI user " user"
-Specifies the uid the \fBbwctld\fR process should run as. \fIuser\fR
-can be specified using a valid user name on the system or by using -uid.
-This option is only used if \fBbwctld\fR is started as root.
-.TP
-.BI group " group"
-Specifies the gid the \fBbwctld\fR process should run as. \fIgroup\fR
-can be specified using a valid group name on the system or by using -gid.
-This option is only used if \fBbwctld\fR is started as root.
-.TP
-.B verbose
-If this option is present, it directs the \fBbwctld\fR process to
-generate more verbose messages to syslog.
-.TP
-.BI facility " facility"
-Syslog \fIfacility\fR to log messages to.
-.RS
-.IP Default:
-LOG_DAEMON
-.RE
-.TP
-.B loglocation
-Directs the \fBbwctld\fR process to report source code file and line
-number information with error messages. This is a particularly useful
-option to set when sending in messages as part of a bug report.
-.TP
-.BI vardir " vardir"
-Directory path where the bwctld.pid file will be placed.
-.RS
-.IP Default:
-Current directory
-.RE
-.TP
-.BI datadir " datadir"
-Directory path where output data files will be placed. (\fBbwctld\fR
-does not currently save the results of the \fBIperf\fR tests. This
-option is a place holder for when it does.)
-.RS
-.IP Default:
-Current directory
-.RE
-.TP
 .BI authmode " authmode"
 Specify the authentication modes the server is willing to use for
 communication. \fIauthmode\fR should be set as a character string, with
@@ -137,6 +75,80 @@ will be selected.
 "AEO".
 .RE
 .TP
+.BI bottleneckcapacity " bottleneckcapacity"
+This value is used in the algorithm to dynamically set the TCP
+send/recv window sizes. This option is likely to be removed in the
+future once a dynamic \fIbottleneckcapacity\fR algorithm is incorporated
+into the code. (This option only really works when the local NIC is
+the bottleneck.) If this option is not specified, the dynamic window
+calculation requested by the \fB-W\fR option to \fBbwctl\fR is not
+done and the advisory value is used.
+.TP
+.BI controltimeout " controltimeout"
+Number of seconds to wait for protocol messages before timing out. This
+value should be significantly larger than what typical users specify
+for the \fB-I\fR flag of \fBbwctl\fR or \fBbwctl\fR will have to open
+a new control connection for each new test it requests.
+.RS
+.IP Default:
+7200 (Picked to be the same as the default for TCP keepalive)
+.RE
+.TP
+.BI datadir " datadir"
+Directory path where output data files will be placed. (\fBbwctld\fR
+does not currently save the results of the \fBIperf\fR tests. This
+option is a place holder for when it does.)
+.RS
+.IP Default:
+Current directory
+.RE
+.TP
+.BI dieby " dieby"
+Number of seconds to wait for child processes to gracefully terminate
+before killing them with \fBSIGKILL\fR. This is in response to the master
+process receiving \fBSIGTERM\fR or \fBSIGHUP\fR.
+.RS
+.IP Default:
+30
+.RE
+.TP
+.BI facility " facility"
+Syslog \fIfacility\fR to log messages to.
+.RS
+.IP Default:
+LOG_DAEMON
+.RE
+.TP
+.BI group " group"
+Specifies the gid the \fBbwctld\fR process should run as. \fIgroup\fR
+can be specified using a valid group name on the system or by using -gid.
+This option is only used if \fBbwctld\fR is started as root.
+.TP
+.BI iperfcmd " iperfcmd"
+The full path to the \fBIperf\fR on the system.
+.RS
+.IP Default:
+/usr/local/bin/iperf
+.RE
+.TP
+.BI iperfport " iperfport"
+The port number(s) that \fBIperf\fR receivers will use.
+Currently, \fBbwctld\fR simply cycles through this range linearly.
+\fIiperfport\fR can be specified as a single valid port number or as
+a range as \fIlow\fR-\fIhigh\fR. The range must be specified as two valid
+port numbers with the '-' character separating them. Whitespace is
+not allowed within the \fIiperfport\fR. For example, \fB"5001-5004"\fR would
+be valid, but \fB"5001 - 5004"\fR would be invalid.
+.RS
+.IP Default:
+5001
+.RE
+.TP
+.B loglocation
+Directs the \fBbwctld\fR process to report source code file and line
+number information with error messages. This is a particularly useful
+option to set when sending in messages as part of a bug report.
+.TP
 .BI srcnode " nodename:port"
 Specify the address and port that \fBbwctld\fR will listen for requests on.
 \fInodename\fR can be specified using a DNS name or using the textual
@@ -152,33 +164,32 @@ ensures the port number is distinct from the address specification.
 \fIport\fR is 4823.
 .RE
 .TP
-.BI dieby " dieby"
-Number of seconds to wait for child processes to gracefully terminate
-before killing them with \fBSIGKILL\fR. This is in response to the master
-process receiving \fBSIGTERM\fR or \fBSIGHUP\fR.
+.BI syncfuzz " syncfuzz"
+This value is added to the NTP error estimates to increase the tolorence
+of bwctld to incomplete ntp configurations. If not enough ntp peers are
+specified, NTP can not accurately determine the time error. This option
+is specified as a floating point number in seconds. For example, to indicate
+that the system is synchronized to one second, you could specify this option as 1.0.
 .RS
 .IP Default:
-30
+0.0 (NTP error estimates are used as is.)
 .RE
 .TP
-.BI controltimeout " controltimeout"
-Number of seconds to wait for protocol messages before timing out. This
-value should be significantly larger than what typical users specify
-for the \fB-I\fR flag of \fBbwctl\fR or \fBbwctl\fR will have to open
-a new control connection for each new test it requests.
+.BI user " user"
+Specifies the uid the \fBbwctld\fR process should run as. \fIuser\fR
+can be specified using a valid user name on the system or by using -uid.
+This option is only used if \fBbwctld\fR is started as root.
+.TP
+.BI vardir " vardir"
+Directory path where the bwctld.pid file will be placed.
 .RS
 .IP Default:
-7200 (Picked to be the same as the default for TCP keepalive)
+Current directory
 .RE
 .TP
-.BI bottleneckcapacity " bottleneckcapacity"
-This value is used in the algorithm to dynamically set the TCP
-send/recv window sizes. This option is likely to be removed in the
-future once a dynamic \fIbottleneckcapacity\fR algorithm is incorporated
-into the code. (This option only really works when the local NIC is
-the bottleneck.) If this option is not specified, the dynamic window
-calculation requested by the \fB-W\fR option to \fBbwctl\fR is not
-done and the advisory value is used.
+.B verbose
+If this option is present, it directs the \fBbwctld\fR process to
+generate more verbose messages to syslog.
 .SH SEE ALSO
 bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5),
 and the \%http://e2epi.internet2.edu/bwctl/ web site.

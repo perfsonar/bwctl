@@ -581,7 +581,7 @@ main(
 	char                    *endptr = NULL;
 	char                    optstring[128];
 	static char		*conn_opts = "A:B:k:U:";
-	static char		*out_opts = "pxd:I:R:n:L:e:rvV";
+	static char		*out_opts = "pxd:I:R:n:L:e:qrvV";
 	static char		*test_opts = "i:l:uw:W:P:S:b:t:c:s:";
 	static char		*gen_opts = "hW";
 
@@ -1108,8 +1108,6 @@ main(
 		char		sendfname[PATH_MAX];
 		FILE		*recvfp = NULL;
 		FILE		*sendfp = NULL;
-		BWLTimeStamp	time1,time2;
-		double		t1,e1,t2,e2,tr,er,sync_fuzz;
 		struct timespec	tspec;
 
 
@@ -1219,14 +1217,6 @@ AGAIN:
 		req_time.tstamp = zero64;
 
 		/*
-		 * Get current time (used to verify remote time)
-		 */
-		if(!BWLGetTimeStamp(ctx,&time1)){
-			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-			exit(1);
-		}
-
-		/*
 		 * Query remote time error and update round-trip bound.
 		 * (The time will be over-written later, we only need it
 		 * to verify the time for now. The errest will continue
@@ -1245,36 +1235,6 @@ AGAIN:
 		if(sig_check()) exit(1);
 
 		/*
-		 * Get current time (used to verify remote time)
-		 */
-		if(!BWLGetTimeStamp(ctx,&time2)){
-			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-			exit(1);
-		}
-
-		t1 = BWLNum64ToDouble(time1.tstamp);
-		t2 = BWLNum64ToDouble(time2.tstamp);
-		tr = BWLNum64ToDouble(local.tspec.req_time.tstamp);
-		e1 = BWLNum64ToDouble(BWLGetTimeStampError(&time1));
-		e2 = BWLNum64ToDouble(BWLGetTimeStampError(&time2));
-		er = BWLNum64ToDouble(
-			BWLGetTimeStampError(&local.tspec.req_time));
-		sync_fuzz = BWL_DEFAULT_SYNCFUZZ;
-
-		if((t1-e1) > (tr+er + sync_fuzz)){
-			I2ErrLog(eh,"Remote clock is at least %f(secs) "
-				"ahead of client, time error = %f(secs)",
-				t1-tr,e1+er);
-			exit(1);
-		}
-		else if((tr-er) > (t2+e2 + sync_fuzz)){
-			I2ErrLog(eh,"Remote clock is at least %f(secs) "
-				"behind client, time error = %f(secs)",
-				tr-t2,e2+er);
-			exit(1);
-		}
-
-		/*
 		 * req_time.tstamp += (5*round-trip-bound)
 		 * (5) -- 1 test_req, 1 start session, 3 for server-2-server
 		 * connection.
@@ -1282,20 +1242,6 @@ AGAIN:
 		remote.rttbound = BWLGetRTTBound(remote.cntrl);
 		req_time.tstamp = BWLNum64Add(req_time.tstamp,
 			BWLNum64Mult(remote.rttbound,BWLULongToNum64(5)));
-
-		/********************************************************
-		 * Leaving check for "local" time in because local/	*
-		 * remote will mean something very different once three	*
-		 * party interaction is enabled.			*
-		 ********************************************************/
-
-		/*
-		 * Get current time (used to verify local server time)
-		 */
-		if(!BWLGetTimeStamp(ctx,&time1)){
-			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-			exit(1);
-		}
 
 		/*
 		 * Query local time error and update round-trip bound.
@@ -1313,36 +1259,6 @@ AGAIN:
 			goto next_test;
 		}
 		if(sig_check()) exit(1);
-
-		/*
-		 * Get current time (used to verify remote time)
-		 */
-		if(!BWLGetTimeStamp(ctx,&time2)){
-			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-			exit(1);
-		}
-
-		t1 = BWLNum64ToDouble(time1.tstamp);
-		t2 = BWLNum64ToDouble(time2.tstamp);
-		tr = BWLNum64ToDouble(remote.tspec.req_time.tstamp);
-		e1 = BWLNum64ToDouble(BWLGetTimeStampError(&time1));
-		e2 = BWLNum64ToDouble(BWLGetTimeStampError(&time2));
-		er = BWLNum64ToDouble(
-			BWLGetTimeStampError(&remote.tspec.req_time));
-		sync_fuzz = BWL_DEFAULT_SYNCFUZZ;
-
-		if((t1-e1) > (tr+er + sync_fuzz)){
-			I2ErrLog(eh,"Local clock is at least %f(secs) "
-				"ahead of client, time error = %f(secs)",
-				t1-tr,e1+er);
-			exit(1);
-		}
-		else if((tr-er) > (t2+e2 + sync_fuzz)){
-			I2ErrLog(eh,"Local clock is at least %f(secs) "
-				"behind client, time error = %f(secs)",
-				tr-t2,e2+er);
-			exit(1);
-		}
 
 		/*
 		 * req_time.tstamp += (5*round-trip-bound)

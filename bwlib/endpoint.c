@@ -1000,7 +1000,6 @@ ACCEPT:
 
 		double		t1,t2,tr;
 		double		e1,e2,er;
-		double		sync_fuzz = BWL_DEFAULT_SYNCFUZZ;
 
 		if(BWLControlTimeCheck(ep->rcntrl,&rtime) != BWLErrOK){
 			BWLError(ctx,BWLErrFATAL,errno,
@@ -1020,14 +1019,14 @@ ACCEPT:
 		e2 = BWLNum64ToDouble(BWLGetTimeStampError(&currtime2));
 		er = BWLNum64ToDouble(BWLGetTimeStampError(&rtime));
 
-		if((t1-e1) > (tr+er + sync_fuzz)){
+		if((t1-e1) > (tr+er)){
 			BWLError(ctx,BWLErrFATAL,errno,
 				"Remote clock is at least %f(secs) "
 				"ahead of local, time error = %f(secs)",
 				t1-tr,e1+er);
 			goto end;
 		}
-		else if((tr-er) > (t2+e2 + sync_fuzz)){
+		else if((tr-er) > (t2+e2)){
 			BWLError(ctx,BWLErrFATAL,errno,
 				"Remote clock is at least %f(secs) "
 				"behind local, time error = %f(secs)",

@@ -84,13 +84,27 @@ More information on the policy controls can be found in the bwctld(8)
 man page.
 .SH OPTIONS
 .TP
-\fB\-c\fR \fIrecvhost\fR
+\fB\-c\fR \fIrecvhost[:port]\fR
 Specifies the host that will run the \fBIperf\fR server. Must specify
 either the \fB\-c\fR or the \fB\-s\fR option.
+The :port suffix is optional
+and is only needed if \fBbwcltd\fR is being run on a non-default
+port number. If an IPv6 address is being specified, note that the accepted
+format contains the \fIrecvhost\fR portion of the specification in square
+brackets as: [fe80::fe9f:62d8]:4823.
+This ensures the port number is distinct from the address specification, and
+is not needed if the :port suffix is not being used.
 .TP
-\fB\-s\fR \fIsendhost\fR
+\fB\-s\fR \fIsendhost[:port]\fR
 Specifies the host that will run the \fBIperf\fR client. Must specify
 either the \fB\-c\fR or the \fB\-s\fR option.
+The :port suffix is optional
+and is only needed if \fBbwcltd\fR is being run on a non-default
+port number. If an IPv6 address is being specified, note that the accepted
+format contains the \fIsendhost\fR portion of the specification in square
+brackets as: [fe80::fe9f:62d8]:4823.
+This ensures the port number is distinct from the address specification, and
+is not needed if the :port suffix is not being used.
 .SS Throughput Test Arguments:
 (These arguments were named to match their counterparts in \fBIperf\fR
 as closely as possible.)

@@ -60,6 +60,8 @@ typedef struct {
 	I2Boolean	childwait;
 #endif
 	I2Boolean	daemon;
+
+	double		syncfuzz;
 } bwctld_opts;
 
 #endif	/*	_BWCTLDP_H_	*/
