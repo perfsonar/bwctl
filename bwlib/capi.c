@@ -491,8 +491,6 @@ BWLControlOpen(
 		goto error;
 	}
 	else{
-		BWLError(ctx,BWLErrINFO,BWLErrPOLICY,
-				"BWLControlOpen:No Common Modes");
 		errno = EACCES;
 		goto denied;
 	}

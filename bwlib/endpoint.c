@@ -640,6 +640,7 @@ _BWLEndpointStart(
 	int			do_read=0;
 	int			do_write=0;
 	BWLRequestType		msgtype = BWLReqInvalid;
+	u_int32_t		mode;
 
 
 	if( !(tsess->localfp = tfile(tsess)) ||
@@ -821,10 +822,36 @@ _BWLEndpointStart(
 		goto end;
 	}
 
+	/*
+	 * Determine what "mode" the peer connection should happen at.
+	 * The server side should be willing to do anything as strict or
+	 * more strict than it does. The client should be the same, but
+	 * it needs to try each possibility in a loop to actually only
+	 * use the "least" strict mode that matches. BWLControlOpen
+	 * will automatically use the most strict mode that matches
+	 * the two.
+	 */
 	if(tsess->conf_receiver){
 		struct sockaddr_storage	sbuff;
 		socklen_t		sbuff_len;
 		int			connfd;
+
+		mode = BWL_MODE_UNDEFINED;
+		switch(tsess->cntrl->mode){
+			case BWL_MODE_OPEN:
+				mode |= BWL_MODE_OPEN;
+				/*fall through*/
+			case BWL_MODE_AUTHENTICATED:
+				mode |= BWL_MODE_AUTHENTICATED;
+				/*fall through*/
+			case BWL_MODE_ENCRYPTED:
+				mode |= BWL_MODE_ENCRYPTED;
+				break;
+			default:
+				BWLError(tsession->cntrl->ctx,BWLErrFATAL,
+						BWLErrINVALID,
+					"Endpoint: Invalid session mode");
+		}
 
 ACCEPT:
 		sbuff_len = sizeof(sbuff);
@@ -862,7 +889,7 @@ ACCEPT:
 
 		ep->rcntrl = BWLControlAccept(ctx,connfd,
 				(struct sockaddr *)&sbuff,sbuff_len,
-				tsess->cntrl->mode,currtime.tstamp,
+				mode,currtime.tstamp,
 				&ipf_term,err_ret);
 	}
 	else{
@@ -881,12 +908,22 @@ ACCEPT:
 			goto end;
 		}
 
-		ep->rcntrl = BWLControlOpen(ctx,local,remote,
+		/*
+		 * Loop through modes: Should be willing to do any
+		 * mode at least a strict as current.
+		 */
+		for(mode = tsess->cntrl->mode;
+				mode<=BWL_MODE_ENCRYPTED;
+					mode << 1){
+			ep->rcntrl = BWLControlOpen(ctx,local,remote,
 				tsess->cntrl->mode,"endpoint",NULL,
 				err_ret);
+			if(ep->rcntrl || (errno != EACCES))
+				break;
+		}
 	}
 	if(!ep->rcntrl){
-		BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+		BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
 			"Endpoint: Unable to connect to Peer!: %M");
 		if(ipf_intr){
 			BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
