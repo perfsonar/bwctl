@@ -1030,9 +1030,10 @@ AGAIN:
 		 * smaller, the more TestRequests will probably need to be made.
 		 * )
 		 * TODO: Come up with a *real* value here!
+		 * (Actually - make this an option?)
 		 */
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-						IPFULongToNum64(2));
+						IPFULongToNum64(1));
 
 		/*
 		 * Wait this long after a test should be complete before
