@@ -1241,7 +1241,7 @@ _BWLReadTestRequest(
 		 * copy sid into tsession - if the sid still needs to be
 		 * generated - it still will be in sapi.c:BWLProcessTestRequest
 		 */
-		memcpy(tsession->sid,&buf[48],16);
+		memcpy(tsession->sid,&buf[60],16);
 		/*
 		 * DEBUG
 		 */
