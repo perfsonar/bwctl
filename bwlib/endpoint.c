@@ -914,7 +914,7 @@ ACCEPT:
 		 */
 		for(mode = tsess->cntrl->mode;
 				mode<=BWL_MODE_ENCRYPTED;
-					mode << 1){
+					mode <<= 1){
 			ep->rcntrl = BWLControlOpen(ctx,local,remote,
 				mode,"endpoint",NULL,err_ret);
 			if(ep->rcntrl || (errno != EACCES))
