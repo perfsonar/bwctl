@@ -754,7 +754,7 @@ ACCEPT:
 		 * Copy remote address, then modify port number
 		 * for contacting remote host.
 		 */
-		IPFAddr	remote = _IPFAddrCopy(tsess->test_spec->receiver);
+		IPFAddr	remote = _IPFAddrCopy(tsess->test_spec.receiver);
 		switch(remote->saddr->sa_family){
 			struct sockaddr_in	*saddr4;
 #ifdef	AF_INET6
@@ -778,7 +778,7 @@ ACCEPT:
 		}
 
 		ep->rcntrl = IPFControlOpen(ctx,
-				_IPFAddrCopy(tsess->test_spec->sender),
+				_IPFAddrCopy(tsess->test_spec.sender),
 				remote,tsess->cntrl->mode,"endpoint",NULL,
 				err_ret);
 	}
