@@ -845,6 +845,9 @@ ACCEPT:
 	 * Then wait for StopSession to trade results.
 	 */
 	ep->rcntrl->tests = tsess;
+	tsess->cntrl = ep->rcntrl;
+	tsess->closure = NULL;
+	tsess->endpoint = NULL;
 	ep->rcntrl->state |= _IPFStateTest;
 	
 wait:
