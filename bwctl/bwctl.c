@@ -97,8 +97,8 @@ print_test_args()
 "   -t time        duration of test (seconds) (Default: 10)\n"
 	);
 	fprintf(stderr,
-"   -c             local sender \"client in iperf speak\" (TAKES NO ARG)\n"
-"   -s             local receiver \"server in iperf speak\" (TAKES NO ARG)\n"
+"   -c recvhost    recvhost will run iperf server \n"
+"   -s sendhost    sendhost will run iperf client \n"
 "              [MUST SPECIFY EXACTLY ONE OF -c/-s]"
 	);
 }
@@ -137,10 +137,7 @@ usage(const char *progname, const char *msg)
 {
 	fprintf(stderr,"Version: $Revision$\n");
 	if(msg) fprintf(stderr, "%s: %s\n", progname, msg);
-	fprintf(stderr,"usage: %s %s\n", 
-			progname,
-			 "[arguments] remotehost"
-			);
+	fprintf(stderr,"usage: %s %s\n", progname, "[arguments]");
 	fprintf(stderr, "\n");
 	print_conn_args();
 		
@@ -790,9 +787,11 @@ main(
 		/* TEST OPTIONS */
 		case 'c':
 			app.opt.send = True;
+			app.remote_test = optarg;
 			break;
 		case 's':
 			app.opt.recv = True;
+			app.remote_test = optarg;
 			break;
 		case 'i':
 			app.opt.reportInterval =strtoul(optarg, &endptr, 10);
@@ -873,14 +872,14 @@ main(
 	argc -= optind;
 	argv += optind;
 
-	if(argc != 1){
+	if(argc != 0){
 		usage(progname, NULL);
 		exit(1);
 	}
-	app.remote_test = argv[0];
 
 	if(app.opt.recv == app.opt.send){
-		usage(progname,"Exactly one of -s or -c must be specified.");
+		usage(progname,
+			"Only one of -s or -c can currently be specified.");
 		exit(1);
 	}
 

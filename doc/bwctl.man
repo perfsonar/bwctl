@@ -1,0 +1,97 @@
+.TH bwctl 1 "2004 Feb 8"
+." The first line of this file must contain the '"[e][r][t][v] line
+." to tell man to run the appropriate filter "t" for table.
+."
+."	$Id$
+."
+."######################################################################
+."#									#
+."#			   Copyright (C)  2004				#
+."#	     			Internet2				#
+."#			   All Rights Reserved				#
+."#									#
+."######################################################################
+."
+."	File:		bwctl.1
+."
+."	Author:		Jeff Boote
+."			Internet2
+."
+."	Date:		Sun Feb  8 16:01:25 MST 2004
+."
+."	Description:	
+."
+.SH NAME
+bwctl \- Client application to request throughput tests.
+.SH SYNOPSIS
+.B bwctl 
+[\fIoptions\fR] (\fI\-c recvhost | \-s sendhost\fR)
+.SH DESCRIPTION
+.B bwctl
+is a command line client application that is used to initiate
+.B iperf
+throughput tests.
+The application works by contacting
+.B bwctld
+daemons on both the receiving host and the sending host.
+.SH OPTIONS
+.SS connection args:
+.TP
+\fB\-A\fR \fIauthmode\fB
+Specify the authentication modes the client is willing to use for
+communication. \fIauthmode\fB should be set as a character string with
+any or all of the characters "AEO". The modes are:
+.IP "A"
+[A]uthenticated. This
+
+.TP
+\fB\-d\fR
+Delete given identity from keyfile
+.TP
+\fB\-f keyfile\fR
+Specifies file that holds identity/key pairs
+.SH LIMITATIONS
+Currently it is only possible to specify either the
+.B iperf
+sender or the
+.B iperf
+receiver on the command line. The local host is assumed to be the other
+endpoint of the test.
+
+.SH EXAMPLES
+\fBaespasswd -f /usr/local/etc/bwctld.keys testuser\fP
+.IP
+Adds a key for the identity \fItestuser\fR. The user is prompted for
+a passphrase. If the file does not exist, an error message will
+be printed and no action will be taken.
+.LP
+\fBaespasswd -f /usr/local/etc/bwctld.keys -n testuser\fP
+.IP
+Creates the file before doing the same as above. If the file already
+exists, an error message will be printed and no action will be taken.
+.LP
+\fBaespasswd -f /usr/local/etc/bwctld.keys -d testuser\fP
+.IP
+Deletes the identity \fItestuser\fR from the keyfile.
+If the file does not exist, an error message will be printed.
+.LP
+.SH SECURITY CONSIDERATIONS
+The keys in the \fIkeyfile\fR are not encrypted in any way. The security
+of these keys is completely up to the security of the system and the
+discretion of the system administrator.
+.SH RESTRICTIONS
+Currently \fIidentity\fR names are restricted to 16 characters, and passphrases
+are limited to 1024 characters.
+.SH SEE ALSO
+.B owping(1)
+,
+.B owampd(1)
+,
+.B bwctl(1)
+,
+.B bwctld(1)
+and the 
+.B http://e2epi.internet2.edu/owamp
+and
+.B http://e2epi.internet2.edu/bwctl
+web sites.
