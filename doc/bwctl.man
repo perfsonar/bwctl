@@ -31,9 +31,9 @@ bwctl \- Client application to request throughput tests.
 initiate \fBIperf\fR throughput tests.
 .TP
 From the \fBIperf\fR web site:
-Iperf is a tool to measure
+\fBIperf\fR is a tool to measure
 maximum TCP bandwidth, allowing the tuning of various parameters
-and UDP characteristics. Iperf reports bandwidth, delay jitter,
+and UDP characteristics. \fBIperf\fR reports bandwidth, delay jitter,
 datagram loss. 
 .PP
 .B bwctl
@@ -203,12 +203,12 @@ communication. \fIauthmode\fR should be set as a character string with
 any or all of the characters "AEO". The modes are:
 .RS
 .IP \fBA\fR
-[\fBA\fR]uthenticated. This encrypts the control connection.
+[\fBA\fR]uthenticated. This mode encrypts the control connection.
 .IP \fBE\fR
-[\fBE\fR]ncrypted. The encrypts the control connection. If the test supports
-encryption, this mode will additionally encrypt the test stream. (Encryption
-of the test stream is not currently supported, so this mode is currently
-identical to authenticated.)
+[\fBE\fR]ncrypted. This mode encrypts the control connection. If the
+test supports encryption, this mode will additionally encrypt the test
+stream. (Encryption of the test stream is not currently supported, so
+this mode is currently identical to authenticated.)
 .IP \fBO\fR
 [\fBO\fR]pen. No encryption of any kind is done.
 .PP

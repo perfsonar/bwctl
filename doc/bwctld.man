@@ -1,0 +1,171 @@
+." The first line of this file must contain the '"[e][r][t][v] line
+." to tell man to run the appropriate filter "t" for table.
+."
+."	$Id$
+."
+."######################################################################
+."#									#
+."#			   Copyright (C)  2004				#
+."#	     			Internet2				#
+."#			   All Rights Reserved				#
+."#									#
+."######################################################################
+."
+."	File:		bwctld.8
+."
+."	Author:		Jeff Boote
+."			Internet2
+."
+."	Date:		Tue Feb 10 22:23:30 MST 2004
+."
+."	Description:	
+."
+.TH bwctld 8 "$Date$"
+.SH NAME
+bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
+.SH SYNOPSIS
+.B bwctld
+[
+.BI \-a " authmode"
+] [
+.BI \-c " confdir"
+] [
+.BI \-d " datadir"
+] [
+.BI \-e " facility"
+] [
+.BI \-G " group"
+] [
+.B \-h
+] [
+.BI \-R " vardir"
+] [
+.BI \-S " nodename:port"
+] [
+.BI \-U " user"
+] [
+.B \-v
+] [
+.B \-Z
+]
+.SH DESCRIPTION
+.B bwctld
+is a server program designed to schedule and run \fBIperf\fR throughput
+tests.
+.TP
+From the \fBIperf\fR web site:
+\fBIperf\fR is a tool to measure
+maximum TCP bandwidth, allowing the tuning of various parameters
+and UDP characteristics. \fBIperf\fR reports bandwidth, delay jitter,
+datagram loss.
+.PP
+Aside from actually running \fBIperf\fR tests, the main function of
+\fBbwctld\fR is to determine which tests are allowable based upon
+the policy restrictions configured by the system administrator.
+.PP
+\fBbwctld\fR was designed to be run as a standalone daemon process. It
+uses the classic accept/fork model of handling new requests.
+.PP
+Most of the command line options for \fBbwctld\fR have analogous options
+in the \fBbwctld.conf\fR file. The command line takes precedent.
+.SH OPTIONS
+.TP
+.BI \-a " authmode"
+Specify the authentication modes the client is willing to use for
+communication. \fIauthmode\fR should be set as a character string with
+any or all of the characters "AEO". The modes are:
+.RS
+.IP \fBA\fR
+[\fBA\fR]uthenticated. This mode encrypts the control connection.
+.IP \fBE\fR
+[\fBE\fR]ncrypted. This mode encrypts the control connection. If the
+test supports encryption, this mode will additionally encrypt the test
+stream. (Encryption of the test stream is not currently supported, so
+this mode is currently identical to authenticated.)
+.IP \fBO\fR
+[\fBO\fR]pen. No encryption of any kind is done.
+.PP
+The server can specify all the modes it is willing to communicate with. The
+most strict mode that both the server and the client are willing to speak
+will be selected.
+.IP Default:
+"AEO".
+.RE
+.TP
+.BI \-c " confdir"
+Specify the directory that holds the \fBbwctld\fR configuration files.
+.RS
+.IP Default:
+Current working directory.
+.RE
+.TP
+.BI \-d " datadir"
+Specify the directory that holds the output data files. (\fBbwctld\fR does
+not currently save the results of the iperf tests. This option is a place
+holder for when it does.)
+.RS
+.IP Default:
+Current working directory.
+.RE
+.TP
+.BI \-e " facility"
+Syslog \fIfacility\fR to log messages to.
+.RS
+.IP Default:
+LOG_DAEMON
+.RE
+.TP
+.BI \-G " group"
+Specify the gid the \fBbwctld\fR process should run as. \fIgroup\fR can
+be specified using a valid group name or by using \-gid. This option is
+only used if \fBbwctld\fR is started as root.
+.TP
+.B \-h
+Print a help message.
+.TP
+.BI \-R " vardir"
+Specify the directory to hold the bwctld.pid file.
+.RS
+.IP Default:
+Current directory
+.RE
+.TP
+.BI \-S " nodename:port"
+Specify the address and port that \fBbwctld\fR will listen for requests on.
+.RS
+.IP Default:
+Wildcard address, port 4823.
+.RE
+.TP
+.BI \-U " user"
+Specify the uid the \fBbwctld\fR process should run as. \fIuser\fR can
+be specified using a valid user name or by using \-uid. This option is
+only used if \fBbwctld\fR is started as root.
+.TP
+.B \-v
+Set verbose output. Messages will only go to syslog unless the \fB\-Z\fR
+option is specified.
+.TP
+.B \-Z
+Run the master \fBbwctld\fR process in the foreground. In this mode, error
+messages are printed to stderr as well as being sent to syslog. Also, normal
+terminal controls are available. (i.e. <Cntr\-C> will cause the daemon to
+kill it's child processes and exit.) This is useful for debugging.
+.SH FILES
+bwctld.pid
+.br
+bwctld.conf
+.br
+bwctld.limits
+.br
+bwctld.keys
+.SH SEE ALSO
+There are more details on configuring the \fBbwctld\fR daemon in the
+\fBbwctld.conf(5)\fR manual page. Details on configuring the policy
+is in the \fBbwctld.limits(5)\fR and \fBbwctld.keys(5)\fR manual pages.
+Information on the client is in the \fBbwctl(1)\fR manual page.
+For more of an overview of the full functionality and architecture see
+the \fBhttp://e2epi.internet2.edu/bwctl/\fR web site.
+.PP
+For details on \fBIperf\fR, see the \fBhttp://dast.nlanr.net/Projects/Iperf/\fR
+web site.
