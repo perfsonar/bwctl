@@ -908,7 +908,7 @@ ACCEPT:
 	 */
 	if(!tsess->test_spec.udp && tsess->test_spec.dynamic_window_size){
 		/*
-		 * HERE:
+		 * TODO:
 		 * 	gets bottleneck capacity from context (set via config)
 		 * 	Uses BWLGetRTTBound(ep->rcntrl) for rtt estimate
 		 *
