@@ -261,6 +261,7 @@ ChldReservationDemand(
 	Reservation	*rptr;
 	BWLDLimitT	hsecs;
 	BWLNum64	dtime;	/* duration with fuzz applied */
+	BWLNum64	minstart;
 
 	*err = 1;
 
@@ -333,11 +334,20 @@ I2ErrLog(errhand,"ResReq: %24.10f, Fuzz: %24.10f",
 I2ErrLog(errhand,"Current: %24.10f, Start: %24.10f",
 		BWLNum64ToDouble(currtime.tstamp),
 		BWLNum64ToDouble(res->start));
-	res->start = BWLNum64Max(BWLNum64Add(currtime.tstamp,
+	minstart =BWLNum64Add(currtime.tstamp,
 					BWLNum64Mult(
 						BWLNum64Add(rtttime,ftime),
-						BWLULongToNum64(2))),
-				res->start);
+						BWLULongToNum64(2)));
+	/*
+	 * If the start time is less than the minimum start time, then
+	 * reset the start time to one second past the minimum start time.
+	 * minstart should take into account rtt times. The one second is
+	 * simply a small buffer space so that rounding error and random
+	 * extra delay to the other server will still allow a reservation.
+	 */
+	if(BWLNum64Cmp(res->start,minstart) < 0){
+		res->start = BWLNum64Add(minstart,BWLULongToNum64(1));
+	}
 	res->restime = BWLNum64Add(res->start,ftime);
 
 I2ErrLog(errhand,"ResCompute: %24.10f, NewStart: %24.10f",

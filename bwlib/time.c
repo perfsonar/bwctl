@@ -696,7 +696,6 @@ _BWLGetTimespec(
 	 * Set estimated error
 	 */
 	*esterr = (u_int32_t)ntp_conf.maxerror + syncfuzz;
-	assert((long)*esterr == ntp_conf.maxerror);
 
 	/*
 	 * Error estimate should never be 0, but I've seen ntp do it!

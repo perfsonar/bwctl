@@ -731,14 +731,10 @@ BWLProcessTestRequest(
 
 	/*
 	 * compute "fuzz" time.
-	 * Round the NTP error on both side up to one second and add.
-	 * In most cases this will give us a "fuzz" of 2 seconds.
 	 */
-	tsession->fuzz = BWLNum64Max(one64,
-			BWLGetTimeStampError(&tsession->test_spec.req_time));
+	tsession->fuzz = BWLGetTimeStampError(&tsession->test_spec.req_time);
 	tsession->fuzz = BWLNum64Add(tsession->fuzz,
-				BWLNum64Max(one64,
-				BWLGetTimeStampError(&tsession->localtime)));
+				BWLGetTimeStampError(&tsession->localtime));
 	/*
 	 * Add a constant to make up for the fact that iperf -u usually
 	 * run for some fraction of a second longer than the -t option
