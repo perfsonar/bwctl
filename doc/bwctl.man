@@ -1,4 +1,4 @@
-.TH bwctl 1 "2004 Feb 8"
+.TH bwctl 1 "$Date$"
 ." The first line of this file must contain the '"[e][r][t][v] line
 ." to tell man to run the appropriate filter "t" for table.
 ."
@@ -35,21 +35,70 @@ The application works by contacting
 .B bwctld
 daemons on both the receiving host and the sending host.
 .SH OPTIONS
-.SS connection args:
+.SS Connection Arguements:
 .TP
 \fB\-A\fR \fIauthmode\fB
 Specify the authentication modes the client is willing to use for
-communication. \fIauthmode\fB should be set as a character string with
+communication. \fIauthmode\fR should be set as a character string with
 any or all of the characters "AEO". The modes are:
-.IP "A"
-[A]uthenticated. This
-
+.RS
+.IP \fBA\fR
+[\fBA\fR]uthenticated. This encrypts the control connection.
+.IP \fBE\fR
+[\fBE\fR]ncrypted. The encrypts the control connection. If the test supports
+encryption, this mode will additionally encrypt the test stream. (This is
+currently done using iperf, which does not support encryption.)
+.IP \fBO\fR
+[\fBO\fR]pen. No encryption of any kind is done.
+.PP
+The client can specify all the modes it is willing to communicate with. The
+most strict mode that both the server and the client are willing to speak
+will be selected.
+.IP Default:
+"AEO"
+.RE
 .TP
-\fB\-d\fR
-Delete given identity from keyfile
+\fB\-U\fR \fIusername\fR
+Specify the username that is used to identify the AES key to use for
+authenticated or encrypted modes.
+.RS
+.IP Default:
+unset
+.RE
 .TP
-\fB\-f keyfile\fR
-Specifies file that holds identity/key pairs
+\fB\-K\fR
+Prompt the user for a \fIpassphrase\fR. This will be used to generate an AES
+key for authenticated or encrypted modes. The \fB\-U\fR option MUST be
+specified for this to be useful.
+.RS
+.IP Default:
+unset
+.RE
+.TP
+\fB\-k\fR \fIkeyfile\fR
+Indicates that \fBbwctl\fR should use the AES key in \fIkeyfile\fR for
+\fIusername\fB. \fIusername\fR must have a valid key in \fIkeyfile\fR.
+\fIkeyfile\fR should have been generated using the \fBaespasswd(1)\fR
+application.
+.RS
+.IP Default:
+unset
+.RE
+.TP
+\fB\-B\fR \fIsrcaddr\fR
+Bind the local address of the client socket to \fIsrcaddr\fR. \fIsrcaddr\fR
+can be specified using a DNS name or using standard textual notations for
+the IP addresses.
+.RS
+.IP Default:
+unspecified (wildcard address selection)
+.RE
+.SS Throughput Test Arguements:
+(These are the arguements that are basically passed through to iperf. See
+iperf equivalent args in most cases):
+.TP
+\fB\-i\fR \fIinterval\fR
+Report interval (seconds)
 .SH LIMITATIONS
 Currently it is only possible to specify either the
 .B iperf
@@ -57,7 +106,6 @@ sender or the
 .B iperf
 receiver on the command line. The local host is assumed to be the other
 endpoint of the test.
-
 .SH EXAMPLES
 \fBaespasswd -f /usr/local/etc/bwctld.keys testuser\fP
 .IP
