@@ -1150,8 +1150,12 @@ IPFSessionRequest(
 			goto error;
 	}
 
-	if(tsession->conf_receiver)
+	if(tsession->conf_receiver){
 		*recv_port = 0;
+	}
+	else{
+		memcpy(tsession->sid,sid,sizeof(IPFSID));
+	}
 
 	/*
 	 * Request the server create the receiver & possibly the
@@ -1181,7 +1185,9 @@ IPFSessionRequest(
 	/*
 	 * return the SID for this session to the caller.
 	 */
-	memcpy(sid,tsession->sid,sizeof(IPFSID));
+	if(tsession->conf_receiver){
+		memcpy(sid,tsession->sid,sizeof(IPFSID));
+	}
 
 	return True;
 
