@@ -728,8 +728,17 @@ IPFProcessTestRequest(
 				IPFNum64Max(one64,
 				IPFGetTimeStampError(&tsession->localtime)));
 	/*
+	 * TODO:
+	 * Determine if this check is really needed... The StartSession
+	 * command causes the two servers to handshake before running a
+	 * test, so perhaps this is not needed. I'm not sure the check
+	 * the (local_addr == remote_addr) is good enough to determine
+	 * a connection is coming from the local host. (hosts with multiple
+	 * addrs may have their addrs talking to each other...)
+	 *
 	 * Check for possible DoS.
-	 * (control-client MUST be same address as remote test if openmode.)
+	 * (control-client MUST be same address as remote test if openmode
+	 * unless the request is coming from the local host.)
 	 */
 	raddr = (tsession->conf_sender)?
 			tsession->test_spec.receiver:
@@ -739,6 +748,11 @@ IPFProcessTestRequest(
 			(I2SockAddrEqual(cntrl->remote_addr->saddr,
 					 cntrl->remote_addr->saddrlen,
 					 raddr->saddr,raddr->saddrlen,
+					 I2SADDR_ADDR) <= 0) &&
+			(I2SockAddrEqual(cntrl->remote_addr->saddr,
+					 cntrl->remote_addr->saddrlen,
+					 cntrl->local_addr->saddr,
+					 cntrl->local_addr->saddrlen,
 					 I2SADDR_ADDR) <= 0)){
 		IPFError(cntrl->ctx,IPFErrINFO,IPFErrPOLICY,
 		"Test Denied: OpenMode remote_addr(%s) != control_client(%s)",

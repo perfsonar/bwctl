@@ -332,7 +332,7 @@ parselimitline(
 	size_t		maxlim
 	)
 {
-	size_t			i,j;
+	size_t			i,j,k;
 	char			*cname;
 	IPFDLimRec		limtemp[I2Number(limkeys)];
 	IPFDPolicyNodeRec	tnode;
@@ -520,8 +520,52 @@ parselimitline(
 				}
 			}
 			limtemp[tnode.ilim++] = tnode.parent->limits[i];
+			continue;
 override:
-			;
+			/*
+			 * For integer limits, only allowed to override
+			 * with smaller values.
+			 */
+			for(k=0;k < I2Number(limkeys);k++){
+				/*
+				 * Go to the next limkey unless it matches
+				 * the current parent limit.
+				 */
+				if(tnode.parent->limits[i].limit !=
+							limkeys[k].limit)
+					continue;
+
+				/*
+				 * If this limit is not an Integer limit,
+				 * we don't care, so break out.
+				 */
+				if((limkeys[k].ltype != LIMFIXEDINT) &&
+						(limkeys[k].ltype != LIMINT))
+					break;
+
+				/*
+				 * If this limit is Inf in the parent, then
+				 * it is valid to limit it in the child,
+				 * so break out.
+				 */
+				if(!tnode.parent->limits[i].value)
+					break;
+
+				/*
+				 * If the parents limit is larger, then it
+				 * is valid to further restrict in the
+				 * child.
+				 */
+				if(tnode.parent->limits[i].value >
+							limtemp[j].limit)
+					break;
+				IPFError(policy->ctx,IPFErrWARNING,
+						IPFErrUNKNOWN,
+		"WARNING: %s: Using parents more restrictive limits for %s.",
+						cname,limkeys[k].lname);
+				limtemp[j].limit =
+					tnode.parent->limits[i].value;
+			}
 		}
 	}
 	/*
@@ -1392,6 +1436,34 @@ found:
 }
 
 IPFBoolean
+IPFDGetFixedLimit(
+		IPFDPolicyNode	node,
+		IPFDMesgT	limname,
+		IPFDLimitT	*ret_val
+		)
+{
+	size_t		maxdef = I2Number(limkeys);
+	size_t		i;
+	enum limtype	limkind = LIMNOT;
+
+	for(i=0;i<maxdef;i++){
+		if(limname == limkeys[i].limit){
+			limkind = limkeys[i].ltype;
+			break;
+		}
+	}
+
+	if((limkind == LIMBOOL) || (limkind == LIMFIXEDINT)){
+		*ret_val = GetLimit(node,limname);
+		return True;
+	}
+
+	IPFError(node->policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				"IPFDResourceDemand: Invalid limit kind.");
+	return False;
+}
+
+IPFBoolean
 IPFDResourceDemand(
 	IPFDPolicyNode	node,
 	IPFDMesgT	query,
@@ -1439,16 +1511,7 @@ IPFDResourceDemand(
 	 * These messages are printed to INFO so they can be selected
 	 * as non-interesting.
 	 */
-	IPFError(node->policy->ctx,IPFErrINFO,IPFErrPOLICY,
-		"ResReq %s: %s:%s:%s = %llu (result = %llu, limit = %llu)",
-		(ret)?"ALLOWED":"DENIED",
-		node->nodename,
-		(query == IPFDMESGRELEASE)?"release":"request",
-		GetLimName(lim.limit),
-		lim.value,
-		GetUsed(node,lim.limit),
-		GetLimit(node,lim.limit));
-	for(node = node->parent;!ret && node;node = node->parent){
+	for(;!ret && node;node = node->parent){
 		IPFError(node->policy->ctx,IPFErrINFO,IPFErrPOLICY,
 		"ResReq %s: %s:%s:%s = %llu (result = %llu, limit = %llu)",
 		(ret)?"ALLOWED":"DENIED",
@@ -1800,6 +1863,7 @@ IPFDReadReservationQuery(
 	IPFNum64	*fuzz_time,
 	IPFNum64	*last_time,
 	u_int32_t	*duration,
+	IPFNum64	*rtt_time,
 	int		*err
 	)
 {
@@ -1816,21 +1880,98 @@ IPFDReadReservationQuery(
 	/*
 	 * Read message header
 	 */
-	if((i = I2Readni(fd,&buf[0],48,intr)) != 48)
+	if((i = I2Readni(fd,&buf[0],56,intr)) != 56)
 		return False;
 
 	if(buf[11] != IPFDMESGMARK)
 		return False;
 
-	memcpy(sid,&buf[0],sizeof(sid));
-	memcpy(req_time,&buf[4],sizeof(IPFNum64));
-	memcpy(fuzz_time,&buf[6],sizeof(IPFNum64));
-	memcpy(last_time,&buf[8],sizeof(IPFNum64));
-	memcpy(duration,&buf[10],sizeof(u_int32_t));
+	memcpy(sid,&buf[0],16);
+	memcpy(req_time,&buf[4],8);
+	memcpy(fuzz_time,&buf[6],8);
+	memcpy(last_time,&buf[8],8);
+	memcpy(duration,&buf[10],4);
+	memcpy(rtt_time,&buf[11],8);
 
 	*err = 0;
 
 	return True;
+}
+
+/*
+ * Function:	IPFDSendReservationResponse
+ *
+ * Description:	
+ * 	This function is called from the parent perspective.
+ *
+ * 	It is used to respond to a child request for reservation.
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ */
+int
+IPFDSendReservationResponse(
+		int		fd,
+		int		*retn_on_intr,
+		IPFDMesgT	mesg,
+		IPFNum64	reservation,
+		u_int16_t	port
+		)
+{
+	IPFDMesgT	buf[6];
+	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(retn_on_intr)
+		intr = retn_on_intr;
+
+	buf[0] = buf[5] = IPFDMESGMARK;
+	buf[1] = mesg;
+
+	memcpy(&buf[2],&reservation,8);
+	memcpy(&buf[4],&port,2);
+
+	if(I2Writeni(fd,&buf[0],24,intr) != 24){
+		return 1;
+	}
+
+	return 0;
+}
+
+static IPFDMesgT
+IPFDReadReservationResponse(
+		int		fd,
+		int		*retn_on_intr,
+		IPFNum64	*reservation_ret,
+		u_int16_t	*port_ret
+		)
+{
+	ssize_t		i;
+	IPFDMesgT	buf[6];
+	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(retn_on_intr)
+		intr = retn_on_intr;
+
+	/*
+	 * Read message header
+	 */
+	if((i = I2Readni(fd,&buf[0],24,intr)) != 24)
+		return False;
+
+	if((buf[0] != IPFDMESGMARK) || (buf[5] != IPFDMESGMARK))
+		return False;
+
+	memcpy(reservation_ret,&buf[2],8);
+	memcpy(port_ret,&buf[4],2);
+
+	return buf[1];
 }
 
 static IPFDMesgT
@@ -1840,31 +1981,103 @@ IPFDReservationQuery(
 	IPFNum64	req_time,
 	IPFNum64	fuzz_time,
 	IPFNum64	last_time,
-	u_int32_t	duration
+	u_int32_t	duration,
+	IPFNum64	rtt_time,
+	IPFNum64	*reservation_ret,
+	u_int16_t	*port_ret
 	)
 {
-	IPFDMesgT	buf[14];
+	IPFDMesgT	buf[16];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
 	if(policy->retn_on_intr)
 		intr = policy->retn_on_intr;
 
-	buf[0] = buf[13] = IPFDMESGMARK;
+	buf[0] = buf[15] = IPFDMESGMARK;
 	buf[1] = IPFDMESGRESERVATION;
 	memcpy(&buf[2],sid,16);
 	memcpy(&buf[6],&req_time,8);
 	memcpy(&buf[8],&fuzz_time,8);
 	memcpy(&buf[10],&last_time,8);
 	memcpy(&buf[12],&duration,4);
+	memcpy(&buf[13],&rtt_time,8);
 
-	if(I2Writeni(policy->fd,buf,56,intr) != 56){
+	if(I2Writeni(policy->fd,buf,64,intr) != 64){
 		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
 			"IPFDQuery: Unable to contact parent");
 		return IPFDMESGINVALID;
 	}
 
-	return IPFDReadReservationResponse(policy->fd,intr);
+	return IPFDReadReservationResponse(policy->fd,intr,reservation_ret,
+			port_ret);
+}
+
+/*
+ * True if the request is read without error
+ */
+IPFBoolean
+IPFDReadTestComplete(
+	int		fd,
+	int		*retn_on_intr,
+	IPFSID		sid,
+	IPFAcceptType	*aval,
+	int		*err
+	)
+{
+	ssize_t		i;
+	IPFDMesgT	buf[6];
+	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(retn_on_intr)
+		intr = retn_on_intr;
+
+	*err = 1;
+
+	/*
+	 * Read message header
+	 */
+	if((i = I2Readni(fd,&buf[0],24,intr)) != 24)
+		return False;
+
+	if(buf[5] != IPFDMESGMARK)
+		return False;
+
+	memcpy(sid,&buf[2],16);
+	*aval = buf[4];
+
+	*err = 0;
+
+	return True;
+}
+
+static IPFDMesgT
+IPFDSendTestComplete(
+	IPFDPolicy	policy,
+	IPFSID		sid,
+	IPFAcceptType	aval
+	)
+{
+	IPFDMesgT	buf[8];
+	int		fail_on_intr=1;
+	int		*intr = &fail_on_intr;
+
+	if(policy->retn_on_intr)
+		intr = policy->retn_on_intr;
+
+	buf[0] = buf[7] = IPFDMESGMARK;
+	buf[1] = IPFDMESGCOMPLETE;
+	memcpy(&buf[2],sid,16);
+	memcpy(&buf[6],&aval,4);
+
+	if(I2Writeni(policy->fd,buf,32,intr) != 32){
+		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			"IPFDQuery: Unable to contact parent");
+		return IPFDMESGINVALID;
+	}
+
+	return IPFDReadResponse(policy->fd,intr);
 }
 
 /*
@@ -2012,6 +2225,7 @@ IPFDCheckControlPolicy(
  */
 typedef struct IPFDTestInfoRec{
 	IPFDPolicyNode	node;
+	IPFSID		sid;
 	IPFDLimRec	res[1];	/* keep track of "consumable" resources
 				 * resouces listed here will be "released"
 				 * in TestComplete.
@@ -2022,13 +2236,13 @@ IPFBoolean
 IPFDCheckTestPolicy(
 	IPFControl	cntrl,
 	IPFSID		sid,
-	IPFBoolean	local_sender,
+	IPFBoolean	local_sender __attribute__((unused)),
 	struct sockaddr	*local_sa_addr	__attribute__((unused)),
-	struct sockaddr	*remote_sa_addr,
+	struct sockaddr	*remote_sa_addr __attribute__((unused)),
 	socklen_t	sa_len	__attribute__((unused)),
 	IPFTestSpec	*tspec,
 	IPFNum64	fuzz_time,
-	IPFNum64	*reservation_return,
+	IPFNum64	*reservation_ret,
 	u_int16_t	*port_ret,
 	void		**closure,
 	IPFErrSeverity	*err_ret
@@ -2074,6 +2288,7 @@ IPFDCheckTestPolicy(
 	}
 
 	tinfo->node = node;
+	memcpy(tinfo->sid,sid,sizeof(sid));
 
 	/* VAlIDATE THE REQUEST! */
 
@@ -2114,7 +2329,7 @@ IPFDCheckTestPolicy(
 	tinfo->res[0].limit = IPFDLimPending;
 	tinfo->res[0].value = 1;
 	if((ret = IPFDQuery(node->policy,IPFDMESGREQUEST,tinfo->res[0]))
-							== IPFDMESGDENIED){
+							!= IPFDMESGOK){
 		goto done;
 	}
 
@@ -2123,9 +2338,11 @@ reservation:
 	/*
 	 * Request a reservation.
 	 */
-	if( (ret = IPFDReservationQuery(node->policy,sid,
+	if( (ret = IPFDReservationQuery(node->policy,tinfo->sid,
 					tspec->req_time.ipftime,fuzz_time,
-					tspec->latest_time,tspec->duration))
+					tspec->latest_time,tspec->duration,
+					IPFGetRTTBound(cntrl),
+					reservation_ret,port_ret))
 			!= IPFDMESGOK){
 		goto done;
 	}
@@ -2141,7 +2358,7 @@ extern void
 IPFDTestComplete(
 	IPFControl	cntrl __attribute__((unused)),
 	void		*closure,	/* closure from CheckTestPolicy	*/
-	IPFAcceptType	aval __attribute__((unused))
+	IPFAcceptType	aval
 	)
 {
 	IPFDTestInfo	tinfo = (IPFDTestInfo)closure;
@@ -2155,6 +2372,8 @@ IPFDTestComplete(
 		(void)IPFDQuery(tinfo->node->policy,IPFDMESGRELEASE,
 								tinfo->res[i]);
 	}
+
+	(void)IPFDSendTestComplete(tinfo->node->policy,tinfo->sid,aval);
 
 	free(tinfo);
 

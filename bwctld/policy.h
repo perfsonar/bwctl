@@ -157,6 +157,7 @@ typedef union IPFDPidUnion{
 #define	IPFDMESGCLASS		0xcdef
 #define	IPFDMESGRESOURCE	0xbeef
 #define	IPFDMESGRESERVATION	0xdeadbeef
+#define	IPFDMESGCOMPLETE	0xabcdefab
 #define	IPFDMESGREQUEST		0xfeed
 #define	IPFDMESGRELEASE		0xdead
 #define	IPFDMESGCLAIM		0x1feed1
@@ -218,6 +219,27 @@ typedef union IPFDPidUnion{
  *	24|                      IPFDMESGMARK                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
+ * This is a child message format that is used to declare a test complete.
+ * (The Accept Value will be 0 if the test was successful.)
+ *
+ * 	   0                   1                   2                   3
+ * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	00|                         IPFDMESGMARK                          |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	04|                       IPFDMESGCOMPLETE                        |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	08|                                                               |
+ *	12|                              SID                              |
+ *	16|                                                               |
+ *	20|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	24|                          Accept Value                         |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	28|                          IPFDMESGMARK                         |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
+ *
  * Parent responses to the previous two messages are of the format:
  *
  * 	   0                   1                   2                   3
@@ -255,7 +277,10 @@ typedef union IPFDPidUnion{
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	48|                            Duration                           |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	52|                          IPFDMESGMARK                         |
+ *	52|                           RTT TIME                            |
+ *	56|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	60|                          IPFDMESGMARK                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * Parent responses to the reservation request are of the format:
@@ -270,10 +295,11 @@ typedef union IPFDPidUnion{
  *	08|                        Request Time                           |
  *	12|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	16|                           Recv Port                           |
+ *	16|           Recv Port             |                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	20|                          IPFDMESGMARK                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *
  *
  */
 
@@ -321,6 +347,16 @@ IPFDReadReservationQuery(
 	IPFNum64	*fuzz_time,
 	IPFNum64	*last_time,
 	u_int32_t	*duration,
+	IPFNum64	*rtt_time,
+	int		*err
+	);
+
+extern IPFBoolean
+IPFDReadTestComplete(
+	int		fd,
+	int		*retn_on_intr,
+	IPFSID		sid,
+	IPFAcceptType	*aval,
 	int		*err
 	);
 
@@ -331,16 +367,39 @@ IPFDSendResponse(
 	IPFDMesgT	mesg
 	);
 
+extern int
+IPFDSendReservationResponse(
+		int		fd,
+		int		*retn_on_intr,
+		IPFDMesgT	mesg,
+		IPFNum64	reservation,
+		u_int16_t	port
+		);
+
 /*
  * This function is used to add/subtract resource allocations from the
- * current tree of resource usage. It is only used in the resource
- * broker process.
+ * current tree of resource usage. (It is also used for "fixed" value
+ * resouces to determine if the request is valid or not. For "fixed"
+ * value resources, the current "usage" is not tracked.)
  */
 extern IPFBoolean
 IPFDResourceDemand(
 		IPFDPolicyNode	node,
 		IPFDMesgT	query,
 		IPFDLimRec	lim
+		);
+
+/*
+ * This function is used to return the "fixed" limit defined for a
+ * given node for a particular resource. It returns True if it was
+ * able to fetch the value. (It should only return False if called
+ * for a non-fixed value resource.)
+ */
+extern IPFBoolean
+IPFDGetFixedLimit(
+		IPFDPolicyNode	node,
+		IPFDMesgT	limname,
+		IPFDLimitT	*ret_val
 		);
 /*
  * Functions called directly from iperfcd regarding "policy" decisions
@@ -383,8 +442,9 @@ IPFDCheckTestPolicy(
 	struct sockaddr	*local_saddr,
 	struct sockaddr	*remote_saddr,
 	socklen_t	sa_len,
-	IPFTestSpec	*test_spec,
-	IPFNum64	*reservation_return,
+	IPFTestSpec	*tspec,
+	IPFNum64	fuzz_time,
+	IPFNum64	*reservation_ret,
 	u_int16_t	*port_ret,
 	void		**closure,
 	IPFErrSeverity	*err_ret

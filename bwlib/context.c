@@ -672,7 +672,7 @@ _IPFCallCheckTestPolicy(
 
 	return func(cntrl,tsess->sid,tsess->conf_sender,local->saddr,
 			remote->saddr,local->saddrlen,&tsess->test_spec,
-			&tsess->reserve_time,&tsess->recv_port,
+			tsess->fuzz,&tsess->reserve_time,&tsess->recv_port,
 			&tsess->closure,err_ret);
 }
 

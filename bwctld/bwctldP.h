@@ -25,6 +25,8 @@
 #define	IPERFCD_CONF_FILE	"iperfcd.conf"
 #endif
 
+#define	IPERFCD_DEF_TESTPORT	(5001)
+
 /*
  * Types
  */
@@ -41,6 +43,10 @@ typedef struct {
 	char		*passwd;
 
 	char		*iperfcmd;
+	u_int16_t	*iperfports;
+	u_int16_t	def_port;
+	u_int16_t	port_range_len;
+	u_int16_t	port_count;
 	char		*datadir;
 
 	char		*authmode;

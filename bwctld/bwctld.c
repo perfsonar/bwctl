@@ -124,17 +124,284 @@ signal_catch(
 	return;
 }
 
+typedef struct ReservationRec ReservationRec, *Reservation;
+struct ReservationRec{
+	IPFSID		sid;
+	IPFNum64	restime;
+	IPFNum64	start;	/* fuzz applied */
+	IPFNum64	end;	/* fuzz applied */
+	IPFNum64	fuzz;
+	u_int32_t	duration;
+	u_int16_t	port;
+	Reservation	next;
+};
+
+typedef struct ChldStateRec ChldStateRec, *ChldState;
 struct ChldStateRec{
 	IPFDPolicy	policy;
 	pid_t		pid;
 	int		fd;
 	IPFDPolicyNode	node;
-#if	NOT
-	IPFDLimRec	used[2];	/* disk/bandwidth */
-#endif
+	Reservation	res;
 };
 
-typedef struct ChldStateRec ChldStateRec, *ChldState;
+static Reservation
+AllocReservation(
+	ChldState	cstate,
+	IPFSID		sid
+	)
+{
+	Reservation	res;
+
+	if(cstate->res){
+		IPFError(cstate->policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				"AllocReservation: cstate->res != NULL");
+		return NULL;
+	}
+
+	if( !(res = calloc(1,sizeof(*res)))){
+		IPFError(cstate->policy->ctx,IPFErrFATAL,ENOMEM,"malloc(): %M");
+		return NULL;
+	}
+
+	memcpy(res->sid,sid,sizeof(sid));
+
+	/*
+	 * Get next port in range
+	 * Could add randomness... For now just step through.
+	 */
+	res->port = opts.iperfports[opts.port_count++ % opts.port_range_len];
+
+	cstate->res = res;
+
+	return res;
+}
+
+static void
+FreeReservation(
+	Reservation	res
+	)
+{
+	if(!res)
+		return;
+
+	/*
+	 * If there are any extended resources in a res record, free them here.
+	 * (There were in previous versions of the code, so I just left this
+	 * here when I removed those parts. If I really cared about cleaning
+	 * this up, I could replace this with free().)
+	 */
+
+	free(res);
+
+	return;
+}
+
+static Reservation	ResHead = NULL;
+
+static IPFBoolean
+ResRemove(
+		Reservation	res
+		)
+{
+	Reservation	*rptr = &ResHead;
+
+	while(*rptr && (*rptr != res))
+		rptr = &(*rptr)->next;
+
+	if(!*rptr)
+		return False;
+
+	*rptr = (*rptr)->next;
+
+	return True;
+}
+
+static void
+DeleteReservation(
+	ChldState	cstate
+	)
+{
+	if(!cstate->res)
+		return;
+
+	ResRemove(cstate->res);
+	FreeReservation(cstate->res);
+	cstate->res = NULL;
+
+	return;
+}
+
+static IPFBoolean
+ChldReservationDemand(
+	ChldState	cstate,
+	IPFSID		sid,
+	IPFNum64	rtime,
+	IPFNum64	ftime,
+	IPFNum64	ltime,
+	u_int32_t	duration,
+	IPFNum64	rtttime,
+	IPFNum64	*restime,
+	u_int16_t	*port,
+	int		*err)
+{
+	IPFContext	ctx = cstate->policy->ctx;
+	IPFTimeStamp	currtime;
+	Reservation	res;
+	Reservation	*rptr;
+	IPFDLimitT	hsecs;
+	IPFNum64	dtime;	/* duration with fuzz applied */
+
+	*err = 1;
+
+	if(!IPFDGetFixedLimit(cstate->node,IPFDLimEventHorizon,&hsecs))
+		return False;
+
+	if(cstate->res){
+		if(memcmp(sid,cstate->res->sid,sizeof(sid)))
+			return False;
+		/*
+		 * Remove cstate->res from pending_queue
+		 */
+		if(!ResRemove(cstate->res))
+			return False;
+	}
+	else if(!AllocReservation(cstate,sid)){
+		/*
+		 * Alloc failed.
+		 */
+		return False;
+	}
+	/*
+	 * Initialize fields
+	 */
+	res = cstate->res;
+
+	/*
+	 * At this point cstate->res is ready to be inserted into
+	 * the pending test queue.
+	 */
+
+	if(!IPFGetTimeStamp(ctx,&currtime)){
+		I2ErrLogP(errhand, errno, "IPFGetTimeOfDay: %M");
+		FreeReservation(cstate->res);
+		cstate->res = NULL;
+		return False;
+	}
+
+	/*
+	 * Determine earliest time the test can happen. (Max of the earliest
+	 * time the deamon is willing to have a test (one rtt from now) and
+	 * the requested time.
+	 * res->restime == time of reservation
+	 * res->start == fuzz applied to beginning of that
+	 * res->end == fuzz applied to res->restime + duration
+	 * The time period from res->start to res->end is completely
+	 * allocated to this test.
+	 */
+	res->start = IPFNum64Sub(rtime,ftime);
+	res->start = IPFNum64Max(IPFNum64Add(currtime.ipftime,rtttime),
+								res->start);
+	res->restime = IPFNum64Add(res->start,ftime);
+	dtime = IPFNum64Add(IPFULongToNum64(duration),ftime);
+	res->end = IPFNum64Add(res->restime,dtime);
+	res->fuzz = ftime;
+	res->duration = duration;
+
+	/*
+	 * Determine the latest time the test could happen.
+	 * (Min of the EventHorizon of the daemon and the latest time from
+	 * the request.)
+	 */
+	ltime = IPFNum64Min(ltime,IPFNum64Add(currtime.ipftime,
+					IPFULongToNum64(hsecs)));
+	/*
+	 * Open slot too late
+	 */
+	if(IPFNum64Cmp(res->restime,ltime) > 0)
+		goto failed;
+
+	/********************************
+	 * Find an open slot		*
+	 ********************************/
+
+	while(*rptr){
+		Reservation	tres;
+
+		tres = *rptr;
+
+		/*
+		 * If the current res->end is before the current rptr,
+		 * insert here!
+		 */
+		if(IPFNum64Cmp(res->end,tres->start) < 0)
+			break;
+
+		/*
+		 * If the current res->start is after the current rptr,
+		 * go to the next node and see if it can be inserted before
+		 * it.
+		 */
+		if(IPFNum64Cmp(res->start,tres->end) > 0){
+			rptr = &(*rptr)->next;
+			continue;
+		}
+
+		/*
+		 * Adjust res->start,res->restime,res->end to be just past
+		 * the current reservation.
+		 */
+		/*
+		 * new start is the expected endtime + Max of the two
+		 * fuzz factors.
+		 */
+		res->start = IPFNum64Add(tres->restime,
+				IPFULongToNum64(tres->duration));
+		res->start = IPFNum64Add(res->start,
+				IPFNum64Max(res->fuzz,tres->fuzz));
+
+		res->restime = IPFNum64Add(res->start,res->fuzz);
+		res->end = IPFNum64Add(res->restime,dtime);
+
+		/*
+		 * Open slot too late
+		 */
+		if(IPFNum64Cmp(res->restime,ltime) > 0)
+			goto failed;
+	}
+
+	/*
+	 * rptr now points to the position res needs to be inserted.
+	 */
+	res->next = *rptr;
+	*rptr = res;
+
+	*restime = res->restime;
+	*port = res->port;
+
+	return True;
+
+failed:
+	DeleteReservation(cstate);
+	return False;
+}
+
+static IPFBoolean
+ChldReservationComplete(
+	ChldState	cstate,
+	IPFSID		sid,
+	IPFAcceptType	aval,
+	int		*err)
+{
+	*err = 1;
+
+	if(!cstate->res || memcmp(sid,cstate->res->sid,sizeof(sid)))
+		return False;
+
+	DeleteReservation(cstate);
+
+	return True;
+}
 
 static ChldState
 AllocChldState(
@@ -219,6 +486,8 @@ FreeChldState(
 	 * (should not need to..., but perhaps I should check and
 	 * and report errors if there are still any allocated?)
 	 */
+
+	DeleteReservation(cstate);
 
 	free(cstate);
 
@@ -306,9 +575,10 @@ CheckFD(
 		IPFDLimRec	lim;
 
 		IPFSID		sid;
-		IPFNum64	rtime,ftime,ltime,restime;
+		IPFNum64	rtime,ftime,ltime,restime,rtttime;
 		u_int32_t	duration;
 		u_int16_t	port;
+		IPFAcceptType	aval;
 
 		switch(IPFDReadReqType(cstate->fd,&ipfd_exit,&err)){
 			case IPFDMESGRESOURCE:
@@ -337,22 +607,59 @@ CheckFD(
 				if(!IPFDReadReservationQuery(cstate->fd,
 							&ipfd_exit,sid,
 							&rtime,&ftime,&ltime,
-							&duration,&err)){
+							&duration,&rtttime,
+							&err)){
 					goto done;
 				}
 
 				/*
 				 * Look for open slot to run test
 				 */
-				resp = IPFDReservationDemand(cstate->node,
+				if(ChldReservationDemand(cstate,
 						sid,rtime,ftime,ltime,
-						duration,&restime,&port)?
-					IPFDMESGOK : IPFDMESGDENIED;
+						duration,rtttime,
+						&restime,&port,&err)){
+					resp = IPFDMESGOK;
+				}
+				else if(err){
+					goto done;
+				}
+				else{
+					resp = IPFDMESGDENIED;
+				}
+
 				/*
 				 * Send response
 				 */
-				err = IPFDSendReservation(cstate->fd,&ipfd_exit,
-						resp,restime,port);
+				err = IPFDSendReservationResponse(cstate->fd,
+						&ipfd_exit,resp,restime,port);
+				break;
+			case IPFDMESGCOMPLETE:
+
+				if(!IPFDReadTestComplete(cstate->fd,&ipfd_exit,
+							sid,&aval,&err)){
+					goto done;
+				}
+
+				/*
+				 * Mark reservation complete (free memory?)
+				 */
+				if(ChldReservationComplete(cstate,sid,aval,
+							&err)){
+					resp = IPFDMESGOK;
+				}
+				else if(err){
+					goto done;
+				}
+				else{
+					resp = IPFDMESGDENIED;
+				}
+
+				/*
+				 * Send response
+				 */
+				err = IPFDSendResponse(cstate->fd,&ipfd_exit,
+						resp);
 				break;
 			default:
 				break;
@@ -793,12 +1100,68 @@ LoadConfig(
 		else if(!strncasecmp(key,"loglocation",12)){
 			syslogattr.line_info |= I2FILE|I2LINE;
 		}
-		else if(!strncasecmp(key,"iperfcmd",8)){
+		else if(!strncasecmp(key,"iperfcmd",9)){
 			if(!(opts.iperfcmd = strdup(val))) {
 				fprintf(stderr,"strdup(): %s\n",
 							strerror(errno));
 				rc=-rc;
 				break;
+			}
+		}
+		else if(!strncasecmp(key,"iperfport",10)){
+			char		*hpstr = NULL;
+			u_int16_t	lport,hport;
+			char		*end=NULL;
+			u_int32_t	tlng;
+
+
+			if( (hpstr = strchr(val,'-'))){
+				*hpstr++ = '\0';
+			}
+			errno = 0;
+			tlng = strtoul(val,&end,10);
+			if((end == val) || (errno == ERANGE)){
+				fprintf(stderr,"strtoul(): %s\n",
+							strerror(errno));
+				rc=-rc;
+				break;
+			}
+			lport = (u_int16_t)tlng;
+			if(lport != tlng){
+				rc=-rc;
+				break;
+			}
+
+			if(hpstr){
+				errno = 0;
+				tlng = strtoul(hpstr,&end,10);
+				if((end == hpstr) || (errno == ERANGE)){
+					fprintf(stderr,"strtoul(): %s\n",
+							strerror(errno));
+					rc=-rc;
+					break;
+				}
+				hport = (u_int16_t)tlng;
+				if(hport != tlng){
+					rc=-rc;
+					break;
+				}
+			}
+			else{
+				hport = lport;
+			}
+
+			opts.port_range_len = hport-lport+1;
+			if(!(opts.iperfports = calloc(sizeof(u_int16_t),
+						opts.port_range_len))){
+				fprintf(stderr,"calloc(): %s\n",
+						strerror(errno));
+				rc=-rc;
+				break;
+			}
+
+			for(tlng=0;tlng<opts.port_range_len;tlng++){
+				opts.iperfports[tlng] = tlng + lport;
 			}
 		}
 		else if(!strncasecmp(key,"datadir",8)){
@@ -1037,6 +1400,9 @@ main(int argc, char *argv[])
 	 * Now deal with "all" cmdline options.
 	 */
 	while ((ch = getopt(argc, argv, optstring)) != -1){
+		unsigned long	tint;
+		char		*endptr;
+
 		switch (ch) {
 		/* Connection options. */
 		case 'v':	/* -v "verbose" */
@@ -1109,6 +1475,11 @@ main(int argc, char *argv[])
 		opts.confdir = opts.cwd;
 	if(!opts.datadir)
 		opts.datadir = opts.cwd;
+	if(!opts.iperfports){
+		opts.def_port = 5001;
+		opts.iperfports = &opts.def_port;
+		opts.port_range_len = 1;
+	}
 
 	/*  Get exclusive lock for pid file. */
 	strcpy(pid_file, opts.vardir);
@@ -1364,7 +1735,7 @@ main(int argc, char *argv[])
 		}
 
 		if(!IPFGetTimeStamp(ctx,&currtime)){
-			I2ErrLogP(errhand, errno, "IPFGetTimeOfDay: %M");
+			I2ErrLogP(errhand, errno, "IPFGetTimeStamp: %M");
 			kill(mypid,SIGTERM);
 			exit(1);
 		}

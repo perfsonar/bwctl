@@ -462,6 +462,7 @@ typedef IPFBoolean (*IPFCheckTestPolicyFunc)(
 	struct sockaddr	*remote_sa_addr,
 	socklen_t	sa_len,
 	IPFTestSpec	*test_spec,
+	IPFNum64	fuzz_time,
 	IPFNum64	*reservation_ret,
 	u_int16_t	*port_ret,
 	void		**closure,
