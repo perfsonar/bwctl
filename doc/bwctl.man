@@ -31,11 +31,44 @@ bwctl \- Client application to request throughput tests.
 is a command line client application that is used to initiate
 .B iperf
 throughput tests.
-The application works by contacting
-.B bwctld
+The application works by contacting \fBbwctld\fR
 daemons on both the receiving host and the sending host.
+The \fBbwctld\fR processes manage the resources of the hosts they run on.
+.B bwctl
+requests the type of \fBiperf\fR test it wants including an indication
+of when it wants the test. \fBbwctld\fR either responds with a tentative
+reservation or a test denied message. Once \fBbwctl\fR is able to get
+a matching reservation from both \fBbwctld\fR processes, it confirms the
+reservation and the \fBbwctld\fR processes run the test and return the
+results. The results are returned to the client from both sides of the
+test. Additionally, the \fBbwctld\fR processes share the results from
+their respective side of the test with each other.
+.PP
+The reason to use \fBBWCTL\fR (\fBbwctl\fR and \fBbwctld\fR) is to enable
+non-specific \fBiperf\fR tests
+to a host without having to give full user accounts on the given system.
+Users want the ability to run \fBiperf\fR to determine the achievable
+or available bandwidth between a pair of hosts. It is often useful to test
+to multiple points along a network path to determine the network
+characteristics along that path. Typically, users that want to do this path
+decomposition have to directly contact the network/system administrators
+that control the hosts along the path. The administrator needs to either
+run half of the test for the user or give them a user account on the host.
+Also typically, network paths of interest are usually controlled by
+multiple administrators. These hurtles have made this kind of testing
+difficult in practice. 
+.PP
+\fBBWCTL\fR was designed to help with this problem. It allows an
+administrator to configure a given host as an \fBiperf\fR endpoint.
+It does not require a complete login from the remote testing point.
+It allows the administrator to classify incoming connections based upon a
+user name and AES key combination or alternatively based upon an IP/netmask.
+This allows the administrator to limit the types of \fBiperf\fR tests and
+the intensities of those tests based upon the remote user requesting the
+test. It also allows the administrator to allow for a limited amount of
+completely open tests. 
 .SH OPTIONS
-.SS Connection Arguements:
+.SS Connection Arguments:
 .TP
 \fB\-c\fR \fIrecvhost\fR
 Specifies the host that will run the \fBiperf\fR server. Must specify
@@ -101,7 +134,7 @@ the IP addresses.
 .IP Default:
 Unspecified (wildcard address selection).
 .RE
-.SS Throughput Test Arguements:
+.SS Throughput Test Arguments:
 (These are the arguements that are basically passed through to iperf. See
 iperf equivalent args in most cases):
 .TP
@@ -165,7 +198,7 @@ Duration of test (seconds).
 .IP Default:
 10.
 .RE
-.SS Scheduling Arguements:
+.SS Scheduling Arguments:
 .TP
 \fB\-I\fR \fIinterval\fR
 Specifies that \fBbwctl\fR should attempt to run the \fBiperf\fR test every
@@ -205,7 +238,7 @@ that will be added to the start time.
 If \fIinterval\fR is set, the default is 50% of \fIinterval\fR. Otherwise,
 the default is twice \fItime\fR.
 .RE
-.SS Output Arguements:
+.SS Output Arguments:
 .TP
 \fB\-p\fR
 Place \fBiperf\fR results in files. Print the filenames to stdout when
@@ -230,7 +263,8 @@ LOG_USER.
 .RE
 .TP
 \fB\-r\fR
-Send syslog messages to stderr. This option is implied with the \fB\-v\fR
+Send syslog messages to stderr.  This is the default unless the \fB\-q\fR
+option is specified so this option is only useful with the \fB\-q\fR
 option.
 .TP
 \fB\-V\fR
@@ -249,39 +283,34 @@ sender or the
 receiver on the command line. The local host is assumed to be the other
 endpoint of the test.
 .SH EXAMPLES
-\fBaespasswd -f /usr/local/etc/bwctld.keys testuser\fP
-.IP
-Adds a key for the identity \fItestuser\fR. The user is prompted for
-a passphrase. If the file does not exist, an error message will
-be printed and no action will be taken.
 .LP
-\fBaespasswd -f /usr/local/etc/bwctld.keys -n testuser\fP
+\fBbwctl -c somehost.com\fR
 .IP
-Creates the file before doing the same as above. If the file already
-exists, an error message will be printed and no action will be taken.
+Run a default 10 second TCP \fBiperf\fR test as soon as possible with
+the local host as the sender and somehost.com as the receiver. Return
+the results from the receive side of the test.
 .LP
-\fBaespasswd -f /usr/local/etc/bwctld.keys -d testuser\fP
+\fBbwctl -x -c somehost.com\fR
 .IP
-Deletes the identity \fItestuser\fR from the keyfile.
-If the file does not exist, an error message will be printed.
+Like the previous test, but also return the results from the sender
+side of the test.
 .LP
-.SH SECURITY CONSIDERATIONS
-The keys in the \fIkeyfile\fR are not encrypted in any way. The security
-of these keys is completely up to the security of the system and the
-discretion of the system administrator.
-.SH RESTRICTIONS
-Currently \fIidentity\fR names are restricted to 16 characters, and passphrases
-are limited to 1024 characters.
+\fBbwctl -t 30 -s somehost.com\fR
+.IP
+Run a 30 second TCP \fBiperf\fR test with somehost.com as the sender
+and localhost as the receiver.
+.LP
+\fBbwctl -I 3600 -R 10 -t 10 -u -b 10m -s somehost.com\fR
+.IP
+Run a 10 second udp test about every hour (3600 +/- 360 seconds) with
+the sender rate limited to 10 Mbits per second from somehost.com to
+the localhost.
 .SH SEE ALSO
-.B owping(1)
+.B bwctld(8)
 ,
-.B owampd(1)
+.B bwctld.conf(5)
 ,
-.B bwctl(1)
+.B bwctld.limits(5)
 ,
-.B bwctld(1)
-and the 
-.B http://e2epi.internet2.edu/owamp
-and
-.B http://e2epi.internet2.edu/bwctl
-web sites.
+.B bwctld.keys(5)
+and \fBhttp://e2epi.internet2.edu/bwctl\fR.

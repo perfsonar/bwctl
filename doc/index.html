@@ -51,7 +51,7 @@ of the architecture is available in the <a href="architecture.html">architecture
 documentation</a>.
 <p>The reason to use <i>BWCTL</i> is to enable non-specific <b>iperf</b>
 tests to a host without having to give full user accounts on the given
-system. Users want the ability to run <b>iperf</b> to determine their achievable
+system. Users want the ability to run <b>iperf</b> to determine the achievable
 or available bandwidth between a pair of hosts. It is often useful to test
 to multiple points along a network path to determine the network characteristics
 along that path. Typically, users that want to do this path decomposition
@@ -143,10 +143,9 @@ Please report any build problems to <a href="mailto:bwctl-users@internet2.edu">b
 <hr WIDTH="100%">Configuring <i>bwctld</i></h3>
 The basic procedure to configure <b>bwctld</b> is to create a <a href="bwctld.conf.man.html">bwctld.conf</a>
 and optionally a <a href="bwctld.limits.man.html">bwctld.limits</a> and
-bwctld.keys
-file. These files need to be installed in the same directory. The recommended
-directory is <i>/inst/root/etc</i>. (The <i>etc</i> directory below your
-install root.) There are examples of these files in the <i>bwctl-$VERS/conf&nbsp;</i>
+bwctld.keys file. These files need to be installed in the same directory.
+The recommended directory is <i>/inst/root/etc</i>. (The <i>etc</i> directory
+below your install root.) There are examples of these files in the <i>bwctl-$VERS/conf&nbsp;</i>
 sub directory.
 <p><b>bwctld.conf:</b>
 <br>Used to configure basic operation of the daemon such as server listening
