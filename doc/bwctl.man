@@ -48,7 +48,7 @@ test wanted. Furthermore, it requests \fIwhen\fR the test is wanted.
 reservation or a test denied message. Once \fBbwctl\fR is able to get
 a matching reservation from both \fBbwctld\fR processes (one for each
 host involved in the test), it confirms the
-reservation. Then the \fBbwctld\fR processes run the test and return the
+reservation. Then, the \fBbwctld\fR processes run the test and return the
 results. The results are returned to the client from both sides of the
 test. Additionally, the \fBbwctld\fR processes share the results from
 their respective side of the test with each other.
@@ -63,8 +63,8 @@ characteristics along that path. Typically, users that want to do this path
 decomposition have to directly contact the network/system administrators
 that control the hosts along the path. The administrator needs to either
 run half of the test for the user or give them a user account on the host.
-Also typically, network paths of interest are controlled by
-multiple administrators. These hurtles have made this kind of testing
+Also, network paths of interest are typically controlled by
+multiple administrators. These hurdles have made this kind of testing
 difficult in practice. 
 .PP
 \fBBWCTL\fR was designed to help with this problem. It allows an
@@ -76,7 +76,7 @@ will not interfere with each other. Additionally, full user accounts
 are not required for the users running the tests.
 .PP
 \fBBWCTL\fR allows the administrator to classify incoming connections
-based upon a user name and AES key combination or alternatively based
+based upon a user name and AES key combination or, alternatively, based
 upon an IP/netmask.
 Once the connection is classified, the \fBbwctld\fR can determine the
 exact type and intensities of \fBIperf\fR tests that will be allowed.
@@ -139,8 +139,8 @@ TCP test.
 .RE
 .TP
 \fB\-W\fR \fIwindow\fR
-Same as the \fB\-w\fR option except that the value is advisory. \fBbwctl\fR
-will attempt to dynamically determine the appropriate TCP window based upon
+Same as the \fB\-w\fR option, except that the value is advisory. \fBbwctl\fR
+will attempt to dynamically determine the appropriate TCP window, based upon
 RTT information gathered from the control socket. If \fBbwctl\fR is unable
 to dynamically determine a window, the value \fIwindow\fR will be used.
 .RS
@@ -149,7 +149,7 @@ Unset (system defaults).
 .RE
 .TP
 \fB\-w\fR \fIwindow\fR
-Socket buffer sizes (bytes). For TCP this sets the TCP window size. For UDP
+Socket buffer sizes (bytes). For TCP, this sets the TCP window size. For UDP,
 this sets the socket receive buffer size.
 .RS
 .IP Default:
@@ -168,13 +168,13 @@ Unset. If it is unset, \fBbwctl\fR only runs the test once.
 \fB\-L\fR \fIlatest\fR
 Specifies the latest time the client is willing to wait for a
 reservation window. When \fBbwctl\fR requests a test from the \fBbwctld\fR
-server it specifies the earliest time and the latest time it is willing
+server, it specifies the earliest time and the latest time it is willing
 to accept. The \fIlatest\fR option is specified as a number of seconds
 that will be added to the start time.
 .RS
 .IP Default:
 If \fIinterval\fR is set, the default is 50% of \fIinterval\fR. Otherwise,
-the default is twice the test duration \fItime\fR (See \fB\-t\fR).
+the default is twice the test duration \fItime\fR. (See \fB\-t\fR).
 .RE
 .TP
 \fB\-n\fR \fInIntervals\fR
@@ -212,8 +212,8 @@ this mode is currently identical to authenticated.)
 .IP \fBO\fR
 [\fBO\fR]pen. No encryption of any kind is done.
 .PP
-The client can specify all the modes it is willing to communicate with. The
-most strict mode that both the server and the client are willing to speak
+The client can specify all the modes with which it is willing to communicate. The
+most strict mode that both the server and the client are willing to use
 will be selected.
 .IP Default:
 "AEO".
@@ -240,7 +240,7 @@ Unset. (If the \fB\-U\fR option was specified, user will be prompted for a
 .RE
 .TP
 \fB\-U\fR \fIusername\fR
-Specify the username that is used to identify the AES key to use for
+Specify the username that is used to identify the AES key for
 authenticated or encrypted modes. If the \fB\-k\fR option is specified,
 the key is retrieved from the \fIkeyfile\fR, otherwise \fBbwctl\fR prompts
 the user for a \fIpassphrase\fR. The \fIpassphrase\fR is used to generate
@@ -280,7 +280,7 @@ option.
 Print version information and exit.
 .TP
 \fB\-v\fR
-Verbose output. Additional \fB\-v\fR's specified increases the verbosity.
+Verbose output. Specifying additional \fB\-v\fR's increases the verbosity.
 .TP
 \fB\-x\fR
 Output sender (\fBIperf\fR client) results as well as receiver results.
@@ -297,7 +297,7 @@ Works with versions 1.7.0 and 2.0.b of \fBIperf\fR.
 \fBbwctl -c somehost.com\fR
 .IP
 Run a default 10 second TCP \fBIperf\fR test as soon as possible with
-the local host as the sender and somehost.com as the receiver. Return
+localhost as the sender and somehost.com as the receiver. Return
 the results from the receive side of the test.
 .LP
 \fBbwctl -x -c somehost.com\fR
@@ -314,7 +314,7 @@ and localhost as the receiver.
 .IP
 Run a 10 second UDP test about every hour (3600 +/- 360 seconds) with
 the sender rate limited to 10 Mbits per second from somehost.com to
-the localhost.
+localhost.
 .LP
 \fBbwctl -U someuser -s somehost.com\fR
 .IP

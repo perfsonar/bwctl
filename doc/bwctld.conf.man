@@ -27,28 +27,28 @@ bwctld.conf \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
 .SH DESCRIPTION
 The \fBbwctld.conf\fR file is the configuration file for the bwctld(8)
 program. It is used to configure the basic operation of the server. For
-example, what addresses and ports it should listen on and where it should
-send error messages and where it should save files.
+example, what addresses and ports it should listen on, where it should
+send error messages, and where it should save files.
 .PP
 The policy rules for \fBbwctld\fR are configured using the \fBbwctld.limits\fR
-file and the details for configuring those policies are described in
+file; the details for configuring those policies are described in
 the bwctld.limits(5) manual page.
 .PP
 The format of this file is as follows:
 .RS
 .IP \(bu
-Comment lines are any line with the first non-whitespace character is '#'.
+Comment lines are any line where the first non-whitespace character is '#'.
 These lines are counted for the purposes of returning line numbers in error
 messages but are otherwise ignored by \fBbwctld\fR.
 .IP \(bu
 Lines may be continued using the semi-standard '\\' character followed
-immediately by a newline. This is the only valid place for the '\\'
-character. If it is found elsewhere a syntax error is reported.
+immediately by a newline character. This is the only valid place for
+the '\\' character. If it is found elsewhere, a syntax error is reported.
 .IP \(bu
 Blank lines are treated as comment lines.
 .IP \(bu
 All other lines are used to set configuration options. The format of these
-lines is an initial keyword followed by a variable list of arguments
+lines is an initial keyword followed by a variable list of arguments,
 separated by whitespace.
 .RE
 .SH CONFIGURATION OPTIONS
@@ -62,7 +62,7 @@ The full path to the \fBIperf\fR on the system.
 .TP
 .BI iperfport " iperfport"
 The port number(s) that \fBIperf\fR receivers will use.
-Currently \fBbwctld\fR simply cycles through this range linearly.
+Currently, \fBbwctld\fR simply cycles through this range linearly.
 \fIiperfport\fR can be specified as a single valid port number or as
 a range as \fIlow\fR-\fIhigh\fR. The range must be specified as two valid
 port numbers with the '-' character separating them. Whitespace is
@@ -74,12 +74,12 @@ be valid, but \fB"5001 - 5004"\fR would be invalid.
 .RE
 .TP
 .BI user " user"
-Specifies the uid the \fBbwctld\fR process should run as. \fIuser\fB
+Specifies the uid the \fBbwctld\fR process should run as. \fIuser\fR
 can be specified using a valid user name on the system or by using -uid.
 This option is only used if \fBbwctld\fR is started as root.
 .TP
 .BI group " group"
-Specifies the gid the \fBbwctld\fR process should run as. \fIgroup\fB
+Specifies the gid the \fBbwctld\fR process should run as. \fIgroup\fR
 can be specified using a valid group name on the system or by using -gid.
 This option is only used if \fBbwctld\fR is started as root.
 .TP
@@ -91,7 +91,7 @@ generate more verbose messages to syslog.
 Syslog \fIfacility\fR to log messages to.
 .RS
 .IP Default:
-\fBLOG_DAEMON\fR
+LOG_DAEMON
 .RE
 .TP
 .B loglocation
@@ -117,7 +117,7 @@ Current directory
 .TP
 .BI authmode " authmode"
 Specify the authentication modes the server is willing to use for
-communication. \fIauthmode\fR should be set as a character string with
+communication. \fIauthmode\fR should be set as a character string, with
 any or all of the characters "AEO". The modes are:
 .RS
 .IP \fBA\fR
@@ -130,8 +130,8 @@ this mode is currently identical to authenticated.)
 .IP \fBO\fR
 [\fBO\fR]pen. No encryption of any kind is done.
 .PP
-The server can specify all the modes it is willing to communicate with. The
-most strict mode that both the server and the client are willing to speak
+The server can specify all the modes with which it is willing to communicate. The
+most strict mode that both the server and the client are willing to use
 will be selected.
 .IP Default:
 "AEO".
@@ -180,7 +180,7 @@ the bottleneck.) If this option is not specified, the dynamic window
 calculation requested by the \fB-W\fR option to \fBbwctl\fR is not
 done and the advisory value is used.
 .SH SEE ALSO
-bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5)
+bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5),
 and the \%http://e2epi.internet2.edu/bwctl/ web site.
 .PP
 For details on \fBIperf\fR, see the \%http://dast.nlanr.net/Projects/Iperf/

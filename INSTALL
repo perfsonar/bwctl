@@ -41,7 +41,7 @@ then
 
 	  You will be prompted for a passphrase. This passphrase will
 	  uniquely identify an AES key. That AES key needs to be installed
-	  in the bwctld.keys file for all bwctld servers you with to contact.
+	  in the bwctld.keys file for all bwctld servers you wish to contact.
 	  (You can add as many userid's to the file as you want. The -n flag
 	  is used to create the file initially, so do not use it for subsequent
 	  identity additions.)

@@ -67,7 +67,7 @@ the policy restrictions configured by the system administrator.
 uses the classic accept/fork model of handling new requests.
 .PP
 Most of the command line options for \fBbwctld\fR have analogous options
-in the \fBbwctld.conf\fR file. The command line takes precedent.
+in the \fBbwctld.conf\fR file. The command line takes precedence.
 .SH OPTIONS
 .TP
 .BI \-a " authmode"
@@ -85,8 +85,8 @@ this mode is currently identical to authenticated.)
 .IP \fBO\fR
 [\fBO\fR]pen. No encryption of any kind is done.
 .PP
-The server can specify all the modes it is willing to communicate with. The
-most strict mode that both the server and the client are willing to speak
+The server can specify all the modes with which it is willing to communicate. The
+most strict mode that both the server and the client are willing to use
 will be selected.
 .IP Default:
 "AEO".
@@ -101,7 +101,7 @@ Current working directory.
 .TP
 .BI \-d " datadir"
 Specify the directory that holds the output data files. (\fBbwctld\fR does
-not currently save the results of the \fBIperf\fB tests. This option is a place
+not currently save the results of the \fBIperf\fR tests. This option is a place
 holder for when it does.)
 .RS
 .IP Default:
@@ -109,14 +109,14 @@ Current working directory.
 .RE
 .TP
 .BI \-e " facility"
-Syslog \fIfacility\fR to log messages to.
+Syslog \fIfacility\fR to which messages are logged.
 .RS
 .IP Default:
 LOG_DAEMON
 .RE
 .TP
 .BI \-G " group"
-Specify the gid the \fBbwctld\fR process should run as. \fIgroup\fR can
+Specify the gid for the \fBbwctld\fR process. \fIgroup\fR can
 be specified using a valid group name or by using \-gid. This option is
 only used if \fBbwctld\fR is started as root.
 .TP
@@ -131,22 +131,21 @@ Current directory
 .RE
 .TP
 .BI \-S " nodename:port"
-Specify the address and port that \fBbwctld\fR will listen for requests on.
+Specify the address and port on which \fBbwctld\fR will listen for requests.
 \fInodename\fR can be specified using a DNS name or using the textual
 representation of the address. It is possible to set the source address
-without setting the \fIport\fR by simply leaving off the ':' and \fIport\fR
+without setting the \fIport\fR simply by leaving off the ':' and \fIport\fR
 specification. If an IPv6 address is specified, note that the accepted format
-contains \fInodename\fR in square brackets as: [fe80::fe9f:62d8]. This
+contains \fInodename\fR in square brackets, such as: [fe80::fe9f:62d8]. This
 ensures the port number is distinct from the address specification.
 .RS
 .IP Default:
-\fInodename\fR is wildcarded as any currently available address
-.br
+\fInodename\fR is wildcarded as any currently available address.
 \fIport\fR is 4823.
 .RE
 .TP
 .BI \-U " user"
-Specify the uid the \fBbwctld\fR process should run as. \fIuser\fR can
+Specify the uid for the \fBbwctld\fR process. \fIuser\fR can
 be specified using a valid user name or by using \-uid. This option is
 only used if \fBbwctld\fR is started as root.
 .TP
@@ -157,12 +156,12 @@ option is specified.
 .B \-Z
 Run the master \fBbwctld\fR process in the foreground. In this mode, error
 messages are printed to stderr as well as being sent to syslog. Also, normal
-terminal controls are available. (i.e. <Cntr\-C> will cause the daemon to
+terminal controls are available. (i.e., <Cntr\-C> will cause the daemon to
 kill it's child processes and exit.) This is useful for debugging.
 .SH REQUIREMENTS
 The \fBbwctld\fR daemon requires a reasonably synchronized clock. It is
 scheduling tests and needs to be sure it has the same idea of when a test
-should take place as the peer system the test is being done with.
+should take place as does the peer system with which the test is being done.
 Therefore, \fBbwctld\fR requires that \fBNTP\fR be running to synchronize
 the system clock. This means that \fBNTP\fR needs to be setup correctly
 on the system so that \fBNTP\fR can actually calculate a reasonable

@@ -39,7 +39,7 @@ some particular network.
 .TP
 Authorization
 Now that the connection has been generally identified, what will \fBbwctld\fR
-allow it to do.
+allow it to do?
 .PP
 The authentication is done by assigning a \fIuserclass\fR to each new
 connection as it comes in. Each \fIuserclass\fR has a set of limits
@@ -47,17 +47,17 @@ associated with it. The \fIuserclass\fRes are hierarchical, so a connection
 must pass the limit restrictions of the given \fIuserclass\fR as well as all
 parent classes.
 .PP
-Within the \fBbwcltd.limits\fR file \fIassign\fR lines are used to
+Within the \fBbwcltd.limits\fR file, \fIassign\fR lines are used to
 assign a \fIuserclass\fR to a given connection. \fIlimit\fR lines are
 used to define a \fIuserclass\fR and set the limits associated with that
 \fIuserclass\fR. The file is read sequentially, and it is not permitted
 to use a \fIclassname\fR before it is defined using a limit line.
 .PP
-The format of this file is as follows:
+The format of this file is:
 .RS
 .IP \(bu
-Comment lines are any line with the first non-whitespace character is '#'.
-These lines are counted for the purposes of returning line numbers in error
+Comment lines are any line where the first non-whitespace character is '#'.
+These lines are counted to return line numbers in error
 messages but are otherwise ignored by \fBbwctld\fR.
 .IP \(bu
 Lines may be continued using the semi-standard '\\' character followed
@@ -83,7 +83,7 @@ limit \fIclassname\fR with \fIlimtype\fR=\fIvalue\fR[,\fIlimtype\fR=\fIvalue\fR]
 \fIclassname\fR defines the name of the class with the given
 limits. Whitespace is used as a separator but is otherwise
 ignored. \fIclassname\fR may be used as a directory name component
-within \fBbwctld\fR so take care not to use characters that would be
+within \fBbwctld\fR, so take care not to use characters that would be
 invalid. (i.e. '*' or '/' would be particularly bad.)
 .PP
 \fIlimtype\fR and \fIvalue\fR indicate the particular type of limit and
@@ -111,10 +111,10 @@ to only encrypted or authenticated mode transactions or
 to allow open mode.
 .TP
 .I allow_tcp
-Are TCP \fBIperf\fR tests allow for \fIuserclass\fR.
+Allow TCP \fBIperf\fR tests for \fIuserclass\fR.
 .TP
 .I allow_udp
-Are UDP \fBIperf\fR tests allow for \fIuserclass\fR.
+Allow UDP \fBIperf\fR tests for \fIuserclass\fR.
 .TP
 .I bandwidth
 Maximum amount of bandwidth to allow \fIuserclass\fR
@@ -132,12 +132,12 @@ Maximum duration of a single \fBIperf\fR test for this
 Maximum window into the future to look when trying to schedule
 a test for this \fIuserclass\fR.
 .TP
-.I parent
+.I parent     
 The first \fIlimit\fR line cannot have a parent since
 none have been defined yet. As such, the first
 line defines the root of your class hierarchy.
 All remaining limit lines \fBMUST\fR assign a parent.
-(It is hierarchical after all.)
+(It is hierarchical, after all.)
 .TP
 .I pending
 Maximum number of \fIpending\fR reservations for this \fIuserclass\fR.
@@ -178,8 +178,8 @@ would match only the loopback IPv6 address.
 would match all hosts on the 192.168.1.XXX network.
 .PP
 There must be no set bits in the non-masked portion of the address part
-of the \fIsubnet\fR specification. i.e. 192.168.1.1/24 would be
-an invalid \fIsubnet\fR due to the bit set in the forth octet.
+of the \fIsubnet\fR specification. i.e., 192.168.1.1/24 would be
+an invalid \fIsubnet\fR due to the bit set in the fourth octet.
 .RE
 .TP
 .BI user " users"
@@ -245,7 +245,7 @@ tests have both been denied, no tests will be allowed. Also,
 \fIallow_open_mode\fR is off, so initial connections that are not in
 authenticated or encrypted mode would be dropped immediately anyway.
 (It would not make much sense to assign a \fIuser\fR identity to this
-\fIuserclass\fR. If you don't want connections from a particular \fIuser\fR
+\fIuserclass\fR. If you don't want connections from a particular \fIuser\fR,
 the best thing to do is to remove that \fIuser\fR from the \fBbwctld.keys\fR
 file.
 .PP
@@ -254,6 +254,8 @@ could define a \fIuserclass\fR like:
 .RS
 .HP
 limit open with \\
+.br
+parent=root, \\
 .br
 allow_open_mode=on, \\
 .br
@@ -304,7 +306,7 @@ the \fBbadguys\fR subnet). All other connections would match the
 \fIassign default\fR rule and get the limits associated with the \fBopen\fR
 \fIuserclass\fR.
 .SH SEE ALSO
-bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5)
+bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5),
 and the \%http://e2epi.internet2.edu/bwctl/ web site.
 .PP
 For details on \fBIperf\fR, see the \%http://dast.nlanr.net/Projects/Iperf/
