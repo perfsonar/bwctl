@@ -588,57 +588,6 @@ _BWLInitNTP(
 	return 0;
 }
 
-/*
- * rewrite _BWLGetTimespec to use the "offset" from ntp.
- * TODO: Remove this version once the other has been tested reasonably.
- */
-#if	NOT
-static struct timespec *
-_BWLGetTimespec(
-	BWLContext	ctx,
-	struct timespec	*ts,
-	u_int32_t	*esterr,
-	int		*sync
-	)
-{
-	struct ntptimeval	ntv;
-	int			status;
-
-	status = ntp_gettime(&ntv);
-
-	if(status < 0){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_gettime(): %M");
-		return NULL;
-	}
-	if(status > 0)
-		*sync = 0;
-	else
-		*sync = 1;
-
-	*esterr = (u_int32_t)ntv.esterror;
-	assert((long)*esterr == ntv.esterror);
-
-	/*
-	 * Error estimate should never be 0, but I've seen ntp do it!
-	 */
-	if(!*esterr){
-		*esterr = 1;
-	}
-
-#ifdef	STA_NANO
-	*ts = ntv.time;
-#else
-	/*
-	 * convert usec to nsec if not STA_NANO
-	 */
-	*(struct timeval*)ts = ntv.time;
-	ts->tv_nsec *= 1000;
-#endif
-
-	return ts;
-}
-#endif
-
 static struct timespec *
 _BWLGetTimespec(
 		BWLContext		ctx,
@@ -712,8 +661,8 @@ _BWLGetTimespec(
 	/*
 	 * Set estimated error
 	 */
-	*esterr = (u_int32_t)ntp_conf.esterror;
-	assert((long)*esterr == ntp_conf.esterror);
+	*esterr = (u_int32_t)ntp_conf.maxerror;
+	assert((long)*esterr == ntp_conf.maxerror);
 
 	/*
 	 * Error estimate should never be 0, but I've seen ntp do it!
