@@ -291,7 +291,7 @@ str2num(
 		/*
 		 * Only one non-digit is allowed and it must be the last char
 		 */
-		if((len - silen) > 0){
+		if((len - silen) > 1){
 			return -1;
 		}
 
@@ -361,7 +361,7 @@ str2bytenum(
 		/*
 		 * Only one non-digit is allowed and it must be the last char
 		 */
-		if((len - silen) > 0){
+		if((len - silen) > 1){
 			return -1;
 		}
 
