@@ -554,8 +554,6 @@ _BWLEndpointStart(
 			EndpointFree(ep);
 			return False;
 		}
-		BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"PeerSockOpen: %u",
-								*dataport);
 	}
 
 	/*
@@ -804,8 +802,6 @@ ACCEPT:
 				goto end;
 		}
 
-		BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"PeerSockConnect: %u",
-								*dataport);
 		ep->rcntrl = BWLControlOpen(ctx,
 				_BWLAddrCopy(tsess->test_spec.sender),
 				remote,tsess->cntrl->mode,"endpoint",NULL,
@@ -886,7 +882,7 @@ select:
 			}
 			else if(msgtype != 3){
 				BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-				"Invalid protocol messaage from test peer");
+				"Invalid protocol message from test peer");
 				aval = BWL_CNTRL_FAILURE;
 				do_write=0;
 			}
@@ -937,7 +933,8 @@ end:
 		}
 		else if(msgtype != 3){
 			BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-				"Invalid protocol messaage from test peer");
+				"Invalid protocol message from test peer: %d",
+				msgtype);
 			aval = BWL_CNTRL_FAILURE;
 		}
 		else{
