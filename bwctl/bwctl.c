@@ -1029,9 +1029,10 @@ AGAIN:
 		 * will be able to accomidate the request initially - the
 		 * smaller, the more TestRequests will probably need to be made.
 		 * )
+		 * TODO: Come up with a *real* value here!
 		 */
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-						IPFULongToNum64(10));
+						IPFULongToNum64(300));
 
 		/*
 		 * Wait this long after a test should be complete before

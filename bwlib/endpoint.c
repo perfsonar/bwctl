@@ -533,10 +533,13 @@ _IPFEndpointStart(
 		return False;
 	}
 
-	if(tsess->conf_receiver &&
-			((ep->ssockfd = epssock(tsess,dataport)) < 0)){
-		EndpointFree(ep);
-		return False;
+	if(tsess->conf_receiver){
+		if((ep->ssockfd = epssock(tsess,dataport)) < 0){
+			EndpointFree(ep);
+			return False;
+		}
+		IPFError(ctx,IPFErrINFO,IPFErrUNKNOWN,"PeerSockOpen: %u",
+								*dataport);
 	}
 
 	/*
@@ -599,25 +602,6 @@ _IPFEndpointStart(
 
 	/* child */
 
-#ifndef	NDEBUG
-	/*
-	 * busy loop to wait for debugger attachment
-	 */
-	{
-		int	waitfor = (int)IPFContextConfigGet(ctx,IPFChildWait);
-
-		/*
-		 * Syslog will print the PID making it easier to 'attach'
-		 * from a debugger.
-		 */
-		if(waitfor){
-			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"waitfor!");
-		}
-
-		while(waitfor);
-	}
-#endif
-
 	/*
 	 * Set sig handlers
 	 */
@@ -643,6 +627,25 @@ _IPFEndpointStart(
 	if(ipf_term){
 		exit(IPF_CNTRL_FAILURE);
 	}
+
+#ifndef	NDEBUG
+	/*
+	 * busy loop to wait for debugger attachment
+	 */
+	{
+		int	waitfor = (int)IPFContextConfigGet(ctx,IPFChildWait);
+
+		/*
+		 * Syslog will print the PID making it easier to 'attach'
+		 * from a debugger.
+		 */
+		if(waitfor){
+			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"waitfor!");
+		}
+
+		while(waitfor);
+	}
+#endif
 
 	/*
 	 * Now fork again. The child will go on to "exec" iperf at the
@@ -762,12 +765,12 @@ ACCEPT:
 
 			case AF_INET6:
 				saddr6 = (struct sockaddr_in6 *)remote->saddr;
-				saddr6->sin6_port = ntohs(*dataport);
+				saddr6->sin6_port = htons(*dataport);
 				break;
 #endif
 			case AF_INET:
 				saddr4 = (struct sockaddr_in *)remote->saddr;
-				saddr4->sin_port = ntohs(*dataport);
+				saddr4->sin_port = htons(*dataport);
 				break;
 			default:
 				IPFError(tsess->cntrl->ctx,IPFErrFATAL,
