@@ -728,6 +728,7 @@ _BWLEndpointStart(
 		goto end;
 	}
 
+
 	if(BWLNum64Cmp(tsess->reserve_time,currtime.tstamp) < 0){
 		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
 				"endpoint to endpoint setup too late");
@@ -735,6 +736,13 @@ _BWLEndpointStart(
 	}
 
 	reltime = BWLNum64Sub(tsess->reserve_time,currtime.tstamp);
+
+	BWLError(ctx,BWLErrINFO,BWLErrINVALID,
+			"currtime = %f, reservation = %f, reltime = %f",
+			BWLNum64ToFloat(currtime.tstamp),
+			BWLNum64ToFloat(tsess->reserve_time),
+			BWLNum64ToFloat(reltime)
+			);
 
 	memset(&itval,0,sizeof(itval));
 	BWLNum64ToTimeval(&itval.it_value,reltime);
@@ -752,15 +760,17 @@ ACCEPT:
 		sbuff_len = sizeof(sbuff);
 		connfd = accept(ep->ssockfd,(struct sockaddr *)&sbuff,
 								&sbuff_len);
-		if(ipf_intr)
-			goto end;
-
 		if(connfd < 0){
 			if(errno == EINTR && !ipf_intr){
 				goto ACCEPT;
 			}
 			BWLError(ctx,BWLErrFATAL,errno,
 				"Unable to accept() endpoint cntrl: %M");
+			if(ipf_intr){
+				BWLError(tsess->cntrl->ctx,BWLErrFATAL,
+						BWLErrINVALID,
+					"Endpoint: Signal = %d",signo_caught);
+			}
 			goto end;
 		}
 
