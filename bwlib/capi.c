@@ -311,7 +311,6 @@ _BWLClientConnect(
 {
 	int		rc;
 	struct addrinfo	*ai=NULL;
-	char		*tstr;
 
 	if(!server_addr)
 		goto error;
@@ -361,18 +360,6 @@ _BWLClientConnect(
 		if(rc < 0)
 			goto error;
 	}
-
-	/*
-	 * Unable to connect! If we have a server name report it in
-	 * the error message.
-	 */
-	if(server_addr->node_set)
-		tstr = server_addr->node;
-	else
-		tstr = "Server";
-
-	BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-			"Unable to connect to %s",tstr);
 
 error:
 	*err_ret = BWLErrFATAL;

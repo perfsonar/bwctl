@@ -487,7 +487,7 @@ BWLTimespecToTimeStamp(
 		 * already correct.
 		 */
 		if(!last_errest || (*errest != *last_errest)){
-			BWLSetTimeStampError(BWLUsecToNum64(*errest));
+			BWLSetTimeStampError(tstamp,BWLUsecToNum64(*errest));
 		}
 	}
 	else{
