@@ -875,7 +875,11 @@ main(
 			exit(1);
 		}
 		if(sig_check()) exit(1);
-		/* req_time.ipftime += (2*round-trip-bound) */
+		/*
+		 * req_time.ipftime += (3*round-trip-bound)
+		 * (3) -- 1 test_req, 1 start session, 1 for server-2-server
+		 * connection.
+		 */
 		remote.rttbound = IPFGetRTTBound(remote.cntrl);
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
 			IPFNum64Mult(remote.rttbound,IPFULongToNum64(2)));
@@ -891,27 +895,43 @@ main(
 			goto next_test;
 		}
 		if(sig_check()) exit(1);
-		/* req_time.ipftime += (2*round-trip-bound) */
+		/*
+		 * req_time.ipftime += (3*round-trip-bound)
+		 * (3) -- 1 test_req, 1 start session, 1 for server-2-server
+		 * connection.
+		 */
 		local.rttbound = IPFGetRTTBound(local.cntrl);
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-			IPFNum64Mult(local.rttbound,IPFULongToNum64(2)));
+			IPFNum64Mult(local.rttbound,IPFULongToNum64(3)));
+
+		/*
+		 * Add a small constant value to this... Will need to experiment
+		 * to find the right number. All the previous values were
+		 * basically estimates for how long it would take to make
+		 * the request. This is roughly the time into the future we
+		 * want to make the request for above and beyond the amount
+		 * of time it takes to actually make the request. It should
+		 * be short enough to not be annoying for interactive use, but
+		 * long enough to account for most random delays.
+		 * (The larger this value is, the more likely the two servers
+		 * will be able to accomidate the request initially - the
+		 * smaller, the more TestRequests will probably need to be made.
+		 * )
+		 */
+		req_time.ipftime = IPFNum64Add(req_time.ipftime,
+						IPFULongToNum64(1));
 
 		/*
 		 * Wait this long after a test should be complete before
-		 * poking the servers.
+		 * poking the servers. It should be long enough to allow
+		 * the servers to declare the session complete before the
+		 * client does.
 		 * (Again 2 seconds is just a guess - I'm making a lot of
 		 * guesses due to time constrants. If these values cause
 		 * problems they can be revisited.)
 		 */
 		fuzz64 = IPFNum64Add(IPFULongToNum64(2),
-				IPFNum64Min(local.rttbound,remote.rttbound));
-
-		/*
-		 * Add a small constant value to this... Will need to experiment
-		 * to find the right number.
-		 */
-		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-						IPFULongToNum64(2));
+				IPFNum64Max(local.rttbound,remote.rttbound));
 
 		/*
 		 * req_time currently holds a reasonable relative amount of
