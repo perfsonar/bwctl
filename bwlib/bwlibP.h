@@ -40,6 +40,10 @@
 #define	MAXHOSTNAMELEN	64
 #endif
 
+#ifndef PATH_MAX
+#define	PATH_MAX	1024
+#endif
+
 #include <I2util/util.h>
 #include <ipcntrl/ipcntrl.h>
 
@@ -103,7 +107,8 @@
  * other useful constants.
  */
 #define _IPF_ERR_MAXSTRING	(1024)
-#define _IPF_MAGIC_FILETYPE	"OwA"
+#define	_IPF_PATH_SEPARATOR	"/"
+#define _IPF_TMPFILEFMT		"iperfc.XXXXXX"
 
 /*
  * Data structures
@@ -120,6 +125,7 @@ struct IPFContextRec{
 	I2ErrHandle		eh;
 	I2Table			table;
 	I2RandomSource		rand_src;
+	char			tmpdir[PATH_MAX+1];
 	IPFControlRec		*cntrl_list;
 };
 
@@ -207,6 +213,21 @@ struct IPFControlRec{
 	IPFTestSession		tests;
 };
 
+typedef struct IPFEndpointRec{
+#ifndef	NDEBUG
+	IPFBoolean		childwait;
+#endif
+	IPFControl		cntrl;		/* To client		*/
+	IPFTestSession		tsess;
+
+	int			ssockfd;
+	IPFControl		rcntrl;		/* To other endpoint	*/
+
+	IPFAcceptType		acceptval;
+	pid_t			child;
+	int			wopts;
+} IPFEndpointRec, *IPFEndpoint;
+
 struct IPFTestSessionRec{
 	IPFControl			cntrl;
 	IPFSID				sid;
@@ -222,6 +243,8 @@ struct IPFTestSessionRec{
 	FILE				*remotefp;
 
 	void				*closure; /* per/test app data */
+
+	IPFEndpoint			endpoint;
 };
 
 /*
@@ -546,6 +569,11 @@ extern void
 _IPFCallTestComplete(
 	IPFTestSession	tsession,
 	IPFAcceptType	aval
+	);
+
+extern IPFErrSeverity
+_IPFCallProcessResults(
+	IPFTestSession	tsession
 	);
 
 /*

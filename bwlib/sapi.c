@@ -907,6 +907,10 @@ IPFStopSession(
 	int		*intr=&ival;
 	FILE		*fp;
 
+	if(!cntrl->tests){
+		return IPFErrOK;
+	}
+
 	if(acceptval_ret){
 		acceptval = acceptval_ret;
 	}
@@ -951,10 +955,13 @@ IPFStopSession(
 		return _IPFFailControlSession(cntrl,IPFErrFATAL);
 	}
 
-	if( (err = _IPFReadStopSession(cntrl,acceptval,intr,NULL)) !=
-								IPFErrOK){
+	if( (err = _IPFReadStopSession(cntrl,acceptval,intr,
+					cntrl->tests->remotefp)) != IPFErrOK){
 		return _IPFFailControlSession(cntrl,err);
 	}
+	err2 = MIN(err,err2);
+
+	err = _IPFCallProcessResults(cntrl->tests);
 	err2 = MIN(err,err2);
 
 	err = _IPFTestSessionFree(cntrl->tests,*acceptval);
@@ -966,11 +973,11 @@ IPFStopSession(
 
 int
 IPFStopSessionWait(
-	IPFControl	cntrl,
-	IPFNum64	*wake,
-	int		*retn_on_intr,
-	IPFAcceptType	*acceptval_ret,
-	IPFErrSeverity	*err_ret
+	IPFControl		cntrl,
+	IPFNum64		*wake,
+	int			*retn_on_intr,
+	IPFAcceptType		*acceptval_ret,
+	IPFErrSeverity		*err_ret
 	)
 {
 	struct timeval	currtime;
@@ -1104,7 +1111,8 @@ AGAIN:
 		return -1;
 	}
 
-	*err_ret = _IPFReadStopSession(cntrl,intr,acceptval,NULL);
+	*err_ret = _IPFReadStopSession(cntrl,intr,acceptval,
+						cntrl->tests->remotefp);
 	if(*err_ret != IPFErrOK){
 		*err_ret = _IPFFailControlSession(cntrl,*err_ret);
 		return -1;
@@ -1128,6 +1136,9 @@ AGAIN:
 								IPFErrOK){
 		(void)_IPFFailControlSession(cntrl,err2);
 	}
+	*err_ret = MIN(*err_ret,err2);
+
+	err2 = _IPFCallProcessResults(cntrl->tests);
 	*err_ret = MIN(*err_ret,err2);
 
 	while(cntrl->tests){

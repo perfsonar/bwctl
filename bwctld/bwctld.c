@@ -584,6 +584,7 @@ ACCEPT:
 					I2ErrLog(errhand,"setitimer(): %M");
 					goto done;
 				}
+
 				while(IPFSessionsActive(cntrl,NULL)){
 					int	wstate;
 

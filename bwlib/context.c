@@ -23,6 +23,35 @@
 #include "ipcntrlP.h"
 
 /*
+ * Function:	notmuch
+ *
+ * Description:	
+ * 		This is a "do nothing" signal handler. It is in place
+ * 		to ensure this process recieves SIGCHLD events.
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ */
+static void
+notmuch(
+		int	signo
+		)
+{
+	switch(signo){
+		case SIGCHLD:
+			break;
+		default:
+			abort();
+			raise(SIGFPE);
+	}
+}
+
+/*
  * Function:	IPFContextCreate
  *
  * Description:	
@@ -46,6 +75,7 @@ IPFContextCreate(
 	struct sigaction	act;
 	I2LogImmediateAttr	ia;
 	IPFContext		ctx = calloc(1,sizeof(IPFContextRec));
+	char			*tmpdir;
 
 	if(!ctx){
 		IPFError(eh,
@@ -92,6 +122,18 @@ IPFContextCreate(
 		return NULL;
 	}
 
+	if( (tmpdir = getenv("TMPDIR")))
+		strncpy(ctx->tmpdir,tmpdir,PATH_MAX);
+	else
+		strcpy(ctx->tmpdir,"/tmp");
+
+	if(strlen(ctx->tmpdir) + strlen(_IPF_PATH_SEPARATOR) +
+					strlen(_IPF_TMPFILEFMT) > PATH_MAX){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN, "TMPDIR too long");
+		IPFContextFree(ctx);
+		return NULL;
+	}
+
 	/*
 	 * Do NOT exit on SIGPIPE. To defeat this in the least intrusive
 	 * way only set SIG_IGN if SIGPIPE is currently set to SIG_DFL.
@@ -109,6 +151,31 @@ IPFContextCreate(
 	if(act.sa_handler == SIG_DFL){
 		act.sa_handler = SIG_IGN;
 		if(sigaction(SIGPIPE,&act,NULL) != 0){
+			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+					"sigaction(): %M");
+			IPFContextFree(ctx);
+			return NULL;
+		}
+	}
+
+	/*
+	 * This library uses calls to select that are intended to
+	 * interrupt select in the case of SIGCHLD, so I must
+	 * ensure that the process is getting SIGCHLD events.
+	 */
+	memset(&act,0,sizeof(act));
+	sigemptyset(&act.sa_mask);
+	act.sa_handler = SIG_DFL;
+	/* fetch current handler */
+	if(sigaction(SIGCHLD,NULL,&act) != 0){
+		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"sigaction(): %M");
+		IPFContextFree(ctx);
+		return NULL;
+	}
+	/* If there is no current handler - set a "do nothing" one. */
+	if(act.sa_handler == SIG_DFL){
+		act.sa_handler = notmuch;
+		if(sigaction(SIGCHLD,&act,NULL) != 0){
 			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
 					"sigaction(): %M");
 			IPFContextFree(ctx);
@@ -634,90 +701,34 @@ _IPFCallTestComplete(
 }
 
 /*
- * Function:	_IPFCallOpenFile
+ * Function:	_IPFCallProcessResults
  *
  * Description:
- * 	Calls the "IPFOpenFile" that is defined by the application.
- * 	If the application didn't define the "IPFOpenFile" function, then
- * 	it won't be able to implement the "FetchSession" functionality or
- * 	run a "receive" endpoint from a "server" point-of-view.
- *
- * 	(This is not needed from the client point-of-view since it passes
- * 	a FILE* into the retrieve/receiver functions directly.)
- *
- * 	(basically - this is a hook to allow relatively simple changes
- * 	to the way ipcntrld saves/fetches session data.)
- *
- * 	The "closure" pointer is a pointer to the value that is returned
- * 	from the CheckTestPolicy function. This is the way resource
- * 	requests/releases can be adjusted based upon actual use.
- * 	(keeping policy separate from function is challenging... I hope
- * 	it is worth it...)
- *
- * 	"closure" will be NULL if this function is being called in the
- * 	"FetchSession" context.
+ * 	Calls the IPFProcessResultsFunc that is defined by the application.
  *
  */
-FILE *
-_IPFCallOpenFile(
-	IPFControl	cntrl,			/* control handle	*/
-	void		*closure,		/* null if r/o		*/
-	IPFSID		sid,			/* sid			*/
-	char		fname_ret[PATH_MAX]	/* return name		*/
+IPFErrSeverity
+_IPFCallProcessResults(
+	IPFTestSession	tsession
 )
 {
-	IPFOpenFileFunc	func;
+	IPFProcessResultsFunc	func;
 
-	func = (IPFOpenFileFunc)IPFContextConfigGet(cntrl->ctx,
-							IPFOpenFile);
+	func = (IPFProcessResultsFunc)IPFContextConfigGet(tsession->cntrl->ctx,
+							IPFProcessResults);
 	/*
-	 * Default action is nothing...
+	 * Default action is to do nothing...
 	 */
 	if(!func){
-		return NULL;
+		return IPFErrOK;
 	}
 
-	return func(cntrl,closure,sid,fname_ret);
-}
-
-/*
- * Function:	_IPFCallCloseFile
- *
- * Description:
- * 	Calls the "IPFCloseFile" that is defined by the application.
- * 	If the application didn't define the "IPFCloseFile" function, then
- * 	fclose will be called on the fp.
- *
- * 	(The primary use for this hook is to implement the delete-on-fetch
- * 	functionality. i.e. once this is called on a file with that policy
- * 	setting, unlink can be called on the file.)
- */
-void
-_IPFCallCloseFile(
-	IPFControl	cntrl,			/* control handle	*/
-	void		*closure,
-	FILE		*fp,
-	IPFAcceptType	aval
-)
-{
-	IPFCloseFileFunc	func;
-
-	func = (IPFCloseFileFunc)IPFContextConfigGet(cntrl->ctx,
-							IPFCloseFile);
-	/*
-	 * Default action is nothing...
-	 */
-	if(!func){
-		int	rc;
-
-		while(((rc = fclose(fp)) != 0) && (errno == EINTR));
-		if(rc != 0){
-			IPFError(cntrl->ctx,IPFErrFATAL,errno,"fclose(): %M");
-		}
-		return;
+	if(tsession->conf_sender){
+		return func(tsession->cntrl,True,&tsession->test_spec,
+				tsession->localfp,tsession->remotefp);
 	}
-
-	func(cntrl,closure,fp,aval);
-
-	return;
+	else{
+		return func(tsession->cntrl,False,&tsession->test_spec,
+				tsession->remotefp,tsession->localfp);
+	}
 }

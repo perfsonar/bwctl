@@ -570,6 +570,13 @@ _IPFTestSessionFree(
 	IPFAddrFree(tsession->test_spec.sender);
 	IPFAddrFree(tsession->test_spec.receiver);
 
+	while(tsession->localfp &&
+			(fclose(tsession->localfp) < 0) &&
+			(errno == EINTR));
+	while(tsession->remotefp &&
+			(fclose(tsession->remotefp) < 0) &&
+			(errno == EINTR));
+
 	free(tsession);
 
 	return err;

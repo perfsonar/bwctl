@@ -471,33 +471,18 @@ typedef void (*IPFTestCompleteFunc)(
 	);
 
 /*
- * This function will be called by the test endpoint initialization
- * code to open a file for writing. It will also be called by the
- * fetch-session code to open an existing file to return the data
- * to an application. (fname_ret is PATH_MAX+1 to include a nul byte.)
- * (if 
+ * This function will be called when tests are complete and results
+ * are available.
+ * (The function should handle the case where the FILE*'s are null. This
+ * simply means that test results are unavailable.)
  */
-#define IPFOpenFile		"IPFOpenFile"
-typedef FILE* (*IPFOpenFileFunc)(
+#define IPFProcessResults	"IPFProcessResults"
+typedef IPFErrSeverity (*IPFProcessResultsFunc)(
 	IPFControl	cntrl,
-	void		*closure,
-	IPFSID		sid,
-	char		fname_ret[PATH_MAX+1]
-	);
-
-/*
- * This function will be called by the test endpoint "cleanup" code
- * to indicate that the given fp (from IPFOpenFile) is no longer needed.
- * This allows the implementation to do it's own cleanup based on policy.
- * For example, a delete-on-fetch functionality could be implemented here
- * to delete the given file now that is it no longer needed.
- */
-#define IPFCloseFile		"IPFCloseFile"
-typedef void (*IPFCloseFileFunc)(
-	IPFControl	cntrl,
-	void		*closure,
-	FILE		*fp,
-	IPFAcceptType	aval
+	IPFBoolean	local_sender,
+	IPFTestSpec	*tspec,
+	FILE		*sendfp,
+	FILE		*recvfp
 	);
 
 #ifndef	NDEBUG
