@@ -229,7 +229,6 @@ CloseSessions()
 	return;
 }
 
-#if	NOT
 static void
 sig_catch(
 		int	signo
@@ -252,7 +251,6 @@ sig_catch(
 
 	return;
 }
-#endif
 
 static int
 sig_check()
@@ -450,9 +448,7 @@ main(
 	I2RandomSource		rsrc;
 	BWLScheduleContext	sctx;
 	BWLTimeStamp		wake;
-#if	NOT
 	struct sigaction	act;
-#endif
 
 	progname = (progname = strrchr(argv[0], '/')) ? ++progname : *argv;
 
@@ -849,7 +845,6 @@ main(
 	 */
 	ip_set_auth(&app,progname,ctx); 
 
-#if	NOT
 	/*
 	 * setup sighandlers
 	 */
@@ -860,6 +855,25 @@ main(
 	if(		(sigaction(SIGTERM,&act,NULL) != 0) ||
 			(sigaction(SIGINT,&act,NULL) != 0) ||
 			(sigaction(SIGHUP,&act,NULL) != 0)){
+		I2ErrLog(eh,"sigaction(): %M");
+		exit(1);
+	}
+
+	sigemptyset(&act.sa_mask);
+	act.sa_flags = 0;
+	act.sa_handler = SIG_IGN;
+	if(	(sigaction(SIGPIPE,&act,NULL) != 0)){
+		I2ErrLog(eh,"sigaction(): %M");
+		exit(1);
+	}
+
+#if	NOT
+	act.sa_handler = SIG_DFL;
+	if(	(sigaction(SIGTERM,&act,NULL) != 0) ||
+		(sigaction(SIGHUP,&act,NULL) != 0) ||
+		(sigaction(SIGINT,&act,NULL) != 0)
+		){
+
 		I2ErrLog(eh,"sigaction(): %M");
 		exit(1);
 	}
