@@ -628,6 +628,10 @@ main(
 	syslogattr.priority = LOG_ERR;
 	syslogattr.line_info = I2MSG;
 
+	/* Set default options. */
+	memset(&app,0,sizeof(app));
+	app.opt.timeDuration = 10;
+
 	opterr = 0;
 	while((ch = getopt(argc, argv, optstring)) != -1){
 			int fac;
@@ -684,10 +688,6 @@ main(
 			I2ErrLogSyslogFacilityName(syslogattr.facility),
 			I2ErrLogSyslogPriorityName(syslogattr.priority));
 	}
-
-	/* Set default options. */
-	memset(&app,0,sizeof(app));
-	app.opt.timeDuration = 10;
 
 	while ((ch = getopt(argc, argv, optstring)) != -1)
 		switch (ch) {
