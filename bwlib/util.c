@@ -19,13 +19,13 @@
  *	Description:	
  */
 #include <ctype.h>
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 
 /*
  * buff must be at least (nbytes*2) +1 long or memory will be over-run.
  */
 void
-IPFHexEncode(
+BWLHexEncode(
 	char		*buff,
 	u_int8_t	*bytes,
 	unsigned int	nbytes
@@ -42,7 +42,7 @@ IPFHexEncode(
 }
 
 /*
- * Function:	IPFHexDecode
+ * Function:	BWLHexDecode
  *
  * Description:	
  * 	Decode hex chars into bytes. Return True on success, False on error.
@@ -55,8 +55,8 @@ IPFHexEncode(
  * Returns:	
  * Side Effect:	
  */
-IPFBoolean
-IPFHexDecode(
+BWLBoolean
+BWLHexDecode(
 	char		*buff,
 	u_int8_t	*bytes,
 	unsigned int	nbytes

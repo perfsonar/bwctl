@@ -19,10 +19,10 @@
  *	Description:	
  *
  *	This file contains the api functions that are typically called from
- *	an ipcntrl client application.
+ *	an bwlib client application.
  */
 #include <I2util/util.h>
-#include <ipcntrl/ipcntrlP.h>
+#include <bwlib/bwlibP.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -34,7 +34,7 @@
 #include <assert.h>
 
 /*
- * Function:	_IPFClientBind
+ * Function:	_BWLClientBind
  *
  * Description:	
  * 	This function attempts to bind the fd to a local address allowing
@@ -47,35 +47,35 @@
  * Scope:	
  * Returns:	
  * 	True if successful, False if unsuccessful.
- * 	Additionally err_ret will be set to IPFErrFATAL if there was a
+ * 	Additionally err_ret will be set to BWLErrFATAL if there was a
  * 	problem with the local_addr.
  * Side Effect:	
  */
-static IPFBoolean
-_IPFClientBind(
-	IPFControl	cntrl,
+static BWLBoolean
+_BWLClientBind(
+	BWLControl	cntrl,
 	int		fd,
-	IPFAddr		local_addr,
+	BWLAddr		local_addr,
 	struct addrinfo	*remote_addrinfo,
-	IPFErrSeverity	*err_ret
+	BWLErrSeverity	*err_ret
 )
 {
 	struct addrinfo	*ai;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
 	/*
 	 * Ensure local_addr is not from a fd.
 	 */
 	if(local_addr->fd > -1){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 						"Invalid local_addr - ByFD");
-		*err_ret = IPFErrFATAL;
+		*err_ret = BWLErrFATAL;
 		return False;
 	}
 
 	/*
-	 * if getaddrinfo has not been called for this IPFAddr, then call
+	 * if getaddrinfo has not been called for this BWLAddr, then call
 	 * it.
 	 */
 	if(!local_addr->ai){
@@ -87,9 +87,9 @@ _IPFClientBind(
 		int		gai;
 
 		if(!local_addr->node_set){
-			IPFError(cntrl->ctx,IPFErrFATAL,
-				IPFErrUNKNOWN,"Invalid localaddr specified");
-			*err_ret = IPFErrFATAL;
+			BWLError(cntrl->ctx,BWLErrFATAL,
+				BWLErrUNKNOWN,"Invalid localaddr specified");
+			*err_ret = BWLErrFATAL;
 			return False;
 		}
 
@@ -102,9 +102,9 @@ _IPFClientBind(
 
 		if(((gai = getaddrinfo(local_addr->node,port,&hints,&airet))!=0)
 							|| !airet){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"getaddrinfo(): %s",gai_strerror(gai));
-			*err_ret = IPFErrFATAL;
+			*err_ret = BWLErrFATAL;
 			return False;
 		}
 
@@ -136,7 +136,7 @@ _IPFClientBind(
 				case EADDRINUSE:
 				case EACCES:
 				case EFAULT:
-					IPFError(cntrl->ctx,IPFErrFATAL,errno,
+					BWLError(cntrl->ctx,BWLErrFATAL,errno,
 							"bind(): %M");
 					break;
 				/* ignore all others */
@@ -159,7 +159,7 @@ _IPFClientBind(
  *
  * Description:	
  * 	PRIVATE function for initializing the addrinfo portion of
- * 	the given IPFAddr.
+ * 	the given BWLAddr.
  *
  * In Args:	
  *
@@ -169,11 +169,11 @@ _IPFClientBind(
  * Returns:	
  * Side Effect:	
  */
-static IPFBoolean
+static BWLBoolean
 SetClientAddrInfo(
-	IPFControl	cntrl,
-	IPFAddr		addr,
-	IPFErrSeverity	*err_ret
+	BWLControl	cntrl,
+	BWLAddr		addr,
+	BWLErrSeverity	*err_ret
 	)
 {
 	struct addrinfo	*ai=NULL;
@@ -183,8 +183,8 @@ SetClientAddrInfo(
 	int		gai;
 
 	if(!addr){
-		*err_ret = IPFErrFATAL;
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+		*err_ret = BWLErrFATAL;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 							"Invalid address");
 		return False;
 	}
@@ -201,14 +201,14 @@ SetClientAddrInfo(
 	if(addr->port_set)
 		port = addr->port;
 	else
-		port = IPF_CONTROL_SERVICE_NAME;
+		port = BWL_CONTROL_SERVICE_NAME;
 
 	memset(&hints,0,sizeof(struct addrinfo));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
 	if(((gai = getaddrinfo(node,port,&hints,&ai))!=0) || !ai){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"getaddrinfo(): %s",gai_strerror(gai));
 		return False;
 	}
@@ -239,13 +239,13 @@ SetClientAddrInfo(
  */
 static int
 TryAddr(
-	IPFControl	cntrl,
+	BWLControl	cntrl,
 	struct addrinfo	*ai,
-	IPFAddr		local_addr,
-	IPFAddr		server_addr
+	BWLAddr		local_addr,
+	BWLAddr		server_addr
 	)
 {
-	IPFErrSeverity	addr_ok=IPFErrOK;
+	BWLErrSeverity	addr_ok=BWLErrOK;
 	int		fd;
 
 	fd = socket(ai->ai_family,ai->ai_socktype,ai->ai_protocol);
@@ -253,8 +253,8 @@ TryAddr(
 		return 1;
 
 	if(local_addr){
-		if(!_IPFClientBind(cntrl,fd,local_addr,ai,&addr_ok)){
-			if(addr_ok != IPFErrOK){
+		if(!_BWLClientBind(cntrl,fd,local_addr,ai,&addr_ok)){
+			if(addr_ok != BWLErrOK){
 				return -1;
 			}
 			goto cleanup;
@@ -283,11 +283,11 @@ cleanup:
 }
 
 /*
- * Function:	_IPFClientConnect
+ * Function:	_BWLClientConnect
  *
  * Description:	
  * 	This function attempts to create a socket connection between
- * 	the local client and the server. Each specified with IPFAddr
+ * 	the local client and the server. Each specified with BWLAddr
  * 	records. If the local_addr is not specified, then the source
  * 	addr is not bound. The server_addr is used to get a valid list
  * 	of addrinfo records and each addrinfo description record is
@@ -302,11 +302,11 @@ cleanup:
  * Side Effect:	
  */
 static int
-_IPFClientConnect(
-	IPFControl	cntrl,
-	IPFAddr		local_addr,
-	IPFAddr		server_addr,
-	IPFErrSeverity	*err_ret
+_BWLClientConnect(
+	BWLControl	cntrl,
+	BWLAddr		local_addr,
+	BWLAddr		server_addr,
+	BWLErrSeverity	*err_ret
 )
 {
 	int		rc;
@@ -371,64 +371,64 @@ _IPFClientConnect(
 	else
 		tstr = "Server";
 
-	IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+	BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 			"Unable to connect to %s",tstr);
 
 error:
-	*err_ret = IPFErrFATAL;
+	*err_ret = BWLErrFATAL;
 
 	return -1;
 }
 
 /*
- * Function:	IPFControlOpen
+ * Function:	BWLControlOpen
  *
  * Description:	
- * 		Opens a connection to an ipcntrl server. Returns after complete
+ * 		Opens a connection to an bwlib server. Returns after complete
  * 		control connection setup is complete. This means that encrytion
  * 		has been intialized, and the client is authenticated to the
  * 		server if that is necessary. However, the client has not
  * 		verified the server at this point.
  *
  * Returns:	
- * 		A valid IPFControl pointer or NULL.
+ * 		A valid BWLControl pointer or NULL.
  * Side Effect:	
  */
-IPFControl
-IPFControlOpen(
-	IPFContext	ctx,		/* control context	*/
-	IPFAddr		local_addr,	/* local addr or null	*/
-	IPFAddr		server_addr,	/* server addr		*/
+BWLControl
+BWLControlOpen(
+	BWLContext	ctx,		/* control context	*/
+	BWLAddr		local_addr,	/* local addr or null	*/
+	BWLAddr		server_addr,	/* server addr		*/
 	u_int32_t	mode_req_mask,	/* requested modes	*/
-	IPFUserID	userid,		/* userid or NULL	*/
-	IPFNum64	*uptime_ret,	/* server uptime - ret	*/
-	IPFErrSeverity	*err_ret	/* err - return		*/
+	BWLUserID	userid,		/* userid or NULL	*/
+	BWLNum64	*uptime_ret,	/* server uptime - ret	*/
+	BWLErrSeverity	*err_ret	/* err - return		*/
 )
 {
 	int		rc;
-	IPFControl	cntrl;
+	BWLControl	cntrl;
 	u_int32_t	mode_avail;
 	u_int8_t	key_value[16];
 	u_int8_t	challenge[16];
 	u_int8_t	token[32];
 	u_int8_t	*key=NULL;
-	IPFAcceptType	acceptval;
+	BWLAcceptType	acceptval;
 	struct timeval	tvalstart,tvalend;
-	IPFNum64	uptime;
+	BWLNum64	uptime;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
 	/*
 	 * First allocate memory for the control state.
 	 */
-	if( !(cntrl = _IPFControlAlloc(ctx,err_ret)))
+	if( !(cntrl = _BWLControlAlloc(ctx,err_ret)))
 		goto error;
 
 	/*
 	 * Initialize server record for address we are connecting to.
 	 */
 	if((!server_addr) &&
-		!(server_addr = IPFAddrByNode(cntrl->ctx,"localhost"))){
+		!(server_addr = BWLAddrByNode(cntrl->ctx,"localhost"))){
 		goto error;
 	}
 
@@ -436,14 +436,14 @@ IPFControlOpen(
 	 * Connect to the server.
 	 * Address policy check happens in here.
 	 */
-	if(_IPFClientConnect(cntrl,local_addr,server_addr,err_ret) != 0)
+	if(_BWLClientConnect(cntrl,local_addr,server_addr,err_ret) != 0)
 		goto error;
 
 	/*
 	 * Read the server greating.
 	 */
-	if((rc=_IPFReadServerGreeting(cntrl,&mode_avail,challenge)) < IPFErrOK){
-		*err_ret = (IPFErrSeverity)rc;
+	if((rc=_BWLReadServerGreeting(cntrl,&mode_avail,challenge)) < BWLErrOK){
+		*err_ret = (BWLErrSeverity)rc;
 		goto error;
 	}
 
@@ -456,16 +456,16 @@ IPFControlOpen(
 	 * retrieve key if needed
 	 */
 	if(userid &&
-		(mode_avail & IPF_MODE_DOCIPHER)){
+		(mode_avail & BWL_MODE_DOCIPHER)){
 		strncpy(cntrl->userid_buffer,userid,
 					sizeof(cntrl->userid_buffer)-1);
-		if(_IPFCallGetAESKey(cntrl->ctx,cntrl->userid_buffer,key_value,
+		if(_BWLCallGetAESKey(cntrl->ctx,cntrl->userid_buffer,key_value,
 								err_ret)){
 			key = key_value;
 			cntrl->userid = cntrl->userid_buffer;
 		}
 		else{
-			if(*err_ret != IPFErrOK)
+			if(*err_ret != BWLErrOK)
 				goto error;
 		}
 	}
@@ -473,49 +473,49 @@ IPFControlOpen(
 	 * If no key, then remove auth/crypt modes
 	 */
 	if(!key)
-		mode_avail &= ~IPF_MODE_DOCIPHER;
+		mode_avail &= ~BWL_MODE_DOCIPHER;
 
 	/*
 	 * Pick "highest" level mode still available to this server.
 	 */
-	if((mode_avail & IPF_MODE_ENCRYPTED) &&
-			_IPFCallCheckControlPolicy(cntrl,IPF_MODE_ENCRYPTED,
+	if((mode_avail & BWL_MODE_ENCRYPTED) &&
+			_BWLCallCheckControlPolicy(cntrl,BWL_MODE_ENCRYPTED,
 				cntrl->userid,
 				(local_addr)?local_addr->saddr:NULL,
 				server_addr->saddr,err_ret)){
-		cntrl->mode = IPF_MODE_ENCRYPTED;
+		cntrl->mode = BWL_MODE_ENCRYPTED;
 	}
-	else if((*err_ret == IPFErrOK) &&
-			(mode_avail & IPF_MODE_AUTHENTICATED) &&
-			_IPFCallCheckControlPolicy(cntrl,IPF_MODE_AUTHENTICATED,
+	else if((*err_ret == BWLErrOK) &&
+			(mode_avail & BWL_MODE_AUTHENTICATED) &&
+			_BWLCallCheckControlPolicy(cntrl,BWL_MODE_AUTHENTICATED,
 				cntrl->userid,
 				(local_addr)?local_addr->saddr:NULL,
 				server_addr->saddr,err_ret)){
-		cntrl->mode = IPF_MODE_AUTHENTICATED;
+		cntrl->mode = BWL_MODE_AUTHENTICATED;
 	}
-	else if((*err_ret == IPFErrOK) &&
-			(mode_avail & IPF_MODE_OPEN) &&
-			_IPFCallCheckControlPolicy(cntrl,IPF_MODE_OPEN,
+	else if((*err_ret == BWLErrOK) &&
+			(mode_avail & BWL_MODE_OPEN) &&
+			_BWLCallCheckControlPolicy(cntrl,BWL_MODE_OPEN,
 				NULL,(local_addr)?local_addr->saddr:NULL,
 				server_addr->saddr,err_ret)){
-		cntrl->mode = IPF_MODE_OPEN;
+		cntrl->mode = BWL_MODE_OPEN;
 	}
-	else if(*err_ret != IPFErrOK){
+	else if(*err_ret != BWLErrOK){
 		goto error;
 	}
 	else{
-		IPFError(ctx,IPFErrINFO,IPFErrPOLICY,
-				"IPFControlOpen:No Common Modes");
+		BWLError(ctx,BWLErrINFO,BWLErrPOLICY,
+				"BWLControlOpen:No Common Modes");
 		goto denied;
 	}
 
 	/*
 	 * Initialize all the encryption values as necessary.
 	 */
-	if(cntrl->mode & IPF_MODE_DOCIPHER){
+	if(cntrl->mode & BWL_MODE_DOCIPHER){
 		/*
 		 * Create "token" for ClientGreeting message.
-		 * Section 4.1 of ipcntrl spec:
+		 * Section 4.1 of bwlib spec:
 		 * 	AES(concat(challenge(16),sessionkey(16)))
 		 */
 		unsigned char	buf[32];
@@ -540,12 +540,12 @@ IPFControlOpen(
 		 * key. (ReadBlock/WriteBlock functions will automatically
 		 * use this key for this cntrl connection.
 		 */
-		_IPFMakeKey(cntrl,cntrl->session_key);
+		_BWLMakeKey(cntrl,cntrl->session_key);
 
 		/*
 		 * Encrypt the token as specified by Section 4.1
 		 */
-		if(IPFEncryptToken(key,buf,token) != 0)
+		if(BWLEncryptToken(key,buf,token) != 0)
 			goto error;
 
 		/*
@@ -565,14 +565,14 @@ IPFControlOpen(
 	/*
 	 * Write the client greeting, and see if the Server agree's to it.
 	 */
-	if( ((rc=_IPFWriteClientGreeting(cntrl,token)) < IPFErrOK) ||
-			((rc=_IPFReadServerOK(cntrl,&acceptval)) < IPFErrOK)){
-		*err_ret = (IPFErrSeverity)rc;
+	if( ((rc=_BWLWriteClientGreeting(cntrl,token)) < BWLErrOK) ||
+			((rc=_BWLReadServerOK(cntrl,&acceptval)) < BWLErrOK)){
+		*err_ret = (BWLErrSeverity)rc;
 		goto error;
 	}
 
-	if(acceptval != IPF_CNTRL_ACCEPT){
-		IPFError(cntrl->ctx,IPFErrINFO,IPFErrPOLICY,
+	if(acceptval != BWL_CNTRL_ACCEPT){
+		BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,
 							"Server denied access");
 		goto denied;
 	}
@@ -584,10 +584,10 @@ IPFControlOpen(
 	if(gettimeofday(&tvalend,NULL)!=0)
 		goto error;
 	tvalsub(&tvalend,&tvalstart);
-	IPFTimevalToNum64(&cntrl->rtt_bound,&tvalend);
+	BWLTimevalToNum64(&cntrl->rtt_bound,&tvalend);
 
-	if((rc=_IPFReadServerUptime(cntrl,&uptime)) < IPFErrOK){
-		*err_ret = (IPFErrSeverity)rc;
+	if((rc=_BWLReadServerUptime(cntrl,&uptime)) < BWLErrOK){
+		*err_ret = (BWLErrSeverity)rc;
 		goto error;
 	}
 
@@ -604,22 +604,22 @@ IPFControlOpen(
 	 * If there was an error - set err_ret, then cleanup memory and return.
 	 */
 error:
-	*err_ret = IPFErrFATAL;
+	*err_ret = BWLErrFATAL;
 
 	/*
 	 * If access was denied - cleanup memory and return.
 	 */
 denied:
 	if(cntrl->local_addr != local_addr)
-		IPFAddrFree(local_addr);
+		BWLAddrFree(local_addr);
 	if(cntrl->remote_addr != server_addr)
-		IPFAddrFree(server_addr);
-	IPFControlClose(cntrl);
+		BWLAddrFree(server_addr);
+	BWLControlClose(cntrl);
 	return NULL;
 }
 
 /*
- * Function:	IPFControlTimeCheck
+ * Function:	BWLControlTimeCheck
  *
  * Description:	
  * 	Public function used to request the current time from the server.
@@ -634,20 +634,20 @@ denied:
  * Returns:	
  * Side Effect:	
  */
-IPFErrSeverity
-IPFControlTimeCheck(
-	IPFControl	cntrl,
-	IPFTimeStamp	*time_ret
+BWLErrSeverity
+BWLControlTimeCheck(
+	BWLControl	cntrl,
+	BWLTimeStamp	*time_ret
 )
 {
-	IPFErrSeverity		err;
-	IPFTimeStamp		tstamp;
+	BWLErrSeverity		err;
+	BWLTimeStamp		tstamp;
 
-	if((err = _IPFWriteTimeRequest(cntrl)) != IPFErrOK){
+	if((err = _BWLWriteTimeRequest(cntrl)) != BWLErrOK){
 		goto error;
 	}
 
-	if((err = _IPFReadTimeResponse(cntrl,&tstamp)) != IPFErrOK){
+	if((err = _BWLReadTimeResponse(cntrl,&tstamp)) != BWLErrOK){
 		goto error;
 	}
 
@@ -655,17 +655,17 @@ IPFControlTimeCheck(
 		*time_ret = tstamp;
 	}
 
-	return IPFErrOK;
+	return BWLErrOK;
 
 error:
-	return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	return _BWLFailControlSession(cntrl,BWLErrFATAL);
 }
 
 /*
  * Function:	SetEndpointAddrInfo
  *
  * Description:	
- * 	Initialize the IPFAddr record's addrinfo section for an Endpoint
+ * 	Initialize the BWLAddr record's addrinfo section for an Endpoint
  * 	of a test. (UDP test with no fixed port number.)
  *
  * In Args:	
@@ -676,12 +676,12 @@ error:
  * Returns:	
  * Side Effect:	
  */
-static IPFBoolean
+static BWLBoolean
 SetEndpointAddrInfo(
-	IPFControl	cntrl,
-	IPFAddr		addr,
+	BWLControl	cntrl,
+	BWLAddr		addr,
 	int		socktype,
-	IPFErrSeverity	*err_ret
+	BWLErrSeverity	*err_ret
 )
 {
 	int			so_type;
@@ -698,7 +698,7 @@ SetEndpointAddrInfo(
 	 * Must specify an addr record to this function.
 	 */
 	if(!addr){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 						"Invalid test address");
 		return False;
 	}
@@ -728,7 +728,7 @@ SetEndpointAddrInfo(
 		 * Get an saddr to describe the fd...
 		 */
 		if(getsockname(addr->fd,(void*)&sbuff,&so_size) != 0){
-			IPFError(cntrl->ctx,IPFErrFATAL,
+			BWLError(cntrl->ctx,BWLErrFATAL,
 				errno,"getsockname():%s",
 				strerror(errno));
 			goto error;
@@ -739,14 +739,14 @@ SetEndpointAddrInfo(
 		 */
 		if(getsockopt(addr->fd,SOL_SOCKET,SO_TYPE,
 				(void*)&so_type,&so_typesize) != 0){
-			IPFError(cntrl->ctx,IPFErrFATAL,
+			BWLError(cntrl->ctx,BWLErrFATAL,
 				errno,"getsockopt():%s",
 				strerror(errno));
 			goto error;
 		}
 
 		if(! (saddr = malloc(so_size))){
-			IPFError(cntrl->ctx,IPFErrFATAL,
+			BWLError(cntrl->ctx,BWLErrFATAL,
 				errno,"malloc():%s",strerror(errno));
 			goto error;
 		}
@@ -756,7 +756,7 @@ SetEndpointAddrInfo(
 		 * create an addrinfo to describe this sockaddr
 		 */
 		if(! (ai = malloc(sizeof(struct addrinfo)))){
-			IPFError(cntrl->ctx,IPFErrFATAL,
+			BWLError(cntrl->ctx,BWLErrFATAL,
 				errno,"malloc():%s",strerror(errno));
 			goto error;
 		}
@@ -778,7 +778,7 @@ SetEndpointAddrInfo(
 		ai->ai_next = NULL;
 
 		/*
-		 * Set IPFAddr ai
+		 * Set BWLAddr ai
 		 */
 		addr->ai = ai;
 		addr->ai_free = True;
@@ -795,7 +795,7 @@ SetEndpointAddrInfo(
 		if(addr->port_set)
 			port = addr->port;
 		if(((rc = getaddrinfo(addr->node,port,&hints,&ai))!=0) || !ai){
-			IPFError(cntrl->ctx,IPFErrFATAL,
+			BWLError(cntrl->ctx,BWLErrFATAL,
 				errno,"getaddrinfo(): %s", gai_strerror(rc));
 			goto error;
 		}
@@ -803,9 +803,9 @@ SetEndpointAddrInfo(
 
 	}else{
 		/*
-		 * Empty IPFAddr record - report error.
+		 * Empty BWLAddr record - report error.
 		 */
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 						"Invalid test address");
 		goto error;
 	}
@@ -821,12 +821,12 @@ error:
 	 */
 	if(saddr) free(saddr);
 	if(ai) free(ai);
-	*err_ret = IPFErrFATAL;
+	*err_ret = BWLErrFATAL;
 	return FALSE;
 }
 
 /*
- * Function:	_IPFClientRequestTestReadResponse
+ * Function:	_BWLClientRequestTestReadResponse
  *
  * Description:	
  * 	This function is used to request a test from the server and
@@ -842,39 +842,39 @@ error:
  * Side Effect:	
  */
 static int
-_IPFClientRequestTestReadResponse(
-	IPFControl	cntrl,
-	IPFTestSession	tsession,
-	IPFErrSeverity	*err_ret
+_BWLClientRequestTestReadResponse(
+	BWLControl	cntrl,
+	BWLTestSession	tsession,
+	BWLErrSeverity	*err_ret
 	)
 {
 	int		rc;
-	IPFAcceptType	acceptval;
+	BWLAcceptType	acceptval;
 
-	if((rc = _IPFWriteTestRequest(cntrl,tsession)) < IPFErrOK){
-		*err_ret = (IPFErrSeverity)rc;
+	if((rc = _BWLWriteTestRequest(cntrl,tsession)) < BWLErrOK){
+		*err_ret = (BWLErrSeverity)rc;
 		return 1;
 	}
 
-	if((rc = _IPFReadTestAccept(cntrl,&acceptval,tsession)) < IPFErrOK){
-		*err_ret = (IPFErrSeverity)rc;
+	if((rc = _BWLReadTestAccept(cntrl,&acceptval,tsession)) < BWLErrOK){
+		*err_ret = (BWLErrSeverity)rc;
 		return 1;
 	}
 
-	if(acceptval == IPF_CNTRL_ACCEPT)
+	if(acceptval == BWL_CNTRL_ACCEPT)
 		return 0;
 
-	IPFError(cntrl->ctx,IPFErrINFO,IPFErrPOLICY,"Server denied test");
+	BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,"Server denied test");
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 	return 1;
 }
 
 /*
- * Function:	IPFAddrByControl
+ * Function:	BWLAddrByControl
  *
  * Description:	
- * 	Create an IPFAddr record for the remote address based upon the
+ * 	Create an BWLAddr record for the remote address based upon the
  * 	control socket connection. (wrapper for getpeername)
  *
  * In Args:	
@@ -885,13 +885,13 @@ _IPFClientRequestTestReadResponse(
  * Returns:	
  * Side Effect:	
  */
-IPFAddr
-IPFAddrByControl(
-		   IPFControl	cntrl
+BWLAddr
+BWLAddrByControl(
+		   BWLControl	cntrl
 		   )
 {
 	struct addrinfo		*ai=NULL;
-	IPFAddr			addr;
+	BWLAddr			addr;
 	struct sockaddr_storage	saddr_rec;
 	struct sockaddr		*oaddr=(struct sockaddr*)&saddr_rec;
 	socklen_t		len;
@@ -906,7 +906,7 @@ IPFAddrByControl(
 		memset(&saddr_rec,0,sizeof(saddr_rec));
 		len = sizeof(saddr_rec);
 		if(getpeername(cntrl->sockfd,oaddr,&len) != 0){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"getpeername():%M");
 			return NULL;
 		}
@@ -919,14 +919,14 @@ IPFAddrByControl(
 		return NULL;
 
 	/*
-	 * Allocate an IPFAddr record to assign the data into.
+	 * Allocate an BWLAddr record to assign the data into.
 	 */
-	if( !(addr = _IPFAddrAlloc(cntrl->ctx)))
+	if( !(addr = _BWLAddrAlloc(cntrl->ctx)))
 		return NULL;
 
 	if( !(ai = calloc(1,sizeof(struct addrinfo))) ||
 					!(addr->saddr = calloc(1,len))){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,"malloc():%M");
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,"malloc():%M");
 		goto error;
 	}
 
@@ -954,7 +954,7 @@ IPFAddrByControl(
 
 error:
 	if(addr)
-		IPFAddrFree(addr);
+		BWLAddrFree(addr);
 	if(ai)
 		free(ai);
 
@@ -962,10 +962,10 @@ error:
 }
 
 /*
- * Function:	IPFAddrByLocalControl
+ * Function:	BWLAddrByLocalControl
  *
  * Description:	
- * 	Create an IPFAddr record for the local address based upon the
+ * 	Create an BWLAddr record for the local address based upon the
  * 	control socket connection. (This is used to make a test request
  * 	to to the same address that the control connection is coming from -
  * 	it is very useful when you allow the local connection to wildcard
@@ -979,13 +979,13 @@ error:
  * Returns:	
  * Side Effect:	
  */
-IPFAddr
-IPFAddrByLocalControl(
-		   IPFControl	cntrl
+BWLAddr
+BWLAddrByLocalControl(
+		   BWLControl	cntrl
 		   )
 {
 	struct addrinfo		*ai=NULL;
-	IPFAddr			addr;
+	BWLAddr			addr;
 	struct sockaddr_storage	saddr_rec;
 	struct sockaddr		*oaddr=(struct sockaddr*)&saddr_rec;
 	socklen_t		len;
@@ -1001,7 +1001,7 @@ IPFAddrByLocalControl(
 		memset(&saddr_rec,0,sizeof(saddr_rec));
 		len = sizeof(saddr_rec);
 		if(getsockname(cntrl->sockfd,oaddr,&len) != 0){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"getsockname():%M");
 			return NULL;
 		}
@@ -1031,22 +1031,22 @@ IPFAddrByLocalControl(
 			port = &saddr4->sin_port;
 			break;
 		default:
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 						"Invalid address family");
 			return NULL;
 	}
 
-	*port = htons(IPF_CONTROL_SERVICE_NUMBER);
+	*port = htons(BWL_CONTROL_SERVICE_NUMBER);
 
 	/*
-	 * Allocate an IPFAddr record to assign the data into.
+	 * Allocate an BWLAddr record to assign the data into.
 	 */
-	if( !(addr = _IPFAddrAlloc(cntrl->ctx)))
+	if( !(addr = _BWLAddrAlloc(cntrl->ctx)))
 		return NULL;
 
 	if( !(ai = calloc(1,sizeof(struct addrinfo))) ||
 					!(addr->saddr = calloc(1,len))){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,"malloc():%M");
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,"malloc():%M");
 		goto error;
 	}
 
@@ -1074,7 +1074,7 @@ IPFAddrByLocalControl(
 
 error:
 	if(addr)
-		IPFAddrFree(addr);
+		BWLAddrFree(addr);
 	if(ai)
 		free(ai);
 
@@ -1082,7 +1082,7 @@ error:
 }
 
 /*
- * Function:	IPFSessionRequest
+ * Function:	BWLSessionRequest
  *
  * Description:	
  * 	Public function used to request a test from the server.
@@ -1095,42 +1095,42 @@ error:
  * Returns:	
  * 	True/False based upon acceptance from server. If False is returned
  * 	check err_ret to see if an error condition exists. (If err_ret is
- * 	not IPFErrOK, the control connection is probably no longer valid.)
+ * 	not BWLErrOK, the control connection is probably no longer valid.)
  * Side Effect:	
  */
-IPFBoolean
-IPFSessionRequest(
-	IPFControl	cntrl,
-	IPFBoolean	send,
-	IPFTestSpec	*test_spec,
-	IPFTimeStamp	*avail_time_ret,
+BWLBoolean
+BWLSessionRequest(
+	BWLControl	cntrl,
+	BWLBoolean	send,
+	BWLTestSpec	*test_spec,
+	BWLTimeStamp	*avail_time_ret,
 	u_int16_t	*recv_port,
-	IPFSID		sid,
-	IPFErrSeverity	*err_ret
+	BWLSID		sid,
+	BWLErrSeverity	*err_ret
 )
 {
 	struct addrinfo		*rai=NULL;
 	struct addrinfo		*sai=NULL;
-	IPFTestSession		tsession = NULL;
+	BWLTestSession		tsession = NULL;
 	int			rc=0;
-	IPFAddr			receiver=NULL;
-	IPFAddr			sender=NULL;
+	BWLAddr			receiver=NULL;
+	BWLAddr			sender=NULL;
 	int			socktype;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
 	/* TODO: set to non-zero if request params ok */
-	avail_time_ret->ipftime = IPFULongToNum64(0);
+	avail_time_ret->tstamp = BWLULongToNum64(0);
 
 	/*
 	 * Check cntrl state is appropriate for this call.
 	 * (this would happen as soon as we tried to call the protocol
 	 * function - but it saves a lot of misplaced work to check now.)
 	 */
-	if(!cntrl || !_IPFStateIsRequest(cntrl)){
-		*err_ret = IPFErrFATAL;
-		IPFError(cntrl->ctx,*err_ret,IPFErrINVALID,
-		"IPFSessionRequest called with invalid cntrl record");
+	if(!cntrl || !_BWLStateIsRequest(cntrl)){
+		*err_ret = BWLErrFATAL;
+		BWLError(cntrl->ctx,*err_ret,BWLErrINVALID,
+		"BWLSessionRequest called with invalid cntrl record");
 		goto error;
 	}
 
@@ -1138,9 +1138,9 @@ IPFSessionRequest(
 	 * TODO: Look for existing TestSession with this SID!
 	 */
 	if(cntrl->tests){
-		if(memcmp(sid,cntrl->tests->sid,sizeof(IPFSID))){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFSessionRequest: sid mis-match");
+		if(memcmp(sid,cntrl->tests->sid,sizeof(BWLSID))){
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLSessionRequest: sid mis-match");
 			goto error;
 		}
 		tsession = cntrl->tests;
@@ -1152,10 +1152,10 @@ IPFSessionRequest(
 		 * If NULL passed in for recv address - fill it in with local
 		 */
 		if(test_spec->receiver){
-			receiver = _IPFAddrCopy(test_spec->receiver);
+			receiver = _BWLAddrCopy(test_spec->receiver);
 		}else{
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFSessionRequest:Invalid receive address");
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLSessionRequest:Invalid receive address");
 		}
 
 		if(!receiver)
@@ -1165,10 +1165,10 @@ IPFSessionRequest(
 		 * If NULL passed in for send address - fill it in with local
 		 */
 		if(test_spec->sender){
-			sender = _IPFAddrCopy(test_spec->sender);
+			sender = _BWLAddrCopy(test_spec->sender);
 		}else{
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFSessionRequest:Invalid receive address");
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLSessionRequest:Invalid receive address");
 		}
 
 		if(!sender)
@@ -1214,14 +1214,14 @@ IPFSessionRequest(
 		/*
 		 * Didn't find compatible addrs - return error.
 		 */
-		*err_ret = IPFErrWARNING;
-		IPFError(cntrl->ctx,*err_ret,IPFErrINVALID,
-			"IPFSessionRequest called with incompatible addresses");
+		*err_ret = BWLErrWARNING;
+		BWLError(cntrl->ctx,*err_ret,BWLErrINVALID,
+			"BWLSessionRequest called with incompatible addresses");
 		goto error;
 	
 	foundaddr:
 		/*
-		 * Fill IPFAddr records with "selected" addresses for test.
+		 * Fill BWLAddr records with "selected" addresses for test.
 		 */
 		receiver->saddr = rai->ai_addr;
 		receiver->saddrlen = rai->ai_addrlen;
@@ -1236,7 +1236,7 @@ IPFSessionRequest(
 		 * Create a structure to store the stuff we need to keep for
 		 * later calls.
 		 */
-		if( !(tsession = _IPFTestSessionAlloc(cntrl,send,sender,
+		if( !(tsession = _BWLTestSessionAlloc(cntrl,send,sender,
 						receiver,*recv_port,test_spec)))
 			goto error;
 	}
@@ -1245,20 +1245,20 @@ IPFSessionRequest(
 		*recv_port = 0;
 	}
 	else{
-		memcpy(tsession->sid,sid,sizeof(IPFSID));
+		memcpy(tsession->sid,sid,sizeof(BWLSID));
 	}
 
 	/*
 	 * Request the server create the receiver & possibly the
 	 * sender.
 	 */
-	if((rc = _IPFClientRequestTestReadResponse(cntrl,tsession,err_ret))
+	if((rc = _BWLClientRequestTestReadResponse(cntrl,tsession,err_ret))
 									!= 0){
 		goto error;
 	}
 
 	if(avail_time_ret){
-		avail_time_ret->ipftime = tsession->reserve_time;
+		avail_time_ret->tstamp = tsession->reserve_time;
 	}
 	if(recv_port){
 		*recv_port = tsession->recv_port;
@@ -1277,14 +1277,14 @@ IPFSessionRequest(
 	 * return the SID for this session to the caller.
 	 */
 	if(tsession->conf_receiver){
-		memcpy(sid,tsession->sid,sizeof(IPFSID));
+		memcpy(sid,tsession->sid,sizeof(BWLSID));
 	}
 
 	return True;
 
 error:
 	if(tsession){
-		_IPFTestSessionFree(tsession,IPF_CNTRL_FAILURE);
+		_BWLTestSessionFree(tsession,BWL_CNTRL_FAILURE);
 		if(cntrl->tests == tsession)
 			cntrl->tests = NULL;
 	}
@@ -1293,15 +1293,15 @@ error:
 		 * If tsession exists - the addr's will be free'd as part
 		 * of it - otherwise, do it here.
 		 */
-		IPFAddrFree(receiver);
-		IPFAddrFree(sender);
+		BWLAddrFree(receiver);
+		BWLAddrFree(sender);
 	}
 
 	return False;
 }
 
 /*
- * Function:	IPFStartSession
+ * Function:	BWLStartSession
  *
  * Description:	
  * 	This function is used by applications to send the StartSession
@@ -1315,14 +1315,14 @@ error:
  * Returns:	
  * Side Effect:	
  */
-IPFErrSeverity
-IPFStartSession(
-	IPFControl	cntrl,
+BWLErrSeverity
+BWLStartSession(
+	BWLControl	cntrl,
 	u_int16_t	*dataport /* retn for recv - set for send */
 )
 {
 	int		rc;
-	IPFAcceptType	acceptval;
+	BWLAcceptType	acceptval;
 	u_int16_t	lport_val = 0;
 	u_int16_t	*lport = &lport_val;
 
@@ -1330,9 +1330,9 @@ IPFStartSession(
 	 * Must pass valid cntrl record.
 	 */
 	if(!cntrl){
-		IPFError(NULL,IPFErrFATAL,IPFErrINVALID,
-		"IPFStartSession called with invalid cntrl record");
-		return IPFErrFATAL;
+		BWLError(NULL,BWLErrFATAL,BWLErrINVALID,
+		"BWLStartSession called with invalid cntrl record");
+		return BWLErrFATAL;
 	}
 
 	/*
@@ -1346,63 +1346,63 @@ IPFStartSession(
 	/*
 	 * Send the StartSession message to the server
 	 */
-	if((rc = _IPFWriteStartSession(cntrl,*lport)) < IPFErrOK){
-		return _IPFFailControlSession(cntrl,rc);
+	if((rc = _BWLWriteStartSession(cntrl,*lport)) < BWLErrOK){
+		return _BWLFailControlSession(cntrl,rc);
 	}
 
 	/*
 	 * Read the server response.
 	 */
-	if(((rc = _IPFReadStartAck(cntrl,lport,&acceptval)) < IPFErrOK) ||
-					(acceptval != IPF_CNTRL_ACCEPT)){
-		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	if(((rc = _BWLReadStartAck(cntrl,lport,&acceptval)) < BWLErrOK) ||
+					(acceptval != BWL_CNTRL_ACCEPT)){
+		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-IPFEndSession(
-	IPFControl	cntrl,
-	IPFAcceptType	*acceptval,
+BWLErrSeverity
+BWLEndSession(
+	BWLControl	cntrl,
+	BWLAcceptType	*acceptval,
 	FILE		*fp
 	)
 {
 	int		ival = 0;
 	int		*intr=&ival;
-	IPFRequestType	msgtype;
-	IPFAcceptType	aval = IPF_CNTRL_ACCEPT;
-	IPFAcceptType	*aptr = &aval;
-	IPFErrSeverity	rc;
+	BWLRequestType	msgtype;
+	BWLAcceptType	aval = BWL_CNTRL_ACCEPT;
+	BWLAcceptType	*aptr = &aval;
+	BWLErrSeverity	rc;
 
 	if(acceptval)
 		aptr = acceptval;
 
-	if( (rc = _IPFWriteStopSession(cntrl,intr,*aptr,NULL)) < IPFErrOK){
-		*aptr = IPF_CNTRL_FAILURE;
-		return _IPFFailControlSession(cntrl,rc);
+	if( (rc = _BWLWriteStopSession(cntrl,intr,*aptr,NULL)) < BWLErrOK){
+		*aptr = BWL_CNTRL_FAILURE;
+		return _BWLFailControlSession(cntrl,rc);
 	}
 
-	msgtype = IPFReadRequestType(cntrl,intr);
-	if(msgtype == IPFReqSockClose){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-				"IPFEndSession: Control socket closed: %M");
-		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	msgtype = BWLReadRequestType(cntrl,intr);
+	if(msgtype == BWLReqSockClose){
+		BWLError(cntrl->ctx,BWLErrFATAL,errno,
+				"BWLEndSession: Control socket closed: %M");
+		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
-	if(msgtype != IPFReqStopSession){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"IPFEndSession: Invalid protocol message received...");
-		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	if(msgtype != BWLReqStopSession){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"BWLEndSession: Invalid protocol message received...");
+		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
-	if( (rc = _IPFReadStopSession(cntrl,intr,aptr,fp)) < IPFErrOK){
-		return _IPFFailControlSession(cntrl,rc);
+	if( (rc = _BWLReadStopSession(cntrl,intr,aptr,fp)) < BWLErrOK){
+		return _BWLFailControlSession(cntrl,rc);
 	}
 
-	return _IPFTestSessionFree(cntrl->tests,*aptr);
+	return _BWLTestSessionFree(cntrl->tests,*aptr);
 }
 
 /*
- * Function:	IPFDelay
+ * Function:	BWLDelay
  *
  * Description:	
  * 	Compute delay between two timestamps.
@@ -1416,11 +1416,11 @@ IPFEndSession(
  * Side Effect:	
  */
 double
-IPFDelay(
-	IPFTimeStamp	*send_time,
-	IPFTimeStamp	*recv_time
+BWLDelay(
+	BWLTimeStamp	*send_time,
+	BWLTimeStamp	*recv_time
 	)
 {
-	return IPFNum64ToDouble(recv_time->ipftime) -
-			IPFNum64ToDouble(send_time->ipftime);
+	return BWLNum64ToDouble(recv_time->tstamp) -
+			BWLNum64ToDouble(send_time->tstamp);
 }

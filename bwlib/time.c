@@ -18,7 +18,7 @@
  *
  *	Description:	
  *
- *	functions to encode and decode IPFTimeStamp into 8 octet
+ *	functions to encode and decode BWLTimeStamp into 8 octet
  *	buffer for transmitting over the network.
  *
  *	The format for a timestamp messages is as follows:
@@ -44,13 +44,13 @@
 #include <assert.h>
 #include <sys/timex.h>
 #include <sys/types.h>
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 
 /*
- * Function:	_IPFEncodeTimeStamp
+ * Function:	_BWLEncodeTimeStamp
  *
  * Description:	
- * 		Takes an IPFTimeStamp structure and encodes the time
+ * 		Takes an BWLTimeStamp structure and encodes the time
  * 		value from that structure to the byte array in network
  * 		byte order appropriate for sending the value over the wire.
  * 		(See above format diagram.)
@@ -64,9 +64,9 @@
  * Side Effect:	
  */
 void
-_IPFEncodeTimeStamp(
+_BWLEncodeTimeStamp(
 	u_int8_t	buf[8],
-	IPFTimeStamp	*tstamp
+	BWLTimeStamp	*tstamp
 	)
 {
 	u_int32_t	t32;
@@ -79,7 +79,7 @@ _IPFEncodeTimeStamp(
 	 * host byte order. Set t32 to this value in network byte order,
 	 * then copy them to bytes 0-4 in buf.
 	 */
-	t32 = htonl((tstamp->ipftime >> 32) & 0xFFFFFFFF);
+	t32 = htonl((tstamp->tstamp >> 32) & 0xFFFFFFFF);
 	memcpy(&buf[0],&t32,4);
 
 	/*
@@ -87,17 +87,17 @@ _IPFEncodeTimeStamp(
 	 * seconds in host byte order. Set t32 to this value in network
 	 * byte order, then copy them to bytes 5-8 in buf.
 	 */
-	t32 = htonl(tstamp->ipftime & 0xFFFFFFFF);
+	t32 = htonl(tstamp->tstamp & 0xFFFFFFFF);
 	memcpy(&buf[4],&t32,4);
 
 	return;
 }
 
 /*
- * Function:	_IPFEncodeTimeStampErrEstimate
+ * Function:	_BWLEncodeTimeStampErrEstimate
  *
  * Description:	
- * 		Takes an IPFTimeStamp structure and encodes the time
+ * 		Takes an BWLTimeStamp structure and encodes the time
  * 		error estimate value from that structure to the byte array
  * 		in network order as appropriate for sending the value over
  * 		the wire. (See above format diagram.)
@@ -110,10 +110,10 @@ _IPFEncodeTimeStamp(
  * Returns:	
  * Side Effect:	
  */
-IPFBoolean
-_IPFEncodeTimeStampErrEstimate(
+BWLBoolean
+_BWLEncodeTimeStampErrEstimate(
 	u_int8_t        buf[2],
-	IPFTimeStamp    *tstamp
+	BWLTimeStamp    *tstamp
 	)
 {
 	assert(tstamp);
@@ -144,14 +144,14 @@ _IPFEncodeTimeStampErrEstimate(
 }
 
 /*
- * Function:	_IPFDecodeTimeStamp
+ * Function:	_BWLDecodeTimeStamp
  *
  * Description:	
- * 		Takes a buffer of 8 bytes of ipcntrl protocol timestamp
- * 		information and saves it in the IPFTimeStamp structure
- * 		in the ipftime IPFNum64 field. (See above format diagram
- * 		for ipcntrl protocol timestamp format, and ipcntrl.h header
- * 		file for a description of the IPFNum64 type.)
+ * 		Takes a buffer of 8 bytes of bwlib protocol timestamp
+ * 		information and saves it in the BWLTimeStamp structure
+ * 		in the tstamp BWLNum64 field. (See above format diagram
+ * 		for bwlib protocol timestamp format, and bwlib.h header
+ * 		file for a description of the BWLNum64 type.)
  *
  * In Args:	
  *
@@ -162,8 +162,8 @@ _IPFEncodeTimeStampErrEstimate(
  * Side Effect:	
  */
 void
-_IPFDecodeTimeStamp(
-	IPFTimeStamp	*tstamp,
+_BWLDecodeTimeStamp(
+	BWLTimeStamp	*tstamp,
 	u_int8_t	buf[8]
 	)
 {
@@ -173,38 +173,38 @@ _IPFDecodeTimeStamp(
 	assert(buf);
 
 	/*
-	 * First clear ipftime.
+	 * First clear tstamp.
 	 */
-	memset(&tstamp->ipftime,0,8);
+	memset(&tstamp->tstamp,0,8);
 
 	/*
 	 * seconds is first 4 bytes in network byte order.
 	 * copy to a 32 bit int, correct the byte order, then assign
-	 * to the most significant 32 bits of ipftime.
+	 * to the most significant 32 bits of tstamp.
 	 */
 	memcpy(&t32,&buf[0],4);
-	tstamp->ipftime = (IPFNum64)(ntohl(t32)) << 32;
+	tstamp->tstamp = (BWLNum64)(ntohl(t32)) << 32;
 
 	/*
 	 * fractional seconds are the next 4 bytes in network byte order.
 	 * copy to a 32 bit int, correct the byte order, then assign to
-	 * the least significant 32 bits of ipftime.
+	 * the least significant 32 bits of tstamp.
 	 */
 	memcpy(&t32,&buf[4],4);
-	tstamp->ipftime |= (ntohl(t32) & 0xFFFFFFFF);
+	tstamp->tstamp |= (ntohl(t32) & 0xFFFFFFFF);
 
 	return;
 }
 
 /*
- * Function:	_IPFDecodeTimeStampErrEstimate
+ * Function:	_BWLDecodeTimeStampErrEstimate
  *
  * Description:	
- * 		Takes a buffer of 2 bytes of ipcntrl protocol timestamp
- * 		error estimate information and saves it in the IPFTimeStamp
- * 		structure. (See above format diagram for ipcntrl protocol
- * 		timestamp error estimate format, and ipcntrl.h header
- * 		file for a description of the IPFNum64 type.)
+ * 		Takes a buffer of 2 bytes of bwlib protocol timestamp
+ * 		error estimate information and saves it in the BWLTimeStamp
+ * 		structure. (See above format diagram for bwlib protocol
+ * 		timestamp error estimate format, and bwlib.h header
+ * 		file for a description of the BWLNum64 type.)
  *
  * In Args:	
  *
@@ -215,9 +215,9 @@ _IPFDecodeTimeStamp(
  * 		True if the ErrEstimate is valid, False if it is not.
  * Side Effect:	
  */
-IPFBoolean
-_IPFDecodeTimeStampErrEstimate(
-	IPFTimeStamp	*tstamp,
+BWLBoolean
+_BWLDecodeTimeStampErrEstimate(
+	BWLTimeStamp	*tstamp,
 	u_int8_t	buf[2]
 	)
 {
@@ -240,16 +240,16 @@ _IPFDecodeTimeStampErrEstimate(
 }
 
 /*
- * Function:	IPFTimevalToTimeStamp
+ * Function:	BWLTimevalToTimeStamp
  *
  * Description:	
  * 	This function takes a struct timeval and converts the time value
- * 	to an IPFTimeStamp. This function assumes the struct timeval is
+ * 	to an BWLTimeStamp. This function assumes the struct timeval is
  * 	an absolute time offset from unix epoch (0h Jan 1, 1970), and converts
- * 	the time to an IPFTimeStamp which uses time similar to the description
+ * 	the time to an BWLTimeStamp which uses time similar to the description
  * 	in RFC 1305 (NTP). i.e. epoch is 0h Jan 1, 1900.
  *
- * 	The Error Estimate of the IPFTimeStamp structure is invalidated
+ * 	The Error Estimate of the BWLTimeStamp structure is invalidated
  * 	in this function. (A struct timeval gives no indication of the error.)
  *
  * In Args:	
@@ -260,9 +260,9 @@ _IPFDecodeTimeStampErrEstimate(
  * Returns:	
  * Side Effect:	
  */
-IPFTimeStamp *
-IPFTimevalToTimeStamp(
-	IPFTimeStamp	*tstamp,
+BWLTimeStamp *
+BWLTimevalToTimeStamp(
+	BWLTimeStamp	*tstamp,
 	struct timeval	*tval
 )
 {
@@ -275,30 +275,30 @@ IPFTimevalToTimeStamp(
 	/*
 	 * Now convert representation.
 	 */
-	IPFTimevalToNum64(&tstamp->ipftime,tval);
+	BWLTimevalToNum64(&tstamp->tstamp,tval);
 
 	/*
 	 * Convert "epoch"'s - must do after conversion or there is the risk
 	 * of overflow since time_t is a 32bit signed quantity instead of
 	 * unsigned.
 	 */
-	tstamp->ipftime = IPFNum64Add(tstamp->ipftime,
-				IPFULongToNum64(IPFJAN_1970));
+	tstamp->tstamp = BWLNum64Add(tstamp->tstamp,
+				BWLULongToNum64(BWLJAN_1970));
 
 	return tstamp;
 }
 
 /*
- * Function:	IPFTimeStampToTimeval
+ * Function:	BWLTimeStampToTimeval
  *
  * Description:	
- * 	This function takes an IPFTimeStamp structure and returns a
+ * 	This function takes an BWLTimeStamp structure and returns a
  * 	valid struct timeval based on the time value encoded in it.
- * 	This function assumees the IPFTimeStamp is holding an absolute
+ * 	This function assumees the BWLTimeStamp is holding an absolute
  * 	time value, and is not holding a relative time. i.e. It assumes
  * 	the time value is relative to NTP epoch.
  *
- * 	The Error Estimate of the IPFTimeStamp structure is ignored by
+ * 	The Error Estimate of the BWLTimeStamp structure is ignored by
  * 	this function. (A struct timeval gives no indication of the error.)
  *
  * In Args:	
@@ -310,9 +310,9 @@ IPFTimevalToTimeStamp(
  * Side Effect:	
  */
 struct timeval *
-IPFTimeStampToTimeval(
+BWLTimeStampToTimeval(
 	struct timeval	*tval,
-	IPFTimeStamp	*tstamp
+	BWLTimeStamp	*tstamp
 	)
 {
 	if(!tval || !tstamp)
@@ -323,23 +323,23 @@ IPFTimeStampToTimeval(
 	 * of overflow since time_t is a 32bit signed quantity instead of
 	 * unsigned.
 	 */
-	tstamp->ipftime = IPFNum64Sub(tstamp->ipftime,
-				IPFULongToNum64(IPFJAN_1970));
-	IPFNum64ToTimeval(tval,tstamp->ipftime);
+	tstamp->tstamp = BWLNum64Sub(tstamp->tstamp,
+				BWLULongToNum64(BWLJAN_1970));
+	BWLNum64ToTimeval(tval,tstamp->tstamp);
 
 	return tval;
 }
 
 /*
- * Function:	IPFTimespecToTimeStamp
+ * Function:	BWLTimespecToTimeStamp
  *
  * Description:	
  * 	This function takes a struct timespec and converts it to an
- * 	IPFTimeStamp. The timespec is assumed to be an absolute time
- * 	relative to unix epoch. The IPFTimeStamp will be an absolute
+ * 	BWLTimeStamp. The timespec is assumed to be an absolute time
+ * 	relative to unix epoch. The BWLTimeStamp will be an absolute
  * 	time relative to 0h Jan 1, 1900.
  *
- * 	If errest is not set, then parts of the IPFTimeStamp that deal
+ * 	If errest is not set, then parts of the BWLTimeStamp that deal
  * 	with the error estimate. (scale, multiplier, sync) will be
  * 	set to 0.
  *
@@ -359,9 +359,9 @@ IPFTimeStampToTimeval(
  * Returns:	
  * Side Effect:	
  */
-IPFTimeStamp *
-IPFTimespecToTimeStamp(
-	IPFTimeStamp	*tstamp,
+BWLTimeStamp *
+BWLTimespecToTimeStamp(
+	BWLTimeStamp	*tstamp,
 	struct timespec	*tval,
 	u_int32_t	*errest,	/* usec's */
 	u_int32_t	*last_errest
@@ -376,15 +376,15 @@ IPFTimespecToTimeStamp(
 	/*
 	 * Now convert representation.
 	 */
-	IPFTimespecToNum64(&tstamp->ipftime,tval);
+	BWLTimespecToNum64(&tstamp->tstamp,tval);
 
 	/*
 	 * Convert "epoch"'s - must do after conversion or there is the risk
 	 * of overflow since time_t is a 32bit signed quantity instead of
 	 * unsigned.
 	 */
-	tstamp->ipftime = IPFNum64Add(tstamp->ipftime,
-				IPFULongToNum64(IPFJAN_1970));
+	tstamp->tstamp = BWLNum64Add(tstamp->tstamp,
+				BWLULongToNum64(BWLJAN_1970));
 
 	/*
 	 * If errest is set, and is non-zero.
@@ -396,12 +396,12 @@ IPFTimespecToTimeStamp(
 		 * already correct.
 		 */
 		if(!last_errest || (*errest != *last_errest)){
-			IPFNum64	err;
+			BWLNum64	err;
 
 			/*
 			 * First normalize errest to 32bit fractional seconds.
 			 */
-			err = IPFUsecToNum64(*errest);
+			err = BWLUsecToNum64(*errest);
 
 			/*
 			 * Just in the unlikely event that err is represented
@@ -436,16 +436,16 @@ IPFTimespecToTimeStamp(
 }
 
 /*
- * Function:	IPFTimeStampToTimespec
+ * Function:	BWLTimeStampToTimespec
  *
  * Description:	
- * 	This function takes an IPFTimeStamp structure and returns a
+ * 	This function takes an BWLTimeStamp structure and returns a
  * 	valid struct timespec based on the time value encoded in it.
- * 	This function assumees the IPFTimeStamp is holding an absolute
+ * 	This function assumees the BWLTimeStamp is holding an absolute
  * 	time value, and is not holding a relative time. i.e. It assumes
  * 	the time value is relative to NTP epoch.
  *
- * 	The Error Estimate of the IPFTimeStamp structure is ignored by
+ * 	The Error Estimate of the BWLTimeStamp structure is ignored by
  * 	this function. (A struct timespec gives no indication of the error.)
  *
  * In Args:	
@@ -457,9 +457,9 @@ IPFTimespecToTimeStamp(
  * Side Effect:	
  */
 struct timespec *
-IPFTimeStampToTimespec(
+BWLTimeStampToTimespec(
 	struct timespec	*tval,
-	IPFTimeStamp	*tstamp
+	BWLTimeStamp	*tstamp
 	)
 {
 	if(!tval || !tstamp)
@@ -470,15 +470,15 @@ IPFTimeStampToTimespec(
 	 * of overflow since time_t is a 32bit signed quantity instead of
 	 * unsigned.
 	 */
-	tstamp->ipftime = IPFNum64Sub(tstamp->ipftime,
-				IPFULongToNum64(IPFJAN_1970));
-	IPFNum64ToTimespec(tval,tstamp->ipftime);
+	tstamp->tstamp = BWLNum64Sub(tstamp->tstamp,
+				BWLULongToNum64(BWLJAN_1970));
+	BWLNum64ToTimespec(tval,tstamp->tstamp);
 
 	return tval;
 }
 
 /*
- * Function:	IPFGetTimeStampError
+ * Function:	BWLGetTimeStampError
  *
  * Description:	
  * 	Retrieve the timestamp error estimate as a double in seconds.
@@ -491,12 +491,12 @@ IPFTimeStampToTimespec(
  * Returns:	
  * Side Effect:	
  */
-IPFNum64
-IPFGetTimeStampError(
-	IPFTimeStamp	*tstamp
+BWLNum64
+BWLGetTimeStampError(
+	BWLTimeStamp	*tstamp
 	)
 {
-	IPFNum64	err;
+	BWLNum64	err;
 	u_int8_t	scale;
 
 	if(!tstamp)
@@ -504,7 +504,7 @@ IPFGetTimeStampError(
 
 	/*
 	 * Place multiplier in 64bit int large enough to hold full value.
-	 * (Due to the interpretation of IPFNum64 being 32 bits of seconds,
+	 * (Due to the interpretation of BWLNum64 being 32 bits of seconds,
 	 * and 32 bits of "fraction", this effectively divides by 2^32.)
 	 */
 	err = tstamp->multiplier & 0xFF;
@@ -523,7 +523,7 @@ IPFGetTimeStampError(
 }
 
 /*
- * Function:	_IPFInitNTP
+ * Function:	_BWLInitNTP
  *
  * Description:	
  * 	Initialize NTP.
@@ -558,8 +558,8 @@ IPFGetTimeStampError(
  * 				usecs
  */
 int
-_IPFInitNTP(
-	IPFContext	ctx,
+_BWLInitNTP(
+	BWLContext	ctx,
 	I2Boolean	allowunsync
 	)
 {
@@ -568,20 +568,20 @@ _IPFInitNTP(
 	ntp_conf.modes = 0;
 
 	if(ntp_adjtime(&ntp_conf) < 0){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"ntp_adjtime(): %M");
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
 		return 1;
 	}
 
 	if(ntp_conf.status & STA_UNSYNC){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"NTP: Status UNSYNC!");
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
 		if(!allowunsync)
 			return 1;
 	}
 
 #ifdef	STA_NANO
 	if( !(ntp_conf.status & STA_NANO)){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-		"_IPFInitNTP: STA_NANO must be set! - try \"ntptime -N\"");
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+		"_BWLInitNTP: STA_NANO must be set! - try \"ntptime -N\"");
 		return 1;
 	}
 #endif
@@ -589,8 +589,8 @@ _IPFInitNTP(
 }
 
 static struct timespec *
-_IPFGetTimespec(
-	IPFContext	ctx,
+_BWLGetTimespec(
+	BWLContext	ctx,
 	struct timespec	*ts,
 	u_int32_t	*esterr,
 	int		*sync
@@ -602,7 +602,7 @@ _IPFGetTimespec(
 	status = ntp_gettime(&ntv);
 
 	if(status < 0){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"ntp_gettime(): %M");
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_gettime(): %M");
 		return NULL;
 	}
 	if(status > 0)
@@ -633,10 +633,10 @@ _IPFGetTimespec(
 	return ts;
 }
 
-IPFTimeStamp *
-IPFGetTimeStamp(
-	IPFContext	ctx,
-	IPFTimeStamp	*tstamp
+BWLTimeStamp *
+BWLGetTimeStamp(
+	BWLContext	ctx,
+	BWLTimeStamp	*tstamp
 	       )
 {
 	struct timespec		ts;
@@ -646,9 +646,9 @@ IPFGetTimeStamp(
 	if(!tstamp)
 		return NULL;
 
-	if(!_IPFGetTimespec(ctx,&ts,&errest,&sync))
+	if(!_BWLGetTimespec(ctx,&ts,&errest,&sync))
 		return NULL;
 
 	/* type conversion */
-	return IPFTimespecToTimeStamp(tstamp,&ts,&errest,NULL);
+	return BWLTimespecToTimeStamp(tstamp,&ts,&errest,NULL);
 }

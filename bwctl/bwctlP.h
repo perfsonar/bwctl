@@ -9,7 +9,7 @@
 *									*
 ************************************************************************/
 /*
- *	File:		iperfcP.h
+ *	File:		bwctlP.h
  *
  *	Author:		Jeff Boote
  *			Internet2
@@ -18,8 +18,8 @@
  *
  *	Description:	
  */
-#ifndef	_iperfcp_h_
-#define	_iperfcp_h_
+#ifndef	_bwctlp_h_
+#define	_bwctlp_h_
 
 #include <I2util/table.h>
 
@@ -36,7 +36,7 @@
 #define DEF_UDP_RATE	1000000
 /*
  * Lock file name. This file is created in the output directory to ensure
- * there is not more than one iperfc process writing there.
+ * there is not more than one bwctl process writing there.
  */
 #define	IPLOCK	".iplock"
 /* TSTAMP FMT YYYYMMDDTHHMMSS	*/
@@ -103,11 +103,11 @@ typedef	struct {
 
 	u_int32_t		auth_mode;
 
-	IPFScheduleContext	sctx;
-	IPFSID			sid;
+	BWLScheduleContext	sctx;
+	BWLSID			sid;
 
-	IPFNum64		*sessionStart;
-	IPFNum64		ipftime_mem;
+	BWLNum64		*sessionStart;
+	BWLNum64		tstamp_mem;
 
 	FILE			*fp;
 	FILE			*testfp;
@@ -116,12 +116,12 @@ typedef	struct {
 } ipapp_trec, *ipapp_t;
 
 typedef struct{
-	IPFControl	cntrl;
+	BWLControl	cntrl;
 	int		sockfd;
-	IPFNum64	rttbound;
-	IPFNum64	waketime;
-	IPFBoolean	send;
-	IPFTestSpec	tspec;
+	BWLNum64	rttbound;
+	BWLNum64	waketime;
+	BWLBoolean	send;
+	BWLTestSpec	tspec;
 } ipsess_trec, *ipsess_t;
 
 #endif

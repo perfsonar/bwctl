@@ -150,7 +150,7 @@ int blockEncrypt(BYTE *binIV, keyInstance *key,
 		outBuffer += 16;
 	}
 	
-	/* Update the IV so we don't  have to do it in ipcntrl library. */
+	/* Update the IV so we don't  have to do it in bwlib library. */
 	   memcpy(binIV, iv, 16); 
 
 	return 128*numBlocks;

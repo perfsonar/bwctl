@@ -19,13 +19,13 @@
 */
 #include <stdio.h>
 #include <stdarg.h>
-#include <ipcntrlP.h>
+#include <bwlibP.h>
 
 void
-IPFError_(
-	IPFContext		ctx,
-	IPFErrSeverity		severity,
-	IPFErrType		etype,
+BWLError_(
+	BWLContext		ctx,
+	BWLErrSeverity		severity,
+	BWLErrType		etype,
 	const char		*fmt,
 	...
 )
@@ -38,7 +38,7 @@ IPFError_(
 		I2ErrLogVT(ctx->eh,(int)severity,etype,fmt,ap);
 	}
 	else{
-		char		buff[_IPF_ERR_MAXSTRING];
+		char		buff[_BWL_ERR_MAXSTRING];
 
 		vsnprintf(buff,sizeof(buff),fmt,ap);
 		fwrite(buff,sizeof(char),strlen(buff),stderr);

@@ -16,7 +16,7 @@
 #
 #	Date:		Tue Sep 16 14:22:47 MDT 2003
 #
-#	Description:	autoconfig input script for iperfc build
+#	Description:	autoconfig input script for bwctl build
 #
 #	Usage:		see bootstrap...
 #
@@ -27,11 +27,11 @@
 #
 #	Options:
 # Process this file with autoconf to produce a configure script.
-AC_INIT(iperfc, 1.0a, iperfc-bugs@internet2.edu)
+AC_INIT(bwctl, 1.0a, bwctl-bugs@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(iperfc, 1.0a, [no-define])
-AC_CONFIG_SRCDIR(ipcntrl/context.c)
-AM_CONFIG_HEADER(ipcntrl/config.h)
+AM_INIT_AUTOMAKE(bwctl, 1.0a, [no-define])
+AC_CONFIG_SRCDIR(bwlib/context.c)
+AM_CONFIG_HEADER(bwlib/config.h)
 
 TOP_BUILD_DIRS=""
 
@@ -109,19 +109,19 @@ if test "$with_I2util" != "no"; then
 	fi
 fi
 
-IPFINCS='-I${top_srcdir}'
+BWLINCS='-I${top_srcdir}'
 
-IPF_dir='${top_srcdir}/ipcntrl'
-IPFLDFLAGS="-L$IPF_dir"
-IPFLIBS="$IPFLDFLAGS -lipcntrl"
-IPFLIBDEPS="$IPF_dir/libipcntrl.a"
+BWL_dir='${top_srcdir}/bwlib'
+BWLLDFLAGS="-L$BWL_dir"
+BWLLIBS="$BWLLDFLAGS -lbwlib"
+BWLLIBDEPS="$BWL_dir/libbwlib.a"
 
 AC_SUBST(I2UTILINCS)
 AC_SUBST(I2UTILLIBS)
 AC_SUBST(I2UTILLIBDEPS)
-AC_SUBST(IPFINCS)
-AC_SUBST(IPFLIBS)
-AC_SUBST(IPFLIBDEPS)
+AC_SUBST(BWLINCS)
+AC_SUBST(BWLLIBS)
+AC_SUBST(BWLLIBDEPS)
 
 AC_SUBST(TOP_BUILD_DIRS)
 
@@ -131,10 +131,10 @@ AC_PROG_RANLIB
 AC_PROG_LN_S
 
 # possible solution to config location
-IPF_PREFIX='${prefix}'
-IPF_PREFIX_CFLAGS="-DIPF_PREFIX=$IPF_PREFIX"
+BWL_PREFIX='${prefix}'
+BWL_PREFIX_CFLAGS="-DBWL_PREFIX=$BWL_PREFIX"
 AC_DEFINE(AUTOCONF_SYSCONFDIR,/etc,"name of sysconfdir under prefix")
-AC_SUBST(IPF_PREFIX_CFLAGS)
+AC_SUBST(BWL_PREFIX_CFLAGS)
 
 # Checks for libraries.
 
@@ -161,6 +161,6 @@ AC_CHECK_DECLS([fseeko])
 # AC_CONFIG_FILES([Makefile owamp/Makefile])
 
 AC_SUBST(ac_aux_dir)
-AC_OUTPUT([Makefile ipcntrl/Makefile iperfcd/Makefile iperfc/Makefile conf/Makefile ],
-	[test -z "$CONFIG_HEADERS" || echo timestamp > ipcntrl/stamp-h.in])
+AC_OUTPUT([Makefile bwlib/Makefile bwctld/Makefile bwctl/Makefile conf/Makefile ],
+	[test -z "$CONFIG_HEADERS" || echo timestamp > bwlib/stamp-h.in])
 

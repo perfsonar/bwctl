@@ -9,7 +9,7 @@
 *									*
 ************************************************************************/
 /*
- *	File:		iperfc.c
+ *	File:		bwctl.c
  *
  *	Authors:	Jeff Boote
  *			Internet2
@@ -18,7 +18,7 @@
  *
  *	Description:	
  *
- *	Initial implementation of iperfc commandline application. This
+ *	Initial implementation of bwctl commandline application. This
  *	application will measure active one-way udp latencies. And it will
  *	set up perpetual tests and keep them going until this application
  *	is killed.
@@ -37,17 +37,17 @@
 #include <syslog.h>
 #include <math.h>
 
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 
 
 #if defined HAVE_DECL_OPTRESET && !HAVE_DECL_OPTRESET
 int optreset;
 #endif
 
-#include "./iperfcP.h"
+#include "./bwctlP.h"
 
 /*
- * The iperfc context
+ * The bwctl context
  */
 static	ipapp_trec		app;
 static	I2ErrHandle		eh;
@@ -56,12 +56,12 @@ static	int			ip_intr = 0;
 static	int			ip_reset = 0;
 static	int			ip_exit = 0;
 static	int			ip_error = SIGCONT;
-static	IPFContext		ctx;
+static	BWLContext		ctx;
 static	ipsess_trec		local;
 static	ipsess_trec		remote;
-static	IPFNum64		zero64;
-static	IPFNum64		fuzz64;
-static	IPFSID			sid;
+static	BWLNum64		zero64;
+static	BWLNum64		fuzz64;
+static	BWLSID			sid;
 static	u_int16_t		recv_port;
 static	ipsess_t		s[2];	/* receiver == 0, sender == 1 */
 
@@ -101,7 +101,7 @@ print_output_args()
 	fprintf(stderr,
 "              [Output Args]\n\n"
 "   -d dir         directory to save session file in (only if -p)\n"
-"   -I Interval    time between IPF test sessions(seconds)\n"
+"   -I Interval    time between BWL test sessions(seconds)\n"
 "   -n nIntervals  number of tests to perform (default: continuous)\n"
 "   -L LatestDelay latest time into an interval to run test(seconds)\n"
 "   -p             print completed filenames to stdout - not session data\n"
@@ -138,7 +138,7 @@ void
 ip_set_auth(
 	ipapp_trec	*pctx, 
 	char		*progname,
-	IPFContext	ctx __attribute__((unused))
+	BWLContext	ctx __attribute__((unused))
 	)
 {
 #if	NOT
@@ -147,7 +147,7 @@ ip_set_auth(
 #endif
 #endif
 #if	NOT
-	IPFErrSeverity err_ret;
+	BWLErrSeverity err_ret;
 
 	if(pctx->opt.identity){
 		/*
@@ -155,9 +155,9 @@ ip_set_auth(
 		 * client to deal with a pass-phrase instead of/ or in
 		 * addition to the keyfile file.
 		 */
-		*policy = IPFPolicyInit(ctx, NULL, NULL, pctx->opt.keyfile, 
+		*policy = BWLPolicyInit(ctx, NULL, NULL, pctx->opt.keyfile, 
 				       &err_ret);
-		if (err_ret == IPFErrFATAL){
+		if (err_ret == BWLErrFATAL){
 			I2ErrLog(eh, "PolicyInit failed. Exiting...");
 			exit(1);
 		};
@@ -174,13 +174,13 @@ ip_set_auth(
 		while(*s != '\0'){
 			switch (toupper(*s)){
 				case 'O':
-				pctx->auth_mode |= IPF_MODE_OPEN;
+				pctx->auth_mode |= BWL_MODE_OPEN;
 				break;
 				case 'A':
-				pctx->auth_mode |= IPF_MODE_AUTHENTICATED;
+				pctx->auth_mode |= BWL_MODE_AUTHENTICATED;
 				break;
 				case 'E':
-				pctx->auth_mode |= IPF_MODE_ENCRYPTED;
+				pctx->auth_mode |= BWL_MODE_ENCRYPTED;
 				break;
 				default:
 				I2ErrLogP(eh,EINVAL,"Invalid -authmode %c",*s);
@@ -194,8 +194,8 @@ ip_set_auth(
 		 * Default to all modes.
 		 * If identity not set - library will ignore A/E.
 		 */
-		pctx->auth_mode = IPF_MODE_OPEN|IPF_MODE_AUTHENTICATED|
-							IPF_MODE_ENCRYPTED;
+		pctx->auth_mode = BWL_MODE_OPEN|BWL_MODE_AUTHENTICATED|
+							BWL_MODE_ENCRYPTED;
 	}
 }
 
@@ -205,16 +205,16 @@ CloseSessions()
 	/* TODO: Handle clearing other state. Canceling tests nicely? */
 
 	if(remote.cntrl){
-		IPFControlClose(remote.cntrl);
+		BWLControlClose(remote.cntrl);
 		remote.cntrl = NULL;
 		remote.sockfd = 0;
-		remote.tspec.req_time.ipftime = zero64;
+		remote.tspec.req_time.tstamp = zero64;
 	}
 	if(local.cntrl){
-		IPFControlClose(local.cntrl);
+		BWLControlClose(local.cntrl);
 		local.cntrl = NULL;
 		local.sockfd = 0;
-		local.tspec.req_time.ipftime = zero64;
+		local.tspec.req_time.tstamp = zero64;
 	}
 
 	return;
@@ -420,7 +420,7 @@ main(
 	int			lockfd;
 	char			lockpath[PATH_MAX];
 	int			rc;
-	IPFErrSeverity		err_ret = IPFErrOK;
+	BWLErrSeverity		err_ret = BWLErrOK;
 	I2ErrLogSyslogAttr	syslogattr;
 
 	int			fname_len;
@@ -435,11 +435,11 @@ main(
 	char			dirpath[PATH_MAX];
 	struct flock		flk;
 	struct sigaction	act;
-	IPFNum64		latest64;
+	BWLNum64		latest64;
 	u_int32_t		p,q;
 	I2RandomSource		rsrc;
-	IPFScheduleContext	sctx;
-	IPFTimeStamp		wake;
+	BWLScheduleContext	sctx;
+	BWLTimeStamp		wake;
 
 	progname = (progname = strrchr(argv[0], '/')) ? ++progname : *argv;
 
@@ -662,23 +662,23 @@ main(
 	/*
 	 * Useful constant
 	 */
-	zero64 = IPFULongToNum64(0);
+	zero64 = BWLULongToNum64(0);
 
 	/*
 	 * Check savedir option. Make sure it will not make fnames
 	 * exceed PATH_MAX even with the nul byte.
 	 * Also set file_offset and ext_offset to the lengths needed.
 	 */
-	fname_len = TSTAMPCHARS + strlen(IPF_FILE_EXT) + strlen(SUMMARY_EXT);
+	fname_len = TSTAMPCHARS + strlen(BWL_FILE_EXT) + strlen(SUMMARY_EXT);
 	assert((fname_len+1)<PATH_MAX);
 	if(app.opt.savedir){
-		if((strlen(app.opt.savedir) + strlen(IPF_PATH_SEPARATOR)+
+		if((strlen(app.opt.savedir) + strlen(BWL_PATH_SEPARATOR)+
 						fname_len + 1) > PATH_MAX){
 			usage(progname,"-d: pathname too long.");
 			exit(1);
 		}
 		strcpy(dirpath,app.opt.savedir);
-		strcat(dirpath,IPF_PATH_SEPARATOR);
+		strcat(dirpath,BWL_PATH_SEPARATOR);
 	}else
 		dirpath[0] = '\0';
 
@@ -689,8 +689,8 @@ main(
 	/*
 	 * Initialize library with configuration functions.
 	 */
-	if( !(ctx = IPFContextCreate(eh,app.opt.allowunsync))){
-		I2ErrLog(eh, "Unable to initialize IPF library.");
+	if( !(ctx = BWLContextCreate(eh,app.opt.allowunsync))){
+		I2ErrLog(eh, "Unable to initialize BWL library.");
 		exit(1);
 	}
 
@@ -718,7 +718,7 @@ main(
 		/*
 		 * Setup the pseudoPoisson generator...
 		 */
-		if( !(sctx = IPFScheduleContextCreate(ctx,seed,
+		if( !(sctx = BWLScheduleContextCreate(ctx,seed,
 				(double)app.opt.seriesInterval))){
 			exit(1);
 		}
@@ -754,7 +754,7 @@ main(
 			app.opt.nIntervals = 1;
 		}
 	}
-	latest64 = IPFULongToNum64(app.opt.seriesWindow);
+	latest64 = BWLULongToNum64(app.opt.seriesWindow);
 
 	if(app.opt.udpTest && !app.opt.bandWidth){
 		app.opt.bandWidth = DEF_UDP_RATE;
@@ -766,7 +766,7 @@ main(
 	}
 
 	/*
-	 * Lock the directory for iperfc if it is in printfiles mode.
+	 * Lock the directory for bwctl if it is in printfiles mode.
 	 */
 	if(app.opt.printfiles){
 		strcpy(lockpath,dirpath);
@@ -850,8 +850,8 @@ main(
 	 * this will indicate an immediate test. If seriesInterval is set,
 	 * this time will be adjusted to spread start times out.
 	 */
-	if(!IPFGetTimeStamp(ctx,&wake)){
-		I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
+	if(!BWLGetTimeStamp(ctx,&wake)){
+		I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
 		exit(1);
 	}
 
@@ -867,35 +867,35 @@ main(
 			exit(1);
 		}
 
-		wake.ipftime = IPFNum64Add(wake.ipftime,
-			IPFDoubleToNum64((double)app.opt.seriesInterval*
+		wake.tstamp = BWLNum64Add(wake.tstamp,
+			BWLDoubleToNum64((double)app.opt.seriesInterval*
 				r/0xffffffff));
 	}
 
 	do{
-		IPFTimeStamp	req_time;
-		IPFTimeStamp	currtime;
-		IPFNum64	endtime;
+		BWLTimeStamp	req_time;
+		BWLTimeStamp	currtime;
+		BWLNum64	endtime;
 		u_int16_t	dataport;
-		IPFBoolean	stop;
+		BWLBoolean	stop;
 
 AGAIN:
 		if(sig_check()) exit(1);
 
 		/* Open remote connection */
 		if(!remote.cntrl){
-			remote.cntrl = IPFControlOpen(ctx,
-				IPFAddrByNode(ctx,app.opt.srcaddr),
-				IPFAddrByNode(ctx,app.remote_test),
+			remote.cntrl = BWLControlOpen(ctx,
+				BWLAddrByNode(ctx,app.opt.srcaddr),
+				BWLAddrByNode(ctx,app.remote_test),
 				app.auth_mode,app.opt.identity,
 				NULL,&err_ret);
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
 			if(!remote.cntrl){
-				I2ErrLog(eh,"Unable to connect to remote server, will try again next period: %M");
+				I2ErrLog(eh,"Unable to connect to remote server: %M");
 				goto next_test;
 			}
-			remote.sockfd = IPFControlFD(remote.cntrl);
+			remote.sockfd = BWLControlFD(remote.cntrl);
 
 			/*
 			 * Setup addresses of test endpoints.
@@ -903,8 +903,8 @@ AGAIN:
 			 */
 			if(!local.tspec.sender){
 				local.tspec.sender = (app.opt.send)?
-					IPFAddrByLocalControl(remote.cntrl):
-						IPFAddrByControl(remote.cntrl);
+					BWLAddrByLocalControl(remote.cntrl):
+						BWLAddrByControl(remote.cntrl);
 				if(!local.tspec.sender){
 					I2ErrLog(eh,
 					"Unable to determine send address: %M");
@@ -915,8 +915,8 @@ AGAIN:
 
 			if(!local.tspec.receiver){
 				local.tspec.receiver = (!app.opt.send)?
-					IPFAddrByLocalControl(remote.cntrl):
-						IPFAddrByControl(remote.cntrl);
+					BWLAddrByLocalControl(remote.cntrl):
+						BWLAddrByControl(remote.cntrl);
 				if(!local.tspec.receiver){
 					I2ErrLog(eh,
 					"Unable to determine recv address: %M");
@@ -927,18 +927,18 @@ AGAIN:
 		}
 		/* Open local connection */
 		if(!local.cntrl){
-			local.cntrl = IPFControlOpen(ctx,
+			local.cntrl = BWLControlOpen(ctx,
 				NULL,
-				IPFAddrByLocalControl(remote.cntrl),
+				BWLAddrByLocalControl(remote.cntrl),
 				app.auth_mode,app.opt.identity,
 				NULL,&err_ret);
 			/* TODO: deal with temporary failures */
 			if(sig_check()) exit(1);
 			if(!local.cntrl){
-				I2ErrLog(eh,"Unable to connect to remote server, will try again next period: %M");
+				I2ErrLog(eh,"Unable to connect to remote server: %M");
 				goto next_test;
 			}
-			local.sockfd = IPFControlFD(remote.cntrl);
+			local.sockfd = BWLControlFD(remote.cntrl);
 		}
 
 		/*
@@ -946,36 +946,36 @@ AGAIN:
 		 * request should be made for.
 		 */
 		/* initialize */
-		req_time.ipftime = zero64;
+		req_time.tstamp = zero64;
 
 		/*
 		 * Query remote time error and update round-trip bound.
 		 * (The time will be over-written later, we really only
 		 * care about the errest portion of the timestamp.)
 		 */
-		if(IPFControlTimeCheck(remote.cntrl,&local.tspec.req_time) !=
-								IPFErrOK){
-			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
+		if(BWLControlTimeCheck(remote.cntrl,&local.tspec.req_time) !=
+								BWLErrOK){
+			I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
 			exit(1);
 		}
 		if(sig_check()) exit(1);
 		/*
-		 * req_time.ipftime += (4*round-trip-bound)
+		 * req_time.tstamp += (4*round-trip-bound)
 		 * (4) -- 1 test_req, 1 start session, 2 for server-2-server
 		 * connection.
 		 */
-		remote.rttbound = IPFGetRTTBound(remote.cntrl);
-		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-			IPFNum64Mult(remote.rttbound,IPFULongToNum64(4)));
+		remote.rttbound = BWLGetRTTBound(remote.cntrl);
+		req_time.tstamp = BWLNum64Add(req_time.tstamp,
+			BWLNum64Mult(remote.rttbound,BWLULongToNum64(4)));
 
 		/*
 		 * Query local time error and update round-trip bound.
 		 * (The time will be over-written later, we really only
 		 * care about the errest portion of the timestamp.)
 		 */
-		if(IPFControlTimeCheck(local.cntrl,&remote.tspec.req_time) !=
-								IPFErrOK){
-			I2ErrLogP(eh,errno,"IPFControlTimeCheck: %M");
+		if(BWLControlTimeCheck(local.cntrl,&remote.tspec.req_time) !=
+								BWLErrOK){
+			I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
 			goto next_test;
 		}
 		if(sig_check()) exit(1);
@@ -983,38 +983,38 @@ AGAIN:
 		/*
 		 * Get current time.
 		 */
-		if(!IPFGetTimeStamp(ctx,&currtime)){
-			I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
+		if(!BWLGetTimeStamp(ctx,&currtime)){
+			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
 			exit(1);
 		}
 
 		/*
 		 * Check if the test should run yet...
 		 */
-		if(IPFNum64Cmp(wake.ipftime,currtime.ipftime) > 0){
+		if(BWLNum64Cmp(wake.tstamp,currtime.tstamp) > 0){
 			struct timespec	tspec;
-			IPFNum64	rel;
+			BWLNum64	rel;
 
-			rel = IPFNum64Sub(currtime.ipftime,wake.ipftime);
-			IPFNum64ToTimespec(&tspec,rel);
+			rel = BWLNum64Sub(currtime.tstamp,wake.tstamp);
+			BWLNum64ToTimespec(&tspec,rel);
 			if((nanosleep(&tspec,NULL) == 0) ||
 					(errno == EINTR)){
 				goto AGAIN;
 			}
 
-			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"nanosleep(): %M");
 			exit(1);
 		}
 
 		/*
-		 * req_time.ipftime += (3*round-trip-bound)
+		 * req_time.tstamp += (3*round-trip-bound)
 		 * (4) -- 1 test_req, 1 start session, 2 for server-2-server
 		 * connection.
 		 */
-		local.rttbound = IPFGetRTTBound(local.cntrl);
-		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-			IPFNum64Mult(local.rttbound,IPFULongToNum64(4)));
+		local.rttbound = BWLGetRTTBound(local.cntrl);
+		req_time.tstamp = BWLNum64Add(req_time.tstamp,
+			BWLNum64Mult(local.rttbound,BWLULongToNum64(4)));
 
 		/*
 		 * Add a small constant value to this... Will need to experiment
@@ -1032,8 +1032,8 @@ AGAIN:
 		 * TODO: Come up with a *real* value here!
 		 * (Actually - make this an option?)
 		 */
-		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-						IPFULongToNum64(1));
+		req_time.tstamp = BWLNum64Add(req_time.tstamp,
+						BWLULongToNum64(1));
 
 		/*
 		 * Wait this long after a test should be complete before
@@ -1044,16 +1044,16 @@ AGAIN:
 		 * guesses due to time constrants. If these values cause
 		 * problems they can be revisited.)
 		 */
-		fuzz64 = IPFNum64Add(IPFULongToNum64(2),
-				IPFNum64Max(local.rttbound,remote.rttbound));
+		fuzz64 = BWLNum64Add(BWLULongToNum64(2),
+				BWLNum64Max(local.rttbound,remote.rttbound));
 
 		/*
 		 * req_time currently holds a reasonable relative amount of
 		 * time from 'now' that a test could be held. Get the current
 		 * time and add to make that an 'absolute' value.
 		 */
-		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-							currtime.ipftime);
+		req_time.tstamp = BWLNum64Add(req_time.tstamp,
+							currtime.tstamp);
 		/*
 		 * Get a reservation:
 		 * 	s[0] == receiver
@@ -1063,8 +1063,8 @@ AGAIN:
 		 * 	or denied.
 		 */
 		s[0]->tspec.latest_time = s[1]->tspec.latest_time =
-					IPFNum64Add(req_time.ipftime, latest64);
-		s[1]->tspec.req_time.ipftime = zero64;
+					BWLNum64Add(req_time.tstamp, latest64);
+		s[1]->tspec.req_time.tstamp = zero64;
 		memset(sid,0,sizeof(sid));
 		recv_port = 0;
 
@@ -1081,15 +1081,15 @@ AGAIN:
 			p = q++;
 			q %= 2;
 
-			s[p]->tspec.req_time.ipftime = req_time.ipftime;
+			s[p]->tspec.req_time.tstamp = req_time.tstamp;
 
 			/* TODO: do something with return values.
 			 */
-			if(!IPFSessionRequest(s[p]->cntrl,s[p]->send,
+			if(!BWLSessionRequest(s[p]->cntrl,s[p]->send,
 					&s[p]->tspec,&req_time,&recv_port,
 					sid,&err_ret)){
-				if((err_ret == IPFErrOK) &&
-						(IPFNum64Cmp(req_time.ipftime,
+				if((err_ret == BWLErrOK) &&
+						(BWLNum64Cmp(req_time.tstamp,
 							     zero64) != 0)){
 					/*
 					 * Request is ok, but server is too
@@ -1112,7 +1112,7 @@ AGAIN:
 			}
 			if(sig_check()) exit(1);
 			
-			if(IPFNum64Cmp(req_time.ipftime,
+			if(BWLNum64Cmp(req_time.tstamp,
 						s[p]->tspec.latest_time) > 0){
 				I2ErrLog(eh,
 					"SessionRequest: returned bad time!");
@@ -1126,37 +1126,37 @@ AGAIN:
 			}
 
 			/* save new time for res */
-			s[p]->tspec.req_time.ipftime = req_time.ipftime;
+			s[p]->tspec.req_time.tstamp = req_time.tstamp;
 
 			/*
 			 * Do we have a meeting?
 			 */
-			if(IPFNum64Cmp(s[p]->tspec.req_time.ipftime,
-					s[q]->tspec.req_time.ipftime) == 0){
+			if(BWLNum64Cmp(s[p]->tspec.req_time.tstamp,
+					s[q]->tspec.req_time.tstamp) == 0){
 				break;
 			}
 		}
 
 		/* Start receiver */
-		if(IPFStartSession(s[0]->cntrl,&dataport) < IPFErrINFO){
-			I2ErrLog(eh,"IPFStartSessions: Failed");
+		if(BWLStartSession(s[0]->cntrl,&dataport) < BWLErrINFO){
+			I2ErrLog(eh,"BWLStartSessions: Failed");
 			CloseSessions();
 			goto next_test;
 		}
 		if(sig_check()) exit(1);
 
 		/* Start sender */
-		if(IPFStartSession(s[1]->cntrl,&dataport) < IPFErrINFO){
-			I2ErrLog(eh,"IPFStartSessions: Failed");
+		if(BWLStartSession(s[1]->cntrl,&dataport) < BWLErrINFO){
+			I2ErrLog(eh,"BWLStartSessions: Failed");
 			CloseSessions();
 			goto next_test;
 		}
 		if(sig_check()) exit(1);
 
-		endtime = local.tspec.req_time.ipftime;
-		endtime = IPFNum64Add(endtime,
-				IPFULongToNum64(local.tspec.duration));
-		endtime = IPFNum64Add(endtime,fuzz64);
+		endtime = local.tspec.req_time.tstamp;
+		endtime = BWLNum64Add(endtime,
+				BWLULongToNum64(local.tspec.duration));
+		endtime = BWLNum64Add(endtime,fuzz64);
 		stop = False;
 
 		/*
@@ -1167,19 +1167,19 @@ AGAIN:
 			int		rc;
 			fd_set		readfds,exceptfds;
 
-			if(!IPFGetTimeStamp(ctx,&currtime)){
-				I2ErrLogP(eh,errno,"IPFGetTimeOfDay: %M");
+			if(!BWLGetTimeStamp(ctx,&currtime)){
+				I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
 				exit(1);
 			}
-			if(stop || (IPFNum64Cmp(currtime.ipftime,endtime) > 0)){
+			if(stop || (BWLNum64Cmp(currtime.tstamp,endtime) > 0)){
 				/*
 				 * Send TerminateSession
 				 */
 				fprintf(stdout,"SENDER START\n");
 				/* sender session to 'null' */
-				if( (err_ret = IPFEndSession(s[1]->cntrl,
+				if( (err_ret = BWLEndSession(s[1]->cntrl,
 							&ip_intr,stdout))
-							< IPFErrWARNING){
+							< BWLErrWARNING){
 					CloseSessions();
 					goto next_test;
 				}
@@ -1188,9 +1188,9 @@ AGAIN:
 				if(sig_check()) exit(1);
 				/* receiver session to STDOUT (for now) */
 				fprintf(stdout,"RECEIVER START\n");
-				if( (err_ret =IPFEndSession(s[0]->cntrl,
+				if( (err_ret =BWLEndSession(s[0]->cntrl,
 							&ip_intr,stdout))
-							< IPFErrWARNING){
+							< BWLErrWARNING){
 					CloseSessions();
 					goto next_test;
 				}
@@ -1200,8 +1200,8 @@ AGAIN:
 				break;
 			}
 
-			IPFNum64ToTimeval(&reltime,
-					IPFNum64Sub(endtime,currtime.ipftime));
+			BWLNum64ToTimeval(&reltime,
+					BWLNum64Sub(endtime,currtime.tstamp));
 			FD_ZERO(&readfds);
 			FD_SET(local.sockfd,&readfds);
 			FD_SET(remote.sockfd,&readfds);

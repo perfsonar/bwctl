@@ -19,10 +19,10 @@
  *	Description:	
  */
 #include <stdlib.h>
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 
-struct IPFScheduleContextRec {
-	IPFContext	ctx;
+struct BWLScheduleContextRec {
+	BWLContext	ctx;
 
 	/* AES random number generator fields */
 	keyInstance	key;		/* key used to encrypt the counter */
@@ -33,11 +33,11 @@ struct IPFScheduleContextRec {
 };
 
 /*
- * Function:	IPFUnifRand64
+ * Function:	BWLUnifRand64
  *
  * Description:	
  *	Generate and return a 32-bit uniform random string (saved in the lower
- *	half of the IPFNum64.
+ *	half of the BWLNum64.
  *
  * In Args:	
  *
@@ -47,15 +47,15 @@ struct IPFScheduleContextRec {
  * Returns:	
  * Side Effect:	
  */
-static IPFNum64
-IPFUnifRand64(
-	IPFScheduleContext	sctx
+static BWLNum64
+BWLUnifRand64(
+	BWLScheduleContext	sctx
 	)
 {
 	u_int8_t	forth = sctx->counter[15] & (u_int8_t)3;
 	u_int8_t	*buf;
 	int		j;
-	IPFNum64	ret = 0;
+	BWLNum64	ret = 0;
 
 	/*
 	 * Only generate a new AES number every 4'th UnifRand.
@@ -87,7 +87,7 @@ IPFUnifRand64(
 	 * (i.e. The last 4 bytes of ret will contain the random
 	 * integer in network byte order after this loop.)
 	 *
-	 * (If IPFNum64 changes from a 32.32 format u_int64_t, this will
+	 * (If BWLNum64 changes from a 32.32 format u_int64_t, this will
 	 * need to be modified. It is expecting to set the .32 portion.)
 	 */
 	for(j=0;j<4;j++){
@@ -99,7 +99,7 @@ IPFUnifRand64(
 }
 
 /*
- * Function:	IPFRand64Exponent
+ * Function:	BWLRand64Exponent
  *
  * Description:	
  *
@@ -157,7 +157,7 @@ IPFUnifRand64(
  * as described in the Knuth algorithm. (The values below have been
  * multiplied by 2^32 and rounded to the nearest integer.)
  */
-static IPFNum64 Q[] = {
+static BWLNum64 Q[] = {
 	0,          /* Placeholder. */
 	0xB17217F8,
 	0xEEF193F7,
@@ -176,19 +176,19 @@ static IPFNum64 Q[] = {
 #define	MASK32(n)	(n & 0xFFFFFFFFUL)
 #define LN2 Q[1] /* this element represents ln2 */
 
-static IPFNum64 
-IPFRand64Exponent(
-	IPFScheduleContext	sctx
+static BWLNum64 
+BWLRand64Exponent(
+	BWLScheduleContext	sctx
 	)
 {
 	u_int32_t	i, k, j = 0;
-	IPFNum64	U, V, tmp; 
+	BWLNum64	U, V, tmp; 
 
 	/*
 	 * S1. [Get U and shift.] Generate a (t+1)-bit
 	 */
 	/* Get U and shift */
-	U = IPFUnifRand64(sctx);
+	U = BWLUnifRand64(sctx);
 
 	/*
 	 * shift until bit 31 is 0 (bits 31-0 are the 32 Low-Order bits
@@ -209,12 +209,12 @@ IPFRand64Exponent(
 	 * S2. Immediate acceptance?
 	 */
 	if (U < LN2){
-		/* j is NOT an IPFNum64 so direct  multiplication of j*LN2
+		/* j is NOT an BWLNum64 so direct  multiplication of j*LN2
 		 * here is correct. Alternatively we could:
-		 * 	return IPFNum64Add(IPFNum64Mult(
-		 * 				IPFULongToNum64(j),LN2),U);
+		 * 	return BWLNum64Add(BWLNum64Mult(
+		 * 				BWLULongToNum64(j),LN2),U);
 		 */
-		return IPFNum64Add((j*LN2),U);
+		return BWLNum64Add((j*LN2),U);
 	}
 
 	/*
@@ -227,9 +227,9 @@ IPFRand64Exponent(
 		}
 	}
 
-	V = IPFUnifRand64(sctx);
+	V = BWLUnifRand64(sctx);
 	for(i = 2;i <= k; i++){
-		tmp = IPFUnifRand64(sctx);
+		tmp = BWLUnifRand64(sctx);
 		if (tmp < V){
 			V = tmp;
 		}
@@ -239,12 +239,12 @@ IPFRand64Exponent(
 	 * S4.
 	 */
 	/* Return (j+V)*ln2 */
-	return IPFNum64Mult(IPFNum64Add(IPFULongToNum64(j),V),
+	return BWLNum64Mult(BWLNum64Add(BWLULongToNum64(j),V),
 							LN2);
 }
 
 /*
- * Function:	IPFScheduleContextFree
+ * Function:	BWLScheduleContextFree
  *
  * Description:	
  * 	Free a Schedule context.
@@ -258,15 +258,15 @@ IPFRand64Exponent(
  * Side Effect:	
  */
 void
-IPFScheduleContextFree(
-	IPFScheduleContext	sctx
+BWLScheduleContextFree(
+	BWLScheduleContext	sctx
 	)
 {
 	free(sctx);
 }
 
 /*
- * Function:	IPFScheduleContextCreate
+ * Function:	BWLScheduleContextCreate
  *
  * Description:	
  *	Seed the random number generator using a 16-byte string.
@@ -274,7 +274,7 @@ IPFScheduleContextFree(
  *
  * 	NOTE: This function does NOT copy the slots parameter of the
  * 	TestSpec - instead just referencing the one passed into it. Therefore,
- * 	the IPFScheduleContext should be free'd before free'ing the memory
+ * 	the BWLScheduleContext should be free'd before free'ing the memory
  * 	associated with the slots!
  *
  * In Args:	
@@ -285,18 +285,18 @@ IPFScheduleContextFree(
  * Returns:	
  * Side Effect:	
  */
-IPFScheduleContext
-IPFScheduleContextCreate(
-	IPFContext	ctx,
+BWLScheduleContext
+BWLScheduleContextCreate(
+	BWLContext	ctx,
 	u_int8_t	seed[16],
 	u_int32_t	mean
 	)
 {
-	IPFScheduleContext	sctx;
+	BWLScheduleContext	sctx;
 
 	sctx = malloc(sizeof(*sctx));
 	if (!sctx){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"malloc(): %M");
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"malloc(): %M");
 		return NULL;
 	}
 
@@ -318,7 +318,7 @@ IPFScheduleContextCreate(
 }
 
 /*
- * Function:	IPFScheduleContextReset
+ * Function:	BWLScheduleContextReset
  *
  * Description:	
  * 	This function resets the sctx so the Delta generation can be
@@ -334,9 +334,9 @@ IPFScheduleContextCreate(
  * Returns:	
  * Side Effect:	
  */
-IPFErrSeverity
-IPFScheduleContextReset(
-	IPFScheduleContext	sctx,
+BWLErrSeverity
+BWLScheduleContextReset(
+	BWLScheduleContext	sctx,
 	u_int8_t		seed[16],
 	u_int32_t		mean
 		)
@@ -356,11 +356,11 @@ IPFScheduleContextReset(
 
 	}
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
 /*
- * Function:	IPFScheduleContextGenerateNextDelta
+ * Function:	BWLScheduleContextGenerateNextDelta
  *
  * Description:	
  * 	Fetch the next time offset.
@@ -373,11 +373,11 @@ IPFScheduleContextReset(
  * Returns:	
  * Side Effect:	
  */
-IPFNum64
-IPFScheduleContextGenerateNextDelta(
-		IPFScheduleContext	sctx
+BWLNum64
+BWLScheduleContextGenerateNextDelta(
+		BWLScheduleContext	sctx
 		)
 {
-	return IPFNum64Mult(IPFRand64Exponent(sctx),
-			IPFULongToNum64(sctx->mean));
+	return BWLNum64Mult(BWLRand64Exponent(sctx),
+			BWLULongToNum64(sctx->mean));
 }

@@ -16,7 +16,7 @@
 **	Date:		Tue Sep 16 14:26:45 MDT 2003
 **
 **	Description:	This file contains the private functions that
-**			speak the ipcntrl protocol directly.
+**			speak the bwlib protocol directly.
 **			(i.e. read and write the data and save it
 **			to structures for the rest of the api to deal
 **			with.)
@@ -38,7 +38,7 @@
 
 #include <I2util/util.h>
 
-#include <ipcntrlP.h>
+#include <bwlibP.h>
 
 /*
  * 	ServerGreeting message format:
@@ -61,9 +61,9 @@
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-IPFErrSeverity
-_IPFWriteServerGreeting(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLWriteServerGreeting(
+	BWLControl	cntrl,
 	u_int32_t	avail_modes,
 	u_int8_t	*challenge,	/* [16] */
 	int		*retn_on_err
@@ -76,10 +76,10 @@ _IPFWriteServerGreeting(
 	 */
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIsInitial(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteServerGreeting:called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIsInitial(cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLWriteServerGreeting:called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	/*
@@ -90,41 +90,41 @@ _IPFWriteServerGreeting(
 	*((u_int32_t *)&buf[12]) = htonl(avail_modes);
 	memcpy(&buf[16],challenge,16);
 	if(I2Writeni(cntrl->sockfd,buf,32,retn_on_err) != 32){
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 	}
 
-	cntrl->state = _IPFStateSetup;
+	cntrl->state = _BWLStateSetup;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-_IPFReadServerGreeting(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLReadServerGreeting(
+	BWLControl	cntrl,
 	u_int32_t	*mode,		/* modes available - returned	*/
 	u_int8_t	*challenge	/* [16] : challenge - returned	*/
 )
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIsInitial(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadServerGreeting:called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIsInitial(cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadServerGreeting:called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	if(I2Readn(cntrl->sockfd,buf,32) != 32){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"Read failed:(%s)",strerror(errno));
-		return (int)IPFErrFATAL;
+		return (int)BWLErrFATAL;
 	}
 
 	*mode = ntohl(*((u_int32_t *)&buf[12]));
 	memcpy(challenge,&buf[16],16);
 
-	cntrl->state = _IPFStateSetup;
+	cntrl->state = _BWLStateSetup;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
 /*
@@ -160,23 +160,23 @@ _IPFReadServerGreeting(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-IPFErrSeverity
-_IPFWriteClientGreeting(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLWriteClientGreeting(
+	BWLControl	cntrl,
 	u_int8_t	*token	/* [32]	*/
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIsSetup(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteClientGreeting:called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIsSetup(cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLWriteClientGreeting:called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	*(u_int32_t *)&buf[0] = htonl(cntrl->mode);
 
-	if(cntrl->mode & IPF_MODE_DOCIPHER){
+	if(cntrl->mode & BWL_MODE_DOCIPHER){
 		memcpy(&buf[4],cntrl->userid,16);
 		memcpy(&buf[20],token,32);
 		memcpy(&buf[52],cntrl->writeIV,16);
@@ -185,14 +185,14 @@ _IPFWriteClientGreeting(
 	}
 
 	if(I2Writen(cntrl->sockfd, buf, 68) != 68)
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-_IPFReadClientGreeting(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLReadClientGreeting(
+	BWLControl	cntrl,
 	u_int32_t	*mode,
 	u_int8_t	*token,		/* [32] - return	*/
 	u_int8_t	*clientIV,	/* [16] - return	*/
@@ -202,24 +202,24 @@ _IPFReadClientGreeting(
 	ssize_t		len;
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIsSetup(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadClientGreeting: called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIsSetup(cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadClientGreeting: called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	if((len = I2Readni(cntrl->sockfd,buf,68,retn_on_intr)) != 68){
 		if((len < 0) && *retn_on_intr && (errno == EINTR)){
-			return IPFErrFATAL;
+			return BWLErrFATAL;
 		}
 		/*
 		 * if len == 0 - this is just a socket close, no error
 		 * should be printed.
 		 */
 		if(len != 0){
-			IPFError(cntrl->ctx,IPFErrFATAL,errno,"I2Readni(): %M");
+			BWLError(cntrl->ctx,BWLErrFATAL,errno,"I2Readni(): %M");
 		}
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 	}
 
 	*mode = ntohl(*(u_int32_t *)&buf[0]);
@@ -227,28 +227,28 @@ _IPFReadClientGreeting(
 	memcpy(token,&buf[20],32);
 	memcpy(clientIV,&buf[52],16);
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-static IPFAcceptType
+static BWLAcceptType
 GetAcceptType(
-	IPFControl	cntrl,
+	BWLControl	cntrl,
 	u_int8_t	val
 	)
 {
 	switch(val){
-		case IPF_CNTRL_ACCEPT:
-			return IPF_CNTRL_ACCEPT;
-		case IPF_CNTRL_REJECT:
-			return IPF_CNTRL_REJECT;
-		case IPF_CNTRL_FAILURE:
-			return IPF_CNTRL_FAILURE;
-		case IPF_CNTRL_UNSUPPORTED:
-			return IPF_CNTRL_UNSUPPORTED;
+		case BWL_CNTRL_ACCEPT:
+			return BWL_CNTRL_ACCEPT;
+		case BWL_CNTRL_REJECT:
+			return BWL_CNTRL_REJECT;
+		case BWL_CNTRL_FAILURE:
+			return BWL_CNTRL_FAILURE;
+		case BWL_CNTRL_UNSUPPORTED:
+			return BWL_CNTRL_UNSUPPORTED;
 		default:
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 					"GetAcceptType:Invalid val %u",val);
-			return IPF_CNTRL_INVALID;
+			return BWL_CNTRL_INVALID;
 	}
 }
 
@@ -279,24 +279,24 @@ GetAcceptType(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-IPFErrSeverity
-_IPFWriteServerOK(
-	IPFControl	cntrl,
-	IPFAcceptType	code,
-	IPFNum64	uptime,
+BWLErrSeverity
+_BWLWriteServerOK(
+	BWLControl	cntrl,
+	BWLAcceptType	code,
+	BWLNum64	uptime,
 	int		*retn_on_intr
 	)
 {
 	ssize_t		len;
-	IPFTimeStamp	tstamp;
+	BWLTimeStamp	tstamp;
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 	int		ival=0;
 	int		*intr=&ival;
 
-	if(!_IPFStateIsSetup(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteServerOK:called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIsSetup(cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLWriteServerOK:called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	if(retn_on_intr){
@@ -308,121 +308,121 @@ _IPFWriteServerOK(
 	memcpy(&buf[16],cntrl->writeIV,16);
 	if((len = I2Writeni(cntrl->sockfd,buf,32,intr)) != 32){
 		if((len < 0) && *intr && (errno == EINTR)){
-			return IPFErrFATAL;
+			return BWLErrFATAL;
 		}
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 	}
 
-	if(code == IPF_CNTRL_ACCEPT){
+	if(code == BWL_CNTRL_ACCEPT){
 		/*
 		 * Uptime should be encrypted if encr/auth mode so use Block
 		 * func.
 		 */
-		tstamp.ipftime = uptime;
-		_IPFEncodeTimeStamp(&buf[0],&tstamp);
+		tstamp.tstamp = uptime;
+		_BWLEncodeTimeStamp(&buf[0],&tstamp);
 		memset(&buf[8],0,8);
-		if(_IPFSendBlocksIntr(cntrl,buf,1,intr) != 1){
+		if(_BWLSendBlocksIntr(cntrl,buf,1,intr) != 1){
 			if((len < 0) && *intr && (errno == EINTR)){
-				return IPFErrFATAL;
+				return BWLErrFATAL;
 			}
-			return IPFErrFATAL;
+			return BWLErrFATAL;
 		}
-		cntrl->state = _IPFStateRequest;
+		cntrl->state = _BWLStateRequest;
 	}
 	else{
-		cntrl->state = _IPFStateInvalid;
+		cntrl->state = _BWLStateInvalid;
 		memset(&buf[0],0,16);
 		if((len = I2Writeni(cntrl->sockfd,buf,16,intr)) != 16){
 			if((len < 0) && *intr && (errno == EINTR)){
-				return IPFErrFATAL;
+				return BWLErrFATAL;
 			}
-			return IPFErrFATAL;
+			return BWLErrFATAL;
 		}
 	}
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-_IPFReadServerOK(
-	IPFControl	cntrl,
-	IPFAcceptType	*acceptval	/* ret	*/
+BWLErrSeverity
+_BWLReadServerOK(
+	BWLControl	cntrl,
+	BWLAcceptType	*acceptval	/* ret	*/
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIsSetup(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadServerOK:called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIsSetup(cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadServerOK:called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	if(I2Readn(cntrl->sockfd,buf,32) != 32){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"Read failed:(%s)",strerror(errno));
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	*acceptval = GetAcceptType(cntrl,buf[15]);
-	if(*acceptval == IPF_CNTRL_INVALID){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(*acceptval == BWL_CNTRL_INVALID){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	memcpy(cntrl->readIV,&buf[16],16);
 
-	cntrl->state = _IPFStateUptime;
+	cntrl->state = _BWLStateUptime;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-_IPFReadServerUptime(
-	IPFControl	cntrl,
-	IPFNum64	*uptime	/* ret	*/
+BWLErrSeverity
+_BWLReadServerUptime(
+	BWLControl	cntrl,
+	BWLNum64	*uptime	/* ret	*/
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	IPFTimeStamp	tstamp;
+	BWLTimeStamp	tstamp;
 
-	if(!_IPFStateIs(_IPFStateUptime,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadServerUptime: called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateUptime,cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadServerUptime: called in wrong state.");
+		return BWLErrFATAL;
 	}
 
-	if(_IPFReceiveBlocks(cntrl,buf,1) != 1){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadServerUptime: Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLReceiveBlocks(cntrl,buf,1) != 1){
+		BWLError(cntrl->ctx,BWLErrFATAL,errno,
+			"_BWLReadServerUptime: Unable to read from socket.");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	if(memcmp(&buf[8],cntrl->zero,8)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadServerUptime: Invalid zero padding");
-		return IPFErrFATAL;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadServerUptime: Invalid zero padding");
+		return BWLErrFATAL;
 	}
 
-	_IPFDecodeTimeStamp(&tstamp,&buf[0]);
-	*uptime = tstamp.ipftime;
+	_BWLDecodeTimeStamp(&tstamp,&buf[0]);
+	*uptime = tstamp.tstamp;
 
-	cntrl->state = _IPFStateRequest;
+	cntrl->state = _BWLStateRequest;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
 /*
  * This function is called on the server side to read the first block
  * of client requests. The remaining read request messages MUST be called
  * next!.
- * It is also called by the client side from IPFStopSessionWait and
- * IPFStopSession
+ * It is also called by the client side from BWLStopSessionWait and
+ * BWLStopSession
  */
-IPFRequestType
-IPFReadRequestType(
-	IPFControl	cntrl,
+BWLRequestType
+BWLReadRequestType(
+	BWLControl	cntrl,
 	int		*retn_on_intr
 	)
 {
@@ -435,20 +435,20 @@ IPFReadRequestType(
 		intr = retn_on_intr;
 	}
 
-	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsReading(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFReadRequestType:called in wrong state.");
-		return IPFReqInvalid;
+	if(!_BWLStateIsRequest(cntrl) || _BWLStateIsReading(cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLReadRequestType:called in wrong state.");
+		return BWLReqInvalid;
 	}
 
 	/* Read one block so we can peek at the message type */
-	n = _IPFReceiveBlocksIntr(cntrl,(u_int8_t*)cntrl->msg,1,intr);
+	n = _BWLReceiveBlocksIntr(cntrl,(u_int8_t*)cntrl->msg,1,intr);
 	if(n != 1){
-		cntrl->state = _IPFStateInvalid;
+		cntrl->state = _BWLStateInvalid;
 		if((n < 0) && *intr && (errno == EINTR)){
-			return IPFReqInvalid;
+			return BWLReqInvalid;
 		}
-		return IPFReqSockClose;
+		return BWLReqSockClose;
 	}
 
 	msgtype = *(u_int8_t*)cntrl->msg;
@@ -457,12 +457,12 @@ IPFReadRequestType(
 	 * StopSession(3) message is only allowed during active tests,
 	 * and it is the only message allowed during active tests.
 	 */
-	if((_IPFStateIs(_IPFStateTest,cntrl) && (msgtype != 3)) ||
-			(!_IPFStateIs(_IPFStateTest,cntrl) && (msgtype == 3))){
-		cntrl->state = _IPFStateInvalid;
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"IPFReadRequestType: Invalid request.");
-		return IPFReqInvalid;
+	if((_BWLStateIs(_BWLStateTest,cntrl) && (msgtype != 3)) ||
+			(!_BWLStateIs(_BWLStateTest,cntrl) && (msgtype == 3))){
+		cntrl->state = _BWLStateInvalid;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"BWLReadRequestType: Invalid request.");
+		return BWLReqInvalid;
 	}
 
 	switch(msgtype){
@@ -470,25 +470,25 @@ IPFReadRequestType(
 		 * TestRequest
 		 */
 		case	1:
-			cntrl->state |= _IPFStateTestRequest;
+			cntrl->state |= _BWLStateTestRequest;
 			break;
 		case	2:
-			cntrl->state |= _IPFStateStartSession;
+			cntrl->state |= _BWLStateStartSession;
 			break;
 		case	3:
-			cntrl->state |= _IPFStateStopSession;
+			cntrl->state |= _BWLStateStopSession;
 			break;
 		case	4:
-			cntrl->state |= _IPFStateTimeRequest;
+			cntrl->state |= _BWLStateTimeRequest;
 			break;
 		default:
-			cntrl->state = _IPFStateInvalid;
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFReadRequestType: Unknown msg:%d",msgtype);
-			return IPFReqInvalid;
+			cntrl->state = _BWLStateInvalid;
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLReadRequestType: Unknown msg:%d",msgtype);
+			return BWLReqInvalid;
 	}
 
-	return (IPFRequestType)msgtype;
+	return (BWLRequestType)msgtype;
 }
 
 /*
@@ -512,35 +512,35 @@ IPFReadRequestType(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-IPFErrSeverity
-_IPFWriteTimeRequest(
-	IPFControl	cntrl
+BWLErrSeverity
+_BWLWriteTimeRequest(
+	BWLControl	cntrl
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsPending(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFWriteTimeRequest: called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIsRequest(cntrl) || _BWLStateIsPending(cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLWriteTimeRequest: called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	buf[0] = 4;	/* Request-Time message # */
 	memset(&buf[1],0,31);
 
-	if(_IPFSendBlocks(cntrl,buf,2) != 2){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLSendBlocks(cntrl,buf,2) != 2){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
-	cntrl->state |= _IPFStateTimeResponse;
+	cntrl->state |= _BWLStateTimeResponse;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-_IPFReadTimeRequest(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLReadTimeRequest(
+	BWLControl	cntrl,
 	int		*retn_on_intr
 	)
 {
@@ -548,10 +548,10 @@ _IPFReadTimeRequest(
 	int		ival=0;
 	int		*intr=&ival;
 
-	if(!_IPFStateIs(_IPFStateTimeRequest,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTimeRequest: called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateTimeRequest,cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadTimeRequest: called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	if(retn_on_intr){
@@ -562,27 +562,27 @@ _IPFReadTimeRequest(
 	 * Already read the first block - read the rest for this message
 	 * type.
 	 */
-	if(_IPFReceiveBlocksIntr(cntrl,&buf[16],1,intr) != 1){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-		"_IPFReadTimeRequest: Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLReceiveBlocksIntr(cntrl,&buf[16],1,intr) != 1){
+		BWLError(cntrl->ctx,BWLErrFATAL,errno,
+		"_BWLReadTimeRequest: Unable to read from socket.");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * Check integrity bits.
 	 */
 	if(memcmp(cntrl->zero,&buf[16],16) != 0){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTimeRequest: Invalid MBZ bits");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadTimeRequest: Invalid MBZ bits");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
-	cntrl->state &= ~_IPFStateTimeRequest;
-	cntrl->state |= _IPFStateTimeResponse;
+	cntrl->state &= ~_BWLStateTimeRequest;
+	cntrl->state |= _BWLStateTimeResponse;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
 /*
@@ -607,10 +607,10 @@ _IPFReadTimeRequest(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-IPFErrSeverity
-_IPFWriteTimeResponse(
-	IPFControl	cntrl,
-	IPFTimeStamp	*tstamp,
+BWLErrSeverity
+_BWLWriteTimeResponse(
+	BWLControl	cntrl,
+	BWLTimeStamp	*tstamp,
 	int		*ret_on_intr
 	)
 {
@@ -618,10 +618,10 @@ _IPFWriteTimeResponse(
 	int		ival=0;
 	int		*intr=&ival;
 
-	if(!_IPFStateIs(_IPFStateTimeResponse,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteTimeResponse: called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateTimeResponse,cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLWriteTimeResponse: called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	if(ret_on_intr)
@@ -635,79 +635,79 @@ _IPFWriteTimeResponse(
 	/*
 	 * Encode time and time  error estimate
 	 */
-	_IPFEncodeTimeStamp(&buf[0],tstamp);
-	if(!_IPFEncodeTimeStampErrEstimate(&buf[8],tstamp)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+	_BWLEncodeTimeStamp(&buf[0],tstamp);
+	if(!_BWLEncodeTimeStampErrEstimate(&buf[8],tstamp)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 						"Invalid Timestamp Error");
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * Send the TimeResponse message
 	 */
-	if(_IPFSendBlocksIntr(cntrl,buf,2,intr) != 2){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLSendBlocksIntr(cntrl,buf,2,intr) != 2){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
-	cntrl->state &= ~_IPFStateTimeResponse;
+	cntrl->state &= ~_BWLStateTimeResponse;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
-IPFErrSeverity
-_IPFReadTimeResponse(
-	IPFControl	cntrl,
-	IPFTimeStamp	*tstamp
+BWLErrSeverity
+_BWLReadTimeResponse(
+	BWLControl	cntrl,
+	BWLTimeStamp	*tstamp
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIs(_IPFStateTimeResponse,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTimeResponse: called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateTimeResponse,cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadTimeResponse: called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * Already read the first block - read the rest for this message
 	 * type.
 	 */
-	if(_IPFReceiveBlocks(cntrl,&buf[0],2) != 2){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadTimeResponse: Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLReceiveBlocks(cntrl,&buf[0],2) != 2){
+		BWLError(cntrl->ctx,BWLErrFATAL,errno,
+			"_BWLReadTimeResponse: Unable to read from socket.");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * Check integrity bits.
 	 */
 	if(memcmp(cntrl->zero,&buf[16],16) != 0){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTimeRequest: Invalid MBZ bits");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadTimeRequest: Invalid MBZ bits");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * Decode time and time error estimate
 	 */
-	_IPFDecodeTimeStamp(tstamp,&buf[0]);
-	if(!_IPFDecodeTimeStampErrEstimate(tstamp,&buf[8])){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	_BWLDecodeTimeStamp(tstamp,&buf[0]);
+	if(!_BWLDecodeTimeStampErrEstimate(tstamp,&buf[8])){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
-	cntrl->state &= ~_IPFStateTimeResponse;
+	cntrl->state &= ~_BWLStateTimeResponse;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
 /*
  * Function:	AddrBySAddrRef
  *
  * Description:	
- * 	Construct an IPFAddr record given a sockaddr struct.
+ * 	Construct an BWLAddr record given a sockaddr struct.
  *
  * In Args:	
  *
@@ -717,38 +717,38 @@ _IPFReadTimeResponse(
  * Returns:	
  * Side Effect:	
  */
-static IPFAddr
+static BWLAddr
 AddrBySAddrRef(
-	IPFContext	ctx,
+	BWLContext	ctx,
 	struct sockaddr	*saddr,
 	socklen_t	saddrlen,
 	int		socktype
 	)
 {
-	IPFAddr		addr;
+	BWLAddr		addr;
 	struct addrinfo	*ai=NULL;
 	int		gai;
 
 	if(!saddr){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
 				"AddrBySAddrRef:Invalid saddr");
 		return NULL;
 	}
 
-	if(!(addr = _IPFAddrAlloc(ctx)))
+	if(!(addr = _BWLAddrAlloc(ctx)))
 		return NULL;
 
 	if(!(ai = malloc(sizeof(struct addrinfo)))){
-		IPFError(addr->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(addr->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"malloc():%s",strerror(errno));
-		(void)IPFAddrFree(addr);
+		(void)BWLAddrFree(addr);
 		return NULL;
 	}
 
 	if(!(addr->saddr = malloc(saddrlen))){
-		IPFError(addr->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(addr->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"malloc():%s",strerror(errno));
-		(void)IPFAddrFree(addr);
+		(void)BWLAddrFree(addr);
 		(void)free(ai);
 		return NULL;
 	}
@@ -773,7 +773,7 @@ AddrBySAddrRef(
 				addr->node,sizeof(addr->node),
 				addr->port,sizeof(addr->port),
 				NI_NUMERICHOST | NI_NUMERICSERV)) != 0){
-		IPFError(addr->ctx,IPFErrWARNING,IPFErrUNKNOWN,
+		BWLError(addr->ctx,BWLErrWARNING,BWLErrUNKNOWN,
 				"getnameinfo(): %s",gai_strerror(gai));
 		strncpy(addr->node,"unknown",sizeof(addr->node));
 		strncpy(addr->port,"unknown",sizeof(addr->port));
@@ -837,26 +837,26 @@ AddrBySAddrRef(
  *     108|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
-IPFErrSeverity
-_IPFWriteTestRequest(
-	IPFControl	cntrl,
-	IPFTestSession	tsession
+BWLErrSeverity
+_BWLWriteTestRequest(
+	BWLControl	cntrl,
+	BWLTestSession	tsession
 )
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	IPFTestSpec	*tspec = &tsession->test_spec;
-	IPFTimeStamp	tstamp;
-	IPFAddr		sender;
-	IPFAddr		receiver;
+	BWLTestSpec	*tspec = &tsession->test_spec;
+	BWLTimeStamp	tstamp;
+	BWLAddr		sender;
+	BWLAddr		receiver;
 	u_int8_t	version;
 
 	/*
 	 * Ensure cntrl is in correct state.
 	 */
-	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsPending(cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteTestRequest:called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIsRequest(cntrl) || _BWLStateIsPending(cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLWriteTestRequest:called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	/*
@@ -866,9 +866,9 @@ _IPFWriteTestRequest(
 	receiver = tspec->receiver;
 
 	if(sender->saddr->sa_family != receiver->saddr->sa_family){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Address Family mismatch");
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 	}
 
 	/*
@@ -885,9 +885,9 @@ _IPFWriteTestRequest(
 			break;
 #endif
 		default:
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid IP Address Family");
-			return IPFErrFATAL;
+			return BWLErrFATAL;
 	}
 
 	/*
@@ -907,13 +907,13 @@ _IPFWriteTestRequest(
 	 * slots and npackets... convert to network byte order.
 	 */
 	*(u_int32_t*)&buf[4] = htonl(tspec->duration);
-	_IPFEncodeTimeStamp(&buf[8],&tspec->req_time);
-	tstamp.ipftime = tspec->latest_time;
-	_IPFEncodeTimeStamp(&buf[16],&tstamp);
-	if(!_IPFEncodeTimeStampErrEstimate(&buf[24],&tspec->req_time)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+	_BWLEncodeTimeStamp(&buf[8],&tspec->req_time);
+	tstamp.tstamp = tspec->latest_time;
+	_BWLEncodeTimeStamp(&buf[16],&tstamp);
+	if(!_BWLEncodeTimeStampErrEstimate(&buf[24],&tspec->req_time)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid req_time time errest");
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 	}
 	*(u_int16_t*)&buf[26] = htons(tsession->recv_port);
 
@@ -964,18 +964,18 @@ _IPFWriteTestRequest(
 	/*
 	 * Now - send the request! 112 octets == 7 blocks.
 	 */
-	if(_IPFSendBlocks(cntrl,buf,7) != 7){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLSendBlocks(cntrl,buf,7) != 7){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
-	cntrl->state |= _IPFStateTestAccept;
+	cntrl->state |= _BWLStateTestAccept;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
 /*
- * Function:	_IPFReadTestRequest
+ * Function:	_BWLReadTestRequest
  *
  * Description:	
  * 	This function reads a test request off the wire and encodes
@@ -983,8 +983,8 @@ _IPFWriteTestRequest(
  *
  * 	The acceptval pointer will be non-null and will return a value.
  * 	(i.e. if there is a memory allocation error, it will be set to
- * 	IPF_CNTRL_FAILURE. If there is invalid data in the TestRequest
- * 	it will be set to IPF_CNTRL_REJECT.)
+ * 	BWL_CNTRL_FAILURE. If there is invalid data in the TestRequest
+ * 	it will be set to BWL_CNTRL_REJECT.)
  *
  * In Args:	
  *
@@ -994,36 +994,36 @@ _IPFWriteTestRequest(
  * Returns:	
  * Side Effect:	
  */
-IPFErrSeverity
-_IPFReadTestRequest(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLReadTestRequest(
+	BWLControl	cntrl,
 	int		*retn_on_intr,
-	IPFTestSession	*test_session,
-	IPFAcceptType	*accept_ret
+	BWLTestSession	*test_session,
+	BWLAcceptType	*accept_ret
 )
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	IPFTimeStamp	tstamp;
-	IPFErrSeverity	err_ret=IPFErrFATAL;
+	BWLTimeStamp	tstamp;
+	BWLErrSeverity	err_ret=BWLErrFATAL;
 	struct sockaddr_storage	sendaddr_rec;
 	struct sockaddr_storage	recvaddr_rec;
 	socklen_t	addrlen = sizeof(sendaddr_rec);
-	IPFAddr		SendAddr=NULL;
-	IPFAddr		RecvAddr=NULL;
+	BWLAddr		SendAddr=NULL;
+	BWLAddr		RecvAddr=NULL;
 	u_int8_t	ipvn;
-	IPFSID		sid;
-	IPFTestSpec	tspec;
-	IPFTestSession	tsession;
+	BWLSID		sid;
+	BWLTestSpec	tspec;
+	BWLTestSession	tsession;
 	int		ival=0;
 	int		*intr=&ival;
 	u_int16_t	recv_port;
-	IPFBoolean	conf_sender;
-	IPFBoolean	conf_receiver;
+	BWLBoolean	conf_sender;
+	BWLBoolean	conf_receiver;
 
-	if(!_IPFStateIs(_IPFStateTestRequest,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTestRequest: called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateTestRequest,cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadTestRequest: called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	memset(&sendaddr_rec,0,addrlen);
@@ -1033,9 +1033,9 @@ _IPFReadTestRequest(
 
 
 	/*
-	 * Initialize IPFAcceptType
+	 * Initialize BWLAcceptType
 	 */
-	*accept_ret = IPF_CNTRL_INVALID;
+	*accept_ret = BWL_CNTRL_INVALID;
 
 	/*
 	 * If caller wants to participate in interrupts, use the passed in addr.
@@ -1048,17 +1048,17 @@ _IPFReadTestRequest(
 	 * Already read the first block - read the rest for this message
 	 * type.
 	 */
-	if(_IPFReceiveBlocksIntr(cntrl,&buf[16],_IPF_TEST_REQUEST_BLK_LEN-1,
-				intr) != (_IPF_TEST_REQUEST_BLK_LEN-1)){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-		"_IPFReadTestRequest: Unable to read from socket.");
+	if(_BWLReceiveBlocksIntr(cntrl,&buf[16],_BWL_TEST_REQUEST_BLK_LEN-1,
+				intr) != (_BWL_TEST_REQUEST_BLK_LEN-1)){
+		BWLError(cntrl->ctx,BWLErrFATAL,errno,
+		"_BWLReadTestRequest: Unable to read from socket.");
 		goto error;
 	}
 
 
-	if(memcmp(cntrl->zero,&buf[96],_IPF_RIJNDAEL_BLOCK_SIZE)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadTestRequest: Invalid zero padding");
+	if(memcmp(cntrl->zero,&buf[96],_BWL_RIJNDAEL_BLOCK_SIZE)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadTestRequest: Invalid zero padding");
 		goto error;
 	}
 
@@ -1066,14 +1066,14 @@ _IPFReadTestRequest(
 	 * Decode the parameters that are used for initial request AND
 	 * for reservation update.
 	 */
-	_IPFDecodeTimeStamp(&tspec.req_time,&buf[8]);
-	if(!_IPFDecodeTimeStampErrEstimate(&tspec.req_time,&buf[24])){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadTestRequest: Invalid time errest");
+	_BWLDecodeTimeStamp(&tspec.req_time,&buf[8]);
+	if(!_BWLDecodeTimeStampErrEstimate(&tspec.req_time,&buf[24])){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadTestRequest: Invalid time errest");
 		goto error;
 	}
-	_IPFDecodeTimeStamp(&tstamp,&buf[16]);
-	tspec.latest_time = tstamp.ipftime;
+	_BWLDecodeTimeStamp(&tstamp,&buf[16]);
+	tspec.latest_time = tstamp.tstamp;
 	recv_port = ntohs(*(u_int16_t*)&buf[26]);
 
 	/*
@@ -1084,8 +1084,8 @@ _IPFReadTestRequest(
 	if(*test_session){
 		tsession = *test_session;
 		if(memcmp(sid,tsession->sid,sizeof(sid)) != 0){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadTestRequest: sid mismatch");
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadTestRequest: sid mismatch");
 			goto error;
 		}
 		tsession->test_spec.req_time = tspec.req_time;
@@ -1126,8 +1126,8 @@ _IPFReadTestRequest(
 		}
 
 		if(conf_sender == conf_receiver){
-			IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadTestRequest: Invalid req(send/recv?)");
+			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadTestRequest: Invalid req(send/recv?)");
 			goto error;
 		}
 
@@ -1137,8 +1137,8 @@ _IPFReadTestRequest(
 		struct sockaddr_in6	*saddr6;
 			case 6:
 				if(addrlen < sizeof(struct sockaddr_in6)){
-					IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-		"_IPFReadTestRequest: socklen not large enough (%d < %d)",
+					BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+		"_BWLReadTestRequest: socklen not large enough (%d < %d)",
 						addrlen,
 						sizeof(struct sockaddr_in6));
 					goto error;
@@ -1161,9 +1161,9 @@ _IPFReadTestRequest(
 #endif
 			case 4:
 				if(addrlen < sizeof(struct sockaddr_in)){
-					IPFError(cntrl->ctx,IPFErrFATAL,
-						IPFErrINVALID,
-		"_IPFReadTestRequest: socklen not large enough (%d < %d)",
+					BWLError(cntrl->ctx,BWLErrFATAL,
+						BWLErrINVALID,
+		"_BWLReadTestRequest: socklen not large enough (%d < %d)",
 						addrlen,
 						sizeof(struct sockaddr_in));
 					goto error;
@@ -1184,8 +1184,8 @@ _IPFReadTestRequest(
 
 				break;
 			default:
-				IPFError(cntrl->ctx,IPFErrWARNING,IPFErrINVALID,
-			"_IPFReadTestRequest: Unsupported IP version (%d)",
+				BWLError(cntrl->ctx,BWLErrWARNING,BWLErrINVALID,
+			"_BWLReadTestRequest: Unsupported IP version (%d)",
 									ipvn);
 				goto error;
 		}
@@ -1197,7 +1197,7 @@ _IPFReadTestRequest(
 		/*
 		 * Prepare the address buffers.
 		 * (Don't bother checking for null return - it will be checked
-		 * by _IPFTestSessionAlloc.)
+		 * by _BWLTestSessionAlloc.)
 		 */
 		SendAddr = AddrBySAddrRef(cntrl->ctx,
 				(struct sockaddr*)&sendaddr_rec,addrlen,
@@ -1214,16 +1214,16 @@ _IPFReadTestRequest(
 		/*
 		 * Allocate a record for this test.
 		 */
-		if( !(tsession = _IPFTestSessionAlloc(cntrl,conf_sender,
+		if( !(tsession = _BWLTestSessionAlloc(cntrl,conf_sender,
 					SendAddr,RecvAddr,recv_port,&tspec))){
-			err_ret = IPFErrWARNING;
-			*accept_ret = IPF_CNTRL_FAILURE;
+			err_ret = BWLErrWARNING;
+			*accept_ret = BWL_CNTRL_FAILURE;
 			goto error;
 		}
 
 		/*
 		 * copy sid into tsession - if the sid still needs to be
-		 * generated - it still will be in sapi.c:IPFProcessTestRequest
+		 * generated - it still will be in sapi.c:BWLProcessTestRequest
 		 */
 		memcpy(tsession->sid,&buf[48],16);
 
@@ -1231,23 +1231,23 @@ _IPFReadTestRequest(
 
 
 	*test_session = tsession;
-	*accept_ret = IPF_CNTRL_ACCEPT;
+	*accept_ret = BWL_CNTRL_ACCEPT;
 
-	cntrl->state &= ~_IPFStateTestRequest;
-	cntrl->state |= _IPFStateTestAccept;
+	cntrl->state &= ~_BWLStateTestRequest;
+	cntrl->state |= _BWLStateTestAccept;
 
-	return IPFErrOK;
+	return BWLErrOK;
 
 error:
 	if(tsession){
-		_IPFTestSessionFree(tsession,IPF_CNTRL_FAILURE);
+		_BWLTestSessionFree(tsession,BWL_CNTRL_FAILURE);
 	}else{
-		IPFAddrFree(SendAddr);
-		IPFAddrFree(RecvAddr);
+		BWLAddrFree(SendAddr);
+		BWLAddrFree(RecvAddr);
 	}
 
-	if(err_ret < IPFErrWARNING){
-		cntrl->state = _IPFStateInvalid;
+	if(err_ret < BWLErrWARNING){
+		cntrl->state = _BWLStateInvalid;
 	}
 
 	return err_ret;
@@ -1276,21 +1276,21 @@ error:
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-IPFErrSeverity
-_IPFWriteTestAccept(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLWriteTestAccept(
+	BWLControl	cntrl,
 	int		*intr,
-	IPFAcceptType	acceptval,
-	IPFTestSession	tsession
+	BWLAcceptType	acceptval,
+	BWLTestSession	tsession
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	IPFTimeStamp	tstamp;
+	BWLTimeStamp	tstamp;
 
-	if(!_IPFStateIs(_IPFStateTestAccept,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFWriteTestAccept called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateTestAccept,cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLWriteTestAccept called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	memset(buf,0,32);
@@ -1300,59 +1300,59 @@ _IPFWriteTestAccept(
 		*(u_int16_t *)&buf[2] = htons(tsession->recv_port);
 	}
 	memcpy(&buf[4],tsession->sid,16);
-	tstamp.ipftime = tsession->reserve_time;
-	_IPFEncodeTimeStamp(&buf[20],&tstamp);
+	tstamp.tstamp = tsession->reserve_time;
+	_BWLEncodeTimeStamp(&buf[20],&tstamp);
 
-	if(_IPFSendBlocksIntr(cntrl,buf,2,intr) != 2){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLSendBlocksIntr(cntrl,buf,2,intr) != 2){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
-	cntrl->state &= ~_IPFStateTestAccept;
+	cntrl->state &= ~_BWLStateTestAccept;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-_IPFReadTestAccept(
-	IPFControl	cntrl,
-	IPFAcceptType	*acceptval,
-	IPFTestSession	tsession
+BWLErrSeverity
+_BWLReadTestAccept(
+	BWLControl	cntrl,
+	BWLAcceptType	*acceptval,
+	BWLTestSession	tsession
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	IPFTimeStamp	tstamp;
+	BWLTimeStamp	tstamp;
 
-	if(!_IPFStateIs(_IPFStateTestAccept,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadTestAccept called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateTestAccept,cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadTestAccept called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * Get the servers response.
 	 */
-	if(_IPFReceiveBlocks(cntrl,buf,2) != 2){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadTestAccept:Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLReceiveBlocks(cntrl,buf,2) != 2){
+		BWLError(cntrl->ctx,BWLErrFATAL,errno,
+			"_BWLReadTestAccept:Unable to read from socket.");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * Check zero padding first.
 	 */
 	if(memcmp(&buf[28],cntrl->zero,4)){
-		cntrl->state = _IPFStateInvalid;
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
+		cntrl->state = _BWLStateInvalid;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 				"Invalid Accept-Session message received");
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 	}
 
 	*acceptval = GetAcceptType(cntrl,buf[0]);
-	if(*acceptval == IPF_CNTRL_INVALID){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(*acceptval == BWL_CNTRL_INVALID){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	if(tsession->conf_receiver){
@@ -1360,12 +1360,12 @@ _IPFReadTestAccept(
 		memcpy(tsession->sid,&buf[4],16);
 	}
 
-	_IPFDecodeTimeStamp(&tstamp,&buf[20]);
-	tsession->reserve_time = tstamp.ipftime;
+	_BWLDecodeTimeStamp(&tstamp,&buf[20]);
+	tsession->reserve_time = tstamp.tstamp;
 
-	cntrl->state &= ~_IPFStateTestAccept;
+	cntrl->state &= ~_BWLStateTestAccept;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
 /*
@@ -1390,19 +1390,19 @@ _IPFReadTestAccept(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-IPFErrSeverity
-_IPFWriteStartSession(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLWriteStartSession(
+	BWLControl	cntrl,
 	u_int16_t	dataport
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIsRequest(cntrl) || _IPFStateIsPending(cntrl) ||
+	if(!_BWLStateIsRequest(cntrl) || _BWLStateIsPending(cntrl) ||
 			!cntrl->tests){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFWriteStartSession: called in wrong state.");
-		return IPFErrFATAL;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLWriteStartSession: called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	/* initialize buffer */
@@ -1416,19 +1416,19 @@ _IPFWriteStartSession(
 		*(u_int16_t*)&buf[2] = htons(dataport);
 	}
 
-	if(_IPFSendBlocks(cntrl,buf,2) != 2){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLSendBlocks(cntrl,buf,2) != 2){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
-	cntrl->state |= _IPFStateStartAck;
-	cntrl->state |= _IPFStateTest;
-	return IPFErrOK;
+	cntrl->state |= _BWLStateStartAck;
+	cntrl->state |= _BWLStateTest;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-_IPFReadStartSession(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLReadStartSession(
+	BWLControl	cntrl,
 	u_int16_t	*dataport,
 	int		*retn_on_intr
 )
@@ -1436,42 +1436,42 @@ _IPFReadStartSession(
 	int		n;
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIs(_IPFStateStartSession,cntrl) || !cntrl->tests){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStartSession called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateStartSession,cntrl) || !cntrl->tests){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadStartSession called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * Already read the first block - read the rest for this message
 	 * type.
 	 */
-	n = _IPFReceiveBlocksIntr(cntrl,&buf[16],
-			_IPF_STOP_SESSIONS_BLK_LEN-1,retn_on_intr);
+	n = _BWLReceiveBlocksIntr(cntrl,&buf[16],
+			_BWL_STOP_SESSIONS_BLK_LEN-1,retn_on_intr);
 
 	if((n < 0) && *retn_on_intr && (errno == EINTR)){
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 	}
 
-	if(n != (_IPF_STOP_SESSIONS_BLK_LEN-1)){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadStartSession: Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(n != (_BWL_STOP_SESSIONS_BLK_LEN-1)){
+		BWLError(cntrl->ctx,BWLErrFATAL,errno,
+			"_BWLReadStartSession: Unable to read from socket.");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	if(memcmp(cntrl->zero,&buf[16],16)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadTestRequest: Invalid zero padding");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadTestRequest: Invalid zero padding");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	if(buf[0] != 2){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-			"_IPFReadStartSession: Not a StartSession message...");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+			"_BWLReadStartSession: Not a StartSession message...");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	if(cntrl->tests->conf_sender){
@@ -1480,11 +1480,11 @@ _IPFReadStartSession(
 	/*
 	 * The control connection is now ready to send the response.
 	 */
-	cntrl->state &= ~_IPFStateStartSession;
-	cntrl->state |= _IPFStateStartAck;
-	cntrl->state |= _IPFStateTest;
+	cntrl->state &= ~_BWLStateStartSession;
+	cntrl->state |= _BWLStateStartAck;
+	cntrl->state |= _BWLStateTest;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
 /*
@@ -1509,21 +1509,21 @@ _IPFReadStartSession(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-IPFErrSeverity
-_IPFWriteStartAck(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLWriteStartAck(
+	BWLControl	cntrl,
 	int		*retn_on_intr,
 	u_int16_t	dataport,
-	IPFAcceptType	acceptval
+	BWLAcceptType	acceptval
 	)
 {
 	int		n;
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
 
-	if(!_IPFStateIs(_IPFStateStartAck,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFWriteStartAck called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateStartAck,cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLWriteStartAck called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	memset(&buf[0],0,32);
@@ -1534,67 +1534,67 @@ _IPFWriteStartAck(
 		*(u_int16_t*)&buf[2] = htons(dataport);
 	}
 
-	n = _IPFSendBlocksIntr(cntrl,buf,_IPF_CONTROL_ACK_BLK_LEN,retn_on_intr);
+	n = _BWLSendBlocksIntr(cntrl,buf,_BWL_CONTROL_ACK_BLK_LEN,retn_on_intr);
 
 	if((n < 0) && *retn_on_intr && (errno == EINTR)){
-		return IPFErrFATAL;
+		return BWLErrFATAL;
 	}
 
-	if(n != _IPF_CONTROL_ACK_BLK_LEN){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(n != _BWL_CONTROL_ACK_BLK_LEN){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * StartAck has been sent, leave that state.
 	 */
-	cntrl->state &= ~_IPFStateStartAck;
+	cntrl->state &= ~_BWLStateStartAck;
 
 	/*
 	 * Test was denied - go back to Request state.
 	 */
-	if(_IPFStateIs(_IPFStateTest,cntrl) && (acceptval != IPF_CNTRL_ACCEPT)){
-		cntrl->state &= ~_IPFStateTest;
+	if(_BWLStateIs(_BWLStateTest,cntrl) && (acceptval != BWL_CNTRL_ACCEPT)){
+		cntrl->state &= ~_BWLStateTest;
 	}
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-_IPFReadStartAck(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLReadStartAck(
+	BWLControl	cntrl,
 	u_int16_t	*dataport,
-	IPFAcceptType	*acceptval
+	BWLAcceptType	*acceptval
 )
 {
 	u_int8_t		*buf = (u_int8_t*)cntrl->msg;
 
-	*acceptval = IPF_CNTRL_INVALID;
+	*acceptval = BWL_CNTRL_INVALID;
 
-	if(!_IPFStateIs(_IPFStateStartAck,cntrl)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStartAck called in wrong state.");
-		return IPFErrFATAL;
+	if(!_BWLStateIs(_BWLStateStartAck,cntrl)){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadStartAck called in wrong state.");
+		return BWLErrFATAL;
 	}
 
-	if(_IPFReceiveBlocks(cntrl,&buf[0],_IPF_CONTROL_ACK_BLK_LEN) != 
-					(_IPF_CONTROL_ACK_BLK_LEN)){
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadStartAck: Unable to read from socket.");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(_BWLReceiveBlocks(cntrl,&buf[0],_BWL_CONTROL_ACK_BLK_LEN) != 
+					(_BWL_CONTROL_ACK_BLK_LEN)){
+		BWLError(cntrl->ctx,BWLErrFATAL,errno,
+			"_BWLReadStartAck: Unable to read from socket.");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	if(memcmp(cntrl->zero,&buf[16],16)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStartAck: Invalid zero padding");
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadStartAck: Invalid zero padding");
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 	*acceptval = GetAcceptType(cntrl,buf[0]);
-	if(*acceptval == IPF_CNTRL_INVALID){
-		cntrl->state = _IPFStateInvalid;
-		return IPFErrFATAL;
+	if(*acceptval == BWL_CNTRL_INVALID){
+		cntrl->state = _BWLStateInvalid;
+		return BWLErrFATAL;
 	}
 
 	if(cntrl->tests->conf_receiver){
@@ -1604,16 +1604,16 @@ _IPFReadStartAck(
 	/*
 	 * received StartAck - leave that state.
 	 */
-	cntrl->state &= ~_IPFStateStartAck;
+	cntrl->state &= ~_BWLStateStartAck;
 
 	/* If StartSession was rejected get back into StateRequest */
-	if (_IPFStateIsTest(cntrl) && (*acceptval != IPF_CNTRL_ACCEPT)){
-		cntrl->state &= ~_IPFStateTest;
-		cntrl->state |= _IPFStateRequest;
+	if (_BWLStateIsTest(cntrl) && (*acceptval != BWL_CNTRL_ACCEPT)){
+		cntrl->state &= ~_BWLStateTest;
+		cntrl->state |= _BWLStateRequest;
 	}
 
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
 /*
@@ -1650,11 +1650,11 @@ _IPFReadStartAck(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
-IPFErrSeverity
-_IPFWriteStopSession(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLWriteStopSession(
+	BWLControl	cntrl,
 	int		*retn_on_intr,
-	IPFAcceptType	acceptval,
+	BWLAcceptType	acceptval,
 	FILE		*fp
 	)
 {
@@ -1662,11 +1662,11 @@ _IPFWriteStopSession(
 	struct stat	sbuf;
 	u_int32_t	fsize = 0;
 
-	if(!( _IPFStateIs(_IPFStateRequest,cntrl) &&
-				_IPFStateIs(_IPFStateTest,cntrl))){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFWriteStopSession called in wrong state.");
-		return IPFErrFATAL;
+	if(!( _BWLStateIs(_BWLStateRequest,cntrl) &&
+				_BWLStateIs(_BWLStateTest,cntrl))){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLWriteStopSession called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	memset(&buf[0],0,32);
@@ -1677,7 +1677,7 @@ _IPFWriteStopSession(
 		 * Find out how much data we need to send.
 		 */
 		if(fstat(fileno(fp),&sbuf) || fseeko(fp,0,SEEK_SET)){
-			acceptval = IPF_CNTRL_FAILURE;
+			acceptval = BWL_CNTRL_FAILURE;
 			goto datadone;
 		}
 		fsize = sbuf.st_size;
@@ -1687,9 +1687,9 @@ _IPFWriteStopSession(
 		 */
 		if(sbuf.st_size != (off_t)fsize){
 			fsize = 0;
-			IPFError(cntrl->ctx,IPFErrWARNING,IPFErrUNKNOWN,
-				"_IPFWriteStopSession: Invalid data file");
-			acceptval = IPF_CNTRL_FAILURE;
+			BWLError(cntrl->ctx,BWLErrWARNING,BWLErrUNKNOWN,
+				"_BWLWriteStopSession: Invalid data file");
+			acceptval = BWL_CNTRL_FAILURE;
 			goto datadone;
 		}
 
@@ -1699,92 +1699,92 @@ _IPFWriteStopSession(
 datadone:
 	buf[1] = acceptval & 0xff;
 
-	if(_IPFSendBlocksIntr(cntrl,buf,2,retn_on_intr) != 2){
-		return IPFErrFATAL;
+	if(_BWLSendBlocksIntr(cntrl,buf,2,retn_on_intr) != 2){
+		return BWLErrFATAL;
 	}
 
 	if(!fsize){
-		return IPFErrOK;
+		return BWLErrOK;
 	}
 
 	/*
 	 * Send data with trailing zero block
 	 */
 
-	while(fsize >= _IPF_RIJNDAEL_BLOCK_SIZE){
-		if(fread(buf,1,_IPF_RIJNDAEL_BLOCK_SIZE,fp) !=
-						_IPF_RIJNDAEL_BLOCK_SIZE){
-			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	while(fsize >= _BWL_RIJNDAEL_BLOCK_SIZE){
+		if(fread(buf,1,_BWL_RIJNDAEL_BLOCK_SIZE,fp) !=
+						_BWL_RIJNDAEL_BLOCK_SIZE){
+			return _BWLFailControlSession(cntrl,BWLErrFATAL);
 		}
-		if(_IPFSendBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
-			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		if(_BWLSendBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+			return _BWLFailControlSession(cntrl,BWLErrFATAL);
 		}
-		fsize -= _IPF_RIJNDAEL_BLOCK_SIZE;
+		fsize -= _BWL_RIJNDAEL_BLOCK_SIZE;
 	}
 
 	if(fsize > 0){
-		memset(buf,0,_IPF_RIJNDAEL_BLOCK_SIZE);
+		memset(buf,0,_BWL_RIJNDAEL_BLOCK_SIZE);
 		if(fread(buf,1,fsize,fp) != fsize){
-			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+			return _BWLFailControlSession(cntrl,BWLErrFATAL);
 		}
-		if(_IPFSendBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
-			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		if(_BWLSendBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+			return _BWLFailControlSession(cntrl,BWLErrFATAL);
 		}
 	}
 
-	if(_IPFSendBlocksIntr(cntrl,cntrl->zero,1,retn_on_intr) != 1){
-		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	if(_BWLSendBlocksIntr(cntrl,cntrl->zero,1,retn_on_intr) != 1){
+		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
-	return IPFErrOK;
+	return BWLErrOK;
 }
 
-IPFErrSeverity
-_IPFReadStopSession(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLReadStopSession(
+	BWLControl	cntrl,
 	int		*retn_on_intr,
-	IPFAcceptType	*acceptval,
+	BWLAcceptType	*acceptval,
 	FILE		*fp
 )
 {
 	int		n;
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
-	IPFAcceptType	aval;
+	BWLAcceptType	aval;
 	u_int32_t	fsize;
 
-	if(!(_IPFStateIs(_IPFStateRequest,cntrl) &&
-					_IPFStateIs(_IPFStateTest,cntrl))){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStopSession called in wrong state.");
-		return IPFErrFATAL;
+	if(!(_BWLStateIs(_BWLStateRequest,cntrl) &&
+					_BWLStateIs(_BWLStateTest,cntrl))){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadStopSession called in wrong state.");
+		return BWLErrFATAL;
 	}
 
 	/*
 	 * Already read the first block - read the rest for this message
 	 * type.
 	 */
-	if((n = _IPFReceiveBlocksIntr(cntrl,&buf[16],
-				_IPF_STOP_SESSIONS_BLK_LEN-1,retn_on_intr)) !=
-						(_IPF_STOP_SESSIONS_BLK_LEN-1)){
+	if((n = _BWLReceiveBlocksIntr(cntrl,&buf[16],
+				_BWL_STOP_SESSIONS_BLK_LEN-1,retn_on_intr)) !=
+						(_BWL_STOP_SESSIONS_BLK_LEN-1)){
 		if((n < 0) && *retn_on_intr && (errno == EINTR)){
-			return IPFErrFATAL;
+			return BWLErrFATAL;
 		}
-		IPFError(cntrl->ctx,IPFErrFATAL,errno,
-			"_IPFReadStopSession: Unable to read from socket.");
-		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		BWLError(cntrl->ctx,BWLErrFATAL,errno,
+			"_BWLReadStopSession: Unable to read from socket.");
+		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
 	if(memcmp(cntrl->zero,&buf[16],16)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStopSession: Invalid zero padding");
-		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadStopSession: Invalid zero padding");
+		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 	aval = GetAcceptType(cntrl,buf[1]);
 	if(acceptval)
 		*acceptval = aval;
 
-	if(aval == IPF_CNTRL_INVALID){
-		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	if(aval == BWL_CNTRL_INVALID){
+		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
 	fsize = ntohl(*(u_int32_t*)&buf[8]);
@@ -1796,49 +1796,49 @@ _IPFReadStopSession(
 	/*
 	 * Read test results and write to fp, if not null.
 	 */
-	while(fsize >= _IPF_RIJNDAEL_BLOCK_SIZE){
+	while(fsize >= _BWL_RIJNDAEL_BLOCK_SIZE){
 
-		if(_IPFReceiveBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
-			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		if(_BWLReceiveBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+			return _BWLFailControlSession(cntrl,BWLErrFATAL);
 		}
 
-		if(fp && (fwrite(buf,_IPF_RIJNDAEL_BLOCK_SIZE,1,fp) != 1)){
-			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		if(fp && (fwrite(buf,_BWL_RIJNDAEL_BLOCK_SIZE,1,fp) != 1)){
+			return _BWLFailControlSession(cntrl,BWLErrFATAL);
 		}
 
-		fsize -= _IPF_RIJNDAEL_BLOCK_SIZE;
+		fsize -= _BWL_RIJNDAEL_BLOCK_SIZE;
 	}
 
 	if(fsize > 0){
 
-		if(_IPFReceiveBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
-			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		if(_BWLReceiveBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+			return _BWLFailControlSession(cntrl,BWLErrFATAL);
 		}
 
 		if(fp && (fwrite(buf,fsize,1,fp) != 1)){
-			return _IPFFailControlSession(cntrl,IPFErrFATAL);
+			return _BWLFailControlSession(cntrl,BWLErrFATAL);
 		}
 	}
 
 	/*
 	 * Integrity Zero block
 	 */
-	if(_IPFReceiveBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
-		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+	if(_BWLReceiveBlocksIntr(cntrl,buf,1,retn_on_intr) != 1){
+		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
 	if(memcmp(cntrl->zero,buf,16)){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFReadStopSession: Invalid zero padding");
-		return _IPFFailControlSession(cntrl,IPFErrFATAL);
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLReadStopSession: Invalid zero padding");
+		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
 end:
 	/*
 	 * The control connection is now ready to send the response.
 	 */
-	cntrl->state &= ~_IPFStateStopSession;
-	cntrl->state |= _IPFStateRequest;
+	cntrl->state &= ~_BWLStateStopSession;
+	cntrl->state |= _BWLStateRequest;
 
-	return IPFErrOK;
+	return BWLErrOK;
 }

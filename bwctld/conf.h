@@ -22,23 +22,23 @@
 #define	IPD_CONF_H
 
 #include <stdio.h>
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 
 /*
  * Growth increment for linebuffer.
  */
-#define IPFDLINEBUFINC	120
+#define BWLDLINEBUFINC	120
 
 
 /*
  * same charactors isspace checks for - useful for strtok splits
  * of whitespace.
  */
-#define IPFDWSPACESET   "\t\n\v\f\r "
+#define BWLDWSPACESET   "\t\n\v\f\r "
 
 extern int
-IPFDGetConfLine(
-	IPFContext	ctx,
+BWLDGetConfLine(
+	BWLContext	ctx,
 	FILE		*fp,
 	int		rc,
 	char		**lbuf,
@@ -46,7 +46,7 @@ IPFDGetConfLine(
 	);
 
 extern int
-IPFDReadConfVar(
+BWLDReadConfVar(
 	FILE	*fp,
 	int	rc,
 	char	*key,

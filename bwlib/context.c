@@ -20,7 +20,7 @@
 #include <assert.h>
 #include <signal.h>
 
-#include "ipcntrlP.h"
+#include "bwlibP.h"
 
 /*
  * Function:	notmuch
@@ -52,10 +52,10 @@ notmuch(
 }
 
 /*
- * Function:	IPFContextCreate
+ * Function:	BWLContextCreate
  *
  * Description:	
- * 	This function is used to initialize a "context" for the ipcntrl
+ * 	This function is used to initialize a "context" for the bwlib
  * 	library. The context is used to define how error reporting
  * 	and other semi-global state should be defined.
  *
@@ -67,21 +67,21 @@ notmuch(
  * Returns:	
  * Side Effect:	
  */
-IPFContext
-IPFContextCreate(
+BWLContext
+BWLContextCreate(
 	I2ErrHandle	eh,
 	I2Boolean	allowunsync
 )
 {
 	struct sigaction	act;
 	I2LogImmediateAttr	ia;
-	IPFContext		ctx = calloc(1,sizeof(IPFContextRec));
+	BWLContext		ctx = calloc(1,sizeof(BWLContextRec));
 	char			*tmpdir;
 
 	if(!ctx){
-		IPFError(eh,
-			IPFErrFATAL,ENOMEM,":calloc(1,%d): %M",
-						sizeof(IPFContextRec));
+		BWLError(eh,
+			BWLErrFATAL,ENOMEM,":calloc(1,%d): %M",
+						sizeof(BWLContextRec));
 		return NULL;
 	}
 
@@ -89,10 +89,10 @@ IPFContextCreate(
 		ctx->lib_eh = True;
 		ia.line_info = (I2NAME|I2MSG);
 		ia.fp = stderr;
-		ctx->eh = I2ErrOpen("libipcntrl",I2ErrLogImmediate,&ia,
+		ctx->eh = I2ErrOpen("libbwlib",I2ErrLogImmediate,&ia,
 				NULL,NULL);
 		if(!ctx->eh){
-			IPFError(NULL,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(NULL,BWLErrFATAL,BWLErrUNKNOWN,
 					"Cannot init error module");
 			free(ctx);
 			return NULL;
@@ -103,35 +103,35 @@ IPFContextCreate(
 		ctx->eh = eh;
 	}
 
-	if(_IPFInitNTP(ctx,allowunsync) != 0){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+	if(_BWLInitNTP(ctx,allowunsync) != 0){
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"Unable to initialize clock interface.");
-		IPFContextFree(ctx);
+		BWLContextFree(ctx);
 		return NULL;
 	}
 
-	if( !(ctx->table = I2HashInit(ctx->eh,_IPF_CONTEXT_TABLE_SIZE,
+	if( !(ctx->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,
 								NULL,NULL))){
-		IPFContextFree(ctx);
+		BWLContextFree(ctx);
 		return NULL;
 	}
 
 	if( !(ctx->rand_src = I2RandomSourceInit(ctx->eh,I2RAND_DEV,NULL))){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
 			     "Failed to initialize randomness sources");
-		IPFContextFree(ctx);
+		BWLContextFree(ctx);
 		return NULL;
 	}
 
 	if( (tmpdir = getenv("TMPDIR")))
 		strncpy(ctx->tmpdir,tmpdir,PATH_MAX);
 	else
-		strncpy(ctx->tmpdir,_IPF_DEFAULT_TMPDIR,PATH_MAX);
+		strncpy(ctx->tmpdir,_BWL_DEFAULT_TMPDIR,PATH_MAX);
 
-	if(strlen(ctx->tmpdir) + strlen(_IPF_PATH_SEPARATOR) +
-					strlen(_IPF_TMPFILEFMT) > PATH_MAX){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN, "TMPDIR too long");
-		IPFContextFree(ctx);
+	if(strlen(ctx->tmpdir) + strlen(_BWL_PATH_SEPARATOR) +
+					strlen(_BWL_TMPFILEFMT) > PATH_MAX){
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN, "TMPDIR too long");
+		BWLContextFree(ctx);
 		return NULL;
 	}
 
@@ -145,16 +145,16 @@ IPFContextCreate(
 	act.sa_handler = SIG_DFL;
 	act.sa_flags = 0;
 	if(sigaction(SIGPIPE,NULL,&act) != 0){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"sigaction(): %M");
-		IPFContextFree(ctx);
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
+		BWLContextFree(ctx);
 		return NULL;
 	}
 	if(act.sa_handler == SIG_DFL){
 		act.sa_handler = SIG_IGN;
 		if(sigaction(SIGPIPE,&act,NULL) != 0){
-			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"sigaction(): %M");
-			IPFContextFree(ctx);
+			BWLContextFree(ctx);
 			return NULL;
 		}
 	}
@@ -169,17 +169,17 @@ IPFContextCreate(
 	act.sa_handler = SIG_DFL;
 	/* fetch current handler */
 	if(sigaction(SIGCHLD,NULL,&act) != 0){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"sigaction(): %M");
-		IPFContextFree(ctx);
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
+		BWLContextFree(ctx);
 		return NULL;
 	}
 	/* If there is no current handler - set a "do nothing" one. */
 	if(act.sa_handler == SIG_DFL){
 		act.sa_handler = notmuch;
 		if(sigaction(SIGCHLD,&act,NULL) != 0){
-			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"sigaction(): %M");
-			IPFContextFree(ctx);
+			BWLContextFree(ctx);
 			return NULL;
 		}
 	}
@@ -188,7 +188,7 @@ IPFContextCreate(
 }
 
 /*
- * Function:	IPFContextGetErrHandle
+ * Function:	BWLContextGetErrHandle
  *
  * Description:	
  * 	Returns the ErrHandle that was set for this context upon creation.
@@ -202,20 +202,20 @@ IPFContextCreate(
  * Side Effect:	
  */
 extern I2ErrHandle
-IPFContextGetErrHandle(
-	IPFContext	ctx
+BWLContextGetErrHandle(
+	BWLContext	ctx
 	)
 {
 	return ctx->eh;
 }
 
-struct _IPFContextHashRecord{
-	char	key[_IPF_CONTEXT_MAX_KEYLEN+1];
+struct _BWLContextHashRecord{
+	char	key[_BWL_CONTEXT_MAX_KEYLEN+1];
 	void	*value;
 };
 
-struct _IPFFreeHashRecord{
-	IPFContext	ctx;
+struct _BWLFreeHashRecord{
+	BWLContext	ctx;
 	I2Table		table;
 };
 
@@ -226,15 +226,15 @@ free_hash_entries(
 	void	*app_data
 	)
 {
-	struct _IPFFreeHashRecord	*frec =
-					(struct _IPFFreeHashRecord*)app_data;
+	struct _BWLFreeHashRecord	*frec =
+					(struct _BWLFreeHashRecord*)app_data;
 
 	/*
 	 * Delete hash so key.dptr will not be referenced again.
 	 * (key.dptr is part of value.dptr alloc)
 	 */
 	if(I2HashDelete(frec->table,key) != 0){
-		IPFError(frec->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(frec->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"Unable to clean out Context hash?");
 		return False;
 	}
@@ -246,14 +246,14 @@ free_hash_entries(
 
 
 void
-IPFContextFree(
-	IPFContext	ctx
+BWLContextFree(
+	BWLContext	ctx
 )
 {
-	struct _IPFFreeHashRecord	frec; 
+	struct _BWLFreeHashRecord	frec; 
 
 	while(ctx->cntrl_list){
-		IPFControlClose(ctx->cntrl_list);
+		BWLControlClose(ctx->cntrl_list);
 	}
 
 	frec.ctx = ctx;
@@ -280,19 +280,19 @@ IPFContextFree(
 	return;
 }
 
-IPFErrSeverity
-IPFControlClose(IPFControl cntrl)
+BWLErrSeverity
+BWLControlClose(BWLControl cntrl)
 {
-	IPFErrSeverity			err = IPFErrOK;
-	IPFErrSeverity			lerr = IPFErrOK;
-	struct _IPFFreeHashRecord	frec; 
-	IPFControl			*list = &cntrl->ctx->cntrl_list;
+	BWLErrSeverity			err = BWLErrOK;
+	BWLErrSeverity			lerr = BWLErrOK;
+	struct _BWLFreeHashRecord	frec; 
+	BWLControl			*list = &cntrl->ctx->cntrl_list;
 
 	/*
 	 * remove all test sessions
 	 */
 	while(cntrl->tests){
-		lerr = _IPFTestSessionFree(cntrl->tests,IPF_CNTRL_FAILURE);
+		lerr = _BWLTestSessionFree(cntrl->tests,BWL_CNTRL_FAILURE);
 		err = MIN(err,lerr);
 	}
 
@@ -315,9 +315,9 @@ IPFControlClose(IPFControl cntrl)
 	/*
 	 * these functions will close the control socket if it is open.
 	 */
-	lerr = IPFAddrFree(cntrl->remote_addr);
+	lerr = BWLAddrFree(cntrl->remote_addr);
 	err = MIN(err,lerr);
-	lerr = IPFAddrFree(cntrl->local_addr);
+	lerr = BWLAddrFree(cntrl->local_addr);
 	err = MIN(err,lerr);
 
 	free(cntrl);
@@ -325,18 +325,18 @@ IPFControlClose(IPFControl cntrl)
 	return err;
 }
 
-IPFControl
-_IPFControlAlloc(
-	IPFContext		ctx,
-	IPFErrSeverity		*err_ret
+BWLControl
+_BWLControlAlloc(
+	BWLContext		ctx,
+	BWLErrSeverity		*err_ret
 )
 {
-	IPFControl	cntrl;
+	BWLControl	cntrl;
 	
-	if( !(cntrl = calloc(1,sizeof(IPFControlRec)))){
-		IPFError(ctx,IPFErrFATAL,errno,
-				":calloc(1,%d)",sizeof(IPFControlRec));
-		*err_ret = IPFErrFATAL;
+	if( !(cntrl = calloc(1,sizeof(BWLControlRec)))){
+		BWLError(ctx,BWLErrFATAL,errno,
+				":calloc(1,%d)",sizeof(BWLControlRec));
+		*err_ret = BWLErrFATAL;
 		return NULL;
 	}
 
@@ -348,9 +348,9 @@ _IPFControlAlloc(
 	/*
 	 * Initialize control policy state hash.
 	 */
-	if( !(cntrl->table = I2HashInit(ctx->eh,_IPF_CONTEXT_TABLE_SIZE,
+	if( !(cntrl->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,
 								NULL,NULL))){
-		*err_ret = IPFErrFATAL;
+		*err_ret = BWLErrFATAL;
 		free(cntrl);
 		return NULL;
 	}
@@ -374,27 +374,27 @@ _IPFControlAlloc(
 	return cntrl;
 }
 
-static IPFBoolean
+static BWLBoolean
 ConfigSet(
 	I2Table		table,
 	const char	*key,
 	void		*value
 	)
 {
-	struct _IPFContextHashRecord	*rec,*trec;
+	struct _BWLContextHashRecord	*rec,*trec;
 	I2Datum				k,v,t;
 
 	assert(table);
 	assert(key);
 
-	if(!(rec = calloc(1,sizeof(struct _IPFContextHashRecord)))){
+	if(!(rec = calloc(1,sizeof(struct _BWLContextHashRecord)))){
 		return False;
 	}
 	/* ensure nul byte */
-	rec->key[_IPF_CONTEXT_MAX_KEYLEN] = '\0';
+	rec->key[_BWL_CONTEXT_MAX_KEYLEN] = '\0';
 
 	/* set key datum */
-	strncpy(rec->key,key,_IPF_CONTEXT_MAX_KEYLEN);
+	strncpy(rec->key,key,_BWL_CONTEXT_MAX_KEYLEN);
 	rec->value = value;
 
 	k.dptr = rec->key;
@@ -408,7 +408,7 @@ ConfigSet(
 	 * If there is already a key by this entry - free that record.
 	 */
 	if(I2HashFetch(table,k,&t)){
-		trec = (struct _IPFContextHashRecord*)t.dptr;
+		trec = (struct _BWLContextHashRecord*)t.dptr;
 		I2HashDelete(table,k);
 		free(trec);
 	}
@@ -427,14 +427,14 @@ ConfigGet(
 	const char	*key
 	)
 {
-	struct _IPFContextHashRecord	*rec;
+	struct _BWLContextHashRecord	*rec;
 	I2Datum				k,v;
-	char				kval[_IPF_CONTEXT_MAX_KEYLEN+1];
+	char				kval[_BWL_CONTEXT_MAX_KEYLEN+1];
 
 	assert(key);
 
-	kval[_IPF_CONTEXT_MAX_KEYLEN] = '\0';
-	strncpy(kval,key,_IPF_CONTEXT_MAX_KEYLEN);
+	kval[_BWL_CONTEXT_MAX_KEYLEN] = '\0';
+	strncpy(kval,key,_BWL_CONTEXT_MAX_KEYLEN);
 	k.dptr = kval;
 	k.dsize = strlen(kval);
 
@@ -442,24 +442,24 @@ ConfigGet(
 		return NULL;
 	}
 
-	rec = (struct _IPFContextHashRecord*)v.dptr;
+	rec = (struct _BWLContextHashRecord*)v.dptr;
 
 	return rec->value;
 }
 
-static IPFBoolean
+static BWLBoolean
 ConfigDelete(
 	I2Table		table,
 	const char	*key
 	)
 {
 	I2Datum	k;
-	char	kval[_IPF_CONTEXT_MAX_KEYLEN+1];
+	char	kval[_BWL_CONTEXT_MAX_KEYLEN+1];
 
 	assert(key);
 
-	kval[_IPF_CONTEXT_MAX_KEYLEN] = '\0';
-	strncpy(kval,key,_IPF_CONTEXT_MAX_KEYLEN);
+	kval[_BWL_CONTEXT_MAX_KEYLEN] = '\0';
+	strncpy(kval,key,_BWL_CONTEXT_MAX_KEYLEN);
 	k.dptr = kval;
 	k.dsize = strlen(kval);
 
@@ -471,7 +471,7 @@ ConfigDelete(
 }
 
 /*
- * Function:	IPFContextSet
+ * Function:	BWLContextSet
  *
  * Description:	
  *
@@ -483,9 +483,9 @@ ConfigDelete(
  * Returns:	
  * Side Effect:	
  */
-IPFBoolean
-IPFContextConfigSet(
-	IPFContext	ctx,
+BWLBoolean
+BWLContextConfigSet(
+	BWLContext	ctx,
 	const char	*key,
 	void		*value
 	)
@@ -496,8 +496,8 @@ IPFContextConfigSet(
 }
 
 void *
-IPFContextConfigGet(
-	IPFContext	ctx,
+BWLContextConfigGet(
+	BWLContext	ctx,
 	const char	*key
 	)
 {
@@ -506,9 +506,9 @@ IPFContextConfigGet(
 	return ConfigGet(ctx->table,key);
 }
 
-IPFBoolean
-IPFContextConfigDelete(
-	IPFContext	ctx,
+BWLBoolean
+BWLContextConfigDelete(
+	BWLContext	ctx,
 	const char	*key
 	)
 {
@@ -518,7 +518,7 @@ IPFContextConfigDelete(
 }
 
 /*
- * Function:	IPFControlSet
+ * Function:	BWLControlSet
  *
  * Description:	
  *
@@ -530,9 +530,9 @@ IPFContextConfigDelete(
  * Returns:	
  * Side Effect:	
  */
-IPFBoolean
-IPFControlConfigSet(
-	IPFControl	cntrl,
+BWLBoolean
+BWLControlConfigSet(
+	BWLControl	cntrl,
 	const char	*key,
 	void		*value
 	)
@@ -543,8 +543,8 @@ IPFControlConfigSet(
 }
 
 void *
-IPFControlConfigGet(
-	IPFControl	cntrl,
+BWLControlConfigGet(
+	BWLControl	cntrl,
 	const char	*key
 	)
 {
@@ -553,9 +553,9 @@ IPFControlConfigGet(
 	return ConfigGet(cntrl->table,key);
 }
 
-IPFBoolean
-IPFControlConfigDelete(
-	IPFControl	cntrl,
+BWLBoolean
+BWLControlConfigDelete(
+	BWLControl	cntrl,
 	const char	*key
 	)
 {
@@ -565,26 +565,26 @@ IPFControlConfigDelete(
 }
 
 /*
- * Function:	_IPFCallGetAESKey
+ * Function:	_BWLCallGetAESKey
  *
  * Description:
  * 	Calls the get_key function that is defined by the application.
  * 	If the application didn't define the get_key function, then provide
  * 	the default response of False.
  */
-IPFBoolean
-_IPFCallGetAESKey(
-	IPFContext	ctx,		/* library context	*/
-	const IPFUserID	userid,		/* identifies key	*/
+BWLBoolean
+_BWLCallGetAESKey(
+	BWLContext	ctx,		/* library context	*/
+	const BWLUserID	userid,		/* identifies key	*/
 	u_int8_t	*key_ret,	/* key - return		*/
-	IPFErrSeverity	*err_ret	/* error - return	*/
+	BWLErrSeverity	*err_ret	/* error - return	*/
 )
 {
-	IPFGetAESKeyFunc	func;
+	BWLGetAESKeyFunc	func;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
-	func = (IPFGetAESKeyFunc)IPFContextConfigGet(ctx,IPFGetAESKey);
+	func = (BWLGetAESKeyFunc)BWLContextConfigGet(ctx,BWLGetAESKey);
 
 	/*
 	 * Default action is no encryption support.
@@ -597,29 +597,29 @@ _IPFCallGetAESKey(
 }
 
 /*
- * Function:	_IPFCallCheckControlPolicy
+ * Function:	_BWLCallCheckControlPolicy
  *
  * Description:
  * 	Calls the check_control_func that is defined by the application.
  * 	If the application didn't define the check_control_func, then provide
  * 	the default response of True(allowed).
  */
-IPFBoolean
-_IPFCallCheckControlPolicy(
-	IPFControl	cntrl,		/* control record		*/
-	IPFSessionMode	mode,		/* requested mode       	*/
-	const IPFUserID	userid,		/* key identity			*/
+BWLBoolean
+_BWLCallCheckControlPolicy(
+	BWLControl	cntrl,		/* control record		*/
+	BWLSessionMode	mode,		/* requested mode       	*/
+	const BWLUserID	userid,		/* key identity			*/
 	struct sockaddr	*local_sa_addr,	/* local addr or NULL		*/
 	struct sockaddr	*remote_sa_addr,/* remote addr			*/
-	IPFErrSeverity	*err_ret	/* error - return		*/
+	BWLErrSeverity	*err_ret	/* error - return		*/
 )
 {
-	IPFCheckControlPolicyFunc	func;
+	BWLCheckControlPolicyFunc	func;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
-	func = (IPFCheckControlPolicyFunc)IPFContextConfigGet(cntrl->ctx,
-							IPFCheckControlPolicy);
+	func = (BWLCheckControlPolicyFunc)BWLContextConfigGet(cntrl->ctx,
+							BWLCheckControlPolicy);
 
 	/*
 	 * Default action is to allow anything.
@@ -632,28 +632,28 @@ _IPFCallCheckControlPolicy(
 }
 
 /*
- * Function:	_IPFCallCheckTestPolicy
+ * Function:	_BWLCallCheckTestPolicy
  *
  * Description:
  * 	Calls the check_test_func that is defined by the application.
  * 	If the application didn't define the check_test_func, then provide
  * 	the default response of True(allowed).
  */
-IPFBoolean
-_IPFCallCheckTestPolicy(
-	IPFControl	cntrl,		/* control handle		*/
-	IPFTestSession	tsess,
-	IPFErrSeverity	*err_ret	/* error - return		*/
+BWLBoolean
+_BWLCallCheckTestPolicy(
+	BWLControl	cntrl,		/* control handle		*/
+	BWLTestSession	tsess,
+	BWLErrSeverity	*err_ret	/* error - return		*/
 )
 {
-	IPFCheckTestPolicyFunc	func;
-	IPFAddr			local;
-	IPFAddr			remote;
+	BWLCheckTestPolicyFunc	func;
+	BWLAddr			local;
+	BWLAddr			remote;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
-	func = (IPFCheckTestPolicyFunc)IPFContextConfigGet(cntrl->ctx,
-							IPFCheckTestPolicy);
+	func = (BWLCheckTestPolicyFunc)BWLContextConfigGet(cntrl->ctx,
+							BWLCheckTestPolicy);
 	/*
 	 * Default action is to fail since the function needs to
 	 * return the reservation time and the port for the test.
@@ -678,26 +678,26 @@ _IPFCallCheckTestPolicy(
 }
 
 /*
- * Function:	_IPFCallTestComplete
+ * Function:	_BWLCallTestComplete
  *
  * Description:
- * 	Calls the "IPFTestComplete" that is defined by the application.
- * 	If the application didn't define the "IPFTestComplete" function, then
+ * 	Calls the "BWLTestComplete" that is defined by the application.
+ * 	If the application didn't define the "BWLTestComplete" function, then
  * 	this is a no-op.
  *
  * 	The primary use for this hook is to free memory and other resources
  * 	(bandwidth etc...) allocated on behalf of this test.
  */
 void
-_IPFCallTestComplete(
-	IPFTestSession	tsession,
-	IPFAcceptType	aval
+_BWLCallTestComplete(
+	BWLTestSession	tsession,
+	BWLAcceptType	aval
 )
 {
-	IPFTestCompleteFunc	func;
+	BWLTestCompleteFunc	func;
 
-	func = (IPFTestCompleteFunc)IPFContextConfigGet(tsession->cntrl->ctx,
-							IPFTestComplete);
+	func = (BWLTestCompleteFunc)BWLContextConfigGet(tsession->cntrl->ctx,
+							BWLTestComplete);
 	/*
 	 * Default action is nothing...
 	 */
@@ -711,26 +711,26 @@ _IPFCallTestComplete(
 }
 
 /*
- * Function:	_IPFCallProcessResults
+ * Function:	_BWLCallProcessResults
  *
  * Description:
- * 	Calls the IPFProcessResultsFunc that is defined by the application.
+ * 	Calls the BWLProcessResultsFunc that is defined by the application.
  *
  */
-IPFErrSeverity
-_IPFCallProcessResults(
-	IPFTestSession	tsession
+BWLErrSeverity
+_BWLCallProcessResults(
+	BWLTestSession	tsession
 )
 {
-	IPFProcessResultsFunc	func;
+	BWLProcessResultsFunc	func;
 
-	func = (IPFProcessResultsFunc)IPFContextConfigGet(tsession->cntrl->ctx,
-							IPFProcessResults);
+	func = (BWLProcessResultsFunc)BWLContextConfigGet(tsession->cntrl->ctx,
+							BWLProcessResults);
 	/*
 	 * Default action is to do nothing...
 	 */
 	if(!func){
-		return IPFErrOK;
+		return BWLErrOK;
 	}
 
 	if(tsession->conf_sender){

@@ -26,22 +26,22 @@
 #include <string.h>
 #include <assert.h>
 
-#include "./ipcntrlP.h"
+#include "./bwlibP.h"
 
 #ifndef EFTYPE
 #define	EFTYPE	ENOSYS
 #endif
 
-IPFAddr
-_IPFAddrAlloc(
-	IPFContext	ctx
+BWLAddr
+_BWLAddrAlloc(
+	BWLContext	ctx
 )
 {
-	IPFAddr	addr = calloc(1,sizeof(struct IPFAddrRec));
+	BWLAddr	addr = calloc(1,sizeof(struct BWLAddrRec));
 
 	if(!addr){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			":calloc(1,%d):%M",sizeof(struct IPFAddrRec));
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+			":calloc(1,%d):%M",sizeof(struct BWLAddrRec));
 		return NULL;
 	}
 
@@ -63,12 +63,12 @@ _IPFAddrAlloc(
 	return addr;
 }
 
-IPFErrSeverity
-IPFAddrFree(
-	IPFAddr	addr
+BWLErrSeverity
+BWLAddrFree(
+	BWLAddr	addr
 )
 {
-	IPFErrSeverity	err = IPFErrOK;
+	BWLErrSeverity	err = BWLErrOK;
 
 	if(!addr)
 		return err;
@@ -96,9 +96,9 @@ IPFAddrFree(
 
 	if((addr->fd >= 0) && !addr->fd_user){
 		if(close(addr->fd) < 0){
-			IPFError(addr->ctx,IPFErrWARNING,
+			BWLError(addr->ctx,BWLErrWARNING,
 					errno,":close(%d)",addr->fd);
-			err = IPFErrWARNING;
+			err = BWLErrWARNING;
 		}
 	}
 
@@ -107,13 +107,13 @@ IPFAddrFree(
 	return err;
 }
 
-IPFAddr
-IPFAddrByNode(
-	IPFContext	ctx,
+BWLAddr
+BWLAddrByNode(
+	BWLContext	ctx,
 	const char	*node
 )
 {
-	IPFAddr		addr;
+	BWLAddr		addr;
 	char		buff[MAXHOSTNAMELEN+1];
 	const char	*nptr=node;
 	char		*pptr=NULL;
@@ -122,7 +122,7 @@ IPFAddrByNode(
 	if(!node)
 		return NULL;
 
-	if(!(addr=_IPFAddrAlloc(ctx)))
+	if(!(addr=_BWLAddrAlloc(ctx)))
 		return NULL;
 
 	strncpy(buff,node,MAXHOSTNAMELEN);
@@ -171,15 +171,15 @@ NOPORT:
 }
 
 static struct addrinfo*
-_IPFCopyAddrRec(
-	IPFContext		ctx,
+_BWLCopyAddrRec(
+	BWLContext		ctx,
 	const struct addrinfo	*src
 )
 {
 	struct addrinfo	*dst = calloc(1,sizeof(struct addrinfo));
 
 	if(!dst){
-		IPFError(ctx,IPFErrFATAL,errno,
+		BWLError(ctx,BWLErrFATAL,errno,
 				":calloc(1,sizeof(struct addrinfo))");
 		return NULL;
 	}
@@ -189,7 +189,7 @@ _IPFCopyAddrRec(
 	if(src->ai_addr){
 		dst->ai_addr = malloc(src->ai_addrlen);
 		if(!dst->ai_addr){
-			IPFError(ctx,IPFErrFATAL,errno,
+			BWLError(ctx,BWLErrFATAL,errno,
 				"malloc(%u):%s",src->ai_addrlen,
 				strerror(errno));
 			free(dst);
@@ -205,14 +205,14 @@ _IPFCopyAddrRec(
 		int	len = strlen(src->ai_canonname);
 
 		if(len > MAXHOSTNAMELEN){
-			IPFError(ctx,IPFErrWARNING,
-					IPFErrUNKNOWN,
+			BWLError(ctx,BWLErrWARNING,
+					BWLErrUNKNOWN,
 					":Invalid canonname!");
 			dst->ai_canonname = NULL;
 		}else{
 			dst->ai_canonname = malloc(sizeof(char)*(len+1));
 			if(!dst->ai_canonname){
-				IPFError(ctx,IPFErrWARNING,
+				BWLError(ctx,BWLErrWARNING,
 					errno,":malloc(sizeof(%d)",len+1);
 				dst->ai_canonname = NULL;
 			}else
@@ -225,13 +225,13 @@ _IPFCopyAddrRec(
 	return dst;
 }
 
-IPFAddr
-IPFAddrByAddrInfo(
-	IPFContext		ctx,
+BWLAddr
+BWLAddrByAddrInfo(
+	BWLContext		ctx,
 	const struct addrinfo	*ai
 )
 {
-	IPFAddr	addr = _IPFAddrAlloc(ctx);
+	BWLAddr	addr = _BWLAddrAlloc(ctx);
 	struct addrinfo	**aip;
 
 	if(!addr)
@@ -241,9 +241,9 @@ IPFAddrByAddrInfo(
 	aip = &addr->ai;
 
 	while(ai){
-		*aip = _IPFCopyAddrRec(ctx,ai);
+		*aip = _BWLCopyAddrRec(ctx,ai);
 		if(!*aip){
-			IPFAddrFree(addr);
+			BWLAddrFree(addr);
 			return NULL;
 		}
 		aip = &(*aip)->ai_next;
@@ -253,13 +253,13 @@ IPFAddrByAddrInfo(
 	return addr;
 }
 
-IPFAddr
-IPFAddrBySockFD(
-	IPFContext	ctx,
+BWLAddr
+BWLAddrBySockFD(
+	BWLContext	ctx,
 	int		fd
 )
 {
-	IPFAddr	addr = _IPFAddrAlloc(ctx);
+	BWLAddr	addr = _BWLAddrAlloc(ctx);
 
 	if(!addr)
 		return NULL;
@@ -270,19 +270,19 @@ IPFAddrBySockFD(
 	return addr;
 }
 
-IPFAddr
-_IPFAddrCopy(
-	IPFAddr		from
+BWLAddr
+_BWLAddrCopy(
+	BWLAddr		from
 	)
 {
-	IPFAddr		to;
+	BWLAddr		to;
 	struct addrinfo	**aip;
 	struct addrinfo	*ai;
 	
 	if(!from)
 		return NULL;
 	
-	if( !(to = _IPFAddrAlloc(from->ctx)))
+	if( !(to = _BWLAddrAlloc(from->ctx)))
 		return NULL;
 
 	if(from->node_set){
@@ -300,9 +300,9 @@ _IPFAddrCopy(
 
 	while(ai){
 		to->ai_free = 1;
-		*aip = _IPFCopyAddrRec(from->ctx,ai);
+		*aip = _BWLCopyAddrRec(from->ctx,ai);
 		if(!*aip){
-			IPFAddrFree(to);
+			BWLAddrFree(to);
 			return NULL;
 		}
 		if(ai->ai_addr == from->saddr){
@@ -323,8 +323,8 @@ _IPFAddrCopy(
 }
 
 int
-IPFAddrFD(
-	IPFAddr	addr
+BWLAddrFD(
+	BWLAddr	addr
 	)
 {
 	if(!addr || (addr->fd < 0))
@@ -334,8 +334,8 @@ IPFAddrFD(
 }
 
 socklen_t
-IPFAddrSockLen(
-	IPFAddr	addr
+BWLAddrSockLen(
+	BWLAddr	addr
 	)
 {
 	if(!addr || !addr->saddr)
@@ -345,7 +345,7 @@ IPFAddrSockLen(
 }
 
 /*
- * Function:	IPFGetContext
+ * Function:	BWLGetContext
  *
  * Description:	
  * 	Returns the context pointer that was referenced when the
@@ -359,16 +359,16 @@ IPFAddrSockLen(
  * Returns:	
  * Side Effect:	
  */
-IPFContext
-IPFGetContext(
-	IPFControl	cntrl
+BWLContext
+BWLGetContext(
+	BWLControl	cntrl
 	)
 {
 	return cntrl->ctx;
 }
 
 /*
- * Function:	IPFGetMode
+ * Function:	BWLGetMode
  *
  * Description:	
  * 	Returns the "mode" of the control connection.
@@ -381,16 +381,16 @@ IPFGetContext(
  * Returns:	
  * Side Effect:	
  */
-IPFSessionMode
-IPFGetMode(
-	IPFControl	cntrl
+BWLSessionMode
+BWLGetMode(
+	BWLControl	cntrl
 	)
 {
 	return cntrl->mode;
 }
 
 /*
- * Function:	IPFControlFD
+ * Function:	BWLControlFD
  *
  * Description:	
  *
@@ -403,15 +403,15 @@ IPFGetMode(
  * Side Effect:	
  */
 int
-IPFControlFD(
-	IPFControl	cntrl
+BWLControlFD(
+	BWLControl	cntrl
 	)
 {
 	return cntrl->sockfd;
 }
 
 /*
- * Function:	IPFGetRTTBound
+ * Function:	BWLGetRTTBound
  *
  * Description:	Returns a very rough estimate of the upper-bound rtt to
  * 		the server.
@@ -425,16 +425,16 @@ IPFControlFD(
  * 		bound or 0 if unavailable
  * Side Effect:	
  */
-IPFNum64
-IPFGetRTTBound(
-	IPFControl	cntrl
+BWLNum64
+BWLGetRTTBound(
+	BWLControl	cntrl
 	)
 {
 	return cntrl->rtt_bound;
 }
 
 /*
- * Function:	_IPFFailControlSession
+ * Function:	_BWLFailControlSession
  *
  * Description:	
  * 	Simple convienience to set the state and return the failure at
@@ -448,18 +448,18 @@ IPFGetRTTBound(
  * Returns:	
  * Side Effect:	
  */
-IPFErrSeverity
-_IPFFailControlSession(
-	IPFControl	cntrl,
+BWLErrSeverity
+_BWLFailControlSession(
+	BWLControl	cntrl,
 	int		level
 	)
 {
-	cntrl->state = _IPFStateInvalid;
-	return (IPFErrSeverity)level;
+	cntrl->state = _BWLStateInvalid;
+	return (BWLErrSeverity)level;
 }
 
 /*
- * Function:	_IPFTestSessionAlloc
+ * Function:	_BWLTestSessionAlloc
  *
  * Description:	
  * 	This function is used to allocate/initialize the memory record used
@@ -473,30 +473,30 @@ _IPFFailControlSession(
  * Returns:	
  * Side Effect:	
  */
-IPFTestSession
-_IPFTestSessionAlloc(
-	IPFControl	cntrl,
-	IPFBoolean	send,
-	IPFAddr		sender,
-	IPFAddr		receiver,
+BWLTestSession
+_BWLTestSessionAlloc(
+	BWLControl	cntrl,
+	BWLBoolean	send,
+	BWLAddr		sender,
+	BWLAddr		receiver,
 	u_int16_t	recv_port,
-	IPFTestSpec	*test_spec
+	BWLTestSpec	*test_spec
 )
 {
-	IPFTestSession	test;
+	BWLTestSession	test;
 
 	/*
 	 * Address records must exist.
 	 */
 	if(!sender || ! receiver){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrINVALID,
-				"_IPFTestSessionAlloc:Invalid Addr arg");
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+				"_BWLTestSessionAlloc:Invalid Addr arg");
 		return NULL;
 	}
 
-	if(!(test = calloc(1,sizeof(IPFTestSessionRec)))){
-		IPFError(cntrl->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"calloc(1,IPFTestSessionRec): %M");
+	if(!(test = calloc(1,sizeof(BWLTestSessionRec)))){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+				"calloc(1,BWLTestSessionRec): %M");
 		return NULL;
 	}
 
@@ -504,7 +504,7 @@ _IPFTestSessionAlloc(
 	 * Initialize address records and test description record fields.
 	 */
 	test->cntrl = cntrl;
-	memcpy(&test->test_spec,test_spec,sizeof(IPFTestSpec));
+	memcpy(&test->test_spec,test_spec,sizeof(BWLTestSpec));
 
 	/*
 	 * Overwrite sender/receiver with passed-in values
@@ -528,7 +528,7 @@ _IPFTestSessionAlloc(
 }
 
 /*
- * Function:	_IPFTestSessionFree
+ * Function:	_BWLTestSessionFree
  *
  * Description:	
  * 	This function is used to free the memory associated with a "configured"
@@ -542,16 +542,16 @@ _IPFTestSessionAlloc(
  * Returns:	
  * Side Effect:	
  */
-IPFErrSeverity
-_IPFTestSessionFree(
-	IPFTestSession	tsession,
-	IPFAcceptType	aval
+BWLErrSeverity
+_BWLTestSessionFree(
+	BWLTestSession	tsession,
+	BWLAcceptType	aval
 )
 {
-	IPFErrSeverity	err=IPFErrOK;
+	BWLErrSeverity	err=BWLErrOK;
 
 	if(!tsession){
-		return IPFErrOK;
+		return BWLErrOK;
 	}
 
 	/*
@@ -561,14 +561,14 @@ _IPFTestSessionFree(
 		tsession->cntrl->tests = NULL;
 	}
 
-	(void)_IPFEndpointStop(tsession,aval,&err);
+	(void)_BWLEndpointStop(tsession,aval,&err);
 
 	if(tsession->closure){
-		_IPFCallTestComplete(tsession,aval);
+		_BWLCallTestComplete(tsession,aval);
 	}
 
-	IPFAddrFree(tsession->test_spec.sender);
-	IPFAddrFree(tsession->test_spec.receiver);
+	BWLAddrFree(tsession->test_spec.sender);
+	BWLAddrFree(tsession->test_spec.receiver);
 
 	while(tsession->localfp &&
 			(fclose(tsession->localfp) < 0) &&
@@ -584,7 +584,7 @@ _IPFTestSessionFree(
 
 
 /*
- * Function:	_IPFCreateSID
+ * Function:	_BWLCreateSID
  *
  * Description:	
  * 	Generate a "unique" SID from addr(4)/time(8)/random(4) values.
@@ -599,8 +599,8 @@ _IPFTestSessionFree(
  * Side Effect:	
  */
 int
-_IPFCreateSID(
-	IPFTestSession	tsession
+_BWLCreateSID(
+	BWLTestSession	tsession
 	)
 {
 	u_int8_t	*aptr;
@@ -621,14 +621,14 @@ _IPFCreateSID(
 		aptr = (u_int8_t*)&s4->sin_addr;
 	}
 	else{
-		IPFError(tsession->cntrl->ctx,IPFErrFATAL,IPFErrUNSUPPORTED,
-				"_IPFCreateSID:Unknown address family");
+		BWLError(tsession->cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+				"_BWLCreateSID:Unknown address family");
 		return 1;
 	}
 
 	memcpy(&tsession->sid[0],aptr,4);
 
-	_IPFEncodeTimeStamp(&tsession->sid[4],&tsession->localtime);
+	_BWLEncodeTimeStamp(&tsession->sid[4],&tsession->localtime);
 
 	if(I2RandomBytes(tsession->cntrl->ctx->rand_src,&tsession->sid[12],4)
 									!= 0){
@@ -638,20 +638,20 @@ _IPFCreateSID(
 	return 0;
 }
 
-IPFPacketSizeT
-IPFTestPayloadSize(
-		IPFSessionMode	mode, 
+BWLPacketSizeT
+BWLTestPayloadSize(
+		BWLSessionMode	mode, 
 		u_int32_t	padding
 		)
 {
-	IPFPacketSizeT msg_size;
+	BWLPacketSizeT msg_size;
 
 	switch (mode) {
-	case IPF_MODE_OPEN:
+	case BWL_MODE_OPEN:
 		msg_size = 14;
 		break;
-	case IPF_MODE_AUTHENTICATED:
-	case IPF_MODE_ENCRYPTED:
+	case BWL_MODE_AUTHENTICATED:
+	case BWL_MODE_ENCRYPTED:
 		msg_size = 32;
 		break;
 	default:
@@ -663,46 +663,46 @@ IPFTestPayloadSize(
 }
 
 /* These lengths assume no IP options. */
-#define IPF_IP4_HDR_SIZE	20	/* rfc 791 */
-#define IPF_IP6_HDR_SIZE	40	/* rfc 2460 */
-#define IPF_UDP_HDR_SIZE	8	/* rfc 768 */
+#define BWL_IP4_HDR_SIZE	20	/* rfc 791 */
+#define BWL_IP6_HDR_SIZE	40	/* rfc 2460 */
+#define BWL_UDP_HDR_SIZE	8	/* rfc 768 */
 
 /*
 ** Given the protocol family, OWAMP mode and packet padding,
 ** compute the size of resulting full IP packet.
 */
-IPFPacketSizeT
-IPFTestPacketSize(
+BWLPacketSizeT
+BWLTestPacketSize(
 		int		af,    /* AF_INET, AF_INET6 */
-		IPFSessionMode	mode, 
+		BWLSessionMode	mode, 
 		u_int32_t	padding
 		)
 {
-	IPFPacketSizeT payload_size, header_size;
+	BWLPacketSizeT payload_size, header_size;
 
 	switch (af) {
 	case AF_INET:
-		header_size = IPF_IP4_HDR_SIZE + IPF_UDP_HDR_SIZE;
+		header_size = BWL_IP4_HDR_SIZE + BWL_UDP_HDR_SIZE;
 		break;
 	case AF_INET6:
-		header_size = IPF_IP6_HDR_SIZE + IPF_UDP_HDR_SIZE;
+		header_size = BWL_IP6_HDR_SIZE + BWL_UDP_HDR_SIZE;
 		break;
 	default:
 		return 0;
 		/* UNREACHED */
 	}
 
-	if(!(payload_size = IPFTestPayloadSize(mode,padding)))
+	if(!(payload_size = BWLTestPayloadSize(mode,padding)))
 			return 0;
 
 	return payload_size + header_size;
 }
 
 /*
- * Function:	IPFAddrNodeName
+ * Function:	BWLAddrNodeName
  *
  * Description:	
- * 	This function gets a char* node name for a given IPFAddr.
+ * 	This function gets a char* node name for a given BWLAddr.
  * 	The len parameter is an in/out parameter.
  *
  * In Args:	
@@ -714,8 +714,8 @@ IPFTestPacketSize(
  * Side Effect:	
  */
 void
-IPFAddrNodeName(
-	IPFAddr	addr,
+BWLAddrNodeName(
+	BWLAddr	addr,
 	char	*buf,
 	size_t	*len
 	)
@@ -750,10 +750,10 @@ bail:
 }
 
 /*
- * Function:	IPFAddrNodeService
+ * Function:	BWLAddrNodeService
  *
  * Description:	
- * 	This function gets a char* service name for a given IPFAddr.
+ * 	This function gets a char* service name for a given BWLAddr.
  * 	The len parameter is an in/out parameter.
  *
  * In Args:	
@@ -765,8 +765,8 @@ bail:
  * Side Effect:	
  */
 void
-IPFAddrNodeService(
-	IPFAddr	addr,
+BWLAddrNodeService(
+	BWLAddr	addr,
 	char	*buf,
 	size_t	*len
 	)

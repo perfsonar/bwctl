@@ -19,11 +19,11 @@
 **			to facilitate IO that the library needs to do.
 */
 #include <fcntl.h>
-#include <ipcntrlP.h>
+#include <bwlibP.h>
 
 int
-_IPFSendBlocksIntr(
-	IPFControl	cntrl,
+_BWLSendBlocksIntr(
+	BWLControl	cntrl,
 	u_int8_t	*buf,
 	int		num_blocks,
 	int		*retn_on_intr
@@ -31,14 +31,14 @@ _IPFSendBlocksIntr(
 {
 	ssize_t		n;
 
-	if (cntrl->mode & IPF_MODE_DOCIPHER)
-		_IPFEncryptBlocks(cntrl, buf, num_blocks, buf);
+	if (cntrl->mode & BWL_MODE_DOCIPHER)
+		_BWLEncryptBlocks(cntrl, buf, num_blocks, buf);
 
-	n = I2Writeni(cntrl->sockfd,buf,num_blocks*_IPF_RIJNDAEL_BLOCK_SIZE,
+	n = I2Writeni(cntrl->sockfd,buf,num_blocks*_BWL_RIJNDAEL_BLOCK_SIZE,
 			retn_on_intr);
 	if(n < 0){
 		if(!*retn_on_intr || (errno != EINTR)){
-			IPFError(cntrl->ctx,IPFErrFATAL,errno,
+			BWLError(cntrl->ctx,BWLErrFATAL,errno,
 							"I2Writeni(): %M");
 		}
 		return -1;
@@ -48,8 +48,8 @@ _IPFSendBlocksIntr(
 }
 
 int
-_IPFReceiveBlocksIntr(
-	IPFControl	cntrl,
+_BWLReceiveBlocksIntr(
+	BWLControl	cntrl,
 	u_int8_t	*buf,
 	int		num_blocks,
 	int		*retn_on_intr
@@ -57,11 +57,11 @@ _IPFReceiveBlocksIntr(
 {
 	ssize_t		n;
 
-	n = I2Readni(cntrl->sockfd,buf,num_blocks*_IPF_RIJNDAEL_BLOCK_SIZE,
+	n = I2Readni(cntrl->sockfd,buf,num_blocks*_BWL_RIJNDAEL_BLOCK_SIZE,
 								retn_on_intr);
 	if(n < 0){
 		if(!*retn_on_intr || (errno != EINTR)){
-			IPFError(cntrl->ctx,IPFErrFATAL,errno,"I2Readni(): %M");
+			BWLError(cntrl->ctx,BWLErrFATAL,errno,"I2Readni(): %M");
 		}
 		return -1;
 	} 
@@ -69,37 +69,37 @@ _IPFReceiveBlocksIntr(
 	/*
 	 * Short reads mean socket was closed.
 	 */
-	if(n != (num_blocks*_IPF_RIJNDAEL_BLOCK_SIZE))
+	if(n != (num_blocks*_BWL_RIJNDAEL_BLOCK_SIZE))
 		return 0;
 
-	if (cntrl->mode & IPF_MODE_DOCIPHER)
-		_IPFDecryptBlocks(cntrl, buf, num_blocks, buf);
+	if (cntrl->mode & BWL_MODE_DOCIPHER)
+		_BWLDecryptBlocks(cntrl, buf, num_blocks, buf);
 
 	return num_blocks;
 }
 
 int
-_IPFSendBlocks(
-	IPFControl	cntrl,
+_BWLSendBlocks(
+	BWLControl	cntrl,
 	u_int8_t	*buf,
 	int		num_blocks
 	)
 {
 	int	intr=0;
 
-	return _IPFSendBlocksIntr(cntrl,buf,num_blocks,&intr);
+	return _BWLSendBlocksIntr(cntrl,buf,num_blocks,&intr);
 }
 
 int
-_IPFReceiveBlocks(
-	IPFControl	cntrl,
+_BWLReceiveBlocks(
+	BWLControl	cntrl,
 	u_int8_t	*buf,
 	int		num_blocks
 	)
 {
 	int	intr=0;
 
-	return _IPFReceiveBlocksIntr(cntrl,buf,num_blocks,&intr);
+	return _BWLReceiveBlocksIntr(cntrl,buf,num_blocks,&intr);
 }
 
 /*
@@ -108,8 +108,8 @@ _IPFReceiveBlocks(
 ** the rijndael api (blockEncrypt/blockDecrypt).
 */
 int
-_IPFEncryptBlocks(
-	IPFControl	cntrl,
+_BWLEncryptBlocks(
+	BWLControl	cntrl,
 	u_int8_t	*buf,
 	int		num_blocks,
 	u_int8_t	*out
@@ -125,8 +125,8 @@ _IPFEncryptBlocks(
 
 
 int
-_IPFDecryptBlocks(
-	IPFControl	cntrl,
+_BWLDecryptBlocks(
+	BWLControl	cntrl,
 	u_int8_t	*buf,
 	int		num_blocks,
 	u_int8_t	*out
@@ -141,13 +141,13 @@ _IPFDecryptBlocks(
 }
 
 /*
-** This function sets up the key field of a IPFControl structure,
+** This function sets up the key field of a BWLControl structure,
 ** using the binary key located in <binKey>.
 */
 
 void
-_IPFMakeKey(
-	IPFControl	cntrl,
+_BWLMakeKey(
+	BWLControl	cntrl,
 	u_int8_t	*binKey
 	)
 {
@@ -166,7 +166,7 @@ _IPFMakeKey(
 #define TOKEN_BITS_LEN (2*16*8)
 
 int
-IPFEncryptToken(
+BWLEncryptToken(
 	unsigned char	*binKey,
 	unsigned char	*token_in,
 	unsigned char	*token_out
@@ -188,7 +188,7 @@ IPFEncryptToken(
 }
 
 int
-IPFDecryptToken(
+BWLDecryptToken(
 	unsigned char	*binKey,
 	unsigned char	*token_in,
 	unsigned char	*token_out

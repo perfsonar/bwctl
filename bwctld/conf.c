@@ -24,11 +24,11 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 #include "conf.h"
 
 /*
- * Function:	IPFDGetConfLine
+ * Function:	BWLDGetConfLine
  *
  * Description:	
  * 		Read a single line from a file fp. remove leading whitespace,
@@ -44,8 +44,8 @@
  * Side Effect:	
  */
 int
-IPFDGetConfLine(
-	IPFContext	ctx,
+BWLDGetConfLine(
+	BWLContext	ctx,
 	FILE		*fp,
 	int		rc,
 	char		**lbuf,
@@ -98,7 +98,7 @@ IPFDGetConfLine(
 				rc++;
 				continue;
 			}
-			IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid use of \'\\\'");
 			return -rc;
 		}
@@ -107,18 +107,18 @@ IPFDGetConfLine(
 		 * make sure lbuf is large enough for this content
 		 */
 		if(i+2 > *lbuf_max){
-			*lbuf_max += IPFDLINEBUFINC;
+			*lbuf_max += BWLDLINEBUFINC;
 			*lbuf = realloc(line,sizeof(char) * *lbuf_max);
 			if(!*lbuf){
 				if(line){
 					free(line);
 				}
 				/*
-				 * IPFError can't handle %M in the
+				 * BWLError can't handle %M in the
 				 * null context case - so use strerror
 				 * directly.
 				 */
-				IPFError(ctx,IPFErrFATAL,errno,
+				BWLError(ctx,BWLErrFATAL,errno,
 						"realloc(%u): %s",*lbuf_max,
 						strerror(errno));
 				return -rc;
@@ -146,7 +146,7 @@ IPFDGetConfLine(
 }
 
 /*
- * Function:	IPFDReadConfVar
+ * Function:	BWLDReadConfVar
  *
  * Description:	
  * 	Read the next non-comment line from the config file. The file
@@ -166,7 +166,7 @@ IPFDGetConfLine(
  * Side Effect:	
  */
 int
-IPFDReadConfVar(
+BWLDReadConfVar(
 	FILE	*fp,
 	int	rc,
 	char	*key,
@@ -178,12 +178,12 @@ IPFDReadConfVar(
 {
 	char	*line;
 
-	if((rc = IPFDGetConfLine(NULL,fp,rc,lbuf,lbuf_max)) > 0){
+	if((rc = BWLDGetConfLine(NULL,fp,rc,lbuf,lbuf_max)) > 0){
 
 		/*
 		 * Pull off key.
 		 */
-		if(!(line = strtok(*lbuf,IPFDWSPACESET))){
+		if(!(line = strtok(*lbuf,BWLDWSPACESET))){
 			rc = -rc;
 			goto DONE;
 		}
@@ -197,7 +197,7 @@ IPFDReadConfVar(
 		}
 		strcpy(key,line);
 
-		if((line = strtok(NULL,IPFDWSPACESET))){
+		if((line = strtok(NULL,BWLDWSPACESET))){
 			/*
 			 * If there is no "value" for this key, then
 			 * a comment is valid.
@@ -223,7 +223,7 @@ IPFDReadConfVar(
 		/*
 		 * Ensure there is no trailing data
 		 */
-		if((line = strtok(NULL,IPFDWSPACESET))){
+		if((line = strtok(NULL,BWLDWSPACESET))){
 			/*
 			 * Comments are the only valid token.
 			 */

@@ -21,18 +21,18 @@
  *			to use the "default" 
  *
  */
-#ifndef	_IPF_DEFAULTS_H
-#define	_IPF_DEFAULTS_H
+#ifndef	_BWL_DEFAULTS_H
+#define	_BWL_DEFAULTS_H
 
 #include <I2util/util.h>
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 
-#ifndef	IPF_KEY_FILE
-#define	IPF_KEY_FILE		"iperfcd.keys"
+#ifndef	BWL_KEY_FILE
+#define	BWL_KEY_FILE		"bwctld.keys"
 #endif
 
-#ifndef	IPF_LIMITS_FILE
-#define	IPF_LIMITS_FILE		"iperfcd.limits"
+#ifndef	BWL_LIMITS_FILE
+#define	BWL_LIMITS_FILE		"bwctld.limits"
 #endif
 
 /*
@@ -42,7 +42,7 @@
  * type: (owp_policy_data*) - defined in access.h
  * location: Context Config
  */
-#define IPFDPOLICY	"IPFDPOLICY"
+#define BWLDPOLICY	"BWLDPOLICY"
 
 /*
  * Holds the identifying "node" from the policy tree that contains the
@@ -51,123 +51,123 @@
  * type: (owp_tree_node_ptr) - defined in access.h
  * location: Control Config
  */
-#define IPFDPOLICY_NODE	"IPFDPOLICY_NODE"
+#define BWLDPOLICY_NODE	"BWLDPOLICY_NODE"
 
 /*
  * Types used by policy functions
  */
-#define IPFDMAXCLASSLEN	(80)
+#define BWLDMAXCLASSLEN	(80)
 
-typedef struct IPFDPolicyRec IPFDPolicyRec, *IPFDPolicy;
-typedef struct IPFDPolicyNodeRec IPFDPolicyNodeRec, *IPFDPolicyNode;
-typedef struct IPFDPolicyKeyRec IPFDPolicyKeyRec, *IPFDPolicyKey;
+typedef struct BWLDPolicyRec BWLDPolicyRec, *BWLDPolicy;
+typedef struct BWLDPolicyNodeRec BWLDPolicyNodeRec, *BWLDPolicyNode;
+typedef struct BWLDPolicyKeyRec BWLDPolicyKeyRec, *BWLDPolicyKey;
 
-struct IPFDPolicyRec{
-	IPFContext		ctx;
+struct BWLDPolicyRec{
+	BWLContext		ctx;
 
 	int			fd;	/* socket to parent. */
 	char			*datadir;
 
 	int			*retn_on_intr;	/* If one, exit I/O on sigs */
 
-	IPFDPolicyNode		root;
+	BWLDPolicyNode		root;
 
 	/* limits:
 	 * 	key = char* (classname from "limit" lines)
-	 * 	val = IPFDPolicyNode
+	 * 	val = BWLDPolicyNode
 	 */
 	I2Table			limits;
 	/* idents:
-	 * 	key = IPFDPid
-	 * 	val = IPFDPolicyNode
+	 * 	key = BWLDPid
+	 * 	val = BWLDPolicyNode
 	 */
 	I2Table			idents;
 	/* keys:
-	 * 	key = u_int8_t[16]	(username from ipcntrl protocol)
-	 * 	val = IPFKey
+	 * 	key = u_int8_t[16]	(username from bwlib protocol)
+	 * 	val = BWLKey
 	 */
 	I2Table			keys;
 
 };
 
-typedef u_int64_t	IPFDLimitT;		/* values */
-typedef u_int32_t	IPFDMesgT;
+typedef u_int64_t	BWLDLimitT;		/* values */
+typedef u_int32_t	BWLDMesgT;
 
-typedef struct IPFDLimRec{
-	IPFDMesgT	limit;
-	IPFDLimitT	value;
-} IPFDLimRec;
+typedef struct BWLDLimRec{
+	BWLDMesgT	limit;
+	BWLDLimitT	value;
+} BWLDLimRec;
 
 /* parent		cname		*/
 /* bandwidth		uint (bits/sec)*/
 /* delete_on_fetch	on/(off)	*/
 /* allow_open_mode	(on)/off	*/
 
-#define	IPFDLimParent		0
-#define	IPFDLimBandwidth	1
-#define	IPFDLimPending		2
-#define	IPFDLimEventHorizon	3
-#define	IPFDLimDuration		4
-#define	IPFDLimAllowOpenMode	5
-#define	IPFDLimAllowTCP		6
-#define	IPFDLimAllowUDP		7
+#define	BWLDLimParent		0
+#define	BWLDLimBandwidth	1
+#define	BWLDLimPending		2
+#define	BWLDLimEventHorizon	3
+#define	BWLDLimDuration		4
+#define	BWLDLimAllowOpenMode	5
+#define	BWLDLimAllowTCP		6
+#define	BWLDLimAllowUDP		7
 
-struct IPFDPolicyNodeRec{
-	IPFDPolicy		policy;
+struct BWLDPolicyNodeRec{
+	BWLDPolicy		policy;
 	char			*nodename;
-	IPFDPolicyNode		parent;
+	BWLDPolicyNode		parent;
 	size_t			ilim;
-	IPFDLimRec		*limits;
-	IPFDLimRec		*used;
+	BWLDLimRec		*limits;
+	BWLDLimRec		*used;
 };
 
 typedef enum{
-	IPFDPidInvalid=0,
-	IPFDPidDefaultType,
-	IPFDPidNetmaskType,
-	IPFDPidUserType
-} IPFDPidType;
+	BWLDPidInvalid=0,
+	BWLDPidDefaultType,
+	BWLDPidNetmaskType,
+	BWLDPidUserType
+} BWLDPidType;
 
 typedef struct{
-	IPFDPidType	id_type;
+	BWLDPidType	id_type;
 	u_int8_t	mask_len;
 	size_t		addrsize;
 	u_int8_t	addrval[16];
-} IPFDPidNetmask;
+} BWLDPidNetmask;
 
 typedef struct{
-	IPFDPidType	id_type;
-	IPFUserID	userid;
-} IPFDPidUser;
+	BWLDPidType	id_type;
+	BWLUserID	userid;
+} BWLDPidUser;
 
-typedef union IPFDPidUnion{
-	IPFDPidType	id_type;
-	IPFDPidNetmask	net;
-	IPFDPidUser	user;
-} IPFDPidRec, *IPFDPid;
+typedef union BWLDPidUnion{
+	BWLDPidType	id_type;
+	BWLDPidNetmask	net;
+	BWLDPidUser	user;
+} BWLDPidRec, *BWLDPid;
 
 /*
  * The following section defines the message tags used to communicate
  * from the children processes to the parent to request/release
  * resources on a global basis.
  *
- * All message "type" defines will be of type IPFDMesgT.
+ * All message "type" defines will be of type BWLDMesgT.
  */
-#define	IPFDMESGMARK		0xfefefefe
-#define	IPFDMESGCLASS		0xcdef
-#define	IPFDMESGRESOURCE	0xbeef
-#define	IPFDMESGRESERVATION	0xdeadbeef
-#define	IPFDMESGCOMPLETE	0xabcdefab
-#define	IPFDMESGREQUEST		0xfeed
-#define	IPFDMESGRELEASE		0xdead
-#define	IPFDMESGCLAIM		0x1feed1
+#define	BWLDMESGMARK		0xfefefefe
+#define	BWLDMESGCLASS		0xcdef
+#define	BWLDMESGRESOURCE	0xbeef
+#define	BWLDMESGRESERVATION	0xdeadbeef
+#define	BWLDMESGCOMPLETE	0xabcdefab
+#define	BWLDMESGREQUEST		0xfeed
+#define	BWLDMESGRELEASE		0xdead
+#define	BWLDMESGCLAIM		0x1feed1
 
 /*
  * "parent" response messages will be one of:
  */
-#define IPFDMESGINVALID	0x0
-#define IPFDMESGOK	0x1
-#define IPFDMESGDENIED	0x2
+#define BWLDMESGINVALID	0x0
+#define BWLDMESGOK	0x1
+#define BWLDMESGDENIED	0x2
 
 /*
  * After forking, the new "server" process (called "child" in the following)
@@ -178,7 +178,7 @@ typedef union IPFDPidUnion{
  *
  * (All integers are in host order since this is expected to be ipc
  * communication on a single host. It could be a future enhancement to
- * allow a "single" distributed iperfcd IPCNTRL-Control server to manage
+ * allow a "single" distributed bwctld BWLIB-Control server to manage
  * multiple test  endpoints at which time it might be worth the overhead
  * to deal with byte ordering issues.)
  *
@@ -187,13 +187,13 @@ typedef union IPFDPidUnion{
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                      IPFDMESGMARK                             |
+ *	00|                      BWLDMESGMARK                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                      IPFDMESGCLASS                            |
+ *	04|                      BWLDMESGCLASS                            |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	            [nul terminated ascii string of classname]
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                      IPFDMESGMARK                             |
+ *	00|                      BWLDMESGMARK                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * This is a child message format that is used to request or release resources.
@@ -205,18 +205,18 @@ typedef union IPFDPidUnion{
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                      IPFDMESGMARK                             |
+ *	00|                      BWLDMESGMARK                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                     IPFDMESGRESOURCE                          |
+ *	04|                     BWLDMESGRESOURCE                          |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|          IPFDMESGWANT|IPFDMESGRELEASE|IPFDMESGCLAIM           |
+ *	08|          BWLDMESGWANT|BWLDMESGRELEASE|BWLDMESGCLAIM           |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	12|                      IPFDMesgT(limit name)                    |
+ *	12|                      BWLDMesgT(limit name)                    |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	16|                        IPFDLimitT                             |
+ *	16|                        BWLDLimitT                             |
  *	20|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	24|                      IPFDMESGMARK                             |
+ *	24|                      BWLDMESGMARK                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * This is a child message format that is used to declare a test complete.
@@ -225,9 +225,9 @@ typedef union IPFDPidUnion{
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                         IPFDMESGMARK                          |
+ *	00|                         BWLDMESGMARK                          |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                       IPFDMESGCOMPLETE                        |
+ *	04|                       BWLDMESGCOMPLETE                        |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	08|                                                               |
  *	12|                              SID                              |
@@ -236,7 +236,7 @@ typedef union IPFDPidUnion{
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	24|                          Accept Value                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	28|                          IPFDMESGMARK                         |
+ *	28|                          BWLDMESGMARK                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  *
@@ -245,11 +245,11 @@ typedef union IPFDPidUnion{
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                      IPFDMESGMARK                             |
+ *	00|                      BWLDMESGMARK                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                IPFDMESGOK|IPFDMESGDENIED                      |
+ *	04|                BWLDMESGOK|BWLDMESGDENIED                      |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                      IPFDMESGMARK                             |
+ *	08|                      BWLDMESGMARK                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * This is a child message format that is used to request reservations.
@@ -257,9 +257,9 @@ typedef union IPFDPidUnion{
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                         IPFDMESGMARK                          |
+ *	00|                         BWLDMESGMARK                          |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                      IPFDMESGRESERVATION                      |
+ *	04|                      BWLDMESGRESERVATION                      |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	08|                                                               |
  *	12|                              SID                              |
@@ -280,7 +280,7 @@ typedef union IPFDPidUnion{
  *	52|                           RTT TIME                            |
  *	56|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	60|                          IPFDMESGMARK                         |
+ *	60|                          BWLDMESGMARK                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * Parent responses to the reservation request are of the format:
@@ -288,16 +288,16 @@ typedef union IPFDPidUnion{
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                          IPFDMESGMARK                         |
+ *	00|                          BWLDMESGMARK                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                   IPFDMESGOK|IPFDMESGDENIED                   |
+ *	04|                   BWLDMESGOK|BWLDMESGDENIED                   |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	08|                        Request Time                           |
  *	12|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	16|           Recv Port             |                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	20|                          IPFDMESGMARK                         |
+ *	20|                          BWLDMESGMARK                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  *
@@ -306,12 +306,12 @@ typedef union IPFDPidUnion{
 /*
  * The following api convienence functions are defined to make the child/parent
  * communication easier. (These are the functions needed by the parent in
- * the master iperfcd "resource broker" process.)
+ * the master bwctld "resource broker" process.)
  */
 
-extern IPFDPolicyNode
-IPFDReadClass(
-	IPFDPolicy	policy,
+extern BWLDPolicyNode
+BWLDReadClass(
+	BWLDPolicy	policy,
 	int		fd,
 	int		*retn_on_intr,
 	int		*err
@@ -321,7 +321,7 @@ IPFDReadClass(
  * Returns the request type or 0.
  */
 extern int
-IPFDReadReqType(
+BWLDReadReqType(
 		int	fd,
 		int	*retn_on_intr,
 		int	*err);
@@ -329,50 +329,50 @@ IPFDReadReqType(
  * returns True on success - query/lim_ret will contain request
  * err will be non-zero on error. 0 on empty read.
  */
-extern IPFBoolean
-IPFDReadQuery(
+extern BWLBoolean
+BWLDReadQuery(
 	int		fd,
 	int		*retn_on_intr,
-	IPFDMesgT	*query,
-	IPFDLimRec	*lim_ret,
+	BWLDMesgT	*query,
+	BWLDLimRec	*lim_ret,
 	int		*err
 	);
 
-extern IPFBoolean
-IPFDReadReservationQuery(
+extern BWLBoolean
+BWLDReadReservationQuery(
 	int		fd,
 	int		*retn_on_intr,
-	IPFSID		sid,
-	IPFNum64	*req_time,
-	IPFNum64	*fuzz_time,
-	IPFNum64	*last_time,
+	BWLSID		sid,
+	BWLNum64	*req_time,
+	BWLNum64	*fuzz_time,
+	BWLNum64	*last_time,
 	u_int32_t	*duration,
-	IPFNum64	*rtt_time,
+	BWLNum64	*rtt_time,
 	int		*err
 	);
 
-extern IPFBoolean
-IPFDReadTestComplete(
+extern BWLBoolean
+BWLDReadTestComplete(
 	int		fd,
 	int		*retn_on_intr,
-	IPFSID		sid,
-	IPFAcceptType	*aval,
+	BWLSID		sid,
+	BWLAcceptType	*aval,
 	int		*err
 	);
 
 extern int
-IPFDSendResponse(
+BWLDSendResponse(
 	int		fd,
 	int		*retn_on_intr,
-	IPFDMesgT	mesg
+	BWLDMesgT	mesg
 	);
 
 extern int
-IPFDSendReservationResponse(
+BWLDSendReservationResponse(
 		int		fd,
 		int		*retn_on_intr,
-		IPFDMesgT	mesg,
-		IPFNum64	reservation,
+		BWLDMesgT	mesg,
+		BWLNum64	reservation,
 		u_int16_t	port
 		);
 
@@ -382,11 +382,11 @@ IPFDSendReservationResponse(
  * resouces to determine if the request is valid or not. For "fixed"
  * value resources, the current "usage" is not tracked.)
  */
-extern IPFBoolean
-IPFDResourceDemand(
-		IPFDPolicyNode	node,
-		IPFDMesgT	query,
-		IPFDLimRec	lim
+extern BWLBoolean
+BWLDResourceDemand(
+		BWLDPolicyNode	node,
+		BWLDMesgT	query,
+		BWLDLimRec	lim
 		);
 
 /*
@@ -395,71 +395,71 @@ IPFDResourceDemand(
  * able to fetch the value. (It should only return False if called
  * for a non-fixed value resource.)
  */
-extern IPFBoolean
-IPFDGetFixedLimit(
-		IPFDPolicyNode	node,
-		IPFDMesgT	limname,
-		IPFDLimitT	*ret_val
+extern BWLBoolean
+BWLDGetFixedLimit(
+		BWLDPolicyNode	node,
+		BWLDMesgT	limname,
+		BWLDLimitT	*ret_val
 		);
 /*
- * Functions called directly from iperfcd regarding "policy" decisions
+ * Functions called directly from bwctld regarding "policy" decisions
  * (If false, check err_ret to determine if it is an "error" condition,
  * or if open_mode is simply denied.)
  */
-extern IPFBoolean
-IPFDAllowOpenMode(
-	IPFDPolicy	policy,
+extern BWLBoolean
+BWLDAllowOpenMode(
+	BWLDPolicy	policy,
 	struct sockaddr	*peer_addr,
-	IPFErrSeverity	*err_ret
+	BWLErrSeverity	*err_ret
 	);
 
 /*
- * Functions actually used to install policy hooks into libipcntrl.
+ * Functions actually used to install policy hooks into libbwlib.
  */
-extern IPFBoolean
-IPFDGetAESKey(
-	IPFContext	ctx,
-	const IPFUserID	userid,
+extern BWLBoolean
+BWLDGetAESKey(
+	BWLContext	ctx,
+	const BWLUserID	userid,
 	u_int8_t	*key_ret,
-	IPFErrSeverity	*err_ret
+	BWLErrSeverity	*err_ret
 	);
 
-extern IPFBoolean
-IPFDCheckControlPolicy(
-	IPFControl	cntrl,
-	IPFSessionMode	mode,
-	const IPFUserID	userid,
+extern BWLBoolean
+BWLDCheckControlPolicy(
+	BWLControl	cntrl,
+	BWLSessionMode	mode,
+	const BWLUserID	userid,
 	struct sockaddr	*local_saddr,
 	struct sockaddr	*remote_saddr,
-	IPFErrSeverity	*err_ret
+	BWLErrSeverity	*err_ret
 	);
 
-extern IPFBoolean
-IPFDCheckTestPolicy(
-	IPFControl	cntrl,
-	IPFSID		sid,
-	IPFBoolean	local_sender,
+extern BWLBoolean
+BWLDCheckTestPolicy(
+	BWLControl	cntrl,
+	BWLSID		sid,
+	BWLBoolean	local_sender,
 	struct sockaddr	*local_saddr,
 	struct sockaddr	*remote_saddr,
 	socklen_t	sa_len,
-	IPFTestSpec	*tspec,
-	IPFNum64	fuzz_time,
-	IPFNum64	*reservation_ret,
+	BWLTestSpec	*tspec,
+	BWLNum64	fuzz_time,
+	BWLNum64	*reservation_ret,
 	u_int16_t	*port_ret,
 	void		**closure,
-	IPFErrSeverity	*err_ret
+	BWLErrSeverity	*err_ret
 	);
 
 extern void
-IPFDTestComplete(
-	IPFControl	cntrl,
+BWLDTestComplete(
+	BWLControl	cntrl,
 	void		*closure,
-	IPFAcceptType	aval
+	BWLAcceptType	aval
 	);
 
-extern IPFDPolicy
-IPFDPolicyInstall(
-	IPFContext	ctx,
+extern BWLDPolicy
+BWLDPolicyInstall(
+	BWLContext	ctx,
 	char		*datadir,	/* root dir for datafiles	*/
 	char		*confdir,	/* conf dir for policy		*/
 	char		*iperfcmd,	/* iperf exec path		*/
@@ -468,4 +468,4 @@ IPFDPolicyInstall(
 	size_t		*lbuf_max
 	);
 
-#endif	/*	_IPF_DEFAULTS_H	*/
+#endif	/*	_BWL_DEFAULTS_H	*/

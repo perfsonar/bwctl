@@ -17,10 +17,10 @@
  *	Date:		Tue Sep 16 14:25:16 MDT 2003
  *
  *	Description:
- *		Arithmatic and conversion functions for the IPFNum64
+ *		Arithmatic and conversion functions for the BWLNum64
  *		type.
  *
- * IPFNum64 is interpreted as 32bits of "seconds" and 32bits of
+ * BWLNum64 is interpreted as 32bits of "seconds" and 32bits of
  * "fractional seconds".
  * The byte ordering is defined by the hardware for this value. 4 MSBytes are
  * seconds, 4 LSBytes are fractional. Each set of 4 Bytes is pulled out
@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 
 #define MASK32(x) ((x) & 0xFFFFFFFFUL)
 #define BILLION 1000000000UL
@@ -44,7 +44,7 @@
  ************************************************************************/
 
 /*
- * Function:	IPFNum64Mult
+ * Function:	BWLNum64Mult
  *
  * Description:	
  *	Multiplication. Allows overflow. Straightforward implementation
@@ -58,10 +58,10 @@
  * Returns:	
  * Side Effect:	
  */
-IPFNum64
-IPFNum64Mult(
-	IPFNum64	x,
-	IPFNum64	y
+BWLNum64
+BWLNum64Mult(
+	BWLNum64	x,
+	BWLNum64	y
 	)
 {
 	unsigned long w[4];
@@ -70,7 +70,7 @@ IPFNum64Mult(
 
 	int i, j;
 	u_int64_t k, t;
-	IPFNum64 ret;
+	BWLNum64 ret;
 
 	xdec[0] = MASK32(x);
 	xdec[1] = MASK32(x>>32);
@@ -107,10 +107,10 @@ IPFNum64Mult(
  ************************************************************************/
 
 /*
- * Function:	IPFULongToNum64
+ * Function:	BWLULongToNum64
  *
  * Description:	
- *	Convert an unsigned 32-bit integer into a IPFNum64 struct..
+ *	Convert an unsigned 32-bit integer into a BWLNum64 struct..
  *
  * In Args:	
  *
@@ -120,20 +120,20 @@ IPFNum64Mult(
  * Returns:	
  * Side Effect:	
  */
-IPFNum64
-IPFULongToNum64(u_int32_t a)
+BWLNum64
+BWLULongToNum64(u_int32_t a)
 {
 	return ((u_int64_t)a << 32);
 }
 
 
 /*
- * Function:	IPFNum64toTimespec
+ * Function:	BWLNum64toTimespec
  *
  * Description:	
- * 	Convert a time value in IPFNum64 representation to timespec
+ * 	Convert a time value in BWLNum64 representation to timespec
  * 	representation. These are "relative" time values. (Not absolutes - i.e.
- * 	they are not relative to some "epoch".) IPFNum64 values are
+ * 	they are not relative to some "epoch".) BWLNum64 values are
  * 	unsigned 64 integral types with the MS (Most Significant) 32 bits
  * 	representing seconds, and the LS (Least Significant) 32 bits
  * 	representing fractional seconds (at a resolution of 32 bits).
@@ -147,9 +147,9 @@ IPFULongToNum64(u_int32_t a)
  * Side Effect:	
  */
 void
-IPFNum64ToTimespec(
+BWLNum64ToTimespec(
 	struct timespec	*to,
-	IPFNum64	from
+	BWLNum64	from
 	)
 {
 	/*
@@ -166,13 +166,13 @@ IPFNum64ToTimespec(
 }
 
 /*
- * Function:	IPFTimespecToNum64
+ * Function:	BWLTimespecToNum64
  *
  * Description:	
  *
- * 	Convert a time value in timespec representation to an IPFNum64
+ * 	Convert a time value in timespec representation to an BWLNum64
  * 	representation. These are "relative" time values. (Not absolutes - i.e.
- * 	they are not relative to some "epoch".) IPFNum64 values are
+ * 	they are not relative to some "epoch".) BWLNum64 values are
  * 	unsigned 64 integral types with the Most Significant 32 of those
  * 	64 bits representing seconds. The Least Significant 32 bits
  * 	represent fractional seconds at a resolution of 32 bits.
@@ -186,8 +186,8 @@ IPFNum64ToTimespec(
  * Side Effect:	
  */
 void
-IPFTimespecToNum64(
-	IPFNum64	*to,
+BWLTimespecToNum64(
+	BWLNum64	*to,
 	struct timespec	*from
 	)
 {
@@ -216,12 +216,12 @@ IPFTimespecToNum64(
 	return;
 }
 /*
- * Function:	IPFNum64toTimeval
+ * Function:	BWLNum64toTimeval
  *
  * Description:	
- * 	Convert a time value in IPFNum64 representation to timeval
+ * 	Convert a time value in BWLNum64 representation to timeval
  * 	representation. These are "relative" time values. (Not absolutes - i.e.
- * 	they are not relative to some "epoch".) IPFNum64 values are
+ * 	they are not relative to some "epoch".) BWLNum64 values are
  * 	unsigned 64 integral types with the MS (Most Significant) 32 bits
  * 	representing seconds, and the LS (Least Significant) 32 bits
  * 	representing fractional seconds (at a resolution of 32 bits).
@@ -235,9 +235,9 @@ IPFTimespecToNum64(
  * Side Effect:	
  */
 void
-IPFNum64ToTimeval(
+BWLNum64ToTimeval(
 	struct timeval	*to,
-	IPFNum64	from
+	BWLNum64	from
 	)
 {
 	/*
@@ -254,13 +254,13 @@ IPFNum64ToTimeval(
 }
 
 /*
- * Function:	IPFTimevalToNum64
+ * Function:	BWLTimevalToNum64
  *
  * Description:	
  *
- * 	Convert a time value in timeval representation to an IPFNum64
+ * 	Convert a time value in timeval representation to an BWLNum64
  * 	representation. These are "relative" time values. (Not absolutes - i.e.
- * 	they are not relative to some "epoch".) IPFNum64 values are
+ * 	they are not relative to some "epoch".) BWLNum64 values are
  * 	unsigned 64 integral types with the Most Significant 32 of those
  * 	64 bits representing seconds. The Least Significant 32 bits
  * 	represent fractional seconds at a resolution of 32 bits.
@@ -274,8 +274,8 @@ IPFNum64ToTimeval(
  * Side Effect:	
  */
 void
-IPFTimevalToNum64(
-	IPFNum64	*to,
+BWLTimevalToNum64(
+	BWLNum64	*to,
 	struct timeval	*from
 	)
 {
@@ -305,15 +305,15 @@ IPFTimevalToNum64(
 }
 
 /*
- * Function:	IPFNum64toDouble
+ * Function:	BWLNum64toDouble
  *
  * Description:	
- * 	Convert an IPFNum64 time value to a double representation. 
+ * 	Convert an BWLNum64 time value to a double representation. 
  * 	The double will contain the number of seconds with the fractional
- * 	portion of the IPFNum64 mapping to the portion of the double
+ * 	portion of the BWLNum64 mapping to the portion of the double
  * 	represented after the radix point. This will obviously loose
  * 	some precision after the radix point, however - larger values
- * 	will be representable in double than an IPFNum64.
+ * 	will be representable in double than an BWLNum64.
  *
  * In Args:	
  *
@@ -324,18 +324,18 @@ IPFTimevalToNum64(
  * Side Effect:	
  */
 double
-IPFNum64ToDouble(
-	IPFNum64	from
+BWLNum64ToDouble(
+	BWLNum64	from
 	)
 {
 	return (double)from / EXP2POW32;
 }
 
 /*
- * Function:	IPFDoubleToNum64
+ * Function:	BWLDoubleToNum64
  *
  * Description:	
- * 	Convert a double value to an IPFNum64 representation.
+ * 	Convert a double value to an BWLNum64 representation.
  *
  * In Args:	
  *
@@ -345,23 +345,23 @@ IPFNum64ToDouble(
  * Returns:	
  * Side Effect:	
  */
-IPFNum64
-IPFDoubleToNum64(
+BWLNum64
+BWLDoubleToNum64(
 	double	from
 	)
 {
 	if(from < 0){
 		return 0;
 	}
-	return (IPFNum64)(from * EXP2POW32);
+	return (BWLNum64)(from * EXP2POW32);
 }
 
 /*
- * Function:	IPFUsecToNum64
+ * Function:	BWLUsecToNum64
  *
  * Description:	
  * 	Convert an unsigned 32bit number representing some number of
- * 	microseconds to an IPFNum64 representation.
+ * 	microseconds to an BWLNum64 representation.
  *
  * In Args:	
  *
@@ -371,8 +371,8 @@ IPFDoubleToNum64(
  * Returns:	
  * Side Effect:	
  */
-IPFNum64
-IPFUsecToNum64(u_int32_t usec)
+BWLNum64
+BWLUsecToNum64(u_int32_t usec)
 {
 	return ((u_int64_t)usec << 32)/MILLION;
 }

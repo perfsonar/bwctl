@@ -9,7 +9,7 @@
 *									*
 ************************************************************************/
 /*
- *	File:		iperfcdP.h
+ *	File:		bwctldP.h
  *
  *	Author:		Jeff W. Boote
  *			Internet2
@@ -18,14 +18,14 @@
  *
  *	Description:	
  */
-#ifndef	_IPERFCDP_H_
-#define	_IPERFCDP_H_
+#ifndef	_BWCTLDP_H_
+#define	_BWCTLDP_H_
 
-#ifndef	IPERFCD_CONF_FILE
-#define	IPERFCD_CONF_FILE	"iperfcd.conf"
+#ifndef	BWCTLD_CONF_FILE
+#define	BWCTLD_CONF_FILE	"bwctld.conf"
 #endif
 
-#define	IPERFCD_DEF_TESTPORT	(5001)
+#define	BWCTLD_DEF_TESTPORT	(5001)
 
 /*
  * Types
@@ -39,9 +39,6 @@ typedef struct {
 	char		cwd[MAXPATHLEN];
 	char		*confdir;
 	char		*vardir;
-	char		*ip2class;
-	char		*class2limits;
-	char		*passwd;
 
 	char		*iperfcmd;
 	u_int16_t	*iperfports;
@@ -63,6 +60,6 @@ typedef struct {
 	I2Boolean	childwait;
 #endif
 	I2Boolean	daemon;
-} iperfcd_opts;
+} bwctld_opts;
 
-#endif	/*	_IPERFCDP_H_	*/
+#endif	/*	_BWCTLDP_H_	*/

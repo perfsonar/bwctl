@@ -19,5 +19,5 @@
 #	Description:	constructing owamp conf files from templates
 #		This doesn't really do this yet - it just provides
 #		examples.
-noinst_DATA	= iperfcd.conf iperfcd.passwd iperfcd.limits
-EXTRA_DIST	= iperfcd.conf iperfcd.passwd iperfcd.limits
+noinst_DATA	= bwctld.conf bwctld.limits
+EXTRA_DIST	= bwctld.conf bwctld.limits

@@ -1,4 +1,4 @@
-/*! \file iperfcd.c */
+/*! \file bwctld.c */
 /*
  *      $Id$
  */
@@ -10,7 +10,7 @@
 *									*
 ************************************************************************/
 /*
- *	File:		iperfcd.c
+ *	File:		bwctld.c
  *
  *	Author:		Jeff W. Boote
  *			Internet2
@@ -38,9 +38,9 @@
 #include <grp.h>
 #include <syslog.h>
 
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 
-#include "iperfcdP.h"
+#include "bwctldP.h"
 #include "conf.h"
 #include "policy.h"
 
@@ -50,12 +50,12 @@ static int			ipfd_chld = 0;
 static int			ipfd_exit = 0;
 static int			ipfd_alrm = 0;
 static int			ipfd_intr = 0;
-static iperfcd_opts		opts;
+static bwctld_opts		opts;
 static I2ErrLogSyslogAttr	syslogattr;
 static I2ErrHandle		errhand;
 static I2Table			fdtable=NULL;
 static I2Table			pidtable=NULL;
-static IPFNum64			uptime;
+static BWLNum64			uptime;
 
 #if defined HAVE_DECL_OPTRESET && !HAVE_DECL_OPTRESET
 int optreset;
@@ -117,7 +117,7 @@ signal_catch(
 		default:
 			I2ErrLog(errhand,"signal_catch(): Invalid signal(%d)",
 					signo);
-			_exit(IPF_CNTRL_FAILURE);
+			_exit(BWL_CNTRL_FAILURE);
 	}
 
 	ipfd_intr++;
@@ -127,11 +127,11 @@ signal_catch(
 
 typedef struct ReservationRec ReservationRec, *Reservation;
 struct ReservationRec{
-	IPFSID		sid;
-	IPFNum64	restime;
-	IPFNum64	start;	/* fuzz applied */
-	IPFNum64	end;	/* fuzz applied */
-	IPFNum64	fuzz;
+	BWLSID		sid;
+	BWLNum64	restime;
+	BWLNum64	start;	/* fuzz applied */
+	BWLNum64	end;	/* fuzz applied */
+	BWLNum64	fuzz;
 	u_int32_t	duration;
 	u_int16_t	port;
 	Reservation	next;
@@ -139,29 +139,29 @@ struct ReservationRec{
 
 typedef struct ChldStateRec ChldStateRec, *ChldState;
 struct ChldStateRec{
-	IPFDPolicy	policy;
+	BWLDPolicy	policy;
 	pid_t		pid;
 	int		fd;
-	IPFDPolicyNode	node;
+	BWLDPolicyNode	node;
 	Reservation	res;
 };
 
 static Reservation
 AllocReservation(
 	ChldState	cstate,
-	IPFSID		sid
+	BWLSID		sid
 	)
 {
 	Reservation	res;
 
 	if(cstate->res){
-		IPFError(cstate->policy->ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(cstate->policy->ctx,BWLErrFATAL,BWLErrINVALID,
 				"AllocReservation: cstate->res != NULL");
 		return NULL;
 	}
 
 	if( !(res = calloc(1,sizeof(*res)))){
-		IPFError(cstate->policy->ctx,IPFErrFATAL,ENOMEM,"malloc(): %M");
+		BWLError(cstate->policy->ctx,BWLErrFATAL,ENOMEM,"malloc(): %M");
 		return NULL;
 	}
 
@@ -200,7 +200,7 @@ FreeReservation(
 
 static Reservation	ResHead = NULL;
 
-static IPFBoolean
+static BWLBoolean
 ResRemove(
 		Reservation	res
 		)
@@ -233,29 +233,29 @@ DeleteReservation(
 	return;
 }
 
-static IPFBoolean
+static BWLBoolean
 ChldReservationDemand(
 	ChldState	cstate,
-	IPFSID		sid,
-	IPFNum64	rtime,
-	IPFNum64	ftime,
-	IPFNum64	ltime,
+	BWLSID		sid,
+	BWLNum64	rtime,
+	BWLNum64	ftime,
+	BWLNum64	ltime,
 	u_int32_t	duration,
-	IPFNum64	rtttime,
-	IPFNum64	*restime,
+	BWLNum64	rtttime,
+	BWLNum64	*restime,
 	u_int16_t	*port,
 	int		*err)
 {
-	IPFContext	ctx = cstate->policy->ctx;
-	IPFTimeStamp	currtime;
+	BWLContext	ctx = cstate->policy->ctx;
+	BWLTimeStamp	currtime;
 	Reservation	res;
 	Reservation	*rptr;
-	IPFDLimitT	hsecs;
-	IPFNum64	dtime;	/* duration with fuzz applied */
+	BWLDLimitT	hsecs;
+	BWLNum64	dtime;	/* duration with fuzz applied */
 
 	*err = 1;
 
-	if(!IPFDGetFixedLimit(cstate->node,IPFDLimEventHorizon,&hsecs))
+	if(!BWLDGetFixedLimit(cstate->node,BWLDLimEventHorizon,&hsecs))
 		return False;
 
 	if(cstate->res){
@@ -283,8 +283,8 @@ ChldReservationDemand(
 	 * the pending test queue.
 	 */
 
-	if(!IPFGetTimeStamp(ctx,&currtime)){
-		I2ErrLogP(errhand, errno, "IPFGetTimeOfDay: %M");
+	if(!BWLGetTimeStamp(ctx,&currtime)){
+		I2ErrLogP(errhand, errno, "BWLGetTimeOfDay: %M");
 		FreeReservation(cstate->res);
 		cstate->res = NULL;
 		return False;
@@ -300,12 +300,12 @@ ChldReservationDemand(
 	 * The time period from res->start to res->end is completely
 	 * allocated to this test.
 	 */
-	res->start = IPFNum64Sub(rtime,ftime);
-	res->start = IPFNum64Max(IPFNum64Add(currtime.ipftime,rtttime),
+	res->start = BWLNum64Sub(rtime,ftime);
+	res->start = BWLNum64Max(BWLNum64Add(currtime.tstamp,rtttime),
 								res->start);
-	res->restime = IPFNum64Add(res->start,ftime);
-	dtime = IPFNum64Add(IPFULongToNum64(duration),ftime);
-	res->end = IPFNum64Add(res->restime,dtime);
+	res->restime = BWLNum64Add(res->start,ftime);
+	dtime = BWLNum64Add(BWLULongToNum64(duration),ftime);
+	res->end = BWLNum64Add(res->restime,dtime);
 	res->fuzz = ftime;
 	res->duration = duration;
 
@@ -315,14 +315,14 @@ ChldReservationDemand(
 	 * the request.)
 	 */
 	if(hsecs){
-		ltime = IPFNum64Min(ltime,IPFNum64Add(currtime.ipftime,
-					IPFULongToNum64(hsecs)));
+		ltime = BWLNum64Min(ltime,BWLNum64Add(currtime.tstamp,
+					BWLULongToNum64(hsecs)));
 	}
 
 	/*
 	 * Open slot too late
 	 */
-	if(ltime && (IPFNum64Cmp(res->restime,ltime) > 0))
+	if(ltime && (BWLNum64Cmp(res->restime,ltime) > 0))
 		goto denied;
 
 	/********************************
@@ -338,7 +338,7 @@ ChldReservationDemand(
 		 * If the current res->end is before the current rptr,
 		 * insert here!
 		 */
-		if(IPFNum64Cmp(res->end,tres->start) < 0)
+		if(BWLNum64Cmp(res->end,tres->start) < 0)
 			break;
 
 		/*
@@ -346,7 +346,7 @@ ChldReservationDemand(
 		 * go to the next node and see if it can be inserted before
 		 * it.
 		 */
-		if(IPFNum64Cmp(res->start,tres->end) > 0){
+		if(BWLNum64Cmp(res->start,tres->end) > 0){
 			goto next_slot;
 		}
 
@@ -358,18 +358,18 @@ ChldReservationDemand(
 		 * new start is the expected endtime + Max of the two
 		 * fuzz factors.
 		 */
-		res->start = IPFNum64Add(tres->restime,
-				IPFULongToNum64(tres->duration));
-		res->start = IPFNum64Add(res->start,
-				IPFNum64Max(res->fuzz,tres->fuzz));
+		res->start = BWLNum64Add(tres->restime,
+				BWLULongToNum64(tres->duration));
+		res->start = BWLNum64Add(res->start,
+				BWLNum64Max(res->fuzz,tres->fuzz));
 
-		res->restime = IPFNum64Add(res->start,res->fuzz);
-		res->end = IPFNum64Add(res->restime,dtime);
+		res->restime = BWLNum64Add(res->start,res->fuzz);
+		res->end = BWLNum64Add(res->restime,dtime);
 
 		/*
 		 * Open slot too late
 		 */
-		if(ltime && (IPFNum64Cmp(res->restime,ltime) > 0))
+		if(ltime && (BWLNum64Cmp(res->restime,ltime) > 0))
 			goto denied;
 
 next_slot:
@@ -394,11 +394,11 @@ denied:
 	return False;
 }
 
-static IPFBoolean
+static BWLBoolean
 ChldReservationComplete(
 	ChldState	cstate,
-	IPFSID		sid,
-	IPFAcceptType	aval	__attribute__((unused)),
+	BWLSID		sid,
+	BWLAcceptType	aval	__attribute__((unused)),
 	int		*err)
 {
 	*err = 1;
@@ -413,7 +413,7 @@ ChldReservationComplete(
 
 static ChldState
 AllocChldState(
-	IPFDPolicy	policy,
+	BWLDPolicy	policy,
 	pid_t		pid,
 	int		fd
 	)
@@ -422,7 +422,7 @@ AllocChldState(
 	I2Datum		k,v;
 
 	if(!cstate){
-		IPFError(policy->ctx,IPFErrFATAL,ENOMEM,"malloc(): %M");
+		BWLError(policy->ctx,BWLErrFATAL,ENOMEM,"malloc(): %M");
 		return NULL;
 	}
 
@@ -477,15 +477,15 @@ FreeChldState(
 
 		k.dsize = cstate->fd;
 		if(I2HashDelete(fdtable,k) != 0){
-			IPFError(cstate->policy->ctx,IPFErrWARNING,
-					IPFErrUNKNOWN,
+			BWLError(cstate->policy->ctx,BWLErrWARNING,
+					BWLErrUNKNOWN,
 					"fd(%d) not in fdtable!?!",cstate->fd);
 		}
 	}
 
 	k.dsize = cstate->pid;
 	if(I2HashDelete(pidtable,k) != 0){
-		IPFError(cstate->policy->ctx,IPFErrWARNING,IPFErrUNKNOWN,
+		BWLError(cstate->policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
 				"pid(%d) not in pidtable!?!",cstate->pid);
 	}
 
@@ -521,8 +521,8 @@ ReapChildren(
 	while ( (child = waitpid(-1, &status, WNOHANG)) > 0){
 		key.dsize = child;
 		if(!I2HashFetch(pidtable,key,&val)){
-			IPFError(cstate->policy->ctx,IPFErrWARNING,
-				IPFErrUNKNOWN,
+			BWLError(cstate->policy->ctx,BWLErrWARNING,
+				BWLErrUNKNOWN,
 				"pid(%d) not in pidtable!?!",child);
 		}
 		cstate = val.dptr;
@@ -574,25 +574,25 @@ CheckFD(
 	 * Get classname and find policy node for that class.
 	 */
 	if(!cstate->node){
-		cstate->node = IPFDReadClass(cstate->policy,cstate->fd,
+		cstate->node = BWLDReadClass(cstate->policy,cstate->fd,
 				&ipfd_exit,&err);
 	}
 	else{
-		IPFDMesgT	query;
-		IPFDMesgT	resp;
-		IPFDLimRec	lim;
+		BWLDMesgT	query;
+		BWLDMesgT	resp;
+		BWLDLimRec	lim;
 
-		IPFSID		sid;
-		IPFNum64	rtime,ftime,ltime,restime,rtttime;
+		BWLSID		sid;
+		BWLNum64	rtime,ftime,ltime,restime,rtttime;
 		u_int32_t	duration;
 		u_int16_t	port;
-		IPFAcceptType	aval;
+		BWLAcceptType	aval;
 
-		switch(IPFDReadReqType(cstate->fd,&ipfd_exit,&err)){
-			case IPFDMESGRESOURCE:
+		switch(BWLDReadReqType(cstate->fd,&ipfd_exit,&err)){
+			case BWLDMESGRESOURCE:
 
 				/* read child request for resources */
-				if(!IPFDReadQuery(cstate->fd,&ipfd_exit,&query,
+				if(!BWLDReadQuery(cstate->fd,&ipfd_exit,&query,
 							&lim,&err)){
 					goto done;
 				}
@@ -600,19 +600,19 @@ CheckFD(
 				/*
 				 * parse tree for resource request/release
 				 */
-				resp = IPFDResourceDemand(cstate->node,query,
+				resp = BWLDResourceDemand(cstate->node,query,
 						lim) ?
-						IPFDMESGOK : IPFDMESGDENIED;
+						BWLDMESGOK : BWLDMESGDENIED;
 				/*
 				 * Send response
 				 */
-				err = IPFDSendResponse(cstate->fd,&ipfd_exit,
+				err = BWLDSendResponse(cstate->fd,&ipfd_exit,
 						resp);
 				break;
-			case IPFDMESGRESERVATION:
+			case BWLDMESGRESERVATION:
 
 				/* read child request for reservation */
-				if(!IPFDReadReservationQuery(cstate->fd,
+				if(!BWLDReadReservationQuery(cstate->fd,
 							&ipfd_exit,sid,
 							&rtime,&ftime,&ltime,
 							&duration,&rtttime,
@@ -627,24 +627,24 @@ CheckFD(
 						sid,rtime,ftime,ltime,
 						duration,rtttime,
 						&restime,&port,&err)){
-					resp = IPFDMESGOK;
+					resp = BWLDMESGOK;
 				}
 				else if(err){
 					goto done;
 				}
 				else{
-					resp = IPFDMESGDENIED;
+					resp = BWLDMESGDENIED;
 				}
 
 				/*
 				 * Send response
 				 */
-				err = IPFDSendReservationResponse(cstate->fd,
+				err = BWLDSendReservationResponse(cstate->fd,
 						&ipfd_exit,resp,restime,port);
 				break;
-			case IPFDMESGCOMPLETE:
+			case BWLDMESGCOMPLETE:
 
-				if(!IPFDReadTestComplete(cstate->fd,&ipfd_exit,
+				if(!BWLDReadTestComplete(cstate->fd,&ipfd_exit,
 							sid,&aval,&err)){
 					goto done;
 				}
@@ -654,19 +654,19 @@ CheckFD(
 				 */
 				if(ChldReservationComplete(cstate,sid,aval,
 							&err)){
-					resp = IPFDMESGOK;
+					resp = BWLDMESGOK;
 				}
 				else if(err){
 					goto done;
 				}
 				else{
-					resp = IPFDMESGDENIED;
+					resp = BWLDMESGDENIED;
 				}
 
 				/*
 				 * Send response
 				 */
-				err = IPFDSendResponse(cstate->fd,&ipfd_exit,
+				err = BWLDSendResponse(cstate->fd,&ipfd_exit,
 						resp);
 				break;
 			default:
@@ -677,7 +677,7 @@ CheckFD(
 
 done:
 	if(err){
-		IPFError(cstate->policy->ctx,IPFErrWARNING,IPFErrUNKNOWN,
+		BWLError(cstate->policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
 			"Invalid message from child pid=%d",cstate->pid);
 		(void)kill(cstate->pid,SIGTERM);
 	}
@@ -724,7 +724,7 @@ ClosePipes(
 
 	while((close(cstate->fd) < 0) && (errno == EINTR));
 	if(I2HashDelete(fdtable,key) != 0){
-		IPFError(cstate->policy->ctx,IPFErrWARNING,IPFErrUNKNOWN,
+		BWLError(cstate->policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
 					"fd(%d) not in fdtable!?!",cstate->fd);
 	}
 	cstate->fd = -1;
@@ -739,8 +739,8 @@ ClosePipes(
  */
 static void
 NewConnection(
-	IPFDPolicy	policy,
-	IPFAddr		listenaddr,
+	BWLDPolicy	policy,
+	BWLAddr		listenaddr,
 	int		*maxfd,
 	fd_set		*readfds
 	)
@@ -750,10 +750,10 @@ NewConnection(
 	socklen_t		sbufflen;
 	int			new_pipe[2];
 	pid_t			pid;
-	IPFSessionMode		mode = opts.auth_mode;
-	int			listenfd = IPFAddrFD(listenaddr);
-	IPFControl		cntrl=NULL;
-	IPFErrSeverity		out;
+	BWLSessionMode		mode = opts.auth_mode;
+	int			listenfd = BWLAddrFD(listenaddr);
+	BWLControl		cntrl=NULL;
+	BWLErrSeverity		out;
 
 ACCEPT:
 	sbufflen = sizeof(sbuff);
@@ -775,7 +775,7 @@ ACCEPT:
 				return;
 				break;
 			default:
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 						"accept(): %M");
 				return;
 				break;
@@ -783,7 +783,7 @@ ACCEPT:
 	}
 
 	if (socketpair(AF_UNIX,SOCK_STREAM,0,new_pipe) < 0){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,"socketpair(): %M");
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,"socketpair(): %M");
 		(void)close(connfd);
 		return;
 	}
@@ -792,7 +792,7 @@ ACCEPT:
 
 	/* fork error */
 	if (pid < 0){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,"fork(): %M");
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,"fork(): %M");
 		(void)close(new_pipe[0]);
 		(void)close(new_pipe[1]);
 		(void)close(connfd);
@@ -824,27 +824,27 @@ ACCEPT:
 	/* Child */
 	else{
 		struct itimerval	itval;
-		IPFRequestType		msgtype=IPFReqInvalid;
+		BWLRequestType		msgtype=BWLReqInvalid;
 
 #ifndef	NDEBUG
 		int		childwait;
 
 		if((childwait = opts.childwait)){
-			IPFError(policy->ctx,IPFErrWARNING,IPFErrUNKNOWN,
+			BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
 					"Waiting for Debugger.");
 			/* busy loop to wait for debug-attach */
 			while(childwait);
 
 			/*
-			 * set IPFChildWait if you want to attach
+			 * set BWLChildWait if you want to attach
 			 * to them... (by resetting childwait back to non-zero)
 			 */
-			if(childwait && !IPFContextConfigSet(policy->ctx,
-						IPFChildWait,(void*)childwait)){
-				IPFError(policy->ctx,IPFErrWARNING,
-						IPFErrUNKNOWN,
-						"IPFContextConfigSet(): "
-						"Unable to set IPFChildWait?!");
+			if(childwait && !BWLContextConfigSet(policy->ctx,
+						BWLChildWait,(void*)childwait)){
+				BWLError(policy->ctx,BWLErrWARNING,
+						BWLErrUNKNOWN,
+						"BWLContextConfigSet(): "
+						"Unable to set BWLChildWait?!");
 			}
 		}
 #endif
@@ -868,7 +868,7 @@ ACCEPT:
 		 * Initialize itimer struct. The it_value.tv_sec will be
 		 * set to interrupt socket i/o if the message is not received
 		 * within the timeout as described by owdp draft section 4
-		 * (IPCNTRL-Control).
+		 * (BWLIB-Control).
 		 */
 		memset(&itval,0,sizeof(itval));
 
@@ -883,22 +883,22 @@ ACCEPT:
 		 * there is an open_mode limit defined for the given
 		 * address.
 		 */
-		if((mode & IPF_MODE_OPEN) &&
-				!IPFDAllowOpenMode(policy,
+		if((mode & BWL_MODE_OPEN) &&
+				!BWLDAllowOpenMode(policy,
 					(struct sockaddr *)&sbuff,&out)){
-			if(out != IPFErrOK){
+			if(out != BWLErrOK){
 				exit(out);
 			}
-			mode &= ~IPF_MODE_OPEN;
+			mode &= ~BWL_MODE_OPEN;
 		}
 
 		ipfd_intr = 0;
 		itval.it_value.tv_sec = opts.controltimeout;
 		if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
 			I2ErrLog(errhand,"setitimer(): %M");
-			exit(IPFErrFATAL);
+			exit(BWLErrFATAL);
 		}
-		cntrl = IPFControlAccept(policy->ctx,connfd,
+		cntrl = BWLControlAccept(policy->ctx,connfd,
 					(struct sockaddr *)&sbuff,sbufflen,
 					mode,uptime,&ipfd_intr,&out);
 		/*
@@ -912,9 +912,9 @@ ACCEPT:
 		 * Process all requests - return when complete.
 		 */
 		while(1){
-			IPFErrSeverity	rc;
+			BWLErrSeverity	rc;
 
-			rc = IPFErrOK;
+			rc = BWLErrOK;
 
 			/*
 			 * reset signal vars
@@ -929,21 +929,21 @@ ACCEPT:
 				goto done;
 			}
 
-			msgtype = IPFReadRequestType(cntrl,&ipfd_intr);
+			msgtype = BWLReadRequestType(cntrl,&ipfd_intr);
 
 			switch (msgtype){
 
-			case IPFReqTest:
-				rc = IPFProcessTestRequest(cntrl,&ipfd_intr);
+			case BWLReqTest:
+				rc = BWLProcessTestRequest(cntrl,&ipfd_intr);
 				break;
 
-			case IPFReqTime:
-				rc = IPFProcessTimeRequest(cntrl,&ipfd_intr);
+			case BWLReqTime:
+				rc = BWLProcessTimeRequest(cntrl,&ipfd_intr);
 				break;
 
-			case IPFReqStartSession:
-				rc = IPFProcessStartSession(cntrl,&ipfd_intr);
-				if(rc < IPFErrOK){
+			case BWLReqStartSession:
+				rc = BWLProcessStartSession(cntrl,&ipfd_intr);
+				if(rc < BWLErrOK){
 					break;
 				}
 				/*
@@ -959,12 +959,12 @@ ACCEPT:
 					goto done;
 				}
 
-				while(IPFSessionsActive(cntrl,NULL)){
+				while(BWLSessionsActive(cntrl,NULL)){
 					int	wstate;
 
-					rc = IPFErrOK;
+					rc = BWLErrOK;
 					ipfd_intr = 0;
-					wstate = IPFStopSessionWait(cntrl,NULL,
+					wstate = BWLStopSessionWait(cntrl,NULL,
 							  &ipfd_intr,NULL,&rc);
 					if(ipfd_exit || (wstate < 0)){
 						goto done;
@@ -984,24 +984,24 @@ ACCEPT:
 					I2ErrLog(errhand,"setitimer(): %M");
 					goto done;
 				}
-				rc = IPFStopSession(cntrl,&ipfd_intr,NULL);
+				rc = BWLStopSession(cntrl,&ipfd_intr,NULL);
 
 				break;
 
-			case IPFReqSockClose:
+			case BWLReqSockClose:
 			default:
-				rc = IPFErrFATAL;
+				rc = BWLErrFATAL;
 				break;
 			}
 nextreq:
-			if(rc < IPFErrWARNING){
+			if(rc < BWLErrWARNING){
 				break;
 			}
 
 		}
 
 done:
-		IPFControlClose(cntrl);
+		BWLControlClose(cntrl);
 
 		if(ipfd_exit){
 			exit(0);
@@ -1010,7 +1010,7 @@ done:
 		/*
 		 * Normal socket close
 		 */
-		if(msgtype == IPFReqSockClose){
+		if(msgtype == BWLReqSockClose){
 			exit(0);
 		}
 
@@ -1073,22 +1073,22 @@ LoadConfig(
 
 	conf_file[0] = '\0';
 
-	rc = strlen(IPERFCD_CONF_FILE);
+	rc = strlen(BWCTLD_CONF_FILE);
 	if(rc > MAXPATHLEN){
-		fprintf(stderr,"strlen(IPERFCD_CONF_FILE) > MAXPATHLEN\n");
+		fprintf(stderr,"strlen(BWCTLD_CONF_FILE) > MAXPATHLEN\n");
 		exit(1);
 	}
 	if(opts.confdir){
-		rc += strlen(opts.confdir) + strlen(IPF_PATH_SEPARATOR);
+		rc += strlen(opts.confdir) + strlen(BWL_PATH_SEPARATOR);
 		if(rc > MAXPATHLEN){
 			fprintf(stderr,"Path to %s > MAXPATHLEN\n",
-							IPERFCD_CONF_FILE);
+							BWCTLD_CONF_FILE);
 			exit(1);
 		}
 		strcpy(conf_file, opts.confdir);
-		strcat(conf_file, IPF_PATH_SEPARATOR);
+		strcat(conf_file, BWL_PATH_SEPARATOR);
 	}
-	strcat(conf_file, IPERFCD_CONF_FILE);
+	strcat(conf_file, BWCTLD_CONF_FILE);
 
 	if(!(conf = fopen(conf_file, "r"))){
 		if(opts.confdir){
@@ -1099,7 +1099,7 @@ LoadConfig(
 		return;
 	}
 
-	while((rc = IPFDReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max))
+	while((rc = BWLDReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max))
 									> 0){
 
 		/* syslog facility */
@@ -1283,22 +1283,22 @@ int
 main(int argc, char *argv[])
 {
 	char			*progname;
-	IPFErrSeverity		out = IPFErrFATAL;
+	BWLErrSeverity		out = BWLErrFATAL;
 	char			pid_file[MAXPATHLEN],
 		                info_file[MAXPATHLEN];
 		
 	fd_set			readfds;
 	int			maxfd;    /* max fd in readfds */
-	IPFContext		ctx;
-	IPFDPolicy		policy;
-	IPFAddr			listenaddr = NULL;
+	BWLContext		ctx;
+	BWLDPolicy		policy;
+	BWLAddr			listenaddr = NULL;
 	int			listenfd;
 	int			rc;
 	I2Datum			data;
 	struct flock            flk;
 	int                     pid_fd;
 	FILE                    *pid_fp, *info_fp;
-	IPFTimeStamp	        currtime;	
+	BWLTimeStamp	        currtime;	
 	int ch;
 	uid_t			setuser=0;
 	gid_t			setgroup=0;
@@ -1327,9 +1327,6 @@ main(int argc, char *argv[])
 
 	/* Set up options defaults */
 	memset(&opts,0,sizeof(opts));
-	opts.ip2class = "ip2class.conf";
-	opts.class2limits = "class2limits.conf";
-	opts.passwd = "passwd.conf";
 	opts.daemon = 1;
 	opts.dieby = 30;
 	opts.controltimeout = 1800;
@@ -1494,8 +1491,8 @@ main(int argc, char *argv[])
 
 	/*  Get exclusive lock for pid file. */
 	strcpy(pid_file, opts.vardir);
-	strcat(pid_file, IPF_PATH_SEPARATOR);
-	strcat(pid_file, "iperfcd.pid");
+	strcat(pid_file, BWL_PATH_SEPARATOR);
+	strcat(pid_file, "bwctld.pid");
 	if ((pid_fd = open(pid_file, O_RDWR|O_CREAT,
 			   S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) < 0) {
 		I2ErrLog(errhand, "open(%s): %M", pid_file);
@@ -1523,7 +1520,7 @@ main(int argc, char *argv[])
 		struct group	*gr;
 
 		if(!opts.user){
-			I2ErrLog(errhand,"Running iperfcd as root is folly!");
+			I2ErrLog(errhand,"Running bwctld as root is folly!");
 			I2ErrLog(errhand,"Use the -U option!");
 			exit(1);
 		}
@@ -1586,14 +1583,14 @@ main(int argc, char *argv[])
 	 * Initialize the context. (Set the error handler to the app defined
 	 * one.)
 	 */
-	if(!(ctx = IPFContextCreate(errhand,opts.allowunsync))){
+	if(!(ctx = BWLContextCreate(errhand,opts.allowunsync))){
 		exit(1);
 	}
 
 	/*
 	 * Install policy for "ctx" - and return policy record.
 	 */
-	if(!(policy = IPFDPolicyInstall(ctx,opts.datadir,opts.confdir,
+	if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
 					opts.iperfcmd,&ipfd_exit,
 					&lbuf,&lbuf_max))){
 		I2ErrLog(errhand, "PolicyInit failed. Exiting...");
@@ -1618,13 +1615,13 @@ main(int argc, char *argv[])
 		while(*s != '\0'){
 			switch(toupper(*s)){
 				case 'O':
-				opts.auth_mode |= IPF_MODE_OPEN;
+				opts.auth_mode |= BWL_MODE_OPEN;
 				break;
 				case 'A':
-				opts.auth_mode |= IPF_MODE_AUTHENTICATED;
+				opts.auth_mode |= BWL_MODE_AUTHENTICATED;
 				break;
 				case 'E':
-				opts.auth_mode |= IPF_MODE_ENCRYPTED;
+				opts.auth_mode |= BWL_MODE_ENCRYPTED;
 				break;
 				default:
 				I2ErrLogP(errhand,EINVAL,
@@ -1639,8 +1636,8 @@ main(int argc, char *argv[])
 		/*
 		 * Default to all modes.
 		 */
-		opts.auth_mode = IPF_MODE_OPEN|IPF_MODE_AUTHENTICATED|
-							IPF_MODE_ENCRYPTED;
+		opts.auth_mode = BWL_MODE_OPEN|BWL_MODE_AUTHENTICATED|
+							BWL_MODE_ENCRYPTED;
 	}
 
 	/*
@@ -1745,21 +1742,21 @@ main(int argc, char *argv[])
 
 		/* Record the start timestamp in the info file. */
 		strcpy(info_file, opts.vardir);
-		strcat(info_file, IPF_PATH_SEPARATOR);
-		strcat(info_file, "iperfcd.info");
+		strcat(info_file, BWL_PATH_SEPARATOR);
+		strcat(info_file, "bwctld.info");
 		if ((info_fp = fopen(info_file, "w")) == NULL) {
 			I2ErrLog(errhand, "fopen(%s): %M", info_file);
 			kill(mypid,SIGTERM);
 			exit(1);
 		}
 
-		if(!IPFGetTimeStamp(ctx,&currtime)){
-			I2ErrLogP(errhand, errno, "IPFGetTimeStamp: %M");
+		if(!BWLGetTimeStamp(ctx,&currtime)){
+			I2ErrLogP(errhand, errno, "BWLGetTimeStamp: %M");
 			kill(mypid,SIGTERM);
 			exit(1);
 		}
-		uptime = currtime.ipftime;
-		fprintf(info_fp, "START="IPF_TSTAMPFMT"\n", currtime.ipftime);
+		uptime = currtime.tstamp;
+		fprintf(info_fp, "START="BWL_TSTAMPFMT"\n", currtime.tstamp);
 		fprintf(info_fp, "PID=%lld\n", (long long)mypid);
 		while ((rc = fclose(info_fp)) < 0 && errno == EINTR);
 		if(rc < 0){
@@ -1778,14 +1775,14 @@ main(int argc, char *argv[])
 	 * If the local interface was specified, use it - otherwise use NULL
 	 * for wildcard.
 	 */
-	if(opts.srcnode && !(listenaddr = IPFAddrByNode(ctx,opts.srcnode))){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+	if(opts.srcnode && !(listenaddr = BWLAddrByNode(ctx,opts.srcnode))){
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
 			"Invalid source address specified: %s",opts.srcnode);
 		exit(1);
 	}
-	listenaddr = IPFServerSockCreate(ctx,listenaddr,&out);
+	listenaddr = BWLServerSockCreate(ctx,listenaddr,&out);
 	if(!listenaddr){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"Unable to create server socket. Exiting...");
 		exit(1);
 	}
@@ -1826,7 +1823,7 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	listenfd = IPFAddrFD(listenaddr);
+	listenfd = BWLAddrFD(listenaddr);
 	FD_ZERO(&readfds);
 	FD_SET(listenfd,&readfds);
 	maxfd = listenfd;
@@ -1858,7 +1855,7 @@ main(int argc, char *argv[])
 				ReapChildren(&maxfd,&readfds);
 				continue;
 			}
-			IPFError(ctx,IPFErrFATAL,errno,"select(): %M");
+			BWLError(ctx,BWLErrFATAL,errno,"select(): %M");
 			exit(1);
 		}
 
@@ -1887,7 +1884,7 @@ main(int argc, char *argv[])
 	 * Close the server socket. reset the readfds/maxfd so they
 	 * can't confuse later ReapChildren calls.
 	 */
-	IPFAddrFree(listenaddr);
+	BWLAddrFree(listenaddr);
 	FD_ZERO(&readfds);
 	maxfd = -1;
 

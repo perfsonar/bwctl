@@ -16,12 +16,12 @@
 #
 #	Date:		Tue Sep 16 14:23:59 MDT 2003
 #
-#	Description:	libipcntrl build description.
+#	Description:	libbwlib build description.
 
-INCLUDES		= $(IPFINCS) $(I2UTILINCS)
+INCLUDES		= $(BWLINCS) $(I2UTILINCS)
 
-lib_LIBRARIES		= libipcntrl.a
-libipcntrl_a_SOURCES	= api.c capi.c sapi.c context.c error.c ipcntrlP.h \
+lib_LIBRARIES		= libbwlib.a
+libbwlib_a_SOURCES	= api.c capi.c sapi.c context.c error.c bwlibP.h \
 			protocol.c io.c endpoint.c time.c arithm64.c \
 			rijndael-alg-fst.c rijndael-alg-fst.h \
 			rijndael-api-fst.c rijndael-api-fst.h \
@@ -29,7 +29,7 @@ libipcntrl_a_SOURCES	= api.c capi.c sapi.c context.c error.c ipcntrlP.h \
 #			policy.h policy.c
 #			access2.c read_class2limits.c defaults.c print.c
 
-EXTRA_DIST		= ipcntrl.h
+EXTRA_DIST		= bwlib.h
 
 # Need to rewrite this test slightly before making it a build test...
 #TESTS			= rijndael-test-fst

@@ -16,14 +16,14 @@
 #
 #	Date:		Tue Sep 16 14:28:33 MDT 2003
 #
-#	Description:	iperfcd build description
+#	Description:	bwctld build description
 
 # possible solution to conf dir location
-AM_CFLAGS = $(IPF_PREFIX_CFLAGS)
+AM_CFLAGS = $(BWL_PREFIX_CFLAGS)
 
-INCLUDES	= $(IPFINCS) $(I2UTILINCS)
+INCLUDES	= $(BWLINCS) $(I2UTILINCS)
 
-bin_PROGRAMS	= iperfcd
-iperfcd_SOURCES	= iperfcdP.h iperfcd.c policy.h policy.c conf.h conf.c
-iperfcd_LDADD	= $(IPFLIBS) $(I2UTILLIBS) $(MALLOCDEBUGLIBS)
-iperfcd_DEPENDENCIES = $(IPFLIBDEPS) $(I2UTILLIBDEPS)
+bin_PROGRAMS	= bwctld
+bwctld_SOURCES	= bwctldP.h bwctld.c policy.h policy.c conf.h conf.c
+bwctld_LDADD	= $(BWLLIBS) $(I2UTILLIBS) $(MALLOCDEBUGLIBS)
+bwctld_DEPENDENCIES = $(BWLLIBDEPS) $(I2UTILLIBDEPS)

@@ -16,7 +16,7 @@
 **	Date:		Tue Sep  9 16:08:44 MDT 2003
 **
 **	Description:	
-**      Default policy  functions used by IPCNTRL applications.
+**      Default policy  functions used by BWLIB applications.
 */
 #include <stdlib.h>
 #include <stdio.h>
@@ -31,7 +31,7 @@
 #include <assert.h>
 #include <fts.h>
 
-#include <ipcntrl/ipcntrl.h>
+#include <bwlib/bwlib.h>
 #include "policy.h"
 #include "conf.h"
 
@@ -53,7 +53,7 @@
  */
 static int
 parsekeys(
-	IPFDPolicy	policy,
+	BWLDPolicy	policy,
 	FILE		*fp,
 	char		**lbuf,
 	size_t		*lbuf_max
@@ -62,30 +62,30 @@ parsekeys(
 	char		*line;
 	int		rc;
 	int		i;
-	IPFUserID	username;
-	const int	keylen=sizeof(IPFKey)*2; /* len hex-encoded key */
+	BWLUserID	username;
+	const int	keylen=sizeof(BWLKey)*2; /* len hex-encoded key */
 	char		*keystart;
-	IPFKey		tkey;
+	BWLKey		tkey;
 	I2Datum		key,val;
 
 	if(!fp){
 		return 0;
 	}
 
-	while((rc = IPFDGetConfLine(policy->ctx,fp,rc,lbuf,lbuf_max)) > 0){
+	while((rc = BWLDGetConfLine(policy->ctx,fp,rc,lbuf,lbuf_max)) > 0){
 
 		line = *lbuf;
 
 		i=0;
-		while(i <= IPF_USERID_LEN){
+		while(i <= BWL_USERID_LEN){
 			if(isspace(*line) || (*line == '\0')){
 				break;
 			}
 			username[i++] = *line++;
 		}
 
-		if(i > IPF_USERID_LEN){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+		if(i > BWL_USERID_LEN){
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 							"Username too long");
 			return -rc;
 		}
@@ -97,7 +97,7 @@ parsekeys(
 		key.dptr = username;
 		key.dsize = strlen(username);
 		if(I2HashFetch(policy->keys,key,&val)){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"username \"%s\" duplicated",username);
 			return -rc;
 		}
@@ -138,12 +138,12 @@ parsekeys(
 		}
 
 		if(i != keylen){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 						"Invalid key: wrong length");
 			return -rc;
 		}
-		if(!IPFHexDecode(keystart,tkey,sizeof(tkey))){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+		if(!BWLHexDecode(keystart,tkey,sizeof(tkey))){
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 						"Invalid key: not hex?");
 			return -rc;
 		}
@@ -152,7 +152,7 @@ parsekeys(
 		 * alloc memory for the username key.
 		 */
 		if(!(key.dptr = strdup(username))){
-			IPFError(policy->ctx,IPFErrFATAL,errno,
+			BWLError(policy->ctx,BWLErrFATAL,errno,
 						"strdup(username): %M");
 			return -rc;
 		}
@@ -162,7 +162,7 @@ parsekeys(
 		 */
 		if(!(val.dptr = malloc(sizeof(tkey)))){
 			free(key.dptr);
-			IPFError(policy->ctx,IPFErrFATAL,errno,
+			BWLError(policy->ctx,BWLErrFATAL,errno,
 						"malloc(AESKEY): %M");
 			return -rc;
 		}
@@ -172,7 +172,7 @@ parsekeys(
 		if(I2HashStore(policy->keys,key,val) != 0){
 			free(key.dptr);
 			free(val.dptr);
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"Unable to store AESKey for %s",
 					username);
 			return -rc;
@@ -203,14 +203,14 @@ parsekeys(
  */
 static int
 str2num(
-		IPFDLimitT	*limnum,
+		BWLDLimitT	*limnum,
 		char		*limstr
 		)
 {
 	size_t		silen=0;
 	size_t		len;
 	char		*endptr;
-	IPFDLimitT	ret, mult=1;
+	BWLDLimitT	ret, mult=1;
 
 	while(isdigit(limstr[silen])){
 		silen++;
@@ -278,26 +278,26 @@ str2num(
  */
 enum limtype{LIMINT,LIMBOOL,LIMFIXEDINT,LIMNOT};
 struct limdesc{
-	IPFDMesgT	limit;
+	BWLDMesgT	limit;
 	char		*lname;
 	enum limtype	ltype;
-	IPFDLimitT	def_value;
+	BWLDLimitT	def_value;
 };
 
 static struct limdesc	limkeys[] = {
-{IPFDLimParent,		"parent",		LIMNOT,		0},
-{IPFDLimBandwidth,	"bandwidth",		LIMFIXEDINT,	0},
-{IPFDLimPending,	"pending",		LIMINT,		0},
-{IPFDLimEventHorizon,	"event_horizon",	LIMFIXEDINT,	0},
-{IPFDLimDuration,	"duration",		LIMFIXEDINT,	0},
-{IPFDLimAllowOpenMode,	"allow_open_mode",	LIMBOOL,	1},
-{IPFDLimAllowTCP,	"allow_tcp",		LIMBOOL,	1},
-{IPFDLimAllowUDP,	"allow_udp",		LIMBOOL,	0}
+{BWLDLimParent,		"parent",		LIMNOT,		0},
+{BWLDLimBandwidth,	"bandwidth",		LIMFIXEDINT,	0},
+{BWLDLimPending,	"pending",		LIMINT,		0},
+{BWLDLimEventHorizon,	"event_horizon",	LIMFIXEDINT,	0},
+{BWLDLimDuration,	"duration",		LIMFIXEDINT,	0},
+{BWLDLimAllowOpenMode,	"allow_open_mode",	LIMBOOL,	1},
+{BWLDLimAllowTCP,	"allow_tcp",		LIMBOOL,	1},
+{BWLDLimAllowUDP,	"allow_udp",		LIMBOOL,	0}
 };
 
-static IPFDLimitT
+static BWLDLimitT
 GetDefLimit(
-	IPFDMesgT	lim
+	BWLDMesgT	lim
 	)
 {
 	size_t	i;
@@ -313,7 +313,7 @@ GetDefLimit(
 
 static char *
 GetLimName(
-	IPFDMesgT	lim
+	BWLDMesgT	lim
 	)
 {
 	size_t	i;
@@ -329,22 +329,22 @@ GetLimName(
 
 static int
 parselimitline(
-	IPFDPolicy	policy,
+	BWLDPolicy	policy,
 	char		*line,
 	size_t		maxlim
 	)
 {
 	size_t			i,j,k;
 	char			*cname;
-	IPFDLimRec		limtemp[I2Number(limkeys)];
-	IPFDPolicyNodeRec	tnode;
-	IPFDPolicyNode	node;
+	BWLDLimRec		limtemp[I2Number(limkeys)];
+	BWLDPolicyNodeRec	tnode;
+	BWLDPolicyNode	node;
 	I2Datum			key,val;
 
 	/*
 	 * Grab new classname
 	 */
-	if(!(line = strtok(line,IPFDWSPACESET))){
+	if(!(line = strtok(line,BWLDWSPACESET))){
 		return 1;
 	}
 	cname = line;
@@ -354,14 +354,14 @@ parselimitline(
 	 */
 	key.dptr = cname;
 	key.dsize = strlen(cname);
-	if(key.dsize > IPFDMAXCLASSLEN){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+	if(key.dsize > BWLDMAXCLASSLEN){
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 			"classname \"%s\" too long - max length = %u",cname,
-			IPFDMAXCLASSLEN);
+			BWLDMAXCLASSLEN);
 		return 1;
 	}
 	if(I2HashFetch(policy->limits,key,&val)){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 			"classname \"%s\" duplicated",cname);
 		return 1;
 	}
@@ -369,7 +369,7 @@ parselimitline(
 	/*
 	 * parse "with"
 	 */
-	if(!(line = strtok(NULL,IPFDWSPACESET))){
+	if(!(line = strtok(NULL,BWLDWSPACESET))){
 		return 1;
 	}
 	/* compare strings INCLUDING the '\0' */
@@ -387,11 +387,11 @@ parselimitline(
 	 */
 	while((line = strtok(NULL,","))){
 		char		*limname,*limval;
-		IPFBoolean	found;
+		BWLBoolean	found;
 
 		if(tnode.ilim >= maxlim){
-			IPFError(policy->ctx,IPFErrFATAL,
-				IPFErrINVALID,
+			BWLError(policy->ctx,BWLErrFATAL,
+				BWLErrINVALID,
 				"Too many limit declarations");
 			return 1;
 		}
@@ -420,12 +420,12 @@ parselimitline(
 
 		if(!strncasecmp(limname,"parent",7)){
 			if(!policy->root){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"\"parent\" specified for root node.");
 				return 1;
 			}
 			if(tnode.parent){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 						"multiple parents specified.");
 				return 1;
 			}
@@ -434,7 +434,7 @@ parselimitline(
 			key.dptr = limval;
 			key.dsize = strlen(limval);
 			if(!I2HashFetch(policy->limits,key,&val)){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"parent \"%s\" undefined",limval);
 				return 1;
 			}
@@ -461,7 +461,7 @@ parselimitline(
 		}
 
 		if(!found){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 				"Unknown limit name \"%s\".",limname);
 			return 1;
 		}
@@ -469,7 +469,7 @@ parselimitline(
 		/* check for a multiple definition */
 		for(j=0;j<tnode.ilim;j++){
 			if(limtemp[j].limit == limkeys[i].limit){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"multiple %s values specified.",
 					limname);
 				return 1;
@@ -485,7 +485,7 @@ parselimitline(
 		case LIMINT:
 		case LIMFIXEDINT:
 			if(str2num(&limtemp[tnode.ilim].value,limval)){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid value specified for \"%s\".",
 					limname);
 				return 1;
@@ -495,7 +495,7 @@ parselimitline(
 			if(!strncasecmp(limval,"on",3)){
 				limtemp[tnode.ilim].value = 1;
 			}else if(strncasecmp(limval,"off",4)){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid value specified for \"%s\".",
 					limname);
 				return 1;
@@ -503,7 +503,7 @@ parselimitline(
 			break;
 		default:
 			/* NOTREACHED */
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"limkeys array is invalid!");
 		}
 
@@ -561,8 +561,8 @@ override:
 				if(tnode.parent->limits[i].value >
 							limtemp[j].limit)
 					break;
-				IPFError(policy->ctx,IPFErrWARNING,
-						IPFErrUNKNOWN,
+				BWLError(policy->ctx,BWLErrWARNING,
+						BWLErrUNKNOWN,
 		"WARNING: %s: Using parents more restrictive limits for %s.",
 						cname,limkeys[k].lname);
 				limtemp[j].limit =
@@ -574,7 +574,7 @@ override:
 	 * No parent - if root has been set, this is invalid.
 	 */
 	else if(policy->root){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 			"\"parent\" must be specified for non-root node");
 		return 1;
 	}
@@ -584,15 +584,15 @@ override:
 	 */
 	if(!(node = malloc(sizeof(*node))) ||
 			!(tnode.nodename = strdup(cname)) ||
-			!(tnode.limits = calloc(maxlim,sizeof(IPFDLimRec))) ||
-			!(tnode.used = calloc(maxlim,sizeof(IPFDLimRec)))){
-		IPFError(policy->ctx,IPFErrFATAL,errno,"alloc(): %M");
+			!(tnode.limits = calloc(maxlim,sizeof(BWLDLimRec))) ||
+			!(tnode.used = calloc(maxlim,sizeof(BWLDLimRec)))){
+		BWLError(policy->ctx,BWLErrFATAL,errno,"alloc(): %M");
 		return 1;
 	}
 	memcpy(node,&tnode,sizeof(*node));
 	if(tnode.ilim){
-		memcpy(node->limits,limtemp,sizeof(IPFDLimRec)*tnode.ilim);
-		memcpy(node->used,limtemp,sizeof(IPFDLimRec)*tnode.ilim);
+		memcpy(node->limits,limtemp,sizeof(BWLDLimRec)*tnode.ilim);
+		memcpy(node->used,limtemp,sizeof(BWLDLimRec)*tnode.ilim);
 		for(i=0;i<tnode.ilim;i++){
 			node->used[i].value = 0;
 		}
@@ -603,7 +603,7 @@ override:
 	val.dptr = node;
 	val.dsize = sizeof(*node);
 	if(I2HashStore(policy->limits,key,val) != 0){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"Unable to store limit description!");
 		return 1;
 	}
@@ -617,12 +617,12 @@ override:
 
 static int
 parseassignline(
-	IPFDPolicy	policy,
+	BWLDPolicy	policy,
 	char		*line
 	)
 {
-	IPFDPidRec	tpid;
-	IPFDPid	pid;
+	BWLDPidRec	tpid;
+	BWLDPid	pid;
 	I2Datum		key,val;
 
 	memset(&tpid,0,sizeof(tpid));
@@ -630,16 +630,16 @@ parseassignline(
 	/*
 	 * Grab assign "type"
 	 */
-	if(!(line = strtok(line,IPFDWSPACESET))){
+	if(!(line = strtok(line,BWLDWSPACESET))){
 		return 1;
 	}
 
 	if(!strncasecmp(line,"default",8)){
-		tpid.id_type = IPFDPidDefaultType;
+		tpid.id_type = BWLDPidDefaultType;
 		key.dptr = &tpid;
 		key.dsize = sizeof(tpid);
 		if(I2HashFetch(policy->idents,key,&val)){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 				"Invalid multiple \"assign default\" lines.");
 			return 1;
 		}
@@ -650,12 +650,12 @@ parseassignline(
 		struct addrinfo	hints, *res;
 		u_int8_t	nbytes,nbits,*ptr;
 
-		tpid.id_type = IPFDPidNetmaskType;
+		tpid.id_type = BWLDPidNetmaskType;
 		/*
 		 * Grab addr/mask
 		 */
-		if(!(line = strtok(NULL,IPFDWSPACESET))){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+		if(!(line = strtok(NULL,BWLDWSPACESET))){
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 				"Invalid \"assign net\" argument.");
 			return 1;
 		}
@@ -663,7 +663,7 @@ parseassignline(
 		if((mask = strchr(line,'/'))){
 			*mask++ = '\0';
 			if(*mask == '\0'){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid address mask.");
 				return 1;
 			}
@@ -676,13 +676,13 @@ parseassignline(
 		res = NULL;
 
 		if((tint = getaddrinfo(line,NULL,&hints,&res)) < 0){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid address \"%s\": %s",line,
 					gai_strerror(tint));
 			return 1;
 		}
 		else if(!res){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid address \"%s\".",line);
 			return 1;
 		}
@@ -706,7 +706,7 @@ parseassignline(
 
 		default:
 			freeaddrinfo(res);
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"Unknown address protocol family.");
 			return 1;
 			break;
@@ -720,7 +720,7 @@ parseassignline(
 			tlng = (int)strtoul(mask,&end,10);
 			if((*end != '\0') || (tlng < 1) ||
 					(tlng > (tpid.net.addrsize*8))){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"Invalid address mask \"%s\".",mask);
 				return 1;
 			}
@@ -743,7 +743,7 @@ parseassignline(
 		 */
 		if(nbytes < tpid.net.addrsize){
 			if(*ptr & ~(0xFF << (8-nbits))){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid address/mask combination.");
 				return 1;
 			}
@@ -756,7 +756,7 @@ parseassignline(
 		ptr++;
 		while(nbytes < tpid.net.addrsize){
 			if(*ptr){
-				IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+				BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid address/mask combination.");
 				return 1;
 			}
@@ -768,7 +768,7 @@ parseassignline(
 		/*
 		 * Grab username
 		 */
-		if(!(line = strtok(NULL,IPFDWSPACESET))){
+		if(!(line = strtok(NULL,BWLDWSPACESET))){
 			return 1;
 		}
 		key.dptr = line;
@@ -776,16 +776,16 @@ parseassignline(
 
 		if((key.dsize >= sizeof(tpid.user.userid)) ||
 					!I2HashFetch(policy->keys,key,&val)){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Invalid user \"%s\".",line);
 			return 1;
 		}
 
-		tpid.id_type = IPFDPidUserType;
+		tpid.id_type = BWLDPidUserType;
 		strcpy(tpid.user.userid,line);
 	}
 	else{
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 				"Unknown \"assign\" specification.");
 		return 1;
 	}
@@ -794,28 +794,28 @@ parseassignline(
 	 * The Pid is valid - now parse and check for limits for
 	 * the "classname".
 	 */
-	if(!(line = strtok(NULL,IPFDWSPACESET))){
+	if(!(line = strtok(NULL,BWLDWSPACESET))){
 		return 1;
 	}
 
 	key.dptr = line;
 	key.dsize = strlen(line);
 	if(!I2HashFetch(policy->limits,key,&val)){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 				"Unknown limitclass name \"%s\".",line);
 		return 1;
 	}
 
 	if(!(pid = malloc(sizeof(*pid)))){
-		IPFError(policy->ctx,IPFErrFATAL,errno,
-				"malloc(IPFDPidRec): %M");
+		BWLError(policy->ctx,BWLErrFATAL,errno,
+				"malloc(BWLDPidRec): %M");
 		return 1;
 	}
 	memcpy(pid,&tpid,sizeof(*pid));
 	key.dptr = pid;
 	key.dsize = sizeof(*pid);
 	if(I2HashStore(policy->idents,key,val) != 0){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"Unable to store assign description!");
 		return 1;
 	}
@@ -825,7 +825,7 @@ parseassignline(
 
 static int
 parselimits(
-	IPFDPolicy	policy,
+	BWLDPolicy	policy,
 	FILE		*fp,
 	char		**lbuf,
 	size_t		*lbuf_max
@@ -848,7 +848,7 @@ parselimits(
 	/*
 	 * parse the file, one line at a time.
 	 */
-	while(fp && ((rc = IPFDGetConfLine(policy->ctx,fp,rc,lbuf,lbuf_max)) > 0)){
+	while(fp && ((rc = BWLDGetConfLine(policy->ctx,fp,rc,lbuf,lbuf_max)) > 0)){
 		line = *lbuf;
 
 		/*
@@ -893,18 +893,18 @@ parselimits(
 	if((rc == 0) && !policy->root){
 		char	defline[] = "default with";
 
-		IPFError(policy->ctx,IPFErrWARNING,IPFErrUNKNOWN,
+		BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
 					"WARNING: No limits specified.");
 
 		line = *lbuf;
 		if(sizeof(defline) > *lbuf_max){
-			*lbuf_max += IPFDLINEBUFINC;
+			*lbuf_max += BWLDLINEBUFINC;
 			*lbuf = realloc(line,sizeof(char) * *lbuf_max);
 			if(!*lbuf){
 				if(line){
 					free(line);
 				}
-				IPFError(policy->ctx,IPFErrFATAL,errno,
+				BWLError(policy->ctx,BWLErrFATAL,errno,
 						"realloc(%u): %M",*lbuf_max);
 				return -1;
 			}
@@ -912,7 +912,7 @@ parselimits(
 		}
 		strcpy(line,defline);
 		if(parselimitline(policy,line,maxlim) != 0){
-			IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+			BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"Unable to install default (open) limits");
 			return -1;
 		}
@@ -923,16 +923,16 @@ parselimits(
 }
 
 /*
- * Function:	IPFDPolicyInstall
+ * Function:	BWLDPolicyInstall
  *
  * Description:	
  * 	This function installs the functions defined in this file as
- * 	the "policy" hooks within the ipcntrl application.
+ * 	the "policy" hooks within the bwlib application.
  *
- * 	The main reason for defining the policy in the ipcntrl library
+ * 	The main reason for defining the policy in the bwlib library
  * 	like this was that it made it possible to share the policy
  * 	code between client/server applications such as owping and
- * 	iperfcd. Also, it is a good example of how this can be done for
+ * 	bwctld. Also, it is a good example of how this can be done for
  * 	custom appliations (such as powstream).
  *
  * In Args:	
@@ -949,9 +949,9 @@ parselimits(
  * 	TODO: I really should fix this - it is lazy, and makes looking for
  * 	memory leaks more difficult.
  */
-IPFDPolicy
-IPFDPolicyInstall(
-	IPFContext	ctx,
+BWLDPolicy
+BWLDPolicyInstall(
+	BWLContext	ctx,
 	char		*datadir,
 	char		*confdir,
 	char		*iperfcmd,
@@ -960,7 +960,7 @@ IPFDPolicyInstall(
 	size_t		*lbuf_max
 	)
 {
-	IPFDPolicy		policy;
+	BWLDPolicy		policy;
 	I2ErrHandle		eh;
 	char			fname[MAXPATHLEN+1];
 	int			len;
@@ -971,21 +971,21 @@ IPFDPolicyInstall(
 	 * use variables for the func pointers so the compiler can give
 	 * type-mismatch warnings.
 	 */
-	IPFGetAESKeyFunc		getaeskey = IPFDGetAESKey;
-	IPFCheckControlPolicyFunc	checkcontrolfunc =
-						IPFDCheckControlPolicy;
-	IPFCheckTestPolicyFunc		checktestfunc =
-						IPFDCheckTestPolicy;
-	IPFTestCompleteFunc		testcompletefunc = IPFDTestComplete;
+	BWLGetAESKeyFunc		getaeskey = BWLDGetAESKey;
+	BWLCheckControlPolicyFunc	checkcontrolfunc =
+						BWLDCheckControlPolicy;
+	BWLCheckTestPolicyFunc		checktestfunc =
+						BWLDCheckTestPolicy;
+	BWLTestCompleteFunc		testcompletefunc = BWLDTestComplete;
 
 
-	eh = IPFContextGetErrHandle(ctx);
+	eh = BWLContextGetErrHandle(ctx);
 
 	/*
 	 * Alloc main policy record
 	 */
 	if(!(policy = calloc(1,sizeof(*policy)))){
-		IPFError(ctx,IPFErrFATAL,errno,"calloc(policy rec): %M");
+		BWLError(ctx,BWLErrFATAL,errno,"calloc(policy rec): %M");
 		return NULL;
 	}
 
@@ -999,7 +999,7 @@ IPFDPolicyInstall(
 		datadir = ".";
 	}
 	if(!(policy->datadir = strdup(datadir))){
-		IPFError(ctx,IPFErrFATAL,errno,"strdup(datadir): %M");
+		BWLError(ctx,BWLErrFATAL,errno,"strdup(datadir): %M");
 		return NULL;
 	}
 
@@ -1010,8 +1010,8 @@ IPFDPolicyInstall(
 			!(policy->idents =
 				I2HashInit(eh,0,NULL,NULL)) ||
 			!(policy->keys = I2HashInit(eh,0,NULL,NULL))){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFDPolicyInstall: Unable to allocate hashes");
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+			"BWLDPolicyInstall: Unable to allocate hashes");
 		return NULL;
 	}
 
@@ -1019,29 +1019,29 @@ IPFDPolicyInstall(
 	 * Open the keys file.
 	 */
 	fname[0] = '\0';
-	len = strlen(IPF_KEY_FILE);
+	len = strlen(BWL_KEY_FILE);
 	if(len > MAXPATHLEN){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"strlen(IPF_KEY_FILE > MAXPATHLEN)");
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+				"strlen(BWL_KEY_FILE > MAXPATHLEN)");
 		return NULL;
 	}
 
-	len += strlen(confdir) + strlen(IPF_PATH_SEPARATOR);
+	len += strlen(confdir) + strlen(BWL_PATH_SEPARATOR);
 	if(len > MAXPATHLEN){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"Path to %s > MAXPATHLEN",IPF_KEY_FILE);
+		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+				"Path to %s > MAXPATHLEN",BWL_KEY_FILE);
 		return NULL;
 	}
 	strcpy(fname,confdir);
-	strcat(fname,IPF_PATH_SEPARATOR);
-	strcat(fname,IPF_KEY_FILE);
+	strcat(fname,BWL_PATH_SEPARATOR);
+	strcat(fname,BWL_KEY_FILE);
 	if(!(fp = fopen(fname,"r")) && (errno != ENOENT)){
-		IPFError(ctx,IPFErrFATAL,errno,"Unable to open %s: %M",fname);
+		BWLError(ctx,BWLErrFATAL,errno,"Unable to open %s: %M",fname);
 		return NULL;
 	}
 
 	/*
-	 * lbuf is a char buffer that grows as needed in IPFDGetConfLine
+	 * lbuf is a char buffer that grows as needed in BWLDGetConfLine
 	 * lbuf will be realloc'd repeatedly as needed. Once conf file
 	 * parsing is complete - it is free'd from this function.
 	 */
@@ -1050,7 +1050,7 @@ IPFDPolicyInstall(
 	}
 
 	if(fp && (fclose(fp) != 0)){
-		IPFError(ctx,IPFErrFATAL,errno,"fclose(%s): %M",fname);
+		BWLError(ctx,BWLErrFATAL,errno,"fclose(%s): %M",fname);
 		return NULL;
 	}
 
@@ -1058,26 +1058,26 @@ IPFDPolicyInstall(
 	 * Open the limits file.
 	 */
 	fname[0] = '\0';
-	len = strlen(IPF_LIMITS_FILE);
+	len = strlen(BWL_LIMITS_FILE);
 	if(len > MAXPATHLEN){
-		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-				"strlen(IPF_LIMITS_FILE > MAXPATHLEN)");
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+				"strlen(BWL_LIMITS_FILE > MAXPATHLEN)");
 		return NULL;
 	}
 
-	len += strlen(confdir) + strlen(IPF_PATH_SEPARATOR);
+	len += strlen(confdir) + strlen(BWL_PATH_SEPARATOR);
 	if(len > MAXPATHLEN){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"Path to %s > MAXPATHLEN",IPF_LIMITS_FILE);
+		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+				"Path to %s > MAXPATHLEN",BWL_LIMITS_FILE);
 		return NULL;
 	}
 	strcpy(fname,confdir);
-	strcat(fname,IPF_PATH_SEPARATOR);
-	strcat(fname,IPF_LIMITS_FILE);
+	strcat(fname,BWL_PATH_SEPARATOR);
+	strcat(fname,BWL_LIMITS_FILE);
 
 	if(!(fp = fopen(fname,"r"))){
 		if(errno != ENOENT){
-			IPFError(ctx,IPFErrFATAL,errno,"Unable to open %s: %M",
+			BWLError(ctx,BWLErrFATAL,errno,"Unable to open %s: %M",
 					fname);
 			return NULL;
 		}
@@ -1088,7 +1088,7 @@ IPFDPolicyInstall(
 BADLINE:
 
 	if(rc < 0){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
+		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
 				"%s:%d Invalid file syntax",fname,-rc);
 		return NULL;
 	}
@@ -1101,22 +1101,22 @@ BADLINE:
 	 * type.
 	 */
 
-	if(!IPFContextConfigSet(ctx,IPFDPOLICY,policy)){
+	if(!BWLContextConfigSet(ctx,BWLDPOLICY,policy)){
 		return NULL;
 	}
-	if(iperfcmd && !IPFContextConfigSet(ctx,IPFIperfCmd,(void*)iperfcmd)){
+	if(iperfcmd && !BWLContextConfigSet(ctx,BWLIperfCmd,(void*)iperfcmd)){
 		return NULL;
 	}
-	if(!IPFContextConfigSet(ctx,IPFGetAESKey,(void*)getaeskey)){
+	if(!BWLContextConfigSet(ctx,BWLGetAESKey,(void*)getaeskey)){
 		return NULL;
 	}
-	if(!IPFContextConfigSet(ctx,IPFCheckControlPolicy,(void*)checkcontrolfunc)){
+	if(!BWLContextConfigSet(ctx,BWLCheckControlPolicy,(void*)checkcontrolfunc)){
 		return NULL;
 	}
-	if(!IPFContextConfigSet(ctx,IPFCheckTestPolicy,(void*)checktestfunc)){
+	if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,(void*)checktestfunc)){
 		return NULL;
 	}
-	if(!IPFContextConfigSet(ctx,IPFTestComplete,(void*)testcompletefunc)){
+	if(!BWLContextConfigSet(ctx,BWLTestComplete,(void*)testcompletefunc)){
 		return NULL;
 	}
 
@@ -1124,7 +1124,7 @@ BADLINE:
 }
 
 /*
- * Function:	IPFDGetAESKey
+ * Function:	BWLDGetAESKey
  *
  * Description:	
  * 	Fetch the 128 bit AES key for a given userid and return it.
@@ -1142,30 +1142,30 @@ BADLINE:
  * Returns:	T/F
  * Side Effect:	
  */
-extern IPFBoolean
-IPFDGetAESKey(
-	IPFContext	ctx,
-	const IPFUserID	userid,
-	IPFKey		key_ret,
-	IPFErrSeverity	*err_ret
+extern BWLBoolean
+BWLDGetAESKey(
+	BWLContext	ctx,
+	const BWLUserID	userid,
+	BWLKey		key_ret,
+	BWLErrSeverity	*err_ret
 	)
 {
-	IPFDPolicy	policy;
+	BWLDPolicy	policy;
 	I2Datum		key,val;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
-	if(!(policy = (IPFDPolicy)IPFContextConfigGet(ctx,IPFDPOLICY))){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFDGetAESKey: IPFDPOLICY not set");
-		*err_ret = IPFErrFATAL;
+	if(!(policy = (BWLDPolicy)BWLContextConfigGet(ctx,BWLDPOLICY))){
+		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLDGetAESKey: BWLDPOLICY not set");
+		*err_ret = BWLErrFATAL;
 		return False;
 	}
 
 	key.dptr = (void*)userid;
 	key.dsize = strlen(userid);
 	if(!I2HashFetch(policy->keys,key,&val)){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrPOLICY,
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrPOLICY,
 				"userid \"%s\" unknown",userid);
 		return False;
 	}
@@ -1175,39 +1175,39 @@ IPFDGetAESKey(
 	return True;
 }
 
-static IPFDPolicyNode
+static BWLDPolicyNode
 GetNodeDefault(
-	IPFDPolicy	policy
+	BWLDPolicy	policy
 	)
 {
-	IPFDPidRec	tpid;
+	BWLDPidRec	tpid;
 	I2Datum		key,val;
 
 	memset(&tpid,0,sizeof(tpid));
 
-	tpid.id_type = IPFDPidDefaultType;
+	tpid.id_type = BWLDPidDefaultType;
 	key.dptr = &tpid;
 	key.dsize = sizeof(tpid);
 	if(I2HashFetch(policy->idents,key,&val)){
-		return (IPFDPolicyNode)val.dptr;
+		return (BWLDPolicyNode)val.dptr;
 	}
 
 	return policy->root;
 }
 
-static IPFDPolicyNode
+static BWLDPolicyNode
 GetNodeFromAddr(
-	IPFDPolicy	policy,
+	BWLDPolicy	policy,
 	struct sockaddr	*remote_sa_addr
 	)
 {
-	IPFDPidRec	pid;
+	BWLDPidRec	pid;
 	u_int8_t	nbytes,nbits,*ptr;
 	I2Datum		key,val;
 
 	memset(&pid,0,sizeof(pid));
 
-	pid.id_type = IPFDPidNetmaskType;
+	pid.id_type = BWLDPidNetmaskType;
 	key.dptr = &pid;
 	key.dsize = sizeof(pid);
 
@@ -1239,7 +1239,7 @@ GetNodeFromAddr(
 		break;
 
 	default:
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 				"Unknown address protocol family.");
 		return NULL;
 		break;
@@ -1270,17 +1270,17 @@ GetNodeFromAddr(
 		}
 
 		if(I2HashFetch(policy->idents,key,&val)){
-			return (IPFDPolicyNode)val.dptr;
+			return (BWLDPolicyNode)val.dptr;
 		}
 	}
 
 	return GetNodeDefault(policy);
 }
 
-static IPFDLimitT
+static BWLDLimitT
 GetLimit(
-	IPFDPolicyNode	node,
-	IPFDMesgT	lim
+	BWLDPolicyNode	node,
+	BWLDMesgT	lim
 	)
 {
 	size_t	i;
@@ -1294,10 +1294,10 @@ GetLimit(
 	return GetDefLimit(lim);
 }
 
-static IPFDLimitT
+static BWLDLimitT
 GetUsed(
-	IPFDPolicyNode	node,
-	IPFDMesgT	lim
+	BWLDPolicyNode	node,
+	BWLDMesgT	lim
 	)
 {
 	size_t	i;
@@ -1311,11 +1311,11 @@ GetUsed(
 	return 0;
 }
 
-static IPFBoolean
+static BWLBoolean
 IntegerResourceDemand(
-	IPFDPolicyNode	node,
-	IPFDMesgT	query,
-	IPFDLimRec	lim,
+	BWLDPolicyNode	node,
+	BWLDMesgT	query,
+	BWLDLimRec	lim,
 	enum limtype	limkind
 	)
 {
@@ -1362,7 +1362,7 @@ found:
 	/*
 	 * Deal with resource releases.
 	 */
-	else if(query == IPFDMESGRELEASE){
+	else if(query == BWLDMESGRELEASE){
 		/*
 		 * don't need to release fixed limits - so shortcut.
 		 */
@@ -1370,7 +1370,7 @@ found:
 			return True;
 
 		if(lim.value > node->used[i].value){
-			IPFError(node->policy->ctx,IPFErrFATAL,IPFErrPOLICY,
+			BWLError(node->policy->ctx,BWLErrFATAL,BWLErrPOLICY,
 				"Request to release unallocated resouces: "
 				"%s:%s (currently allocated = %u, "
 				"release amount = %u)",node->nodename,
@@ -1393,24 +1393,24 @@ found:
 	 */
 
 	/*
-	 * If this is a IPFDMESGCLAIM request - apply the fudge factor.
+	 * If this is a BWLDMESGCLAIM request - apply the fudge factor.
 	 * TODO: This was used to increase the amount of disk *actually*
 	 * used by the test, but may not be needed for iperf... I will
 	 * leave the MESGCLAIM message as valid for now, and just report
 	 * an invalid claim request so I can easily add fudged limits if
 	 * needed.
 	 */
-	if(query == IPFDMESGCLAIM){
+	if(query == BWLDMESGCLAIM){
 		switch(lim.limit){
 
 			default:
-			IPFError(node->policy->ctx,IPFErrFATAL,IPFErrPOLICY,
+			BWLError(node->policy->ctx,BWLErrFATAL,BWLErrPOLICY,
 					"Invalid \"CLAIM\" request");
 			return False;
 		}
 	}
-	else if(query != IPFDMESGREQUEST){
-		IPFError(node->policy->ctx,IPFErrFATAL,IPFErrPOLICY,
+	else if(query != BWLDMESGREQUEST){
+		BWLError(node->policy->ctx,BWLErrFATAL,BWLErrPOLICY,
 				"Unknown resource request type: %u",query);
 		return False;
 	}
@@ -1437,11 +1437,11 @@ found:
 	return True;
 }
 
-IPFBoolean
-IPFDGetFixedLimit(
-		IPFDPolicyNode	node,
-		IPFDMesgT	limname,
-		IPFDLimitT	*ret_val
+BWLBoolean
+BWLDGetFixedLimit(
+		BWLDPolicyNode	node,
+		BWLDMesgT	limname,
+		BWLDLimitT	*ret_val
 		)
 {
 	size_t		maxdef = I2Number(limkeys);
@@ -1460,23 +1460,23 @@ IPFDGetFixedLimit(
 		return True;
 	}
 
-	IPFError(node->policy->ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFDResourceDemand: Invalid limit kind.");
+	BWLError(node->policy->ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLDResourceDemand: Invalid limit kind.");
 	return False;
 }
 
-IPFBoolean
-IPFDResourceDemand(
-	IPFDPolicyNode	node,
-	IPFDMesgT	query,
-	IPFDLimRec	lim
+BWLBoolean
+BWLDResourceDemand(
+	BWLDPolicyNode	node,
+	BWLDMesgT	query,
+	BWLDLimRec	lim
 	)
 {
 	size_t		maxdef = I2Number(limkeys);
 	size_t		i;
 	enum limtype	limkind = LIMNOT;
-	IPFDLimitT	val;
-	IPFBoolean	ret;
+	BWLDLimitT	val;
+	BWLBoolean	ret;
 
 	for(i=0;i<maxdef;i++){
 		if(lim.limit == limkeys[i].limit){
@@ -1489,21 +1489,21 @@ IPFDResourceDemand(
 		return False;
 	}
 	else if(limkind == LIMBOOL){
-		if(query == IPFDMESGRELEASE){
+		if(query == BWLDMESGRELEASE){
 			return True;
 		}
 		val = GetLimit(node,lim.limit);
 		return (val == lim.value);
 	}
 	else if(limkind == LIMFIXEDINT){
-		if(query == IPFDMESGRELEASE){
+		if(query == BWLDMESGRELEASE){
 			return True;
 		}
 		/* fallthrough to IntegerResourceDemand */
 	}
 	else if(limkind != LIMINT){
-		IPFError(node->policy->ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFDResourceDemand: Invalid limit kind.");
+		BWLError(node->policy->ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLDResourceDemand: Invalid limit kind.");
 		return False;
 	}
 
@@ -1514,11 +1514,11 @@ IPFDResourceDemand(
 	 * as non-interesting.
 	 */
 	for(;!ret && node;node = node->parent){
-		IPFError(node->policy->ctx,IPFErrINFO,IPFErrPOLICY,
+		BWLError(node->policy->ctx,BWLErrINFO,BWLErrPOLICY,
 		"ResReq %s: %s:%s:%s = %llu (result = %llu, limit = %llu)",
 		(ret)?"ALLOWED":"DENIED",
 		node->nodename,
-		(query == IPFDMESGRELEASE)?"release":"request",
+		(query == BWLDMESGRELEASE)?"release":"request",
 		GetLimName(lim.limit),
 		lim.value,
 		GetUsed(node,lim.limit),
@@ -1529,7 +1529,7 @@ IPFDResourceDemand(
 }
 
 /*
- * Function:	IPFDSendResponse
+ * Function:	BWLDSendResponse
  *
  * Description:	
  * 	This function is called from the parent perspective.
@@ -1545,20 +1545,20 @@ IPFDResourceDemand(
  * Side Effect:	
  */
 int
-IPFDSendResponse(
+BWLDSendResponse(
 		int		fd,
 		int		*retn_on_intr,
-		IPFDMesgT	mesg
+		BWLDMesgT	mesg
 		)
 {
-	IPFDMesgT	buf[3];
+	BWLDMesgT	buf[3];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
 	if(retn_on_intr)
 		intr = retn_on_intr;
 
-	buf[0] = buf[2] = IPFDMESGMARK;
+	buf[0] = buf[2] = BWLDMESGMARK;
 	buf[1] = mesg;
 
 	if(I2Writeni(fd,&buf[0],12,intr) != 12){
@@ -1569,7 +1569,7 @@ IPFDSendResponse(
 }
 
 /*
- * Function:	IPFDReadResponse
+ * Function:	BWLDReadResponse
  *
  * Description:	
  *
@@ -1581,13 +1581,13 @@ IPFDSendResponse(
  * Returns:	
  * Side Effect:	
  */
-static IPFDMesgT
-IPFDReadResponse(
+static BWLDMesgT
+BWLDReadResponse(
 		int		fd,
 		int		*retn_on_intr
 		)
 {
-	IPFDMesgT	buf[3];
+	BWLDMesgT	buf[3];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
@@ -1595,18 +1595,18 @@ IPFDReadResponse(
 		intr = retn_on_intr;
 
 	if(I2Readni(fd,&buf[0],12,intr) != 12){
-		return IPFDMESGINVALID;
+		return BWLDMESGINVALID;
 	}
 
-	if((buf[0] != IPFDMESGMARK) || (buf[2] != IPFDMESGMARK)){
-		return IPFDMESGINVALID;
+	if((buf[0] != BWLDMESGMARK) || (buf[2] != BWLDMESGMARK)){
+		return BWLDMESGINVALID;
 	}
 
 	return buf[1];
 }
 
 /*
- * Function:	IPFDReadClass
+ * Function:	BWLDReadClass
  *
  * Description:	
  * 	This function is called from the parent perspective.
@@ -1623,18 +1623,18 @@ IPFDReadResponse(
  * Returns:	
  * Side Effect:	
  */
-IPFDPolicyNode
-IPFDReadClass(
-	IPFDPolicy	policy,
+BWLDPolicyNode
+BWLDReadClass(
+	BWLDPolicy	policy,
 	int		fd,
 	int		*retn_on_intr,
 	int		*err
 	)
 {
 	ssize_t		i;
-	const IPFDMesgT	mark=IPFDMESGMARK;
-	const IPFDMesgT	mclass=IPFDMESGCLASS;
-	u_int8_t	buf[IPFDMAXCLASSLEN+1 + sizeof(IPFDMesgT)*3];
+	const BWLDMesgT	mark=BWLDMESGMARK;
+	const BWLDMesgT	mclass=BWLDMESGCLASS;
+	u_int8_t	buf[BWLDMAXCLASSLEN+1 + sizeof(BWLDMesgT)*3];
 	I2Datum		key,val;
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
@@ -1654,15 +1654,15 @@ IPFDReadClass(
 		return NULL;
 	}
 
-	if(memcmp(&buf[0],&mark,sizeof(IPFDMesgT)) ||
-			memcmp(&buf[4],&mclass,sizeof(IPFDMesgT))){
+	if(memcmp(&buf[0],&mark,sizeof(BWLDMesgT)) ||
+			memcmp(&buf[4],&mclass,sizeof(BWLDMesgT))){
 		return NULL;
 	}
 
 	/*
 	 * read classname
 	 */
-	for(i=0;i<= IPFDMAXCLASSLEN;i++){
+	for(i=0;i<= BWLDMAXCLASSLEN;i++){
 		if(I2Readni(fd,&buf[i],1,intr) != 1){
 			return NULL;
 		}
@@ -1672,7 +1672,7 @@ IPFDReadClass(
 		}
 	}
 
-	if(i > IPFDMAXCLASSLEN){
+	if(i > BWLDMAXCLASSLEN){
 		return NULL;
 	}
 
@@ -1684,30 +1684,30 @@ IPFDReadClass(
 	 */
 	i++;
 	if((I2Readni(fd,&buf[i],4,intr) != 4) ||
-			memcmp(&buf[i],&mark,sizeof(IPFDMesgT))){
+			memcmp(&buf[i],&mark,sizeof(BWLDMesgT))){
 		return NULL;
 	}
 
 	if(I2HashFetch(policy->limits,key,&val)){
-		if(IPFDSendResponse(fd,intr,IPFDMESGOK) != 0){
+		if(BWLDSendResponse(fd,intr,BWLDMESGOK) != 0){
 			return NULL;
 		}
 		*err = 0;
 		return val.dptr;
 	}
 
-	(void)IPFDSendResponse(fd,intr,IPFDMESGDENIED);
+	(void)BWLDSendResponse(fd,intr,BWLDMESGDENIED);
 	return NULL;
 }
 
-static IPFDMesgT
-IPFDSendClass(
-	IPFDPolicy	policy,
-	IPFDPolicyNode	node
+static BWLDMesgT
+BWLDSendClass(
+	BWLDPolicy	policy,
+	BWLDPolicyNode	node
 	)
 {
-	u_int8_t	buf[IPFDMAXCLASSLEN+1 + sizeof(IPFDMesgT)*3];
-	IPFDMesgT	mesg;
+	u_int8_t	buf[BWLDMAXCLASSLEN+1 + sizeof(BWLDMesgT)*3];
+	BWLDMesgT	mesg;
 	ssize_t		len;
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
@@ -1715,25 +1715,25 @@ IPFDSendClass(
 	if(policy->retn_on_intr)
 		intr = policy->retn_on_intr;
 
-	mesg = IPFDMESGMARK;
+	mesg = BWLDMESGMARK;
 	memcpy(&buf[0],&mesg,4);
-	mesg = IPFDMESGCLASS;
+	mesg = BWLDMESGCLASS;
 	memcpy(&buf[4],&mesg,4);
 	len = strlen(node->nodename);
 	len++;
 	strncpy((char*)&buf[8],node->nodename,len);
 	len += 8;
-	mesg = IPFDMESGMARK;
+	mesg = BWLDMESGMARK;
 	memcpy(&buf[len],&mesg,4);
 	len += 4;
 
 	if(I2Writeni(policy->fd,buf,len,intr) != len){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFDCheckControlPolicy: Unable to contact parent");
-		return IPFDMESGINVALID;
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+			"BWLDCheckControlPolicy: Unable to contact parent");
+		return BWLDMESGINVALID;
 	}
 
-	return IPFDReadResponse(policy->fd,intr);
+	return BWLDReadResponse(policy->fd,intr);
 }
 
 /*
@@ -1741,14 +1741,14 @@ IPFDSendClass(
  * err will be 0 for a 0 length read. (i.e. no error)
  */
 int
-IPFDReadReqType(
+BWLDReadReqType(
 	int	fd,
 	int	*retn_on_intr,
 	int	*err
 	)
 {
 	ssize_t		i;
-	IPFDMesgT	buf[2];
+	BWLDMesgT	buf[2];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
@@ -1767,7 +1767,7 @@ IPFDReadReqType(
 		return 0;
 	}
 
-	if(buf[0] != IPFDMESGMARK){
+	if(buf[0] != BWLDMESGMARK){
 		return 0;
 	}
 
@@ -1778,17 +1778,17 @@ IPFDReadReqType(
 /*
  * True if the request is read without error
  */
-IPFBoolean
-IPFDReadQuery(
+BWLBoolean
+BWLDReadQuery(
 	int		fd,
 	int		*retn_on_intr,
-	IPFDMesgT	*query,
-	IPFDLimRec	*lim_ret,
+	BWLDMesgT	*query,
+	BWLDLimRec	*lim_ret,
 	int		*err
 	)
 {
 	ssize_t		i;
-	IPFDMesgT	buf[5];
+	BWLDMesgT	buf[5];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
@@ -1803,13 +1803,13 @@ IPFDReadQuery(
 	if((i = I2Readni(fd,&buf[0],20,intr)) != 20)
 		return False;
 
-	if(buf[4] != IPFDMESGMARK)
+	if(buf[4] != BWLDMESGMARK)
 		return False;
 
 	switch(buf[0]){
-		case IPFDMESGREQUEST:
-		case IPFDMESGRELEASE:
-		case IPFDMESGCLAIM:
+		case BWLDMESGREQUEST:
+		case BWLDMESGRELEASE:
+		case BWLDMESGCLAIM:
 			*query = buf[0];
 			break;
 		default:
@@ -1824,53 +1824,53 @@ IPFDReadQuery(
 	return True;
 }
 
-static IPFDMesgT
-IPFDQuery(
-	IPFDPolicy	policy,
-	IPFDMesgT	mesg,	/* IPFDMESGREQUEST or IPFDMESGRELEASE	*/
-	IPFDLimRec	lim
+static BWLDMesgT
+BWLDQuery(
+	BWLDPolicy	policy,
+	BWLDMesgT	mesg,	/* BWLDMESGREQUEST or BWLDMESGRELEASE	*/
+	BWLDLimRec	lim
 	)
 {
-	IPFDMesgT	buf[7];
+	BWLDMesgT	buf[7];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
 	if(policy->retn_on_intr)
 		intr = policy->retn_on_intr;
 
-	buf[0] = buf[6] = IPFDMESGMARK;
-	buf[1] = IPFDMESGRESOURCE;
+	buf[0] = buf[6] = BWLDMESGMARK;
+	buf[1] = BWLDMESGRESOURCE;
 	buf[2] = mesg;
 	buf[3] = lim.limit;
 	memcpy(&buf[4],&lim.value,8);
 
 	if(I2Writeni(policy->fd,buf,28,intr) != 28){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFDQuery: Unable to contact parent");
-		return IPFDMESGINVALID;
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+			"BWLDQuery: Unable to contact parent");
+		return BWLDMESGINVALID;
 	}
 
-	return IPFDReadResponse(policy->fd,intr);
+	return BWLDReadResponse(policy->fd,intr);
 }
 
 /*
  * True if the request is read without error
  */
-IPFBoolean
-IPFDReadReservationQuery(
+BWLBoolean
+BWLDReadReservationQuery(
 	int		fd,
 	int		*retn_on_intr,
-	IPFSID		sid,
-	IPFNum64	*req_time,
-	IPFNum64	*fuzz_time,
-	IPFNum64	*last_time,
+	BWLSID		sid,
+	BWLNum64	*req_time,
+	BWLNum64	*fuzz_time,
+	BWLNum64	*last_time,
 	u_int32_t	*duration,
-	IPFNum64	*rtt_time,
+	BWLNum64	*rtt_time,
 	int		*err
 	)
 {
 	ssize_t		i;
-	IPFDMesgT	buf[14];
+	BWLDMesgT	buf[14];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
@@ -1885,7 +1885,7 @@ IPFDReadReservationQuery(
 	if((i = I2Readni(fd,&buf[0],56,intr)) != 56)
 		return False;
 
-	if(buf[13] != IPFDMESGMARK)
+	if(buf[13] != BWLDMESGMARK)
 		return False;
 
 	memcpy(sid,&buf[0],16);
@@ -1901,7 +1901,7 @@ IPFDReadReservationQuery(
 }
 
 /*
- * Function:	IPFDSendReservationResponse
+ * Function:	BWLDSendReservationResponse
  *
  * Description:	
  * 	This function is called from the parent perspective.
@@ -1917,22 +1917,22 @@ IPFDReadReservationQuery(
  * Side Effect:	
  */
 int
-IPFDSendReservationResponse(
+BWLDSendReservationResponse(
 		int		fd,
 		int		*retn_on_intr,
-		IPFDMesgT	mesg,
-		IPFNum64	reservation,
+		BWLDMesgT	mesg,
+		BWLNum64	reservation,
 		u_int16_t	port
 		)
 {
-	IPFDMesgT	buf[6];
+	BWLDMesgT	buf[6];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
 	if(retn_on_intr)
 		intr = retn_on_intr;
 
-	buf[0] = buf[5] = IPFDMESGMARK;
+	buf[0] = buf[5] = BWLDMESGMARK;
 	buf[1] = mesg;
 
 	memcpy(&buf[2],&reservation,8);
@@ -1945,16 +1945,16 @@ IPFDSendReservationResponse(
 	return 0;
 }
 
-static IPFDMesgT
-IPFDReadReservationResponse(
+static BWLDMesgT
+BWLDReadReservationResponse(
 		int		fd,
 		int		*retn_on_intr,
-		IPFNum64	*reservation_ret,
+		BWLNum64	*reservation_ret,
 		u_int16_t	*port_ret
 		)
 {
 	ssize_t		i;
-	IPFDMesgT	buf[6];
+	BWLDMesgT	buf[6];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
@@ -1967,7 +1967,7 @@ IPFDReadReservationResponse(
 	if((i = I2Readni(fd,&buf[0],24,intr)) != 24)
 		return False;
 
-	if((buf[0] != IPFDMESGMARK) || (buf[5] != IPFDMESGMARK))
+	if((buf[0] != BWLDMESGMARK) || (buf[5] != BWLDMESGMARK))
 		return False;
 
 	memcpy(reservation_ret,&buf[2],8);
@@ -1976,28 +1976,28 @@ IPFDReadReservationResponse(
 	return buf[1];
 }
 
-static IPFDMesgT
-IPFDReservationQuery(
-	IPFDPolicy	policy,
-	IPFSID		sid,
-	IPFNum64	req_time,
-	IPFNum64	fuzz_time,
-	IPFNum64	last_time,
+static BWLDMesgT
+BWLDReservationQuery(
+	BWLDPolicy	policy,
+	BWLSID		sid,
+	BWLNum64	req_time,
+	BWLNum64	fuzz_time,
+	BWLNum64	last_time,
 	u_int32_t	duration,
-	IPFNum64	rtt_time,
-	IPFNum64	*reservation_ret,
+	BWLNum64	rtt_time,
+	BWLNum64	*reservation_ret,
 	u_int16_t	*port_ret
 	)
 {
-	IPFDMesgT	buf[16];
+	BWLDMesgT	buf[16];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
 	if(policy->retn_on_intr)
 		intr = policy->retn_on_intr;
 
-	buf[0] = buf[15] = IPFDMESGMARK;
-	buf[1] = IPFDMESGRESERVATION;
+	buf[0] = buf[15] = BWLDMESGMARK;
+	buf[1] = BWLDMESGRESERVATION;
 	memcpy(&buf[2],sid,16);
 	memcpy(&buf[6],&req_time,8);
 	memcpy(&buf[8],&fuzz_time,8);
@@ -2006,29 +2006,29 @@ IPFDReservationQuery(
 	memcpy(&buf[13],&rtt_time,8);
 
 	if(I2Writeni(policy->fd,buf,64,intr) != 64){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFDQuery: Unable to contact parent");
-		return IPFDMESGINVALID;
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+			"BWLDQuery: Unable to contact parent");
+		return BWLDMESGINVALID;
 	}
 
-	return IPFDReadReservationResponse(policy->fd,intr,reservation_ret,
+	return BWLDReadReservationResponse(policy->fd,intr,reservation_ret,
 			port_ret);
 }
 
 /*
  * True if the request is read without error
  */
-IPFBoolean
-IPFDReadTestComplete(
+BWLBoolean
+BWLDReadTestComplete(
 	int		fd,
 	int		*retn_on_intr,
-	IPFSID		sid,
-	IPFAcceptType	*aval,
+	BWLSID		sid,
+	BWLAcceptType	*aval,
 	int		*err
 	)
 {
 	ssize_t		i;
-	IPFDMesgT	buf[6];
+	BWLDMesgT	buf[6];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
@@ -2043,7 +2043,7 @@ IPFDReadTestComplete(
 	if((i = I2Readni(fd,&buf[0],24,intr)) != 24)
 		return False;
 
-	if(buf[5] != IPFDMESGMARK)
+	if(buf[5] != BWLDMESGMARK)
 		return False;
 
 	memcpy(sid,&buf[0],16);
@@ -2054,36 +2054,36 @@ IPFDReadTestComplete(
 	return True;
 }
 
-static IPFDMesgT
-IPFDSendTestComplete(
-	IPFDPolicy	policy,
-	IPFSID		sid,
-	IPFAcceptType	aval
+static BWLDMesgT
+BWLDSendTestComplete(
+	BWLDPolicy	policy,
+	BWLSID		sid,
+	BWLAcceptType	aval
 	)
 {
-	IPFDMesgT	buf[8];
+	BWLDMesgT	buf[8];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
 	if(policy->retn_on_intr)
 		intr = policy->retn_on_intr;
 
-	buf[0] = buf[7] = IPFDMESGMARK;
-	buf[1] = IPFDMESGCOMPLETE;
+	buf[0] = buf[7] = BWLDMESGMARK;
+	buf[1] = BWLDMESGCOMPLETE;
 	memcpy(&buf[2],sid,16);
 	memcpy(&buf[6],&aval,4);
 
 	if(I2Writeni(policy->fd,buf,32,intr) != 32){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrUNKNOWN,
-			"IPFDQuery: Unable to contact parent");
-		return IPFDMESGINVALID;
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+			"BWLDQuery: Unable to contact parent");
+		return BWLDMESGINVALID;
 	}
 
-	return IPFDReadResponse(policy->fd,intr);
+	return BWLDReadResponse(policy->fd,intr);
 }
 
 /*
- * Function:	IPFDAllowOpenMode
+ * Function:	BWLDAllowOpenMode
  *
  * Description:	
  *	check if the given address is allowed to have open_mode communication.
@@ -2096,29 +2096,29 @@ IPFDSendTestComplete(
  * Returns:	
  * Side Effect:	
  */
-IPFBoolean
-IPFDAllowOpenMode(
-	IPFDPolicy	policy,
+BWLBoolean
+BWLDAllowOpenMode(
+	BWLDPolicy	policy,
 	struct sockaddr	*remote_sa_addr,
-	IPFErrSeverity	*err_ret	 /* error - return     	*/
+	BWLErrSeverity	*err_ret	 /* error - return     	*/
 	)
 {
-	IPFDPolicyNode	node;
+	BWLDPolicyNode	node;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
 	if(!(node = GetNodeFromAddr(policy,remote_sa_addr))){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFDAllowOpenMode: Invalid policy");
-		*err_ret = IPFErrFATAL;
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLDAllowOpenMode: Invalid policy");
+		*err_ret = BWLErrFATAL;
 		return False;
 	}
 
-	return GetLimit(node,IPFDLimAllowOpenMode);
+	return GetLimit(node,BWLDLimAllowOpenMode);
 }
 
 /*
- * Function:	IPFDCheckControlPolicy
+ * Function:	BWLDCheckControlPolicy
  *
  * Description:	
  * 	Determines the "user class" of the given connection and
@@ -2138,31 +2138,31 @@ IPFDAllowOpenMode(
  * Returns:	
  * Side Effect:	
  */
-IPFBoolean
-IPFDCheckControlPolicy(
-	IPFControl	cntrl,
-	IPFSessionMode	mode,			/* requested mode	*/
-	const IPFUserID	userid,			/* identity		*/
+BWLBoolean
+BWLDCheckControlPolicy(
+	BWLControl	cntrl,
+	BWLSessionMode	mode,			/* requested mode	*/
+	const BWLUserID	userid,			/* identity		*/
 	struct sockaddr	*local_sa_addr __attribute__((unused)),
 						/* local addr or NULL	*/
 	struct sockaddr	*remote_sa_addr,	/* remote addr		*/
-	IPFErrSeverity	*err_ret		/* error - return     	*/
+	BWLErrSeverity	*err_ret		/* error - return     	*/
 )
 {
-	IPFContext	ctx;
-	IPFDPolicy	policy;
-	IPFDPolicyNode	node=NULL;
+	BWLContext	ctx;
+	BWLDPolicy	policy;
+	BWLDPolicyNode	node=NULL;
 	I2Datum		key,val;
-	IPFDMesgT	ret;
+	BWLDMesgT	ret;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
-	ctx = IPFGetContext(cntrl);
+	ctx = BWLGetContext(cntrl);
 
-	if(!(policy = (IPFDPolicy)IPFContextConfigGet(ctx,IPFDPOLICY))){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFDCheckControlPolicy: IPFDPOLICY not set");
-		*err_ret = IPFErrFATAL;
+	if(!(policy = (BWLDPolicy)BWLContextConfigGet(ctx,BWLDPOLICY))){
+		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLDCheckControlPolicy: BWLDPOLICY not set");
+		*err_ret = BWLErrFATAL;
 		return False;
 	}
 
@@ -2170,7 +2170,7 @@ IPFDCheckControlPolicy(
 	 * Determine userclass and send that to the parent.
 	 * (First try based on userid.)
 	 */
-	if((mode & IPF_MODE_DOCIPHER) && userid){
+	if((mode & BWL_MODE_DOCIPHER) && userid){
 		key.dptr = (void*)userid;
 		key.dsize = strlen(userid);
 
@@ -2185,9 +2185,9 @@ IPFDCheckControlPolicy(
 	 * address matched.)
 	 */
 	if(!node && !(node = GetNodeFromAddr(policy,remote_sa_addr))){
-		IPFError(policy->ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFDCheckControlPolicy: Invalid policy");
-		*err_ret = IPFErrFATAL;
+		BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLDCheckControlPolicy: Invalid policy");
+		*err_ret = BWLErrFATAL;
 		return False;
 	}
 
@@ -2195,15 +2195,15 @@ IPFDCheckControlPolicy(
 	 * Initialize the communication with the parent resource broker
 	 * process.
 	 */
-	if((ret = IPFDSendClass(policy,node)) == IPFDMESGOK){
+	if((ret = BWLDSendClass(policy,node)) == BWLDMESGOK){
 		/*
 		 * Success - now save the node in the control config
 		 * for later hook functions to access.
 		 */
-		if(!IPFControlConfigSet(cntrl,IPFDPOLICY_NODE,node)){
-			IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
-	"IPFDCheckControlPolicy: Unable to save \"class\" for connection");
-			*err_ret = IPFErrFATAL;
+		if(!BWLControlConfigSet(cntrl,BWLDPOLICY_NODE,node)){
+			BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+	"BWLDCheckControlPolicy: Unable to save \"class\" for connection");
+			*err_ret = BWLErrFATAL;
 			return False;
 		}
 
@@ -2211,10 +2211,10 @@ IPFDCheckControlPolicy(
 	}
 
 	/*
-	 * If ret wasn't IPFDMESGDENIED - there was some kind of error.
+	 * If ret wasn't BWLDMESGDENIED - there was some kind of error.
 	 */
-	if(ret != IPFDMESGDENIED){
-		*err_ret = IPFErrFATAL;
+	if(ret != BWLDMESGDENIED){
+		*err_ret = BWLErrFATAL;
 	}
 
 	return False;
@@ -2225,40 +2225,40 @@ IPFDCheckControlPolicy(
  * pointer - and provided to the Open/Close file functions as well as the
  * TestComplete function.
  */
-typedef struct IPFDTestInfoRec{
-	IPFDPolicyNode	node;
-	IPFSID		sid;
-	IPFDLimRec	res[1];	/* keep track of "consumable" resources
+typedef struct BWLDTestInfoRec{
+	BWLDPolicyNode	node;
+	BWLSID		sid;
+	BWLDLimRec	res[1];	/* keep track of "consumable" resources
 				 * resouces listed here will be "released"
 				 * in TestComplete.
 				 */
-} IPFDTestInfoRec, *IPFDTestInfo;
+} BWLDTestInfoRec, *BWLDTestInfo;
 
-IPFBoolean
-IPFDCheckTestPolicy(
-	IPFControl	cntrl,
-	IPFSID		sid,
-	IPFBoolean	local_sender __attribute__((unused)),
+BWLBoolean
+BWLDCheckTestPolicy(
+	BWLControl	cntrl,
+	BWLSID		sid,
+	BWLBoolean	local_sender __attribute__((unused)),
 	struct sockaddr	*local_sa_addr	__attribute__((unused)),
 	struct sockaddr	*remote_sa_addr __attribute__((unused)),
 	socklen_t	sa_len	__attribute__((unused)),
-	IPFTestSpec	*tspec,
-	IPFNum64	fuzz_time,
-	IPFNum64	*reservation_ret,
+	BWLTestSpec	*tspec,
+	BWLNum64	fuzz_time,
+	BWLNum64	*reservation_ret,
 	u_int16_t	*port_ret,
 	void		**closure,
-	IPFErrSeverity	*err_ret
+	BWLErrSeverity	*err_ret
 )
 {
-	IPFContext	ctx = IPFGetContext(cntrl);
-	IPFDPolicyNode	node;
-	IPFDTestInfo	tinfo;
-	IPFDMesgT	ret;
-	IPFDLimRec	lim;
+	BWLContext	ctx = BWLGetContext(cntrl);
+	BWLDPolicyNode	node;
+	BWLDTestInfo	tinfo;
+	BWLDMesgT	ret;
+	BWLDLimRec	lim;
 
-	*err_ret = IPFErrOK;
+	*err_ret = BWLErrOK;
 
-	tinfo = (IPFDTestInfo)*closure;
+	tinfo = (BWLDTestInfo)*closure;
 
 	/*
 	 * If this is just an update to the reservation...
@@ -2274,18 +2274,18 @@ IPFDCheckTestPolicy(
 	/*
 	 * Fetch the "user class" for this connection.
 	 */
-	if(!(node = (IPFDPolicyNode)IPFControlConfigGet(cntrl,
-						IPFDPOLICY_NODE))){
-		IPFError(ctx,IPFErrFATAL,IPFErrINVALID,
-				"IPFDCheckTestPolicy: IPFDPOLICY_NODE not set");
-		*err_ret = IPFErrFATAL;
+	if(!(node = (BWLDPolicyNode)BWLControlConfigGet(cntrl,
+						BWLDPOLICY_NODE))){
+		BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+				"BWLDCheckTestPolicy: BWLDPOLICY_NODE not set");
+		*err_ret = BWLErrFATAL;
 		return False;
 	}
 
 
-	if(!(tinfo = calloc(1,sizeof(IPFDTestInfoRec)))){
-		IPFError(ctx,IPFErrFATAL,errno,"calloc(1,IPFDTestInfoRec): %M");
-		*err_ret = IPFErrFATAL;
+	if(!(tinfo = calloc(1,sizeof(BWLDTestInfoRec)))){
+		BWLError(ctx,BWLErrFATAL,errno,"calloc(1,BWLDTestInfoRec): %M");
+		*err_ret = BWLErrFATAL;
 		return False;
 	}
 
@@ -2300,38 +2300,38 @@ IPFDCheckTestPolicy(
 	 */
 
 	/* duration */
-	lim.limit = IPFDLimDuration;
+	lim.limit = BWLDLimDuration;
 	lim.value = tspec->duration;
-	if(!IPFDResourceDemand(node,IPFDMESGREQUEST,lim))
+	if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim))
 		goto done;
 
 	/*
 	 * TCP/UDP
 	 */
 	if(tspec->udp){
-		lim.limit = IPFDLimAllowUDP;
+		lim.limit = BWLDLimAllowUDP;
 		lim.value = True;
-		if(!IPFDResourceDemand(node,IPFDMESGREQUEST,lim))
+		if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim))
 			goto done;
-		lim.limit = IPFDLimBandwidth;
+		lim.limit = BWLDLimBandwidth;
 		lim.value = tspec->bandwidth;
-		if(!IPFDResourceDemand(node,IPFDMESGREQUEST,lim))
+		if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim))
 			goto done;
 	}
 	else{
-		lim.limit = IPFDLimAllowTCP;
+		lim.limit = BWLDLimAllowTCP;
 		lim.value = True;
-		if(!IPFDResourceDemand(node,IPFDMESGREQUEST,lim))
+		if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim))
 			goto done;
 	}
 
 	/*
 	 * Now request consumable resources
 	 */
-	tinfo->res[0].limit = IPFDLimPending;
+	tinfo->res[0].limit = BWLDLimPending;
 	tinfo->res[0].value = 1;
-	if((ret = IPFDQuery(node->policy,IPFDMESGREQUEST,tinfo->res[0]))
-							!= IPFDMESGOK){
+	if((ret = BWLDQuery(node->policy,BWLDMESGREQUEST,tinfo->res[0]))
+							!= BWLDMESGOK){
 		goto done;
 	}
 
@@ -2340,12 +2340,12 @@ reservation:
 	/*
 	 * Request a reservation.
 	 */
-	if( (ret = IPFDReservationQuery(node->policy,tinfo->sid,
-					tspec->req_time.ipftime,fuzz_time,
+	if( (ret = BWLDReservationQuery(node->policy,tinfo->sid,
+					tspec->req_time.tstamp,fuzz_time,
 					tspec->latest_time,tspec->duration,
-					IPFGetRTTBound(cntrl),
+					BWLGetRTTBound(cntrl),
 					reservation_ret,port_ret))
-			!= IPFDMESGOK){
+			!= BWLDMESGOK){
 		goto done;
 	}
 	*closure = tinfo;
@@ -2357,13 +2357,13 @@ done:
 }
 
 extern void
-IPFDTestComplete(
-	IPFControl	cntrl __attribute__((unused)),
+BWLDTestComplete(
+	BWLControl	cntrl __attribute__((unused)),
 	void		*closure,	/* closure from CheckTestPolicy	*/
-	IPFAcceptType	aval
+	BWLAcceptType	aval
 	)
 {
-	IPFDTestInfo	tinfo = (IPFDTestInfo)closure;
+	BWLDTestInfo	tinfo = (BWLDTestInfo)closure;
 	unsigned int	i,n;
 
 	n = I2Number(tinfo->res);
@@ -2371,11 +2371,11 @@ IPFDTestComplete(
 		if(!tinfo->res[i].limit){
 			continue;
 		}
-		(void)IPFDQuery(tinfo->node->policy,IPFDMESGRELEASE,
+		(void)BWLDQuery(tinfo->node->policy,BWLDMESGRELEASE,
 								tinfo->res[i]);
 	}
 
-	(void)IPFDSendTestComplete(tinfo->node->policy,tinfo->sid,aval);
+	(void)BWLDSendTestComplete(tinfo->node->policy,tinfo->sid,aval);
 
 	free(tinfo);
 

@@ -16,13 +16,13 @@
 #
 #	Date:		Wed Apr 17 13:37:24 EDT 2002
 #
-#	Description:	toplevel build for iperfc
+#	Description:	toplevel build for bwctl
 #
-SUBDIRS = @TOP_BUILD_DIRS@ ipcntrl iperfcd iperfc conf
+SUBDIRS = @TOP_BUILD_DIRS@ bwlib bwctld bwctl conf
 
 # uncomment this when we stop using broken automake 1.5
 # (then remove from DIST_EXTRA in subdir)
-#nobase_include_HEADERS = ipcntrl/ipcntrl.h
+#nobase_include_HEADERS = bwlib/bwlib.h
 
 #EXTRA_DIST	=		bootstrap
 #MAINTAINERCLEANFILES	=	aclocal.m4 Makefile.in configure config.log \
