@@ -1032,7 +1032,7 @@ AGAIN:
 		 * TODO: Come up with a *real* value here!
 		 */
 		req_time.ipftime = IPFNum64Add(req_time.ipftime,
-						IPFULongToNum64(300));
+						IPFULongToNum64(3));
 
 		/*
 		 * Wait this long after a test should be complete before
