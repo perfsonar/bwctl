@@ -537,7 +537,9 @@ _IPFEndpointStart(
 	fd_set			readfds;
 	fd_set			exceptfds;
 	int			rc=0;
-	int			do_read=0;do_write=0;
+	int			do_read=0;
+	int			do_write=0;
+	IPFRequestType		msgtype = IPFReqInvalid;
 
 
 	if( !(tsess->localfp = tfile(tsess)) ||
@@ -892,9 +894,11 @@ select:
 				do_write=0;
 			}
 			else{
-				err_ret = _IPFReadStopSession(ep->rcntrl,
+				*err_ret = _IPFReadStopSession(ep->rcntrl,
 					&ipf_term,&aval,tsess->remotefp);
-				if((aval == IPF_CNTRL_ACCEPT) && !ipf_term){
+				if((*err_ret == IPFErrOK) &&
+						(aval == IPF_CNTRL_ACCEPT) &&
+						!ipf_term){
 					FD_ZERO(&readfds);
 					exceptfds = readfds;
 					goto select;
@@ -911,18 +915,18 @@ end:
 		exit(IPF_CNTRL_FAILURE);
 	}
 	ep->wopts &= ~WNOHANG;
-	if(!_IPFEndpointStatus(tsess,&ep->accept_val,&err_ret)){
+	if(!_IPFEndpointStatus(tsess,&ep->acceptval,err_ret)){
 		exit(IPF_CNTRL_FAILURE);
 	}
-	if(ep->accept_val != IPF_CNTRL_ACCEPT){
-		ep->accept_val = IPF_CNTRL_FAILURE;
+	if(ep->acceptval != IPF_CNTRL_ACCEPT){
+		ep->acceptval = IPF_CNTRL_FAILURE;
 		tsess->localfp = NULL;
 	}
 
 	if(do_write){
-		err_ret = _IPFWriteStopSession(ep->rcntrl,&ipf_term,
-				ep->accept_val,tsess->localfp);
-		if(err_ret != IPFErrOK){
+		*err_ret = _IPFWriteStopSession(ep->rcntrl,&ipf_term,
+				ep->acceptval,tsess->localfp);
+		if(*err_ret != IPFErrOK){
 			do_read = 0;
 		}
 	}
@@ -945,7 +949,7 @@ end:
 		}
 	}
 
-	exit(aval & ep->accept_val);
+	exit(aval & ep->acceptval);
 }
 
 IPFBoolean
