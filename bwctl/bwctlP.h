@@ -58,7 +58,7 @@ typedef	struct {
 		char		*identity;	/* -U */
 		char		*keyfile;	/* -k */
 
-		I2Boolean	allowunsync	/* -Y */
+		I2Boolean	allowunsync;	/* -Y */
 #ifndef	NDEBUG
 		I2Boolean	childwait;	/* -W */
 #endif

@@ -1578,7 +1578,7 @@ main(int argc, char *argv[])
 	 * Initialize the context. (Set the error handler to the app defined
 	 * one.)
 	 */
-	if(!(ctx = IPFContextCreate(errhand,opt.allowunsync))){
+	if(!(ctx = IPFContextCreate(errhand,opts.allowunsync))){
 		exit(1);
 	}
 
