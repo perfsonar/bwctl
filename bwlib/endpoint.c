@@ -739,9 +739,9 @@ _BWLEndpointStart(
 
 	BWLError(ctx,BWLErrINFO,BWLErrINVALID,
 			"currtime = %f, reservation = %f, reltime = %f",
-			BWLNum64ToFloat(currtime.tstamp),
-			BWLNum64ToFloat(tsess->reserve_time),
-			BWLNum64ToFloat(reltime)
+			BWLNum64ToDouble(currtime.tstamp),
+			BWLNum64ToDouble(tsess->reserve_time),
+			BWLNum64ToDouble(reltime)
 			);
 
 	memset(&itval,0,sizeof(itval));
