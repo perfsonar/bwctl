@@ -916,8 +916,7 @@ ACCEPT:
 				mode<=BWL_MODE_ENCRYPTED;
 					mode << 1){
 			ep->rcntrl = BWLControlOpen(ctx,local,remote,
-				tsess->cntrl->mode,"endpoint",NULL,
-				err_ret);
+				mode,"endpoint",NULL,err_ret);
 			if(ep->rcntrl || (errno != EACCES))
 				break;
 		}
