@@ -322,12 +322,6 @@ Run the default 10 second TCP \fBIperf\fR test. Authenticate using
 the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a \fIpassphrase\fR.
 .SH SEE ALSO
 .B bwctld(8)
-,
-.B bwctld.conf(5)
-,
-.B bwctld.limits(5)
-,
-.B bwctld.keys(5)
 and the
 .B http://e2epi.internet2.edu/bwctl/
 and

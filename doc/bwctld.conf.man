@@ -27,7 +27,7 @@ bwctld.conf \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
 .SH DESCRIPTION
 The \fBbwctld.conf\fR file is the configuration file for the \fBbwctld(8)\fR
 program. It is used to configure the basic operation of the server. For
-example, what addresses and ports it should listent on and where it should
+example, what addresses and ports it should listen on and where it should
 send error messages and where it should save files.
 .PP
 The policy rules for \fBbwctld\fR are configured using the \fBbwctld.limits\fR
@@ -41,7 +41,7 @@ Comment lines are any line with the first non-whitespace character is '#'.
 These lines are counted for the purposes of returning line numbers in error
 messages but are otherwise ignored by \fBbwctld\fR.
 .IP \(bu
-Lines may be continued using the semi-standard '\\' charater followed
+Lines may be continued using the semi-standard '\\' character followed
 immediately by a newline. This is the only valid place for the '\\'
 character. If it is found elsewhere a syntax error is reported.
 .IP \(bu
@@ -66,7 +66,8 @@ Currently \fBbwctld\fR simply cycles through this range linearly.
 \fIiperfport\fR can be specified as a single valid port number or as
 a range as \fIlow\fR-\fIhigh\fR. The range must be specified as two valid
 port numbers with the '-' character separating them. Whitespace is
-not allowed within the \fIiperfport\fR.
+not allowed within the \fIiperfport\fR. For example, \fB"5001-5004"\fR would
+be valid, but \fB"5001 - 5004"\fR would be invalid.
 .RS
 .IP Default:
 5001

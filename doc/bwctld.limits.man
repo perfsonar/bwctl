@@ -43,7 +43,7 @@ allow it to do.
 .PP
 The authentication is done by assigning a \fIuserclass\fR to each new
 connection as it comes in. Each \fIuserclass\fR has a set of limits
-associated with it. The \fIuserclass\fR's aer hierarchical, so a connection
+associated with it. The \fIuserclass\fRes are hierarchical, so a connection
 must pass the limit restrictions of the given \fIuserclass\fR as well as all
 parent classes.
 .PP
@@ -60,7 +60,7 @@ Comment lines are any line with the first non-whitespace character is '#'.
 These lines are counted for the purposes of returning line numbers in error
 messages but are otherwise ignored by \fBbwctld\fR.
 .IP \(bu
-Lines may be continued using the semi-standard '\\' charater followed
+Lines may be continued using the semi-standard '\\' character followed
 immediately by a newline. This is the only valid place for the '\\'
 character. If it is found elsewhere a syntax error is reported.
 .IP \(bu
@@ -276,7 +276,7 @@ reservations. This ensures that this \fIuserclass\fR can only schedule 50%
 of the next 5 minutes. The advantage of this kind of setup is that the
 administrator can define other \fIuserclasses\fR with a larger
 \fIevent_horizon\fR allowing then to have priority over this class.
-(Suggestions for other methods of priorty scheduling should be sent to
+(Suggestions for other methods of priority scheduling should be sent to
 bwctl-users@internet2.edu.)
 .PP
 Now, these three \fIuserclasses\fR might be assigned to specific connections
