@@ -1,0 +1,6 @@
+This directory contains examples of some of the config files you may
+want to install to get bwctld on your system.
+
+bwctld.conf
+bwctld.limits
+bwctld.sh (Example rc script - this one came from RedHat Linux)

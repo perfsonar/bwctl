@@ -1503,7 +1503,7 @@ AGAIN:
 		BWLNum64ToTimespec(&tspec,rel);
 		if(!app.opt.quiet){
 			BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
-				"%lu seconds until test results:",
+				"%lu seconds until test results available",
 				tspec.tv_sec);
 		}
 		while(1){
