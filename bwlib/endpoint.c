@@ -376,6 +376,8 @@ run_iperf(
 		ipargs[a++] = "-B";
 		ipargs[a++] = hostname;
 
+		ipargs[a++] = "-P";
+		ipargs[a++] = "1";
 		ipargs[a++] = "-s";
 	}
 	else{
@@ -808,12 +810,14 @@ _BWLEndpointStart(
 
 	reltime = BWLNum64Sub(tsess->reserve_time,currtime.tstamp);
 
+#if	NOT
 	BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
 			"currtime = %f, reservation = %f, reltime = %f",
 			BWLNum64ToDouble(currtime.tstamp),
 			BWLNum64ToDouble(tsess->reserve_time),
 			BWLNum64ToDouble(reltime)
 			);
+#endif
 
 	memset(&itval,0,sizeof(itval));
 	BWLNum64ToTimeval(&itval.it_value,reltime);
@@ -1097,10 +1101,12 @@ end:
 				"BWLGetTimeStamp(): %M");
 		abort();
 	}
+#if	NOT
 	BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
 			"End of test: currtime = %f",
 			BWLNum64ToDouble(currtime.tstamp)
 			);
+#endif
 
 	if(!ep->child){
 		/*
@@ -1108,7 +1114,7 @@ end:
 		 */
 		ep->acceptval = BWL_CNTRL_FAILURE;
 	}else{
-		if((kill(ep->child,SIGINT) != 0) && (errno != ESRCH)){
+		if((kill(ep->child,SIGKILL) != 0) && (errno != ESRCH)){
 			BWLError(ctx,BWLErrFATAL,errno,
 				"Unable to kill test endpoint, pid=%d: %M",
 				ep->child);

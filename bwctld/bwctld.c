@@ -1349,7 +1349,7 @@ main(int argc, char *argv[])
 	memset(&opts,0,sizeof(opts));
 	opts.daemon = 1;
 	opts.dieby = 30;
-	opts.controltimeout = 1800;
+	opts.controltimeout = 7200;
 
 	if(!getcwd(opts.cwd,sizeof(opts.cwd))){
 		perror("getcwd()");

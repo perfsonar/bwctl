@@ -728,9 +728,13 @@ BWLProcessTestRequest(
 				BWLNum64Max(one64,
 				BWLGetTimeStampError(&tsession->localtime)));
 	/*
-	 * TODO: Add a constant?
-	tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLULongToNum64(2));
-	*/
+	 * Add a constant to make up for the fact that iperf -u usually
+	 * run for some fraction of a second longer than the -t option
+	 * specifies.
+	 *
+	 * TODO: Make this constant configurable somehow?
+	 */
+	tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLULongToNum64(1));
 
 	/*
 	 * TODO:
