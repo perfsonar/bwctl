@@ -317,7 +317,7 @@ ChldReservationDemand(
 	 *	(This is only 1.5 rtt, but it is potentially 2 rtt's to the
 	 *	other server for a request/response and a start/response
 	 * 	and that is the value "fuzztime" represents. So, a possible
-	 *	delay of .5 rtt is acceptible.)
+	 *	extra delay of .5 rtt is acceptible.)
 	 *
 	 * The reservation is defined by the following vars:
 	 * res->restime == time of reservation
@@ -330,6 +330,7 @@ I2ErrLog(errhand,"ResReq: %24.10f, Fuzz: %24.10f",
 		BWLNum64ToDouble(rtime),
 		BWLNum64ToDouble(ftime));
 	res->start = BWLNum64Sub(rtime,ftime);
+I2ErrLog(errhand,"Start: %24.10f",BWLNum64ToDouble(res->start));
 	res->start = BWLNum64Max(BWLNum64Add(currtime.tstamp,
 					BWLNum64Mult(
 						BWLNum64Add(rtttime,ftime),
@@ -337,7 +338,7 @@ I2ErrLog(errhand,"ResReq: %24.10f, Fuzz: %24.10f",
 				res->start);
 	res->restime = BWLNum64Add(res->start,ftime);
 
-I2ErrLog(errhand,"ResCompute: %24.10f, Start: %24.10f",
+I2ErrLog(errhand,"ResCompute: %24.10f, NewStart: %24.10f",
 		BWLNum64ToDouble(res->restime),
 		BWLNum64ToDouble(res->start));
 	dtime = BWLNum64Add(BWLULongToNum64(duration),ftime);
