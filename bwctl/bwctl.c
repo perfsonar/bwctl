@@ -230,6 +230,12 @@ parse_auth_args(
 	*auth_ret = NULL;
 
 	/*
+	 * If there are no options, then return success.
+	 */
+	if(optind >= argc)
+		return 0;
+
+	/*
 	 * Verify/decode auth options.
 	 */
 	s = argv[optind];
@@ -825,7 +831,6 @@ main(
 				second_set = True;
 				app.send_sess = &second;
 			}
-			app.send_sess->send = True;
 			app.send_sess->host = optarg;
 
 			if(parse_auth_args(eh,argv,argc,&app.send_sess->auth)
@@ -986,6 +991,13 @@ main(
 		usage(progname, "At least one of -s or -c must be specified.");
 		exit(1);
 	}
+	if(!app.recv_sess){
+		app.recv_sess = (app.send_sess == &first)?&second:&first;
+	}
+	if(!app.send_sess){
+		app.send_sess = (app.recv_sess == &first)?&second:&first;
+	}
+	app.send_sess->send = True;
 
 	/*
 	 * Useful constant
@@ -1150,7 +1162,7 @@ main(
 	/*
 	 * copy first tspec to second record.
 	 */
-	memcpy(&second,&first,sizeof(first));
+	memcpy(&second.tspec,&first.tspec,sizeof(first.tspec));
 
 
 	/* s[0] == reciever, s[1] == sender */
