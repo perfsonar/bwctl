@@ -102,8 +102,9 @@ typedef	struct {
 						 */
 		int		facility;	/* -e */
 						/* -r stderr too */
-		I2Boolean	version;	/* -v */
-		I2Boolean	verbose;	/* -V */
+		I2Boolean	version;	/* -V */
+		I2Boolean	verbose;	/* -v */
+		I2Boolean	quiet;		/* -q */
 
 		u_int32_t	reportInterval;	/* -i (seconds) */
 		u_int32_t	lenBuffer;	/* -l (bytes)	*/

@@ -126,14 +126,16 @@ print_output_args()
 "   -r             send syslog to stderr\n"
 		);
 	fprintf(stderr,
-"   -v             print version and exit\n"
-"   -V             verbose output to syslog\n"
+"   -V             print version and exit\n"
+"   -v             verbose output to syslog - add 'v's to increase verbosity\n"
+"   -q             silent mode\n"
 	);
 }
 
 static void
 usage(const char *progname, const char *msg)
 {
+	fprintf(stderr,"Version: $Revision$\n");
 	if(msg) fprintf(stderr, "%s: %s\n", progname, msg);
 	fprintf(stderr,"usage: %s %s\n", 
 			progname,
@@ -627,18 +629,16 @@ main(
 		
 
 	syslogattr.ident = progname;
-	syslogattr.logopt = LOG_PID;
+	syslogattr.logopt = 0;
 	syslogattr.facility = LOG_USER;
 	syslogattr.priority = LOG_ERR;
 	syslogattr.line_info = I2MSG;
-#ifndef	NDEBUG
-	syslogattr.line_info |= I2FILE | I2LINE;
-#endif
 
 	opterr = 0;
 	while((ch = getopt(argc, argv, optstring)) != -1){
-		if(ch == 'e'){
 			int fac;
+		switch (ch) {
+		case 'e':
 			if((fac = I2ErrLogSyslogFacility(optarg)) == -1){
 				fprintf(stderr,
 				"Invalid -e: Syslog facility \"%s\" unknown\n",
@@ -646,12 +646,33 @@ main(
 				exit(1);
 			}
 			syslogattr.facility = fac;
-		}
-		else if(ch == 'r'){
+			break;
+		case 'v':
+			app.opt.verbose++;
+			/* fallthrough */
+		case 'r':
 			syslogattr.logopt |= LOG_PERROR;
+			break;
+		case 'q':
+			app.opt.quiet = True;
+			break;
+		default:
+			break;
 		}
 	}
 	opterr = optreset = optind = 1;
+
+	if(app.opt.verbose && app.opt.quiet){
+		fprintf(stderr,"Ignoring -q (-v specified)\n");
+		app.opt.quiet = False;
+	}
+	if(!app.opt.quiet){
+		syslogattr.logopt |= LOG_PERROR;
+	}
+	if(app.opt.verbose > 1){
+		syslogattr.logopt |= LOG_PID;
+		syslogattr.line_info |= I2FILE | I2LINE;
+	}
 
 	/*
 	* Start an error logging session for reporing errors to the
@@ -661,6 +682,13 @@ main(
 	if(! eh) {
 		fprintf(stderr, "%s : Couldn't init error module\n", progname);
 		exit(1);
+	}
+
+	if(app.opt.verbose){
+		fprintf(stderr,
+			"Messages being sent to syslog(%s,%s)\n",
+			I2ErrLogSyslogFacilityName(syslogattr.facility),
+			I2ErrLogSyslogPriorityName(syslogattr.priority));
 	}
 
 	/* Set default options. */
@@ -750,12 +778,11 @@ main(
 			break;
 		case 'e':
 		case 'r':
+		case 'v':
+		case 'q':
 			/* handled in prior getopt call... */
 			break;
 		case 'V':
-			app.opt.verbose = True;
-			break;
-		case 'v':
 			app.opt.version = True;
 			fprintf(stderr,"Version: $Revision$\n");
 			exit(0);
@@ -860,13 +887,6 @@ main(
 	if(app.opt.keyfile && app.opt.passphrase){
 		usage(progname,"Exactly one of -k or -K must be specified.");
 		exit(1);
-	}
-
-	if(app.opt.verbose){
-		fprintf(stderr,
-			"Further messages to syslog(%s,%s) - (see -r option)\n",
-			I2ErrLogSyslogFacilityName(syslogattr.facility),
-			I2ErrLogSyslogPriorityName(syslogattr.priority));
 	}
 
 	/*
@@ -1093,6 +1113,7 @@ main(
 		BWLTimeStamp	req_time;
 		BWLTimeStamp	currtime;
 		BWLNum64	endtime;
+		BWLNum64	rel;
 		u_int16_t	dataport;
 		BWLBoolean	stop;
 		char		recvfname[PATH_MAX];
@@ -1101,6 +1122,7 @@ main(
 		FILE		*sendfp = NULL;
 		BWLTimeStamp	time1,time2;
 		double		t1,e1,t2,e2,tr,er;
+		struct timespec	tspec;
 
 
 AGAIN:
@@ -1118,8 +1140,6 @@ AGAIN:
 		 * Check if the test should run yet...
 		 */
 		if(BWLNum64Cmp(wake.tstamp,currtime.tstamp) > 0){
-			struct timespec	tspec;
-			BWLNum64	rel;
 
 			rel = BWLNum64Sub(wake.tstamp,currtime.tstamp);
 			BWLNum64ToTimespec(&tspec,rel);
@@ -1128,7 +1148,7 @@ AGAIN:
 			 * If the next period is more than 3 seconds from
 			 * now, say something.
 			 */
-			if(app.opt.verbose && (tspec.tv_sec > 3)){
+			if(!app.opt.quiet && (tspec.tv_sec > 3)){
 				BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
 					"%lu seconds until next testing period",
 					tspec.tv_sec);
@@ -1382,14 +1402,14 @@ AGAIN:
 					sid,&err_ret)){
 				if((err_ret == BWLErrOK) &&
 						(BWLNum64Cmp(req_time.tstamp,
-							     zero64) != 0)){
+							     zero64) == 0)){
 					/*
 					 * Request is ok, but server is too
 					 * busy. Skip this test and proceed
 					 * to next session interval.
 					 */
 					I2ErrLog(eh,
-						"SessionRequest: Server busy.");
+						"SessionRequest: Server busy. (Try -L flag)");
 					goto next_test;
 				}
 				/*
@@ -1487,6 +1507,17 @@ AGAIN:
 		/*
 		 * 	WaitForStopSessions
 		 */
+		if(!BWLGetTimeStamp(ctx,&currtime)){
+			I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+			exit(1);
+		}
+		rel = BWLNum64Sub(endtime,currtime.tstamp);
+		BWLNum64ToTimespec(&tspec,rel);
+		if(!app.opt.quiet){
+			BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+				"%lu seconds until test results:",
+				tspec.tv_sec);
+		}
 		while(1){
 			struct timeval	reltime;
 			int		rc;
@@ -1570,14 +1601,16 @@ AGAIN:
 				 * the test.)
 				 */
 				stop = True;
-#if	NOT
-				if(FD_ISSET(local.sockfd,&readfds)){
-					I2ErrLogP(eh,0,"Local readable!");
+				if(app.opt.verbose > 1){
+					if(FD_ISSET(local.sockfd,&readfds)){
+						I2ErrLogP(eh,0,
+							"Local readable!");
+					}
+					if(FD_ISSET(remote.sockfd,&readfds)){
+						I2ErrLogP(eh,0,
+							"Remote readable!");
+					}
 				}
-				if(FD_ISSET(remote.sockfd,&readfds)){
-					I2ErrLogP(eh,0,"Remote readable!");
-				}
-#endif
 			}
 			if(sig_check()) exit(1);
 		}
