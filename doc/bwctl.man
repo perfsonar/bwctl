@@ -205,6 +205,7 @@ methods are described with the \fB\-A\fR argument.
 .RE
 .TP
 \fB\-k\fR
+.br
 This option has been deprecated. It was used to specify the
 keyfile for authentication.
 All authentication options can now be specified
@@ -245,6 +246,7 @@ methods are described with the \fB\-A\fR argument.
 .RE
 .TP
 \fB\-U\fR
+.br
 This option has been deprecated. It was used to specify the username
 to identify the AES key for authentication.
 All authentication options can now be specified
@@ -281,8 +283,11 @@ Generates an error message. The \fB\-P\fR option of \fBIperf\fR is not
 currently supported by \fBbwctl\fR.
 .TP
 \fB\-S\fR \fITOS\fR
-Generates an error message. The \fB\-S\fR option of \fBIperf\fR is not
-currently supported by \fBbwctl\fR.
+Set the TOS (See RFC 1349) byte in packets.
+.RS
+.IP Default:
+0 (not set)
+.RE
 .TP
 \fB\-t\fR \fItime\fR
 Duration of test (seconds).
@@ -292,6 +297,7 @@ Duration of test (seconds).
 .RE
 .TP
 \fB\-u\fR
+.br
 UDP test.
 .RS
 .IP Default:
@@ -368,27 +374,34 @@ LOG_USER.
 .RE
 .TP
 \fB\-h\fR
+.br
 Print a help message.
 .TP
 \fB\-p\fR
+.br
 Place \fBIperf\fR results in files. Print the filenames to stdout when
 results are complete.
 .TP
 \fB\-q\fR
+.br
 Quiet output. Output as little as possible.
 .TP
 \fB\-r\fR
+.br
 Send syslog messages to stderr.  This is the default unless the \fB\-q\fR
 option is specified so this option is only useful with the \fB\-q\fR
 option.
 .TP
 \fB\-V\fR
+.br
 Print version information and exit.
 .TP
 \fB\-v\fR
+.br
 Verbose output. Specifying additional \fB\-v\fR's increases the verbosity.
 .TP
 \fB\-x\fR
+.br
 Output sender (\fBIperf\fR client) results as well as receiver results.
 By default, sender results are not output. If the \fB\-p\fR option is
 specified, the sender results are placed in an additional file.

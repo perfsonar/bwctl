@@ -53,6 +53,13 @@ separated by whitespace.
 .RE
 .SH CONFIGURATION OPTIONS
 .TP
+.BI accesspriority " priority"
+Syslog \fIpriority\fR to log access messages.
+.RS
+.IP Default:
+LOG_INFO
+.RE
+.TP
 .BI authmode " authmode"
 Specify the authentication modes the server is willing to use for
 communication. \fIauthmode\fR should be set as a character string, with
@@ -113,7 +120,7 @@ process receiving \fBSIGTERM\fR or \fBSIGHUP\fR.
 .RE
 .TP
 .BI facility " facility"
-Syslog \fIfacility\fR to log messages to.
+Syslog \fIfacility\fR to log messages.
 .RS
 .IP Default:
 LOG_DAEMON
@@ -148,6 +155,37 @@ be valid, but \fB"5001 - 5004"\fR would be invalid.
 Directs the \fBbwctld\fR process to report source code file and line
 number information with error messages. This is a particularly useful
 option to set when sending in messages as part of a bug report.
+.TP
+.BI peerports " 0 | lowport-highport"
+Specify the port range that will be used on the local host for peer
+connections to other
+.B bwctld
+servers. These connections are used to verify clock timing between the
+servers and to exchange test results. This is a required part of the
+protocol used by
+.B BWCTL
+to run tests. However, this option at least allows system administrators
+to limit these connections to a specific port range which should allow
+.B BWCTL
+to work in a firewall environment. This option can be specified in two
+ways. First, as a 0 which would indicate that
+.B bwctld
+should allow the system to pick the port (ephemeral). Second, as a range.
+.I lowport
+must be a smaller value than
+.I highport
+and both numbers must be valid port values. (16 bit unsigned integer values)
+.RS
+.IP Default:
+0
+.RE
+.TP
+.BI priority " priority"
+Syslog \fIpriority\fR to log error messages.
+.RS
+.IP Default:
+LOG_ERR
+.RE
 .TP
 .BI srcnode " nodename:port"
 Specify the address and port that \fBbwctld\fR will listen for requests on.
