@@ -1409,12 +1409,15 @@ AGAIN:
 
 		/*
 		 * Query first time error and update round-trip bound.
-		 * (The time will be over-written later, we really only
-		 * care about the errest portion of the timestamp.)
+		 * The time will be over-written later, we really only
+		 * care about the errest portion of the timestamp. The
+		 * error estimate is used to hold the "fuzz" time around
+		 * when the test can start. This "fuzz" includes the NTP
+		 * error as well as the rtt to the "other" server.
 		 *
-		 * Using the "second" tspec to hold this because I need to
-		 * pass the error estimate for the "opposite" end of the
-		 * test on in the request.
+		 * Using the "second" tspec to hold the error of "first"
+		 * because I need to pass the error estimate for the
+		 * "opposite" end of the test on in the request.
 		 */
 		if(BWLControlTimeCheck(first.cntrl,&second.tspec.req_time) !=
 								BWLErrOK){
@@ -1424,15 +1427,21 @@ AGAIN:
 		}
 		if(sig_check()) exit(1);
 		first.rttbound = BWLGetRTTBound(first.cntrl);
+		rel = BWLNum64Add(first.rttbound,
+				BWLGetTimeStampError(&second.tspec.req_time));
+		BWLSetTimeStampError(&second.tspec.req_time,rel);
 
 		/*
 		 * Query second time error and update round-trip bound.
-		 * (The time will be over-written later, we really only
-		 * care about the errest portion of the timestamp.)
+		 * The time will be over-written later, we really only
+		 * care about the errest portion of the timestamp. The
+		 * error estimate is used to hold the "fuzz" time around
+		 * when the test can start. This "fuzz" includes the NTP
+		 * error as well as the rtt to the "other" server.
 		 *
-		 * Using the "first" tspec to hold this because I need to
-		 * pass the error estimate for the "opposite" end of the
-		 * test on in the request.
+		 * Using the "first" tspec to hold the error of "second"
+		 * because I need to pass the error estimate for the
+		 * "opposite" end of the test on in the request.
 		 */
 		if(BWLControlTimeCheck(second.cntrl,&first.tspec.req_time) !=
 								BWLErrOK){
@@ -1442,7 +1451,9 @@ AGAIN:
 		}
 		if(sig_check()) exit(1);
 		second.rttbound = BWLGetRTTBound(second.cntrl);
-
+		rel = BWLNum64Add(second.rttbound,
+				BWLGetTimeStampError(&first.tspec.req_time));
+		BWLSetTimeStampError(&first.tspec.req_time,rel);
 
 		/*
 		 * Now caluculate how far into the future the test
@@ -1508,6 +1519,7 @@ AGAIN:
 		req_time.tstamp = BWLNum64Add(req_time.tstamp,
 							currtime.tstamp);
 
+I2ErrLog(eh,"ReqInitial: %24.10f",BWLNum64ToDouble(req_time.tstamp));
 		/*
 		 * Get a reservation:
 		 * 	s[0] == receiver
@@ -1521,6 +1533,7 @@ AGAIN:
 		s[1]->tspec.req_time.tstamp = zero64;
 		memset(sid,0,sizeof(sid));
 		recv_port = 0;
+I2ErrLog(eh,"LastTime: %24.10f",BWLNum64ToDouble(s[0]->tspec.latest_time));
 
 		p=0;q=0;
 		while(1){
@@ -1619,6 +1632,7 @@ sess_req_err:
 				goto next_test;
 			}
 			if(sig_check()) exit(1);
+I2ErrLog(eh,"Res(%s): %24.10f",s[p]->host,BWLNum64ToDouble(req_time.tstamp));
 			
 			if(BWLNum64Cmp(req_time.tstamp,
 						s[p]->tspec.latest_time) > 0){
