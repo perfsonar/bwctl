@@ -27,7 +27,7 @@
 #
 #	Options:
 # Process this file with autoconf to produce a configure script.
-AC_INIT(bwctl, 1.0b, bwctl-bugs@internet2.edu)
+AC_INIT(bwctl, 1.0b, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
 AM_INIT_AUTOMAKE(bwctl, 1.0b, [no-define])
 AC_CONFIG_SRCDIR(bwlib/context.c)
