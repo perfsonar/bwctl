@@ -559,7 +559,8 @@ IPFGetTimeStampError(
  */
 int
 _IPFInitNTP(
-	IPFContext	ctx
+	IPFContext	ctx,
+	I2Boolean	allowunsync
 	)
 {
 	struct timex	ntp_conf;
@@ -571,7 +572,7 @@ _IPFInitNTP(
 		return 1;
 	}
 
-	if(ntp_conf.status & STA_UNSYNC){
+	if(!allowunsync && (ntp_conf.status & STA_UNSYNC)){
 		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,"NTP: Status UNSYNC!");
 		return 1;
 	}

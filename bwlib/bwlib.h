@@ -511,7 +511,8 @@ typedef IPFErrSeverity (*IPFProcessResultsFunc)(
 
 extern IPFContext
 IPFContextCreate(
-	I2ErrHandle	eh
+	I2ErrHandle	eh,
+	I2Boolean	allowunsync
 );
 
 extern void

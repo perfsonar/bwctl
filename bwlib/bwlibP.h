@@ -682,7 +682,8 @@ _IPFDecodeTimeStampErrEstimate(
 	);
 extern int
 _IPFInitNTP(
-	IPFContext	ctx
+	IPFContext	ctx,
+	I2Boolean	allowunsync
 	);
 
 extern struct timespec *

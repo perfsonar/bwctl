@@ -430,7 +430,7 @@ main(
 	static char		*conn_opts = "A:B:k:U:";
 	static char		*out_opts = "d:I:n:L:pe:rv";
 	static char		*test_opts = "i:l:uw:P:S:b:t:cs";
-	static char		*gen_opts = "hW";
+	static char		*gen_opts = "hWY";
 
 	char			dirpath[PATH_MAX];
 	struct flock		flk;
@@ -629,6 +629,9 @@ main(
 				exit(1);
 			}
 			break;
+		case 'Y':
+			app.opt.allowunsync = True;
+			break;
 #ifndef	NDEBUG
 		case 'W':
 			app.opt.childwait = True;
@@ -686,7 +689,7 @@ main(
 	/*
 	 * Initialize library with configuration functions.
 	 */
-	if( !(ctx = IPFContextCreate(eh))){
+	if( !(ctx = IPFContextCreate(eh,app.opt.allowunsync))){
 		I2ErrLog(eh, "Unable to initialize IPF library.");
 		exit(1);
 	}

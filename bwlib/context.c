@@ -69,7 +69,8 @@ notmuch(
  */
 IPFContext
 IPFContextCreate(
-	I2ErrHandle	eh
+	I2ErrHandle	eh,
+	I2Boolean	allowunsync
 )
 {
 	struct sigaction	act;
@@ -102,7 +103,7 @@ IPFContextCreate(
 		ctx->eh = eh;
 	}
 
-	if(_IPFInitNTP(ctx) != 0){
+	if(_IPFInitNTP(ctx,allowunsync) != 0){
 		IPFError(ctx,IPFErrFATAL,IPFErrUNKNOWN,
 				"Unable to initialize clock interface.");
 		IPFContextFree(ctx);

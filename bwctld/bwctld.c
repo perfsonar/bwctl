@@ -82,6 +82,7 @@ usage(
 		"   -G group          Run as group \"group\" :-gid also valid\n"
 #ifndef	NDEBUG
 		"   -w                Debugging: busy-wait children after fork to allow attachment\n"
+		"   -Y                Allow the clock to be unsynchronized\n"
 		"   -Z                Debugging: Run in foreground\n"
 #endif
 			"\n"
@@ -1199,6 +1200,9 @@ LoadConfig(
 		else if(!strncasecmp(key,"verbose",8)){
 			opts.verbose = True;
 		}
+		else if(!strncasecmp(key,"allowunsync",12)){
+			opts.allowunsync = True;
+		}
 		else if(!strncasecmp(key,"authmode",9)){
 			if(!(opts.authmode = strdup(val))) {
 				fprintf(stderr,"strdup(): %s\n",
@@ -1297,9 +1301,9 @@ main(int argc, char *argv[])
 	sigset_t		sigs;
 
 #ifndef NDEBUG
-	char *optstring = "hvc:d:R:a:S:e:ZU:G:w";
+	char *optstring = "hvc:d:R:a:S:e:ZU:G:Yw";
 #else	
-	char *optstring = "hvc:d:R:a:S:e:ZU:G:";
+	char *optstring = "hvc:d:R:a:S:e:ZU:G:Y";
 #endif
 
 	/*
@@ -1314,15 +1318,11 @@ main(int argc, char *argv[])
 	syslogattr.line_info = I2MSG;
 
 	/* Set up options defaults */
-	opts.verbose = False;
+	memset(&opts,0,sizeof(opts));
 	opts.ip2class = "ip2class.conf";
 	opts.class2limits = "class2limits.conf";
 	opts.passwd = "passwd.conf";
-	opts.vardir = opts.confdir = opts.datadir = opts.iperfcmd = NULL;
-	opts.authmode = NULL; 
-	opts.srcnode = NULL;
 	opts.daemon = 1;
-	opts.user = opts.group = NULL;
 	opts.dieby = 30;
 	opts.controltimeout = 1800;
 
@@ -1399,14 +1399,6 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * Initialize the context. (Set the error handler to the app defined
-	 * one.)
-	 */
-	if(!(ctx = IPFContextCreate(errhand))){
-		exit(1);
-	}
-
-	/*
 	 * Now deal with "all" cmdline options.
 	 */
 	while ((ch = getopt(argc, argv, optstring)) != -1){
@@ -1451,6 +1443,9 @@ main(int argc, char *argv[])
 				I2ErrLog(errhand,"strdup(): %M");
 				exit(1);
 			}
+			break;
+		case 'Y':
+			opts.allowunsync = True;
 			break;
 		case 'c':
 		case 'e':
@@ -1577,6 +1572,14 @@ main(int argc, char *argv[])
 			exit(1);
 		}
 
+	}
+
+	/*
+	 * Initialize the context. (Set the error handler to the app defined
+	 * one.)
+	 */
+	if(!(ctx = IPFContextCreate(errhand,opt.allowunsync))){
+		exit(1);
 	}
 
 	/*
