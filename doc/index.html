@@ -1,9 +1,29 @@
+<!--									-->
+<!--	$Id$	-->
+<!--									-->
+<!------------------------------------------------------------------------>
+<!--									-->
+<!--			   Copyright (C)  2004				-->
+<!--				Internet2				-->
+<!--			   All Rights Reserved				-->
+<!--									-->
+<!------------------------------------------------------------------------>
+<!--									-->
+<!--	File:		index.html					-->
+<!--									-->
+<!--	Author:		Jeff Boote					-->
+<!--			Internet2					-->
+<!--									-->
+<!--	Date:		Sat Feb 07 18:33:19 MST 2004			-->
+<!--									-->
+<!--	Description:							-->
+<!--	Overview documentation for bwctl.				-->
+<!--									-->
 <!doctype html public "-//w3c//dtd html 4.0 transitional//en">
 <html>
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
    <meta name="Author" content="Jeff W. Boote">
-   <meta name="GENERATOR" content="Mozilla/4.79 [en] (Windows NT 5.0; U) [Netscape]">
    <title>BWCTL</title>
 </head>
 <body>
@@ -46,7 +66,7 @@ based upon the remote user requesting the test. It also allows the administrator
 to allow for a limited amount of completely open tests.
 <h3>
 
-<hr WIDTH="100%">Features:</h3>
+<hr WIDTH="100%">Features</h3>
 
 <ul>
 <li>
@@ -64,27 +84,41 @@ compared with receiving rate.</li>
 <li>
 Port ranges for the tests can be specified to allow passive monitoring
 to charactorize the test streams more easily.</li>
+
+<li>
+Limits the types of <b>iperf</b> tests that can be run. Simultaneous connections
+are not supported. Sending a set amount of data is not supported because
+<i>BWCTL</i> needs to know how long the test will take before the test
+is started.</li>
+
+<li>
+Supports dynamic TCP window size determination. (Currently this is limited
+in that the bottleneck capacity is specified as a constant in the config
+file. This will most likely be determined dynamically using packet dispersion
+techniques in the future.)</li>
 </ul>
 
 <h3>
 
-<hr WIDTH="100%">Requirements:</h3>
-Because <i>BWCTL</i> uses currently uses <b>iperf</b> version 1.7.0.The
-<b>bwctld</b> daemon requires a reasonably synchronized clock. It is scheduling
-tests and needs to be sure it has the same idea of when a test should take
-place as the peer system the test is being done with. Therefore <i>BWCTL</i>
-requires that <b>NTP</b> be running to synchronize the system clock. Additionally,
-<i>BWCTL</i>
-uses the NTP specific system calls to fetch time and time error estimates
-from the system kernel, so the kernel must support these interfaces. (All
-modern UNIX systems support them.)
+<hr WIDTH="100%">Requirements</h3>
+<i>BWCTL</i> currently requires <b>iperf</b> version 1.7.0 (or 2.0.b for
+the adventurous). The
+<b>bwctld</b> daemon requires a reasonably synchronized
+clock. It is scheduling tests and needs to be sure it has the same idea
+of when a test should take place as the peer system the test is being done
+with. Therefore, <i>BWCTL</i> requires that <b>NTP</b> be running to synchronize
+the system clock. Additionally,
+<i>BWCTL</i> uses the NTP specific system
+calls to fetch time and time error estimates from the system kernel, so
+the kernel must support these interfaces. (All modern UNIX systems support
+them.)
 <h4>
 Supported Systems:</h4>
 <i>BWCTL</i> has been tested most extensively on FreeBSD 4.7 and Linux
 2.4.20 but most recent versions of UNIX should work.
 <h3>
 
-<hr WIDTH="100%">Building the application:</h3>
+<hr WIDTH="100%">Building the application</h3>
 The <i>BWCTL</i> software uses the <i>gnu autoconf</i> tools to configure
 the build process. <i>BWCTL</i> is distributed with a pre-built <b>configure</b>
 script - so the actual <i>autoconf</i> tools should not be needed on the
@@ -102,13 +136,14 @@ of configurable options.
 Please report any build problems to <a href="mailto:bwctl-users@internet2.edu">bwctl-users@internet2.edu</a>.
 <h3>
 
-<hr WIDTH="100%">Configuring <i>bwctld</i>:</h3>
+<hr WIDTH="100%">Configuring <i>bwctld</i></h3>
 The basic procedure to configure <b>bwctld</b> is to create a <a href="bwctld.conf.man.html">bwctld.conf</a>
 and optionally a <a href="bwctld.limits.man.html">bwctld.limits</a> and
-<a href="bwctld.keys.man.html">bwctld.keys</a> file. These files need to
-be installed in the same directory. The recommended directory is <i>/inst/root/etc</i>.
-(The <i>etc</i> directory below your install root.) There are examples
-of these files in the <i>bwctl-$VERS/conf&nbsp;</i> sub directory.
+<a href="bwctld.keys.man.html">bwctld.keys</a>
+file. These files need to be installed in the same directory. The recommended
+directory is <i>/inst/root/etc</i>. (The <i>etc</i> directory below your
+install root.) There are examples of these files in the <i>bwctl-$VERS/conf&nbsp;</i>
+sub directory.
 <p><b>bwctld.conf:</b>
 <br>Used to configure basic operation of the daemon such as server listening
 port, the path for <b>iperf</b>, and error logging. For a detailed description
@@ -125,7 +160,7 @@ classes. For a detailed description of the options available see the
 man page.
 <h3>
 
-<hr WIDTH="100%">Running <i>bwctld</i>:</h3>
+<hr WIDTH="100%">Running <i>bwctld</i></h3>
 The normal command-line to start the daemon is:
 <blockquote>
 <pre>&nbsp;% bwctld -c /inst/root/etc</pre>
@@ -141,16 +176,16 @@ the command-line options is available from the <a href="bwctld.man.html">bwctld<
 man page.
 <h3>
 
-<hr WIDTH="100%">Running <i>bwctl</i>:</h3>
+<hr WIDTH="100%">Running <i>bwctl</i></h3>
 The basic command line for the client is:
 <blockquote>
 <pre>% bwctl [options] [-c|-s] targethost</pre>
 </blockquote>
 The <i>-c</i> option indicates that the <i>targethost</i> should be an
-<b>iperf</b> client (sender). The <i>-s</i> option indicates the <i>targethost</i>
-should be an <b>iperf</b> server (receiver). Currently <b>bwctl</b> only
-supports one of these options at a time, with the other host assumed to
-be the localhost.
+<b>iperf</b>
+client (sender). The <i>-s</i> option indicates the <i>targethost</i> should
+be an <b>iperf</b> server (receiver). Currently <b>bwctl</b> only supports
+one of these options at a time, with the other host assumed to be the localhost.
 <p>To get the list of available options use:
 <blockquote>
 <pre>% bwctl -h</pre>
@@ -159,39 +194,33 @@ More details on running the client application with a complete description
 of all command-line options is available from the <a href="bwctl.man.html">bwctl</a>
 man page.
 <h3>
-<hr WIDTH="100%">Mailing Lists:</h3>
+
+<hr WIDTH="100%">Mailing Lists</h3>
 There are two email lists to support this software:
 <dl>
-<dt><b>bwctl-users</b></dt>
-<dd>A general discussion list for users to discuss problems. I will monitor
+<dt>
+<b>bwctl-users</b></dt>
+
+<dd>
+A general discussion list for users to discuss problems. I will monitor
 this list as I expect bug reports to be sent here.</dd>
-<dt><b>bwctl-announce</b></dt>
-<dd>This list will be used to announce new versions or significant developments
+
+<dt>
+<b>bwctl-announce</b></dt>
+
+<dd>
+This list will be used to announce new versions or significant developments
 with regard to the software.</dd>
 </dl>
 These lists can be subscribed to from <a href="https://mail.internet2.edu/wws/lists/engineering">https://mail.internet2.edu/wws/lists/engineering</a>.
-<p>Jeff Boote
-<br>Internet2
-<pre>$Id$</pre>
+<h3>
 
-<h4>
-Authentication:</h4>
-<i>BWCTL</i> supports two modes of authentication. IP/netmasks and AES
-keys. Shared AES keys is the more secure method. Using the <i>bwctld.limits</i>
-file, incoming connections can be assigned a class. If the IP/netmask method
-is being used, the source address of the control connection is used to
-determine the class. If the AES key method is being used, the client and
-both servers must have a shared AES key that is identified using the <i>-U</i>
-flag of <b>bwctl</b>. The <i>bwctld.limits</i> file allows the administrator
-to assign each user identity to a class.
-<h4>
-Authorization:</h4>
-Each class has a set of limits associated with it. (Also assigned in the
-bwctld.limits file.) The classes are hierarchical, so a connection must
-pass the limit restrictions of the given class as well as all <i>parent</i>
-classes.
+<hr WIDTH="100%">Author</h3>
+Jeff Boote
+<br><a href="mailto:boote@internet2.edu">boote@internet2.edu</a>
+<br>Internet2
 <pre>
-<hr WIDTH="100%"></pre>
+<hr WIDTH="100%">$Id$</pre>
 
 </body>
 </html>

@@ -1,0 +1,94 @@
+<!--									-->
+<!--	$Id$	-->
+<!--									-->
+<!------------------------------------------------------------------------>
+<!--									-->
+<!--			   Copyright (C)  2004				-->
+<!--				Internet2				-->
+<!--			   All Rights Reserved				-->
+<!--									-->
+<!------------------------------------------------------------------------>
+<!--									-->
+<!--	File:		architecture.html				-->
+<!--									-->
+<!--	Author:		Jeff Boote					-->
+<!--			Internet2					-->
+<!--									-->
+<!--	Date:		Sat Feb 07 18:35:02 MST 2004			-->
+<!--									-->
+<!--	Description:							-->
+<!--	Architecture description of bwctl.				-->
+<!--									-->
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="Author" content="Jeff W. Boote">
+   <title>BWCTL - Architecture</title>
+</head>
+<body>
+
+<center>
+<h1>
+BWCTL Architecture</h1></center>
+
+<center>
+<h5>
+$Date$</h5></center>
+
+<center>
+<h5>
+<img SRC="bwctl_arch.png" height=501 width=601></h5></center>
+<i>BWCTL</i> works by having a <b>bwctld</b> process on each of the endpoint
+test systems. The <b>bwctl</b> client contacts each of those daemons and
+requests a test. That request includes a wanted time period as well as
+a full parameterization of the <b>iperf</b> test that is wanted. <b>bwctld</b>
+has been developed as a classic accept/fork daemon. The master daemon process
+listens for new network connections and also manages the resources for
+all child <b>bwctld</b> processes. Once a connection comes in, <b>bwctld</b>
+forks a child process to handle that request. The child process deals with
+all encryption and communication issues with the client, as well as dealing
+with all <i>static</i> resource limits.&nbsp; <i>Static</i> resource limits
+are the limits that are not dependent upon what is currently happening
+on the node. i.e. The <i>request broker</i> can easily determine if the
+given client is allowed to do UDP tests without talking to the <i>master
+daemon</i>. Once the <i>request broker</i> process determines the request
+is valid it makes are request to the <i>master daemon</i> for the resources
+and time period requested by the client. If the <i>master daemon</i> has
+the resources available (including the open time period) it grants the
+request.
+<p>The time period for the test is always requested by the client. It makes
+a request to each of the <i>request broker</i> processes in turn. The time
+period is requested by specifying two timestamps. The earliest time and
+the latest time the client is willing to settle for. The <i>request broker</i>
+returns a tentative reservation with the first open time that will fulfill
+the parameters of the test, or a request denied message. The client can
+then use the tentative reservation time as the earliest time in the request
+to the <i>request broker</i> on the other host. Eventually, an agreed upon
+time will be reached or the latest time will be reached. If the <i>request
+broker</i> can not fulfill the request before the latest time specified
+in the request it will return a server too busy message. If the client
+gets the same time from both servers, it must then confirm the reservation
+with a <b>start session</b> message within a configurable timeout period
+or at least before the reservation time.
+<p>Once the client sends the the <b>start session</b> message, the <i>request
+broker</i> forks off a <i>peer agent</i> that is responsible for verifying
+the time offset to the other endpoint of the test and initializing the
+communication socket that will be used to trade results of the test.
+<p>If the test endpoint systems have a reasonably close idea of the time,
+and they can communicate, the <i>peer agent</i> forks off the <i>test process</i>.
+The <i>test process</i> waits until the scheduled start time and then currently
+executes <b>iperf</b> with the correct command-line. Experience is showing
+that a closer integration with the testing process (<b>iperf</b>) may be
+needed in the future.
+<p>The image above shows a dashed blue line around the processes that occur
+on each host. Currently the client is constrained to one of the given hosts,
+but that is a limitation that is likely to go away. (This will probably
+only be available for AES authenticated requests. If this is done for IP/netmask
+authenticated transactions it opens <i>BWCTL</i> up as a likely target
+to generate DOS attacks.)
+<p>
+<hr WIDTH="100%">
+<br>$Id$
+</body>
+</html>
