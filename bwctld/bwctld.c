@@ -1402,7 +1402,9 @@ main(int argc, char *argv[])
 	 * Initialize the context. (Set the error handler to the app defined
 	 * one.)
 	 */
-	ctx = IPFContextCreate(errhand);
+	if(!(ctx = IPFContextCreate(errhand))){
+		exit(1);
+	}
 
 	/*
 	 * Now deal with "all" cmdline options.
