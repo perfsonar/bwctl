@@ -1614,8 +1614,9 @@ main(int argc, char *argv[])
 	 * Install policy for "ctx" - and return policy record.
 	 */
 	if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
-					opts.iperfcmd,&ipfd_exit,
+					opts.iperfcmd,
 					&opts.bottleneckcapacity,
+					&ipfd_exit,
 					&lbuf,&lbuf_max))){
 		I2ErrLog(errhand, "PolicyInit failed. Exiting...");
 		exit(1);
