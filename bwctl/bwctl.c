@@ -1286,13 +1286,13 @@ AGAIN:
 				}
 				if(recvfp == stdout){
 					fprintf(stdout,"RECEIVER END\n");
-					fflush(stdout);
 				}
 				else{
 					fclose(recvfp);
 					recvfp = NULL;
 					fprintf(stdout,"%s\n",recvfname);
 				}
+				fflush(stdout);
 
 				if(sig_check()) exit(1);
 
@@ -1308,13 +1308,13 @@ AGAIN:
 				}
 				if(sendfp == stdout){
 					fprintf(stdout,"SENDER END\n");
-					fflush(stdout);
 				}
 				else if(sendfp){
 					fclose(sendfp);
 					sendfp = NULL;
 					fprintf(stdout,"%s\n",sendfname);
 				}
+				fflush(stdout);
 
 				if(sig_check()) exit(1);
 
