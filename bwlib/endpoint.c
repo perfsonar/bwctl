@@ -719,15 +719,15 @@ ACCEPT:
 		sbuff_len = sizeof(sbuff);
 		connfd = accept(ep->ssockfd,(struct sockaddr *)&sbuff,
 								&sbuff_len);
-		if(ipf_term)
+		if(ipf_intr)
 			goto end;
 
 		if(connfd < 0){
-			if(errno == EINTR && !ipf_term){
+			if(errno == EINTR && !ipf_intr){
 				goto ACCEPT;
 			}
 			IPFError(ctx,IPFErrFATAL,errno,
-					"Unable to connect endpoint cntrl: %M");
+				"Unable to accept() endpoint cntrl: %M");
 			goto end;
 		}
 
