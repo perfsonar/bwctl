@@ -122,7 +122,7 @@ print_output_args()
 	fprintf(stderr,
 "   -L LatestDelay latest time into an interval to run test(seconds)\n"
 "   -h             print this message and exit\n"
-"   -e             syslog facility to log to\n"
+"   -e facility    syslog facility to log to\n"
 "   -r             send syslog to stderr\n"
 		);
 	fprintf(stderr,
