@@ -1044,7 +1044,8 @@ main(
 		if(sig_check()) exit(1);
 
 		endtime = local.tspec.req_time.ipftime;
-		endtime = IPFNum64Add(endtime,local.tspec.duration);
+		endtime = IPFNum64Add(endtime,
+				IPFULongToNum64(local.tspec.duration));
 		endtime = IPFNum64Add(endtime,fuzz64);
 		stop = False;
 

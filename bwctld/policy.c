@@ -1868,7 +1868,7 @@ IPFDReadReservationQuery(
 	)
 {
 	ssize_t		i;
-	IPFDMesgT	buf[12];
+	IPFDMesgT	buf[14];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
@@ -1883,7 +1883,7 @@ IPFDReadReservationQuery(
 	if((i = I2Readni(fd,&buf[0],56,intr)) != 56)
 		return False;
 
-	if(buf[11] != IPFDMESGMARK)
+	if(buf[13] != IPFDMESGMARK)
 		return False;
 
 	memcpy(sid,&buf[0],16);

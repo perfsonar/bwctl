@@ -295,11 +295,11 @@ _IPFAddrCopy(
 		to->port_set = True;
 	}
 
-	to->ai_free = 1;
 	aip = &to->ai;
 	ai = from->ai;
 
 	while(ai){
+		to->ai_free = 1;
 		*aip = _IPFCopyAddrRec(from->ctx,ai);
 		if(!*aip){
 			IPFAddrFree(to);

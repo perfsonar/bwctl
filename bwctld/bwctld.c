@@ -313,18 +313,21 @@ ChldReservationDemand(
 	 * (Min of the EventHorizon of the daemon and the latest time from
 	 * the request.)
 	 */
-	ltime = IPFNum64Min(ltime,IPFNum64Add(currtime.ipftime,
+	if(hsecs){
+		ltime = IPFNum64Min(ltime,IPFNum64Add(currtime.ipftime,
 					IPFULongToNum64(hsecs)));
+	}
+
 	/*
 	 * Open slot too late
 	 */
-	if(IPFNum64Cmp(res->restime,ltime) > 0)
-		goto failed;
+	if(ltime && (IPFNum64Cmp(res->restime,ltime) > 0))
+		goto denied;
 
 	/********************************
 	 * Find an open slot		*
 	 ********************************/
-
+	rptr = &ResHead;
 	while(*rptr){
 		Reservation	tres;
 
@@ -366,8 +369,8 @@ ChldReservationDemand(
 		/*
 		 * Open slot too late
 		 */
-		if(IPFNum64Cmp(res->restime,ltime) > 0)
-			goto failed;
+		if(ltime && (IPFNum64Cmp(res->restime,ltime) > 0))
+			goto denied;
 	}
 
 	/*
@@ -381,7 +384,9 @@ ChldReservationDemand(
 
 	return True;
 
-failed:
+denied:
+	*err = 0;
+	I2ErrLogP(errhand, errno, "Unable to find reservation before \"last time\": %M");
 	DeleteReservation(cstate);
 	return False;
 }
