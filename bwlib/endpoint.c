@@ -528,6 +528,92 @@ run_iperf(
 	exit(BWL_CNTRL_FAILURE);
 }
 
+static BWLAddr
+AddrByTestAddr(
+	BWContext	ctx,
+	BWAddr		addr,
+	u_int16_t	port
+		   )
+{
+	struct addrinfo		*ai=NULL;
+	BWLAddr			addr;
+	struct sockaddr_storage	saddr_rec;
+	struct sockaddr		*oaddr=(struct sockaddr*)&saddr_rec;
+	socklen_t		len;
+
+	/*
+	 * copy current socketaddr into saddr_rec
+	 */
+	len = addr->saddrlen;
+	memcpy(&saddr_rec,addr->saddr,len);
+
+	/*
+	 * Allocate an BWLAddr record to assign the data into.
+	 */
+	if( !(addr = _BWLAddrAlloc(ctx)))
+		return NULL;
+
+	if( !(ai = calloc(1,sizeof(struct addrinfo))) ||
+					!(addr->saddr = calloc(1,len))){
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"malloc():%M");
+		goto error;
+	}
+
+	/*
+	 * Assign all the fields.
+	 */
+	memcpy(addr->saddr,oaddr,len);
+	ai->ai_addr = addr->saddr;
+	addr->saddrlen = len;
+	ai->ai_addrlen = len;
+
+	switch(addr->saddr->sa_family){
+		struct sockaddr_in	*saddr4;
+#ifdef	AF_INET6
+		struct sockaddr_in6	*saddr6;
+
+		case AF_INET6:
+			saddr6 = (struct sockaddr_in6 *)addr->saddr;
+			saddr6->sin6_port = htons(port);
+			break;
+#endif
+		case AF_INET:
+			saddr4 = (struct sockaddr_in *)addr->saddr;
+			saddr4->sin_port = htons(port);
+			break;
+		default:
+			BWLError(tsess->cntrl->ctx,BWLErrFATAL,
+						BWLErrINVALID,
+				"Endpoint control socket: Invalid AF(%d)",
+					addr->saddr->sa_family);
+			goto end;
+	}
+	sprintf(addr->port,"%u",port);
+	addr->port_set = True;
+
+	ai->ai_flags = 0;
+	ai->ai_family = oaddr->sa_family;
+	ai->ai_socktype = SOCK_STREAM;
+	ai->ai_protocol = IPPROTO_IP;	/* reasonable default */
+	ai->ai_canonname = NULL;
+	ai->ai_next = NULL;
+
+	addr->ai = ai;
+	addr->ai_free = True;
+	addr->so_type = SOCK_STREAM;
+	addr->so_protocol = IPPROTO_IP;
+
+	return addr;
+
+error:
+	if(addr)
+		BWLAddrFree(addr);
+	if(ai)
+		free(ai);
+
+	return NULL;
+}
+
 BWLBoolean
 _BWLEndpointStart(
 	BWLTestSession	tsess,
@@ -800,34 +886,19 @@ ACCEPT:
 	}
 	else{
 		/*
-		 * Copy remote address, then modify port number
-		 * for contacting remote host.
+		 * Copy remote address, with modified port number
+		 * and other fields for contacting remote host.
 		 */
-		BWLAddr local = _BWLAddrCopy(tsess->test_spec.sender);
-		BWLAddr	remote = _BWLAddrCopy(tsess->test_spec.receiver);
-		switch(remote->saddr->sa_family){
-			struct sockaddr_in	*saddr4;
-#ifdef	AF_INET6
-			struct sockaddr_in6	*saddr6;
+		BWLAddr local = AddrByTestAddr(ctx,tsess->test_spec.sender,0);
+		BWLAddr remote = AddrByTestAddr(ctx,tsess->test_spec.receiver,
+				*dataport);
 
-			case AF_INET6:
-				saddr6 = (struct sockaddr_in6 *)remote->saddr;
-				saddr6->sin6_port = htons(*dataport);
-				break;
-#endif
-			case AF_INET:
-				saddr4 = (struct sockaddr_in *)remote->saddr;
-				saddr4->sin_port = htons(*dataport);
-				break;
-			default:
-				BWLError(tsess->cntrl->ctx,BWLErrFATAL,
-						BWLErrINVALID,
-				"Endpoint control socket: Invalid AF(%d)",
-					remote->saddr->sa_family);
-				goto end;
+		if(!local || !remote){
+			BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+				"Endpoint: Unable to alloc peer addrs: %M");
+			aval = BWL_CNTRL_FAILURE;
+			goto end;
 		}
-		local->so_type = SOCK_STREAM;
-		remote->so_type = SOCK_STREAM;
 
 		ep->rcntrl = BWLControlOpen(ctx,local,remote,
 				tsess->cntrl->mode,"endpoint",NULL,
@@ -840,6 +911,7 @@ ACCEPT:
 			BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 				"Endpoint: Signal = %d",signo_caught);
 		}
+		aval = BWL_CNTRL_FAILURE;
 		goto end;
 	}
 	if(ipf_term)
