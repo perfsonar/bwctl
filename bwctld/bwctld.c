@@ -330,7 +330,9 @@ I2ErrLog(errhand,"ResReq: %24.10f, Fuzz: %24.10f",
 		BWLNum64ToDouble(rtime),
 		BWLNum64ToDouble(ftime));
 	res->start = BWLNum64Sub(rtime,ftime);
-I2ErrLog(errhand,"Start: %24.10f",BWLNum64ToDouble(res->start));
+I2ErrLog(errhand,"Current: %24.10f, Start: %24.10f",
+		BWLNum64ToDouble(currtime.tstamp),
+		BWLNum64ToDouble(res->start));
 	res->start = BWLNum64Max(BWLNum64Add(currtime.tstamp,
 					BWLNum64Mult(
 						BWLNum64Add(rtttime,ftime),
