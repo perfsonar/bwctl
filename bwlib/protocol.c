@@ -1131,6 +1131,10 @@ _BWLReadTestRequest(
 			goto error;
 		}
 
+		if(conf_receiver){
+			recv_port = 0;
+		}
+
 		switch(ipvn){
 		struct sockaddr_in	*saddr4;
 #ifdef	AF_INET6

@@ -1083,7 +1083,8 @@ AGAIN:
 
 			s[p]->tspec.req_time.tstamp = req_time.tstamp;
 
-			/* TODO: do something with return values.
+			/*
+			 * TODO: do something with return values.
 			 */
 			if(!BWLSessionRequest(s[p]->cntrl,s[p]->send,
 					&s[p]->tspec,&req_time,&recv_port,

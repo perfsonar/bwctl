@@ -280,7 +280,9 @@ typedef union BWLDPidUnion{
  *	52|                           RTT TIME                            |
  *	56|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	60|                          BWLDMESGMARK                         |
+ *	60|           Recv Port             |                             |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	64|                          BWLDMESGMARK                         |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  * Parent responses to the reservation request are of the format:

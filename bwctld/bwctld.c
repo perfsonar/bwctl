@@ -149,7 +149,8 @@ struct ChldStateRec{
 static Reservation
 AllocReservation(
 	ChldState	cstate,
-	BWLSID		sid
+	BWLSID		sid,
+	u_int16_t	*port
 	)
 {
 	Reservation	res;
@@ -171,7 +172,13 @@ AllocReservation(
 	 * Get next port in range
 	 * Could add randomness... For now just step through.
 	 */
-	res->port = opts.iperfports[opts.port_count++ % opts.port_range_len];
+	if(!*port){
+		res->port = opts.iperfports[
+			opts.port_count++ % opts.port_range_len];
+	}
+	else{
+		res->port = *port;
+	}
 
 	cstate->res = res;
 
@@ -266,8 +273,9 @@ ChldReservationDemand(
 		 */
 		if(!ResRemove(cstate->res))
 			return False;
+		cstate->res->port = *port;
 	}
-	else if(!AllocReservation(cstate,sid)){
+	else if(!AllocReservation(cstate,sid,port)){
 		/*
 		 * Alloc failed.
 		 */
@@ -616,7 +624,7 @@ CheckFD(
 							&ipfd_exit,sid,
 							&rtime,&ftime,&ltime,
 							&duration,&rtttime,
-							&err)){
+							&port,&err)){
 					goto done;
 				}
 

@@ -1866,11 +1866,12 @@ BWLDReadReservationQuery(
 	BWLNum64	*last_time,
 	u_int32_t	*duration,
 	BWLNum64	*rtt_time,
+	u_int16_t	*recv_port,
 	int		*err
 	)
 {
 	ssize_t		i;
-	BWLDMesgT	buf[14];
+	BWLDMesgT	buf[15];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
@@ -1882,10 +1883,10 @@ BWLDReadReservationQuery(
 	/*
 	 * Read message header
 	 */
-	if((i = I2Readni(fd,&buf[0],56,intr)) != 56)
+	if((i = I2Readni(fd,&buf[0],60,intr)) != 60)
 		return False;
 
-	if(buf[13] != BWLDMESGMARK)
+	if(buf[14] != BWLDMESGMARK)
 		return False;
 
 	memcpy(sid,&buf[0],16);
@@ -1894,6 +1895,7 @@ BWLDReadReservationQuery(
 	memcpy(last_time,&buf[8],8);
 	memcpy(duration,&buf[10],4);
 	memcpy(rtt_time,&buf[11],8);
+	memcpy(recv_port,&buf[13],2);
 
 	*err = 0;
 
@@ -1989,14 +1991,14 @@ BWLDReservationQuery(
 	u_int16_t	*port_ret
 	)
 {
-	BWLDMesgT	buf[16];
+	BWLDMesgT	buf[17];
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
 
 	if(policy->retn_on_intr)
 		intr = policy->retn_on_intr;
 
-	buf[0] = buf[15] = BWLDMESGMARK;
+	buf[0] = buf[16] = BWLDMESGMARK;
 	buf[1] = BWLDMESGRESERVATION;
 	memcpy(&buf[2],sid,16);
 	memcpy(&buf[6],&req_time,8);
@@ -2004,6 +2006,7 @@ BWLDReservationQuery(
 	memcpy(&buf[10],&last_time,8);
 	memcpy(&buf[12],&duration,4);
 	memcpy(&buf[13],&rtt_time,8);
+	memcpy(&buf[15],&port,2);
 
 	if(I2Writeni(policy->fd,buf,64,intr) != 64){
 		BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
