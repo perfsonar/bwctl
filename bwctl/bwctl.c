@@ -49,29 +49,32 @@ int optreset;
 /*
  * The bwctl context
  */
-static	ipapp_trec		app;
-static	I2ErrHandle		eh;
-static	u_int32_t		file_offset,ext_offset;
-static	int			ip_intr = 0;
-static	int			ip_reset = 0;
-static	int			ip_exit = 0;
-static	int			ip_error = SIGCONT;
-static	BWLContext		ctx;
-static	ipsess_trec		local;
-static	ipsess_trec		remote;
-static	BWLNum64		zero64;
-static	BWLNum64		fuzz64;
-static	BWLSID			sid;
-static	u_int16_t		recv_port;
-static	ipsess_t		s[2];	/* receiver == 0, sender == 1 */
+static	ipapp_trec	app;
+static	I2ErrHandle	eh;
+static	u_int32_t	file_offset,ext_offset;
+static	int		ip_intr = 0;
+static	int		ip_reset = 0;
+static	int		ip_exit = 0;
+static	int		ip_error = SIGCONT;
+static	BWLContext	ctx;
+static	ipsess_trec	local;
+static	ipsess_trec	remote;
+static	BWLNum64	zero64;
+static	BWLNum64	fuzz64;
+static	BWLSID		sid;
+static	u_int16_t	recv_port;
+static	ipsess_t	s[2];	/* receiver == 0, sender == 1 */
+static	u_int8_t	aesbuff[16];
 
 static void
 print_conn_args()
 {
 	fprintf(stderr,"              [Connection Args]\n\n"
 "   -A authmode    requested modes: [A]uthenticated, [E]ncrypted, [O]pen\n"
-"   -k keyfile     AES keyfile to use with Authenticated/Encrypted modes\n"
 "   -U username    username to use with Authenticated/Encrypted modes\n"
+"   -K             Prompt for \"passphrase\" (used to generate AES key)\n"
+"   -k keyfile     AES keyfile to use with Authenticated/Encrypted modes\n"
+"                  (only one of -K/-k allowed)\n"
 "   -B srcaddr     use this as a local address for control connection and tests\n"
 	);
 }
@@ -113,6 +116,7 @@ print_output_args()
 "   -n nIntervals  number of tests to perform (default: continuous)\n"
 "   -R alpha       randomize the start time within this alpha(0-50%%)\n"
 "                  (default: 0 - start time not randomized)\n"
+"                  (Initial start randomized within the complete interval.)\n"
 	);
 	fprintf(stderr,
 "   -L LatestDelay latest time into an interval to run test(seconds)\n"
@@ -146,38 +150,115 @@ usage(const char *progname, const char *msg)
 	return;
 }
 
+static BWLBoolean
+getclientkey(
+	BWLContext	ctx,
+	const BWLUserID	userid	__attribute__((unused)),
+	BWLKey		key_ret,
+	BWLErrSeverity	*err_ret
+	)
+{
+	memcpy(key_ret,aesbuff,sizeof(aesbuff));
+
+	return True;
+}
+
 /*
 ** Initialize authentication and policy data (used by owping and owfetch)
 */
 void
 ip_set_auth(
-	ipapp_trec	*pctx, 
+	BWLContext	ctx,
 	char		*progname,
-	BWLContext	ctx __attribute__((unused))
+	ipapp_trec	*pctx
 	)
 {
-#if	NOT
-#ifndef	NDEBUG
-	somestate.childwait = app.opt.childwait;
-#endif
-#endif
-#if	NOT
 	BWLErrSeverity err_ret;
 
 	if(pctx->opt.identity){
+		u_int8_t	*aes = NULL;
+
 		/*
-		 * Eventually need to modify the policy init for the
-		 * client to deal with a pass-phrase instead of/ or in
-		 * addition to the keyfile file.
+		 * If passphrase requested, open tty and get passphrase.
+		 * (md5 the passphrase to create an aes key.)
 		 */
-		*policy = BWLPolicyInit(ctx, NULL, NULL, pctx->opt.keyfile, 
-				       &err_ret);
-		if (err_ret == BWLErrFATAL){
-			I2ErrLog(eh, "PolicyInit failed. Exiting...");
-			exit(1);
-		};
+		if(pctx->opt.passphrase){
+			char	*passphrase;
+			char	ppbuf[MAX_PASSPHRASE];
+			char	prompt[MAX_PASSPROMPT];
+			MD5_CTX	mdc;
+			size_t	pplen;
+
+			if(snprintf(prompt,MAX_PASSPROMPT,
+					"Enter passphrase for identity '%s': ",
+					pctx->opt.identity) >= MAX_PASSPROMPT){
+				I2ErrLog(eh,"ip_set_auth: Invalid identity");
+				goto DONE;
+			}
+
+			if(!(passphrase = I2ReadPassPhrase(prompt,ppbuf,
+						sizeof(ppbuf),I2RPP_ECHO_OFF))){
+				I2ErrLog(eh,"I2ReadPassPhrase(): %M");
+				goto DONE;
+			}
+			pplen = strlen(passphrase);
+
+			MD5Init(&mdc);
+			MD5Update(&mdc,passphrase,pplen);
+			MD5Final(aesbuff,&mdc);
+			aes = aesbuff;
+		}
+		else{
+			/* keyfile */
+			FILE	*fp;
+			int	rc = 0;
+			char	*lbuf=NULL;
+			size_t	lbuf_max=0;
+
+			if(!(fp = fopen(pctx->opt.keyfile,"r"))){
+				I2ErrLog(eh,"Unable to open %s: %M",
+						app.opt.keyfile);
+				goto DONE;
+			}
+
+			rc = I2ParseKeyFile(eh,fp,0,&lbuf,&lbuf_max,NULL,
+					pctx->opt.identity,NULL,aesbuff);
+			if(lbuf){
+				free(lbuf);
+			}
+			lbuf = NULL;
+			lbuf_max = 0;
+			fclose(fp);
+
+			if(rc > 0){
+				aes = aesbuff;
+			}
+			else{
+				I2ErrLog(eh,
+			"Unable to find key for id=\"%s\" from keyfile=\"%s\"",
+					pctx->opt.identity,pctx->opt.keyfile);
+			}
+		}
+DONE:
+		if(aes){
+			/*
+			 * install getaeskey func (key is in aesbuff)
+			 */
+			BWLGetAESKeyFunc	getaeskey = getclientkey;
+
+			if(!BWLContextConfigSet(ctx,BWLGetAESKey,
+						(void*)getaeskey)){
+				I2ErrLog(eh,
+					"Unable to set AESKey for context: %M");
+				aes = NULL;
+				goto DONE;
+			}
+		}
+		else{
+			free(pctx->opt.identity);
+			pctx->opt.identity = NULL;
+		}
 	}
-#endif
 
 
 	/*
@@ -444,7 +525,7 @@ next_start(
 		/*
 		 * compute normalized range for alpha
 		 */
-		a = (double)interval * (double)alpha;
+		a = (double)interval * (double)alpha/100.0;
 
 		/*
 		 * compute minimum start for interval
@@ -599,6 +680,9 @@ main(
 				I2ErrLog(eh,"malloc:%M");
 				exit(1);
 			}
+			break;
+		case 'K':
+			app.opt.passphrase = True;
 			break;
 		case 'k':
 			if (!(app.opt.keyfile = strdup(optarg))) {
@@ -766,6 +850,17 @@ main(
 		exit(1);
 	}
 
+	if(app.opt.keyfile && app.opt.passphrase){
+		usage(progname,"Exactly one of -k or -K must be specified.");
+		exit(1);
+	}
+
+	if(app.opt.verbose){
+		fprintf(stderr,"Further messages to syslog(%s,%s)\n",
+			I2ErrLogSyslogFacilityName(syslogattr.facility),
+			I2ErrLogSyslogPriorityName(syslogattr.priority));
+	}
+
 	/*
 	 * Useful constant
 	 */
@@ -930,11 +1025,10 @@ main(
 	s[1]->send = True;
 
 	/*
-	 * TODO: Fix this.
-	 * Setup policy stuff - this currently sucks.
-	 * (add passphrase, etc...)
+	 * Setup policy stuff
+	 * (Get an AES key if needed...)
 	 */
-	ip_set_auth(&app,progname,ctx); 
+	ip_set_auth(ctx,progname,&app); 
 
 	/*
 	 * setup sighandlers
@@ -1021,6 +1115,10 @@ AGAIN:
 			rel = BWLNum64Sub(wake.tstamp,currtime.tstamp);
 			BWLNum64ToTimespec(&tspec,rel);
 
+			/*
+			 * If the next period is more than 3 seconds from
+			 * now, say something.
+			 */
 			if(app.opt.verbose && (tspec.tv_sec > 3)){
 				BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
 					"%lu seconds until next testing period",

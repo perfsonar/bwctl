@@ -32,8 +32,10 @@
  * americans have very short attention spans...)
  */
 #define	SETUP_ESTIMATE	2
-
+#define	MAX_PASSPROMPT	256
+#define	MAX_PASSPHRASE	256
 #define DEF_UDP_RATE	1000000
+
 /*
  * Lock file name. This file is created in the output directory to ensure
  * there is not more than one bwctl process writing there.
@@ -64,6 +66,7 @@ typedef	struct {
 		char		*authmode;	/* -A */
 		char		*identity;	/* -U */
 		char		*keyfile;	/* -k */
+		I2Boolean	passphrase;	/* -K */
 
 		I2Boolean	allowunsync;	/* -Y */
 #ifndef	NDEBUG

@@ -67,29 +67,22 @@ parsekeys(
 	char		*keystart;
 	BWLKey		tkey;
 	I2Datum		key,val;
+	I2ErrHandle	eh = BWLContextGetErrHandle(policy->ctx);
+
+#if	(I2MAXIDENTITY > sizeof(username))
+#error	"I2util identity size mismatch"
+#endif
+
+#if	(I2KEYLEN != sizeof(BWLKey))
+#error	"I2util keylen mismatch"
+#endif
 
 	if(!fp){
 		return 0;
 	}
 
-	while((rc = BWLDGetConfLine(policy->ctx,fp,rc,lbuf,lbuf_max)) > 0){
-
-		line = *lbuf;
-
-		i=0;
-		while(i <= BWL_USERID_LEN){
-			if(isspace(*line) || (*line == '\0')){
-				break;
-			}
-			username[i++] = *line++;
-		}
-
-		if(i > BWL_USERID_LEN){
-			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
-							"Username too long");
-			return -rc;
-		}
-		username[i] = '\0';
+	while((rc = I2ParseKeyFile(eh,fp,rc,lbuf,lbuf_max,NULL,NULL,
+					username,tkey)) > 0){
 
 		/*
 		 * Make sure the username is not already in the hash.
@@ -99,52 +92,6 @@ parsekeys(
 		if(I2HashFetch(policy->keys,key,&val)){
 			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
 					"username \"%s\" duplicated",username);
-			return -rc;
-		}
-
-		/*
-		 * grab hex-encoded key.
-		 */
-		while(isspace(*line)){
-			line++;
-		}
-
-		keystart = line;
-		i=0;
-		while(*line != '\0'){
-			if(isspace(*line)){
-				break;
-			}
-			i++;
-			line++;
-		}
-		/*
-		 * terminate keystart
-		 */
-		*line++ = '\0';
-
-		/*
-		 * Make sure the only thing trailing the key is
-		 * a comment or whitespace.
-		 */
-		while(*line != '\0'){
-			if(*line == '#'){
-				break;
-			}
-			if(!isspace(*line)){
-				return -rc;
-			}
-			line++;
-		}
-
-		if(i != keylen){
-			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
-						"Invalid key: wrong length");
-			return -rc;
-		}
-		if(!BWLHexDecode(keystart,tkey,sizeof(tkey))){
-			BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
-						"Invalid key: not hex?");
 			return -rc;
 		}
 
@@ -835,6 +782,7 @@ parselimits(
 	size_t	i;
 	size_t	maxlim = 0;
 	char	*line;
+	I2ErrHandle	eh = BWLContextGetErrHandle(policy->ctx);
 
 	/*
 	 * Count number of possible limit parameters
@@ -848,7 +796,7 @@ parselimits(
 	/*
 	 * parse the file, one line at a time.
 	 */
-	while(fp && ((rc = BWLDGetConfLine(policy->ctx,fp,rc,lbuf,lbuf_max)) > 0)){
+	while(fp && ((rc = I2GetConfLine(eh,fp,rc,lbuf,lbuf_max)) > 0)){
 		line = *lbuf;
 
 		/*
@@ -1041,7 +989,7 @@ BWLDPolicyInstall(
 	}
 
 	/*
-	 * lbuf is a char buffer that grows as needed in BWLDGetConfLine
+	 * lbuf is a char buffer that grows as needed in I2GetConfLine
 	 * lbuf will be realloc'd repeatedly as needed. Once conf file
 	 * parsing is complete - it is free'd from this function.
 	 */
