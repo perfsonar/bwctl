@@ -786,7 +786,7 @@ main(
 			app.opt.udpTest = True;
 			break;
 		case 'W':
-			app.opt.dynamicWin = True;
+			app.opt.dynamicWindowSize = True;
 		case 'w':
 			if(app.opt.winset){
 				usage(progname,
