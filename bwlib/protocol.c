@@ -1799,6 +1799,9 @@ _BWLReadStopSession(
 		I2HexEncode(hbuf,&buf[16],16);
 		BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
 			"ReadStopSession: msg[16-31] = '%s'",hbuf);
+		I2HexEncode(hbuf,cntrl->zero,16);
+		BWLError(cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
+			"ReadStopSession: cntrl->zero = '%s'",hbuf);
 	}
 	if(memcmp(cntrl->zero,&buf[16],16)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
