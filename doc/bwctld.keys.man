@@ -1,0 +1,51 @@
+." The first line of this file must contain the '"[e][r][t][v] line
+." to tell man to run the appropriate filter "t" for table.
+."
+."	$Id$
+."
+."######################################################################
+."#									#
+."#			   Copyright (C)  2004				#
+."#	     			Internet2				#
+."#			   All Rights Reserved				#
+."#									#
+."######################################################################
+."
+."	File:		bwctld.keys.man
+."
+."	Author:		Jeff Boote
+."			Internet2
+."
+."	Date:		Fri Feb 13 11:53:48 MST 2004
+."
+."	Description:	
+."
+.TH bwctld.keys 5 "$Date$"
+.SH NAME
+bwctld.keys \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
+\fBD\fRaemon AES keyfile database
+.SH DESCRIPTION
+The \fBbwctld.keys\fR file is used to hold the identity/AES keys pairs
+needed for \fBbwctld\fR to authenticate users. The format of this file
+is described in the \fBaespasswd(1)\fR manual page. The location of this
+file is controlled by the \fB\-c\fR option to \fBbwctld\fR.
+.PP
+\fBbwctld\fR uses symetric AES keys for authentication. Therefore, the
+\fBbwctl\fR client will have to have access to the exact same AES key
+for authentication by AES to work. Most likely the user will simply
+just know the passphrase that generated the AES key in the first place.
+Additionally, it is important that the system administrator and end user
+ensure the key is not compromised.
+.PP
+If the \fBbwctl\fR client is able to authenticate using the identity and AES
+key presented \fBbwctld\fR will use the directives found in the
+\fBbwctld.limits\fR file to map policy restrictions to this connection.
+.SH SECURITY CONSIDERATIONS
+The keys in the \fBbwctld.keys\fR file are not encrypted in any way. The
+security of these keys is completely dependent upon the security of the
+system and the discretion of the system administrator.
+.SH RESTRICTIONS
+\fBidentity\fR names are restricted to 16 characters.
+.SH SEE ALSO
+\fBaespasswd(1)\fR, \fBbwctl(1)\fR, \fBbwctld(8)\fR, \fBbwctld.limits(5)\fR
+and the \fBhttp://e2epi.internet2.edu/bwctl/\fR web site.

@@ -1,0 +1,201 @@
+'\"t
+." The first line of this file must contain the '"[e][r][t][v] line
+." to tell man to run the appropriate filter "t" for table.
+."
+."	$Id$
+."
+."######################################################################
+."#									#
+."#			   Copyright (C)  2004				#
+."#	     			Internet2				#
+."#			   All Rights Reserved				#
+."#									#
+."######################################################################
+."
+."	File:		bwctld.limits.man
+."
+."	Author:		Jeff Boote
+."			Internet2
+."
+."	Date:		Fri Feb 13 12:45:52 MST 2004
+."
+."	Description:	
+."
+.TH bwctld.limits 5 "$Date$"
+.SH NAME
+bwctld.limits \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
+\fBd\fRaemon policy configuration file
+.SH DESCRIPTION
+The \fBbwctld.limits\fR file is used to define the policy configuration
+for the \fBbwctld\fR program. It allows the system administrator to
+allocate the resources in a variety of ways.
+.PP
+There are two parts to the policy configuration:
+.TP
+Authentication
+Who is making the request? This can be very specific to an individual
+user or it can be more general in that the connection is coming from
+some particular network.
+.TP
+Authorization
+Now that the connection has been generally identified, what will \fBbwctld\fR
+allow it to do.
+.PP
+The authentication is done by assigning a \fIuserclass\fR to each new
+connection as it comes in. Each \fIuserclass\fR has a set of limits
+associated with it. The \fIuserclass\fR's aer hierarchical, so a connection
+must pass the limit restrictions of the given \fIuserclass\fR as well as all
+parent classes.
+.PP
+Within the \fBbwcltd.limits\fR file \fIassign\fR lines are used to
+assign a \fIuserclass\fR to a given connection. \fIlimit\fR lines are
+used to define a \fIuserclass\fR and set the limits associated with that
+\fIuserclass\fR. The file is read sequentially, and it is not permitted
+to use a \fIclassname\fR before it is defined using a limit line.
+.PP
+The format of this file is as follows:
+.RS
+.IP \(bu
+Comment lines are any line with the first non-whitespace character is '#'.
+These lines are counted for the purposes of returning line numbers in error
+messages but are otherwise ignored by \fBbwctld\fR.
+.IP \(bu
+Lines may be continued using the semi-standard '\\' charater followed
+immediately by a newline. This is the only valid place for the '\\'
+character. If it is found elsewhere a syntax error is reported.
+.IP \(bu
+Blank lines are treated as comment lines.
+.IP \(bu
+All other lines must conform to the syntax of a \fIlimit\fR line or
+an \fIassign\fR line.
+.RE
+.SH CONFIGURATION OPTIONS
+.TP
+\fIlimit\fR
+This directive is used to define the \fIuserclass\fR hierarchy. It
+defines the \fIclassname\fR as well as the limits associated with
+that class. A \fIclassname\fR may only be defined once. The
+format of the \fIlimit\fR directive is:
+.PP
+.RS
+limit \fIclassname\fR with \fIlimtype\fR=\fIvalue\fR[,\fIlimtype\fR=\fIvalue\fR]*
+.PP
+\fIclassname\fR defines the name of the class with the given
+limits. Whitespace is used as a separator but is otherwise
+ignored. \fIclassname\fR may be used as a directory name component
+within \fBbwctld\fR so take care not to use characters that would be
+invalid. (i.e. '*' or '/' would be particularly bad.)
+.PP
+\fIlimtype\fR and \fIvalue\fR indicate the particular type of limit and
+value to apply to this \fIuserclass\fR. The available settings for
+\fIlimtype\fR is:
+.TS
+li li li
+_ _ _
+li l l .
+limtype	valid values	default
+allow_open_mode	on/off	on
+allow_tcp	on/off	on
+allow_udp	on/off	off
+bandwidth	integer (b/s)	0 (unlimited)
+duration	integer (seconds)	0 (unlimited)
+event_horizon	integer (seconds)	0 (unlimited)
+parent	previously defined \fIclassname\fR	null
+pending	integer	0 (unlimited)
+.TE
+.TP
+.I allow_open_mode
+This limit is only useful if the class is assigned
+to a netmask. It is used to limit specific IP/netmask identities
+to only encrypted or authenticated mode transactions or
+to allow open mode.
+.TP
+.I allow_tcp
+Are TCP \fBIperf\fR tests allow for \fIuserclass\fR.
+.TP
+.I allow_udp
+Are UDP \fBIperf\fR tests allow for \fIuserclass\fR.
+.TP
+.I bandwidth
+Maximum amount of bandwidth to allow \fIuserclass\fR
+to use in a UDP \fBIperf\fR test.  0 indicates unlimited
+by policy, but remember this is checked all the way to
+the root of the hierarchy. (If you want an unlimited \fIuserclass\fR, your
+root must be unlimited, and the whole path down
+to the given \fIuserclass\fR.)
+.TP
+.I duration
+Maximum duration of a single \fBIperf\fR test for this
+\fIuserclass\fR.
+.TP
+.I event_horizon
+Maximum window into the future to look when trying to schedule
+a test for this \fIuserclass\fR.
+.TP
+.I parent
+The first \fIlimit\fR line cannot have a parent since
+none have been defined yet. As such, the first
+line defines the root of your class hierarchy.
+All remaining limit lines \fBMUST\fR assign a parent.
+(It is hierarchical after all.)
+.TP
+.I pending
+Maximum number of \fIpending\fR reservations for this \fIuserclass\fR.
+.RE
+.TP
+\fIassign\fR
+The \fIassign\fR directive is used to assign a \fIuserclass\fR to a
+given connection. Basically, it authenticates the connection.
+The format of the \fIassign\fR directive is:
+.PP
+.RS
+assign \fIauthtype\fR [\fIargs\fR] \fIclassname\fR
+.PP
+\fIauthtype\fR identifies the type of authentication being used. Whitespace
+is used as a separator but is otherwise ignored. \fIclassname\fR must 
+have been previously defined with the \fIlimit\fR directive earlier
+in the file.
+.PP
+The available settings for \fIauthtype\fR is:
+.TP
+.I default
+Used if no other assignment matches. It takes no \fIargs\fR.
+.TP
+.I net
+Assign a specific IP/netmask to a given \fIuserclass\fR.
+
+There are currently
+#	"assign" lines:
+#		These are used to assign a "user class" to the connection.
+#		The format is:
+#
+#		assign $assigntype [targs*] $classname
+#
+#		$assigntype defines the type of assignment. There are currently
+#		three types of assignment:
+#			default,user,net
+#
+#		"default" is used if no other assignment matches. It takes no
+#		additional args:
+#
+#		assign default jail
+#
+#		This would assign any connection that didn't match more closely
+#		to the classname jail.
+#
+#		"user" is used to match the "username" specified in the owamp
+#		protocol with a "user class". The "username" within the
+#		protocol is used as a key to fetch the "shared secret". The
+#		format of this line would be:
+#
+#		assign user joe paradise
+#
+#		This would assign a connection that was able to authenticate
+#		using the "username" joe the limits specified for the classname
+#		paradise.
+.SH SEE ALSO
+\fBbwctl(1)\fR, \fBbwctld(8)\fR, \fBbwctld.limits(5)\fR, \fBbwctld.keys(5)\fR
+and the \fBhttp://e2epi.internet2.edu/bwctl/\fR web site.
+.PP
+For details on \fBIperf\fR, see the \fBhttp://dast.nlanr.net/Projects/Iperf/\fR
+web site.

@@ -106,7 +106,6 @@ BWLDstr2num(
 
 /* parent		cname		*/
 /* bandwidth		uint (bits/sec)*/
-/* delete_on_fetch	on/(off)	*/
 /* allow_open_mode	(on)/off	*/
 
 #define	BWLDLimParent		0
