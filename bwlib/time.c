@@ -588,6 +588,11 @@ _BWLInitNTP(
 	return 0;
 }
 
+/*
+ * rewrite _BWLGetTimespec to use the "offset" from ntp.
+ * TODO: Remove this version once the other has been tested reasonably.
+ */
+#if	NOT
 static struct timespec *
 _BWLGetTimespec(
 	BWLContext	ctx,
@@ -629,6 +634,93 @@ _BWLGetTimespec(
 	*(struct timeval*)ts = ntv.time;
 	ts->tv_nsec *= 1000;
 #endif
+
+	return ts;
+}
+#endif
+
+static struct timespec *
+_BWLGetTimespec(
+		BWLContext		ctx,
+		struct timespec		*ts,
+		u_int32_t		*esterr,
+		int			*sync
+		)
+{
+	struct timeval	tod;
+	struct timex	ntp_conf;
+	long		sec;
+
+	ntp_conf.modes = 0;
+
+	if(gettimeofday(&tod,NULL) != 0)
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday(): %M");
+		return NULL;
+	}
+
+	if(ntp_adjtime(&ntp_conf) < 0)
+		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
+		return NULL;
+	}
+
+	/* assign localtime */
+	ts->tv_sec = tod.tv_sec;
+	ts->tv_nsec = tod.tv_usec * 1000;	/* convert to nsecs */
+
+	/*
+	 * Apply ntp "offset"
+	 */
+#ifdef	STA_NANO
+	sec = 1000000000;
+#else
+	sec = 1000000;
+#endif
+	/*
+	 * Convert negative offsets to positive ones by decreasing
+	 * the ts->tv_sec.
+	 */
+	while(ntp_conf.offset < 0){
+		ts->tv_sec--;
+		ntp_conf.offset += sec;
+	}
+
+	/*
+	 * Make sure the "offset" is less than 1 second
+	 */
+	while(ntp_conf.offset >= sec){
+		ts->tv_sec++;
+		ntp_conf.offset -= sec;
+	}
+
+#ifndef	STA_NANO
+	ntp_conf.offset *= 1000;
+#endif
+	ts->tv_nsec += ntp_conf.offset;
+	if(ts->tv_nsec >= 1000000000){
+		ts->tv_sec++;
+		ts->tv_nsec -= 1000000000;
+	}
+
+	/*
+	 * Check sync flag
+	 */
+	if(ntp_conf.status & STA_UNSYNC)
+		*sync = 0;
+	else
+		*sync = 1;
+
+	/*
+	 * Set estimated error
+	 */
+	*esterr = (u_int32_t)ntp_conf.esterror;
+	assert((long)*esterr == ntp_conf.esterror);
+
+	/*
+	 * Error estimate should never be 0, but I've seen ntp do it!
+	 */
+	if(!*esterr){
+		*esterr = 1;
+	}
 
 	return ts;
 }

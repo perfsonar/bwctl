@@ -1000,6 +1000,7 @@ ACCEPT:
 
 		double		t1,t2,tr;
 		double		e1,e2,er;
+		double		sync_fuzz = 0.020; /* 20 msec fuzz */
 
 		if(BWLControlTimeCheck(ep->rcntrl,&rtime) != BWLErrOK){
 			BWLError(ctx,BWLErrFATAL,errno,
@@ -1019,9 +1020,18 @@ ACCEPT:
 		e2 = BWLNum64ToDouble(BWLGetTimeStampError(&currtime2));
 		er = BWLNum64ToDouble(BWLGetTimeStampError(&rtime));
 
-		if((t1-e1) > (tr+er) || (tr-er) > (t2+e2)){
+		if((t1-e1) > (tr+er + sync_fuzz)){
 			BWLError(ctx,BWLErrFATAL,errno,
-					"Remote server timestamp invalid!");
+				"Remote clock is at least %f(secs) "
+				"ahead of local, time error = %f(secs)",
+				t1-tr,e1+er);
+			goto end;
+		}
+		else if((tr-er) > (t2+e2 + sync_fuzz)){
+			BWLError(ctx,BWLErrFATAL,errno,
+				"Remote clock is at least %f(secs) "
+				"behind local, time error = %f(secs)",
+				tr-t2,e2+er);
 			goto end;
 		}
 	}
