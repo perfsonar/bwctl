@@ -106,6 +106,12 @@ _BWLReadServerGreeting(
 )
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	int		intr = 0;
+	int		*retn_on_intr = &intr;
+
+	if(cntrl->retn_on_intr){
+		retn_on_intr = cntrl->retn_on_intr;
+	}
 
 	if(!_BWLStateIsInitial(cntrl)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -113,7 +119,7 @@ _BWLReadServerGreeting(
 		return BWLErrFATAL;
 	}
 
-	if(I2Readn(cntrl->sockfd,buf,32) != 32){
+	if(I2Readni(cntrl->sockfd,buf,32,retn_on_intr) != 32){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"Read failed:(%s)",strerror(errno));
 		return (int)BWLErrFATAL;
@@ -167,6 +173,12 @@ _BWLWriteClientGreeting(
 	)
 {
 	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	int		intr=0;
+	int		*retn_on_intr = &intr;
+
+	if(cntrl->retn_on_intr){
+		retn_on_intr = cntrl->retn_on_intr;
+	}
 
 	if(!_BWLStateIsSetup(cntrl)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -184,7 +196,7 @@ _BWLWriteClientGreeting(
 		memset(&buf[4],0,64);
 	}
 
-	if(I2Writen(cntrl->sockfd, buf, 68) != 68)
+	if(I2Writeni(cntrl->sockfd, buf, 68,retn_on_intr) != 68)
 		return BWLErrFATAL;
 
 	return BWLErrOK;
