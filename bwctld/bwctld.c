@@ -1274,7 +1274,7 @@ LoadConfig(
 		}
 		else if(!strncasecmp(key,"bottleneckcapacity",19)){
 			BWLDLimitT	bneck;
-			if(BWLDstr2num(&bneck,key)){
+			if(BWLDstr2num(&bneck,val)){
 				fprintf(stderr,"Invalid value: %s\n",
 						strerror(errno));
 				rc=-rc;
