@@ -838,11 +838,6 @@ main(
 		case 'Y':
 			app.opt.allowunsync = True;
 			break;
-#ifndef	NDEBUG
-		case 'W':
-			app.opt.childwait = True;
-			break;
-#endif
 		/* Generic options.*/
 		case 'h':
 		case '?':
