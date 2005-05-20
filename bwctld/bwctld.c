@@ -1710,12 +1710,6 @@ main(int argc, char *argv[])
         struct passwd   *pw;
         struct group    *gr;
 
-        if(!opts.user && !opts.allowRoot){
-            I2ErrLog(errhand,"Running bwctld as root is folly!");
-            I2ErrLog(errhand,"Use the -U option! (or the -f option)");
-            exit(1);
-        }
-
         /*
          * Validate user option.
          */
@@ -1734,6 +1728,14 @@ main(int argc, char *argv[])
                 exit(1);
             }
         }
+
+        if(!setuser && !opts.allowRoot){
+            I2ErrLog(errhand,"Running bwctld as root is folly!");
+            I2ErrLog(errhand,
+                    "Use the -U option! (or allow root with the -f option)");
+            exit(1);
+        }
+
 
         /*
          * Validate group option.
