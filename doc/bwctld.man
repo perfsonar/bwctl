@@ -34,6 +34,8 @@ bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
 ] [
 .BI \-e " facility"
 ] [
+.BI \-f
+] [
 .BI \-G " group"
 ] [
 .B \-h
@@ -63,7 +65,7 @@ Aside from actually running \fBIperf\fR tests, the main function of
 \fBbwctld\fR is to determine which tests are allowable based upon
 the policy restrictions configured by the system administrator.
 .PP
-\fBbwctld\fR was designed to be run as a standalone daemon process. It
+\fBbwctld\fR was designed to be run as a stand-alone daemon process. It
 uses the classic accept/fork model of handling new requests.
 .PP
 Most of the command line options for \fBbwctld\fR have analogous options
@@ -110,6 +112,54 @@ Current working directory.
 .TP
 .BI \-e " facility"
 Syslog \fIfacility\fR to which messages are logged.
+.RS
+.IP Default:
+LOG_DAEMON
+.RE
+.TP
+.B \-f
+Disables the checks that disable \fBbwctld\fR if it is configured to
+run with \fIroot\fR permissions. There are legitimate reasons to run
+\fBbwctld\fR as root, but it is risky. Forcing this additional option will
+make it less likely root permissions are accidently used.
+.TP
+.B \-Z
+Run the master \fBbwctld\fR process in the foreground. In this mode, error
+messages are printed to stderr as well as being sent to syslog. Also, normal
+terminal controls are available. (i.e., <Cntr\-C> will cause the daemon to
+kill it's child processes and exit.) This is useful for debugging.
+.SH REQUIREMENTS
+The \fBbwctld\fR daemon requires a reasonably synchronized clock. It is
+scheduling tests and needs to be sure it has the same idea of when a test
+should take place as does the peer system with which the test is being done.
+Therefore, \fBbwctld\fR requires that \fBNTP\fR be running to synchronize
+the system clock. This means that \fBNTP\fR needs to be setup correctly
+on the system so that \fBNTP\fR can actually calculate a reasonable
+estimate of the time error. For the \fBNTP\fR algorithms to work correctly,
+ntpd \fBMUST\fR be configured with no fewer than 4 clocks.
+.SH FILES
+bwctld.pid
+.br
+bwctld.conf
+.br
+bwctld.limits
+.br
+bwctld.keys
+.SH SEE ALSO
+There are more details on configuring the \fBbwctld\fR daemon in the
+bwctld.conf(5) manual page. Details on configuring the policy
+is in the bwctld.limits(5) and bwctld.keys(5) manual pages.
+Information on the client is in the bwctl(1) manual page.
+For more of an overview of the full functionality and architecture see
+the \%http://e2epi.internet2.edu/bwctl/ web site.
+.PP
+For details on \fBIperf\fR, see the \%http://dast.nlanr.net/Projects/Iperf/
+web site.
+.SH ACKNOWLEDGMENTS
+This material is based in part on work supported by the National Science
+Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
+conclusions or recommendations expressed in this material are those of
+the author(s) and do not necessarily reflect the views of the NSF.
 .RS
 .IP Default:
 LOG_DAEMON

@@ -57,6 +57,7 @@ typedef struct {
 
 	char		*user;
 	char		*group;
+        I2Boolean       allowRoot;
 
 	u_int32_t	dieby;
 	u_int32_t	controltimeout;

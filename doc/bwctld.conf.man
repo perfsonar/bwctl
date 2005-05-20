@@ -79,7 +79,7 @@ The server can specify all the modes with which it is willing to communicate. Th
 most strict mode that both the server and the client are willing to use
 will be selected.
 .IP Default:
-"AEO".
+"AEO"
 .RE
 .TP
 .BI bottleneckcapacity " bottleneckcapacity"
@@ -90,6 +90,10 @@ into the code. (This option only really works when the local NIC is
 the bottleneck.) If this option is not specified, the dynamic window
 calculation requested by the \fB-W\fR option to \fBbwctl\fR is not
 done and the advisory value is used.
+.RS
+.IP Default:
+unset
+.RE
 .TP
 .BI controltimeout " controltimeout"
 Number of seconds to wait for protocol messages before timing out. This
@@ -130,6 +134,10 @@ LOG_DAEMON
 Specifies the gid the \fBbwctld\fR process should run as. \fIgroup\fR
 can be specified using a valid group name on the system or by using -gid.
 This option is only used if \fBbwctld\fR is started as root.
+.RS
+.IP Default:
+unset
+.RE
 .TP
 .BI iperfcmd " iperfcmd"
 The path to the \fBIperf\fR command on the system. If the \fIiperfcmd\fR
@@ -157,6 +165,10 @@ be valid, but \fB"5001 - 5004"\fR would be invalid.
 Directs the \fBbwctld\fR process to report source code file and line
 number information with error messages. This is a particularly useful
 option to set when sending in messages as part of a bug report.
+.RS
+.IP Default:
+unset
+.RE
 .TP
 .BI peerports " 0 | lowport-highport"
 Specify the port range that will be used on the local host for peer
@@ -189,6 +201,16 @@ Syslog \fIpriority\fR to log error messages.
 LOG_ERR
 .RE
 .TP
+.B rootfolly
+Disables the checks that disable \fBbwctld\fR if it is run with \fIroot\fR
+permissions. There are legitimate reasons to run \fBbwctld\fR as root, but
+it is risky. Forcing this additional option will make it less likely root
+permissions are accidently used.
+.RS
+.IP Default:
+unset
+.RE
+.TP
 .BI srcnode " nodename:port"
 Specify the address and port that \fBbwctld\fR will listen for requests on.
 \fInodename\fR can be specified using a DNS name or using the textual
@@ -205,8 +227,8 @@ ensures the port number is distinct from the address specification.
 .RE
 .TP
 .BI syncfuzz " syncfuzz"
-This value is added to the NTP error estimates to increase the tolorence
-of bwctld to incomplete ntp configurations. If not enough ntp peers are
+This value is added to the NTP error estimates to increase the tolerance
+of bwctld to incomplete NTP configurations. If not enough NTP peers are
 specified, NTP can not accurately determine the time error. This option
 is specified as a floating point number in seconds. For example, to indicate
 that the system is synchronized to one second, you could specify this option as 1.0.
@@ -218,7 +240,13 @@ that the system is synchronized to one second, you could specify this option as 
 .BI user " user"
 Specifies the uid the \fBbwctld\fR process should run as. \fIuser\fR
 can be specified using a valid user name on the system or by using -uid.
-This option is only used if \fBbwctld\fR is started as root.
+This option is only used if \fBbwctld\fR is started as root. If the
+given \fIuser\fR has \fIroot\fR permissions, the \fIrootfolly\fR option
+must also be specified.
+.RS
+.IP Default:
+unset
+.RE
 .TP
 .BI vardir " vardir"
 Directory path where the bwctld.pid file will be placed.
@@ -230,6 +258,10 @@ Current directory
 .B verbose
 If this option is present, it directs the \fBbwctld\fR process to
 generate more verbose messages to syslog.
+.RS
+.IP Default:
+unset
+.RE
 .SH SEE ALSO
 bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5),
 and the \%http://e2epi.internet2.edu/bwctl/ web site.

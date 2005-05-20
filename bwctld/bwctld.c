@@ -78,6 +78,7 @@ usage(
             "   -c confdir        Configuration directory\n"
             "   -d datadir        Data directory\n"
             "   -e facility       syslog facility to log errors\n"
+            "   -f                Allow daemon to run as \"root\" (folly!)\n"
             "   -G group          Run as group \"group\" :-gid also valid\n"
             "   -h                Print this message and exit\n"
             "   -R vardir         Location for pid file\n"
@@ -1196,6 +1197,9 @@ LoadConfig(
             }
             syslogattr.priority = prio;
         }
+        else if(!strncasecmp(key,"rootfolly",10)){
+            opt.allowRoot = True;
+        }
         else if(!strncasecmp(key,"accesspriority",15)){
             opts.access_prio = I2ErrLogSyslogPriority(val);
             if(opts.access_prio == -1){
@@ -1444,9 +1448,9 @@ main(int argc, char *argv[])
     sigset_t            sigs;
 
 #ifndef NDEBUG
-    char                *optstring = "hvc:d:R:a:S:e:ZU:G:w";
+    char                *optstring = "hvc:d:fR:a:S:e:ZU:G:w";
 #else    
-    char                *optstring = "hvc:d:R:a:S:e:ZU:G:";
+    char                *optstring = "hvc:d:fR:a:S:e:ZU:G:";
 #endif
 
     /*
@@ -1558,6 +1562,9 @@ main(int argc, char *argv[])
                     I2ErrLog(errhand,"strdup(): %M");
                     exit(1);
                 }
+                break;
+            case 'f':
+                opts.allowRoot = True;
                 break;
             case 'a':    /* -a "authmode" */
                 if (!(opts.authmode = strdup(optarg))) {
@@ -1700,30 +1707,32 @@ main(int argc, char *argv[])
      * If running as root warn if the -U/-G flags not set.
      */
     if(!geteuid()){
-        struct passwd    *pw;
+        struct passwd   *pw;
         struct group    *gr;
 
-        if(!opts.user){
+        if(!opts.user && !opts.allowRoot){
             I2ErrLog(errhand,"Running bwctld as root is folly!");
-            I2ErrLog(errhand,"Use the -U option!");
+            I2ErrLog(errhand,"Use the -U option! (or the -f option)");
             exit(1);
         }
 
         /*
          * Validate user option.
          */
-        if((pw = getpwnam(opts.user))){
+        if(!opts.user){
+            /* no-op */
+            ;
+        }
+        else if((pw = getpwnam(opts.user))){
             setuser = pw->pw_uid;
         }
         else if(opts.user[0] == '-'){
             setuser = strtoul(&opts.user[1],NULL,10);
-            if(errno || !getpwuid(setuser))
-                setuser = 0;
-        }
-        if(!setuser){
-            I2ErrLog(errhand,"Invalid user/-U option: %s",
+            if(errno || !getpwuid(setuser)){
+                I2ErrLog(errhand,"Invalid user/-U option: %s",
                     opts.user);
-            exit(1);
+                exit(1);
+            }
         }
 
         /*
@@ -1755,7 +1764,7 @@ main(int argc, char *argv[])
                     opts.group);
             exit(1);
         }
-        if(seteuid(setuser) != 0){
+        if(setuser && seteuid(setuser) != 0){
             I2ErrLog(errhand,"Unable to setuid to \"%s\": %M",
                     opts.user);
             exit(1);
