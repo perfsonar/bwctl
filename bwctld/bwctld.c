@@ -1198,7 +1198,7 @@ LoadConfig(
             syslogattr.priority = prio;
         }
         else if(!strncasecmp(key,"rootfolly",10)){
-            opt.allowRoot = True;
+            opts.allowRoot = True;
         }
         else if(!strncasecmp(key,"accesspriority",15)){
             opts.access_prio = I2ErrLogSyslogPriority(val);
