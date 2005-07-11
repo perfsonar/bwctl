@@ -640,15 +640,15 @@ CheckFD(
                 &ipfd_exit,&err);
     }
     else{
-        BWLDMesgT    query;
-        BWLDMesgT    resp;
-        BWLDLimRec    lim;
+        BWLDMesgT       query;
+        BWLDMesgT       resp;
+        BWLDLimRec      lim;
 
-        BWLSID        sid;
-        BWLNum64    rtime,ftime,ltime,restime,rtttime;
-        u_int32_t    duration;
-        u_int16_t    port;
-        BWLAcceptType    aval;
+        BWLSID          sid;
+        BWLNum64        rtime,ftime,ltime,restime,rtttime;
+        u_int32_t       duration;
+        u_int16_t       port;
+        BWLAcceptType   aval;
 
         switch(BWLDReadReqType(cstate->fd,&ipfd_exit,&err)){
             case BWLDMESGRESOURCE:
