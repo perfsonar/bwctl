@@ -70,6 +70,7 @@ usage(
         const char *msg    __attribute__((unused))
      )
 {
+    fprintf(stderr, "Version: %s\n\n", PACKAGE_VERSION);
     fprintf(stderr, "Usage: %s [options]\n", progname);
     fprintf(stderr, "\nWhere \"options\" are:\n\n");
 
