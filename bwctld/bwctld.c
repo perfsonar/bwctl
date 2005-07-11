@@ -70,9 +70,8 @@ usage(
         const char *msg    __attribute__((unused))
      )
 {
-    fprintf(stderr, "Version: %s\n\n", PACKAGE_VERSION);
-    fprintf(stderr, "Usage: %s [options]\n", progname);
-    fprintf(stderr, "\nWhere \"options\" are:\n\n");
+    fprintf(stderr, "\nUsage: %s [options]\n\n", progname);
+    fprintf(stderr, "Where \"options\" are:\n\n");
 
     fprintf(stderr,
             "   -a authmode       Default supported authmodes:[E]ncrypted,[A]uthenticated,[O]pen\n"
@@ -95,6 +94,7 @@ usage(
 #endif
             "\n"
            );
+    fprintf(stderr, "\nVersion: %s\n\n", PACKAGE_VERSION);
     return;
 }
 
