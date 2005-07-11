@@ -151,7 +151,6 @@ usage(
         const char  *msg
         )
 {
-    fprintf(stderr,"Version: %s\n",PACKAGE_VERSION);
     if(msg) fprintf(stderr, "%s: %s\n", progname, msg);
     fprintf(stderr,"usage: %s %s\n", progname, "[arguments]");
     fprintf(stderr, "\n");
@@ -162,6 +161,8 @@ usage(
 
     fprintf(stderr, "\n");
     print_output_args();
+
+    fprintf(stderr,"\nVersion: %s\n",PACKAGE_VERSION);
 
     return;
 }
