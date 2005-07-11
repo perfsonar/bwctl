@@ -223,6 +223,7 @@ parse_auth_args(
         I2ErrHandle eh,
         char        **argv,
         int         argc,
+        char        *hostref,
         aeskey_auth *auth_ret
         )
 {
@@ -367,8 +368,8 @@ parse_auth_args(
         size_t      pplen;
 
         if(snprintf(prompt,MAX_PASSPROMPT,
-                    "Enter passphrase for identity '%s': ",
-                    auth->identity) >= MAX_PASSPROMPT){
+                    "Enter passphrase for host '%s', identity '%s': ",
+                    hostref,auth->identity) >= MAX_PASSPROMPT){
             I2ErrLog(eh,"Invalid identity");
             return 1;
         }
@@ -1293,7 +1294,7 @@ main(
             /* Connection options. */
             case 'A':
                 /* parse auth */
-                if((parse_auth_args(eh,argv,argc,&app.def_auth) != 0) ||
+                if((parse_auth_args(eh,argv,argc,"BOTH",&app.def_auth) != 0) ||
                         !app.def_auth){
                     I2ErrLog(eh,"invalid default authentication");
                     exit(1);
@@ -1320,7 +1321,7 @@ main(
                 }
                 app.recv_sess->host = optarg;
 
-                if(parse_auth_args(eh,argv,argc,&app.recv_sess->auth)
+                if(parse_auth_args(eh,argv,argc,optarg,&app.recv_sess->auth)
                         != 0){
                     I2ErrLog(eh,
                             "invalid \'receiver\' authentication");
@@ -1342,7 +1343,7 @@ main(
                 }
                 app.send_sess->host = optarg;
 
-                if(parse_auth_args(eh,argv,argc,&app.send_sess->auth)
+                if(parse_auth_args(eh,argv,argc,optarg,&app.send_sess->auth)
                         != 0){
                     I2ErrLog(eh,
                             "invalid \'sender\' authentication");
