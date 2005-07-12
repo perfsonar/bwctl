@@ -642,6 +642,8 @@ BWLSessionRequest(
 	BWLAddr			receiver=NULL;
 	BWLAddr			sender=NULL;
 	BWLNum64		zero64=BWLULongToNum64(0);
+	BWLAcceptType	        acceptval = BWL_CNTRL_FAILURE;
+	BWLBoolean	        retval = False;
 
 	*err_ret = BWLErrOK;
 
@@ -819,43 +821,39 @@ BWLSessionRequest(
 
 	return True;
 
-	{
-		BWLAcceptType	acceptval = BWL_CNTRL_FAILURE;
-		BWLBoolean	retval = False;
 cancel:
-		retval = True;
+	retval = True;
 
-		if(_BWLWriteTestRequest(cntrl,tsession) < BWLErrOK){
-			goto error;
-		}
-		if(_BWLReadTestAccept(cntrl,&acceptval,tsession) < BWLErrOK){
-			goto error;
-		}
+	if(_BWLWriteTestRequest(cntrl,tsession) < BWLErrOK){
+		goto error;
+	}
+	if(_BWLReadTestAccept(cntrl,&acceptval,tsession) < BWLErrOK){
+		goto error;
+	}
 
-		if(acceptval != BWL_CNTRL_REJECT){
-			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+	if(acceptval != BWL_CNTRL_REJECT){
+		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
 					"Reservation Cancellation Error");
-			_BWLFailControlSession(cntrl,BWLErrFATAL);
-		}
+		_BWLFailControlSession(cntrl,BWLErrFATAL);
+	}
 
 error:
-		if(tsession){
-			_BWLTestSessionFree(tsession,acceptval);
-			if(cntrl->tests == tsession){
-				cntrl->tests = NULL;
-			}
+	if(tsession){
+		_BWLTestSessionFree(tsession,acceptval);
+		if(cntrl->tests == tsession){
+			cntrl->tests = NULL;
 		}
-		else{
-			/*
-			 * If tsession exists - the addr's will be free'd as
-			 * part of it - otherwise, do it here.
-			 */
-			BWLAddrFree(receiver);
-			BWLAddrFree(sender);
-		}
-
-		return retval;
 	}
+	else{
+		/*
+		 * If tsession exists - the addr's will be free'd as
+		 * part of it - otherwise, do it here.
+		 */
+		BWLAddrFree(receiver);
+		BWLAddrFree(sender);
+	}
+
+	return retval;
 }
 
 /*
