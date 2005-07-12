@@ -152,6 +152,7 @@ struct BWLAddrRec{
     socklen_t       saddrlen;
     int             so_type;    /* socktype saddr works with    */
     int             so_protocol;    /* protocol saddr works with    */
+    BWLBoolean      passive;
 
     BWLBoolean      fd_user;
     int             fd;

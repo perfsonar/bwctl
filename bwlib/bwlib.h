@@ -696,11 +696,17 @@ BWLAddrSetSocktype(
         int     so_type
         );
 
+BWLBoolean
+BWLAddrSetPassive(
+        BWLAddr     addr,
+        BWLBoolean  passive
+        );
+
 struct addrinfo
 *BWLAddrAddrInfo(
-        BWLAddr addr,
-        char    *def_node,
-        char    *def_serv
+        BWLAddr     addr,
+        char        *def_node,
+        char        *def_serv
         );
 
 BWLBoolean

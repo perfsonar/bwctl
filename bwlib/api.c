@@ -824,6 +824,42 @@ BWLAddrSetSocktype(
     return True;
 }
 
+/*
+ * Function:    BWLAddrSetPassive
+ *
+ * Description:    
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+BWLBoolean
+BWLAddrSetPassive(
+        BWLAddr     addr,
+        BWLBoolean  passive
+        )
+{
+    if(!addr)
+        return False;
+
+    if(addr->passive == passive)
+        return True;
+
+    if(addr->fd > -1){
+        BWLError(addr->ctx,BWLErrFATAL,BWLErrINVALID,
+                "BWLAddrSetPassive: Addr already associated with socket: %M");
+        return False;
+    }
+
+    addr->passive = passive;
+
+    return True;
+}
+
 int
 BWLAddrFD(
         BWLAddr addr
@@ -996,9 +1032,9 @@ bail:
  */
 struct addrinfo
 *BWLAddrAddrInfo(
-        BWLAddr                 addr,
-        char                    *def_node,
-        char                    *def_serv
+        BWLAddr     addr,
+        char        *def_node,
+        char        *def_serv
         )
 {
     struct addrinfo hints;
@@ -1011,19 +1047,23 @@ struct addrinfo
 
     memset(&hints,0,sizeof(hints));
     hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = addr->so_type;
+
+    if(addr->so_type){
+        hints.ai_socktype = addr->so_type;
+    }
+    else{
+		hints.ai_socktype = SOCK_STREAM;
+    }
+
+    if(addr->passive){
+        hints.ai_flags = AI_PASSIVE;
+    }
 
     if(addr->node_set && (strncmp(addr->node,"unknown",sizeof(addr->node)))){
         host = addr->node;
     }
     else if(def_node){
         host = def_node;
-    }
-    else{
-        hints.ai_flags = AI_PASSIVE;
-	if(!hints.ai_socktype){
-		hints.ai_socktype = SOCK_STREAM;
-	}
     }
 
     if(addr->port_set && (strncmp(addr->port,"unknown",sizeof(addr->port)))){

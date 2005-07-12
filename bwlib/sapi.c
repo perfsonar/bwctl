@@ -151,6 +151,12 @@ BWLServerSockCreate(
     if((!addr) && !(addr = BWLAddrByWildcard(ctx,SOCK_STREAM)))
         goto error;
 
+    /*
+     * Tell Addr API that this should be created as a "passive"
+     * socket.
+     */
+     if(!BWLAddrSetPassive(addr,True))
+        goto error;
 
 #ifdef    AF_INET6
     /*
