@@ -223,16 +223,16 @@ BWLControlAccept(
         int             connfd,         /* connected socket             */
         struct sockaddr *connsaddr,     /* connected socket addr        */
         socklen_t       connsaddrlen,   /* connected socket addr len    */
-        u_int32_t       mode_offered,   /* advertised server mode       */
+        uint32_t       mode_offered,   /* advertised server mode       */
         BWLNum64        uptime,         /* uptime for server            */
         int             *retn_on_intr,  /* if *retn_on_intr return      */
         BWLErrSeverity  *err_ret        /* err - return                 */
         )
 {
     BWLControl      cntrl;
-    u_int8_t        challenge[16];
-    u_int8_t        rawtoken[32];
-    u_int8_t        token[32];
+    uint8_t        challenge[16];
+    uint8_t        rawtoken[32];
+    uint8_t        token[32];
     int             rc;
     struct timeval  tvalstart,tvalend;
     int             ival=0;
@@ -358,7 +358,7 @@ BWLControlAccept(
     }
 
     if(cntrl->mode & (BWL_MODE_AUTHENTICATED|BWL_MODE_ENCRYPTED)){
-        u_int8_t    binKey[16];
+        uint8_t    binKey[16];
         BWLBoolean  getkey_success;
 
         /* Fetch the encryption key into binKey */
@@ -662,7 +662,7 @@ BWLProcessStartSession(
     BWLErrSeverity    err=BWLErrOK;
     int        ival=0;
     int        *intr = &ival;
-    u_int16_t    dataport = 0;
+    uint16_t    dataport = 0;
 
     if(retn_on_intr){
         intr = retn_on_intr;

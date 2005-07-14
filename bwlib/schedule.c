@@ -27,10 +27,10 @@ struct BWLScheduleContextRec {
 
 	/* AES random number generator fields */
 	keyInstance	key;		/* key used to encrypt the counter */
-	u_int8_t	counter[16];	/* 128-bit counter (network order) */
-	u_int8_t	out[16];	/* encrypted block buffer.         */
+	uint8_t	counter[16];	/* 128-bit counter (network order) */
+	uint8_t	out[16];	/* encrypted block buffer.         */
 
-	u_int32_t	mean;
+	uint32_t	mean;
 };
 
 /*
@@ -53,8 +53,8 @@ BWLUnifRand64(
 	BWLScheduleContext	sctx
 	)
 {
-	u_int8_t	forth = sctx->counter[15] & (u_int8_t)3;
-	u_int8_t	*buf;
+	uint8_t	forth = sctx->counter[15] & (uint8_t)3;
+	uint8_t	*buf;
 	int		j;
 	BWLNum64	ret = 0;
 
@@ -88,7 +88,7 @@ BWLUnifRand64(
 	 * (i.e. The last 4 bytes of ret will contain the random
 	 * integer in network byte order after this loop.)
 	 *
-	 * (If BWLNum64 changes from a 32.32 format u_int64_t, this will
+	 * (If BWLNum64 changes from a 32.32 format uint64_t, this will
 	 * need to be modified. It is expecting to set the .32 portion.)
 	 */
 	for(j=0;j<4;j++){
@@ -182,7 +182,7 @@ BWLRand64Exponent(
 	BWLScheduleContext	sctx
 	)
 {
-	u_int32_t	i, k, j = 0;
+	uint32_t	i, k, j = 0;
 	BWLNum64	U, V, tmp; 
 
 	/*
@@ -289,8 +289,8 @@ BWLScheduleContextFree(
 BWLScheduleContext
 BWLScheduleContextCreate(
 	BWLContext	ctx,
-	u_int8_t	seed[16],
-	u_int32_t	mean
+	uint8_t	seed[16],
+	uint32_t	mean
 	)
 {
 	BWLScheduleContext	sctx;
@@ -338,8 +338,8 @@ BWLScheduleContextCreate(
 BWLErrSeverity
 BWLScheduleContextReset(
 	BWLScheduleContext	sctx,
-	u_int8_t		seed[16],
-	u_int32_t		mean
+	uint8_t		seed[16],
+	uint32_t		mean
 		)
 {
 	memset(sctx->out,0,16);

@@ -738,10 +738,10 @@ BWLAddrSetFD(
 BWLBoolean
 BWLAddrSetPort(
         BWLAddr     addr,
-        u_int16_t   port
+        uint16_t   port
         )
 {
-    u_int16_t   *pptr;
+    uint16_t   *pptr;
 
     if(!addr)
         return False;
@@ -1219,7 +1219,7 @@ _BWLTestSessionAlloc(
         BWLBoolean  send,
         BWLAddr     sender,
         BWLAddr     receiver,
-        u_int16_t   recv_port,
+        uint16_t   recv_port,
         BWLTestSpec *test_spec
         )
 {
@@ -1343,7 +1343,7 @@ _BWLCreateSID(
         BWLTestSession    tsession
         )
 {
-    u_int8_t    *aptr;
+    uint8_t    *aptr;
 
 #ifdef    AF_INET6
     if(tsession->test_spec.receiver->saddr->sa_family == AF_INET6){
@@ -1358,7 +1358,7 @@ _BWLCreateSID(
             struct sockaddr_in    *s4;
 
             s4 = (struct sockaddr_in*)tsession->test_spec.receiver->saddr;
-            aptr = (u_int8_t*)&s4->sin_addr;
+            aptr = (uint8_t*)&s4->sin_addr;
         }
         else{
             BWLError(tsession->cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
@@ -1381,7 +1381,7 @@ _BWLCreateSID(
 BWLPacketSizeT
 BWLTestPayloadSize(
         BWLSessionMode    mode, 
-        u_int32_t    padding
+        uint32_t    padding
         )
 {
     BWLPacketSizeT msg_size;
@@ -1415,7 +1415,7 @@ BWLPacketSizeT
 BWLTestPacketSize(
         int             af,    /* AF_INET, AF_INET6 */
         BWLSessionMode  mode, 
-        u_int32_t       padding
+        uint32_t       padding
         )
 {
     BWLPacketSizeT payload_size, header_size;

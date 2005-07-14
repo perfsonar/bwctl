@@ -175,7 +175,7 @@ tfile(
 static int
 epssock(
         BWLTestSession  tsess,
-        u_int16_t       *dataport
+        uint16_t       *dataport
        )
 {
     BWLAddr                 localaddr;
@@ -184,9 +184,9 @@ epssock(
     struct sockaddr_storage sbuff;
     socklen_t               sbuff_len = sizeof(sbuff);
     struct sockaddr         *saddr = (struct sockaddr *)&sbuff;
-    u_int16_t               port;
-    u_int16_t               p;
-    u_int16_t               range;
+    uint16_t               port;
+    uint16_t               p;
+    uint16_t               range;
     BWLPortRange            portrange=NULL;
     int                     saveerr=0;
 
@@ -220,13 +220,13 @@ epssock(
 
     if((portrange = (BWLPortRange)BWLContextConfigGet(tsess->cntrl->ctx,
                     BWLPeerPortRange))){
-        u_int32_t   r;
+        uint32_t   r;
 
         /*
          * Get a random 32bit num to  aid in selecting first port
          * to try.
          */
-        if(I2RandomBytes(tsess->cntrl->ctx->rand_src,(u_int8_t*)&r,4) != 0)
+        if(I2RandomBytes(tsess->cntrl->ctx->rand_src,(uint8_t*)&r,4) != 0)
             goto failsock;
 
         if(portrange->high <= portrange->low){
@@ -354,9 +354,9 @@ getsidaeskey(
         BWLErrSeverity    *err_ret
         )
 {
-    u_int8_t    *sidbytes;
+    uint8_t    *sidbytes;
 
-    if(!(sidbytes = (u_int8_t*)BWLContextConfigGet(ctx,_BWLGetSIDAESKEY))){
+    if(!(sidbytes = (uint8_t*)BWLContextConfigGet(ctx,_BWLGetSIDAESKEY))){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                 "getsidaeskey: _BWLGetSIDAESKEY not set");
         *err_ret = BWLErrFATAL;
@@ -401,7 +401,7 @@ sig_catch(
 static char *
 uint32dup(
         BWLContext    ctx,
-        u_int32_t    n
+        uint32_t    n
         )
 {
     char    nbuf[100];
@@ -628,7 +628,7 @@ run_iperf(
 BWLBoolean
 _BWLEndpointStart(
         BWLTestSession  tsess,
-        u_int16_t       *dataport,
+        uint16_t       *dataport,
         BWLErrSeverity  *err_ret
         )
 {
@@ -650,7 +650,7 @@ _BWLEndpointStart(
     int                 do_read=0;
     int                 do_write=0;
     BWLRequestType      msgtype = BWLReqInvalid;
-    u_int32_t           mode;
+    uint32_t           mode;
 
 
     if( !(tsess->localfp = tfile(tsess)) ||
@@ -966,9 +966,9 @@ ACCEPT:
          *
          * Reset window_size based on the results.
          */
-        u_int64_t    *bottleneckcapacity;
+        uint64_t    *bottleneckcapacity;
 
-        if((bottleneckcapacity = (u_int64_t*)BWLContextConfigGet(ctx,
+        if((bottleneckcapacity = (uint64_t*)BWLContextConfigGet(ctx,
                         BWLBottleNeckCapacity))){
             double    dbnc = (double)*bottleneckcapacity;
             double    rtt = BWLNum64ToDouble(

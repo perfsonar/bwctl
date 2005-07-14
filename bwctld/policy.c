@@ -503,7 +503,7 @@ parseassignline(
 		int		tint;
 		char		*mask, *end;
 		struct addrinfo	hints, *res;
-		u_int8_t	nbytes,nbits,*ptr;
+		uint8_t	nbytes,nbits,*ptr;
 
 		tpid.id_type = BWLDPidNetmaskType;
 		/*
@@ -811,7 +811,7 @@ BWLDPolicyInstall(
 	char		*datadir,
 	char		*confdir,
 	char		*iperfcmd,
-	u_int64_t	*bottleneckcapacity,
+	uint64_t	*bottleneckcapacity,
 	int		*retn_on_intr,
 	char		**lbuf,
 	size_t		*lbuf_max
@@ -1088,7 +1088,7 @@ GetNodeFromAddr(
 	)
 {
 	BWLDPidRec	pid;
-	u_int8_t	nbytes,nbits,*ptr;
+	uint8_t	nbytes,nbits,*ptr;
 	I2Datum		key,val;
 
 	memset(&pid,0,sizeof(pid));
@@ -1522,7 +1522,7 @@ BWLDReadClass(
 	ssize_t		i;
 	const BWLDMesgT	mark=BWLDMESGMARK;
 	const BWLDMesgT	mclass=BWLDMESGCLASS;
-	u_int8_t	buf[BWLDMAXCLASSLEN+1 + sizeof(BWLDMesgT)*3];
+	uint8_t	buf[BWLDMAXCLASSLEN+1 + sizeof(BWLDMesgT)*3];
 	I2Datum		key,val;
 	int		fail_on_intr=1;
 	int		*intr = &fail_on_intr;
@@ -1594,7 +1594,7 @@ BWLDSendClass(
 	BWLDPolicyNode	node
 	)
 {
-	u_int8_t	buf[BWLDMAXCLASSLEN+1 + sizeof(BWLDMesgT)*3];
+	uint8_t	buf[BWLDMAXCLASSLEN+1 + sizeof(BWLDMesgT)*3];
 	BWLDMesgT	mesg;
 	ssize_t		len;
 	int		fail_on_intr=1;
@@ -1752,9 +1752,9 @@ BWLDReadReservationQuery(
 	BWLNum64	*req_time,
 	BWLNum64	*fuzz_time,
 	BWLNum64	*last_time,
-	u_int32_t	*duration,
+	uint32_t	*duration,
 	BWLNum64	*rtt_time,
-	u_int16_t	*recv_port,
+	uint16_t	*recv_port,
 	int		*err
 	)
 {
@@ -1812,7 +1812,7 @@ BWLDSendReservationResponse(
 		int		*retn_on_intr,
 		BWLDMesgT	mesg,
 		BWLNum64	reservation,
-		u_int16_t	port
+		uint16_t	port
 		)
 {
 	BWLDMesgT	buf[6];
@@ -1840,7 +1840,7 @@ BWLDReadReservationResponse(
 		int		fd,
 		int		*retn_on_intr,
 		BWLNum64	*reservation_ret,
-		u_int16_t	*port_ret
+		uint16_t	*port_ret
 		)
 {
 	ssize_t		i;
@@ -1873,10 +1873,10 @@ BWLDReservationQuery(
 	BWLNum64	req_time,
 	BWLNum64	fuzz_time,
 	BWLNum64	last_time,
-	u_int32_t	duration,
+	uint32_t	duration,
 	BWLNum64	rtt_time,
 	BWLNum64	*reservation_ret,
-	u_int16_t	*port
+	uint16_t	*port
 	)
 {
 	BWLDMesgT	buf[17];
@@ -2132,7 +2132,7 @@ BWLDCheckTestPolicy(
 	BWLTestSpec	*tspec,
 	BWLNum64	fuzz_time,
 	BWLNum64	*reservation_ret,
-	u_int16_t	*port_ret,
+	uint16_t	*port_ret,
 	void		**closure,
 	BWLErrSeverity	*err_ret
 )

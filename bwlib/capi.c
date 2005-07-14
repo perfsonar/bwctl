@@ -302,7 +302,7 @@ BWLControlOpen(
 	BWLContext	ctx,		/* control context	*/
 	BWLAddr		local_addr,	/* local addr or null	*/
 	BWLAddr		server_addr,	/* server addr		*/
-	u_int32_t	mode_req_mask,	/* requested modes	*/
+	uint32_t	mode_req_mask,	/* requested modes	*/
 	BWLUserID	userid,		/* userid or NULL	*/
 	BWLNum64	*uptime_ret,	/* server uptime - ret	*/
 	BWLErrSeverity	*err_ret	/* err - return		*/
@@ -310,12 +310,12 @@ BWLControlOpen(
 {
 	int		rc;
 	BWLControl	cntrl;
-	u_int32_t	mode_avail;
-	u_int32_t	do_mode;
-	u_int8_t	key_value[16];
-	u_int8_t	challenge[16];
-	u_int8_t	token[32];
-	u_int8_t	*key=NULL;
+	uint32_t	mode_avail;
+	uint32_t	do_mode;
+	uint8_t	key_value[16];
+	uint8_t	challenge[16];
+	uint8_t	token[32];
+	uint8_t	*key=NULL;
 	BWLAcceptType	acceptval;
 	struct timeval	tvalstart,tvalend;
 	BWLNum64	uptime;
@@ -645,7 +645,7 @@ BWLSessionRequest(
 	BWLBoolean	send,
 	BWLTestSpec	*test_spec,
 	BWLTimeStamp	*avail_time_ret,
-	u_int16_t	*recv_port,
+	uint16_t	*recv_port,
 	BWLSID		sid,
 	BWLErrSeverity	*err_ret
 )
@@ -891,13 +891,13 @@ error:
 BWLErrSeverity
 BWLStartSession(
 	BWLControl	cntrl,
-	u_int16_t	*dataport /* retn for recv - set for send */
+	uint16_t	*dataport /* retn for recv - set for send */
 )
 {
 	int		rc;
 	BWLAcceptType	acceptval;
-	u_int16_t	lport_val = 0;
-	u_int16_t	*lport = &lport_val;
+	uint16_t	lport_val = 0;
+	uint16_t	*lport = &lport_val;
 
 	/*
 	 * Must pass valid cntrl record.

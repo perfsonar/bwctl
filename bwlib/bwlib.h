@@ -149,7 +149,7 @@
  * the value can just be right shifted until it fits into an 8 bit integer,
  * and the number of shifts would indicate the "Scale" value.
  */
-typedef u_int64_t BWLNum64;
+typedef uint64_t BWLNum64;
 
 /*
  * Arithmetic/Conversion functions on BWLNum64 numbers.
@@ -158,7 +158,7 @@ typedef u_int64_t BWLNum64;
 /*
  * These macros should be used instead of directly using
  * arithmetic on these types in the event that the underlying
- * type is changed from an u_int64_t to some kind of structure.
+ * type is changed from an uint64_t to some kind of structure.
  *
  */
 #define BWLNum64Diff(x,y)    ((x>y) ? (x-y) : (y-x))
@@ -176,7 +176,7 @@ BWLNum64Mult(
 
 extern BWLNum64
 BWLULongToNum64(
-        u_int32_t    from);
+        uint32_t    from);
 
 
 extern void
@@ -214,7 +214,7 @@ BWLDoubleToNum64(
         );
 
 extern BWLNum64
-BWLUsecToNum64(u_int32_t usec);
+BWLUsecToNum64(uint32_t usec);
 
 /*
  * These structures are opaque to the API user.
@@ -230,9 +230,9 @@ typedef struct BWLAddrRec    *BWLAddr;
 
 typedef struct BWLTimeStampRec{
     BWLNum64        tstamp;
-    u_int8_t        sync;
-    u_int8_t        multiplier;
-    u_int8_t        scale;
+    uint8_t        sync;
+    uint8_t        multiplier;
+    uint8_t        scale;
 } BWLTimeStamp;
 
 
@@ -269,17 +269,17 @@ typedef enum{
     BWL_CNTRL_UNSUPPORTED=0x4
 } BWLAcceptType;
 
-typedef u_int32_t   BWLBoolean;
-typedef u_int8_t    BWLSID[16];
-typedef u_int8_t    BWLSequence[4];
+typedef uint32_t   BWLBoolean;
+typedef uint8_t    BWLSID[16];
+typedef uint8_t    BWLSequence[4];
 
 /*
- * technically the username in the client greeting message can have u_int8_t
+ * technically the username in the client greeting message can have uint8_t
  * but this implementation limits it to a valid "char" type.
  */
 #define    BWL_USERID_LEN    16
 typedef char        BWLUserID[BWL_USERID_LEN+1];    /* add 1 for '\0' */
-typedef u_int8_t    BWLKey[16];
+typedef uint8_t    BWLKey[16];
 
 #define BWL_MODE_UNDEFINED          (0x0)
 #define BWL_MODE_LEAST_RESTRICTIVE  (0x80)
@@ -289,24 +289,24 @@ typedef u_int8_t    BWLKey[16];
 #define BWL_MODE_DOCIPHER           (BWL_MODE_AUTHENTICATED|BWL_MODE_ENCRYPTED)
 #define BWL_MODE_ALLMODES           (BWL_MODE_DOCIPHER|BWL_MODE_OPEN)
 
-typedef u_int32_t    BWLSessionMode;
+typedef uint32_t    BWLSessionMode;
 
 typedef struct{
     BWLAddr         sender;
     BWLAddr         receiver;
     BWLTimeStamp    req_time;
     BWLNum64        latest_time;
-    u_int32_t       duration;
+    uint32_t       duration;
     BWLBoolean      udp;
-    u_int8_t        tos;
-    u_int32_t       bandwidth;
-    u_int32_t       window_size;
-    u_int32_t       len_buffer;
-    u_int16_t       report_interval;
+    uint8_t        tos;
+    uint32_t       bandwidth;
+    uint32_t       window_size;
+    uint32_t       len_buffer;
+    uint16_t       report_interval;
     BWLBoolean      dynamic_window_size;
 } BWLTestSpec;
 
-typedef u_int32_t   BWLPacketSizeT;
+typedef uint32_t   BWLPacketSizeT;
 
 /*
  * an BWLScheduleContextRec is used to maintain state for the schedule
@@ -318,8 +318,8 @@ typedef struct BWLScheduleContextRec    *BWLScheduleContext;
 BWLScheduleContext
 BWLScheduleContextCreate(
         BWLContext  ctx,
-        u_int8_t    seed[16],
-        u_int32_t   mean
+        uint8_t    seed[16],
+        uint32_t   mean
         );
 
 void
@@ -330,8 +330,8 @@ BWLScheduleContextFree(
 BWLErrSeverity
 BWLScheduleContextReset(
         BWLScheduleContext  sctx,
-        u_int8_t            seed[16],
-        u_int32_t           mean
+        uint8_t            seed[16],
+        uint32_t           mean
         );
 
 BWLNum64
@@ -401,8 +401,8 @@ BWLError_(
  */
 #define BWLPeerPortRange    "BWLPeerPortRange"
 typedef struct BWLPortRangeRec{
-    u_int16_t   low;
-    u_int16_t   high;
+    uint16_t   low;
+    uint16_t   high;
 } BWLPortRangeRec, *BWLPortRange;
 
 /*
@@ -415,7 +415,7 @@ typedef struct BWLPortRangeRec{
  * This type is used to hold a pointer to an unsigned-64 bit int that
  * holds a fallback value for the bottleneckcapacity. This is used with
  * a rtt estimate to dynamically size the send/recv window sizes.
- * (u_int64_t)
+ * (uint64_t)
  */
 #define BWLBottleNeckCapacity    "BWLBottleNeckCapacity"
 
@@ -434,7 +434,7 @@ typedef struct BWLPortRangeRec{
 typedef BWLBoolean  (*BWLGetAESKeyFunc)(
         BWLContext      ctx,
         const BWLUserID userid,
-        u_int8_t        *key_ret,
+        uint8_t        *key_ret,
         BWLErrSeverity  *err_ret
         );
 
@@ -492,7 +492,7 @@ typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
         BWLTestSpec    *test_spec,
         BWLNum64    fuzz_time,
         BWLNum64    *reservation_ret,
-        u_int16_t    *port_ret,
+        uint16_t    *port_ret,
         void        **closure,
         BWLErrSeverity    *err_ret
         );
@@ -687,7 +687,7 @@ BWLAddrSetFD(
 BWLBoolean
 BWLAddrSetPort(
         BWLAddr     addr,
-        u_int16_t   port
+        uint16_t   port
         );
 
 BWLBoolean
@@ -778,7 +778,7 @@ BWLControlOpen(
         BWLContext    ctx,
         BWLAddr        local_addr,    /* src addr or NULL        */
         BWLAddr        server_addr,    /* server addr or NULL        */
-        u_int32_t    mode_mask,    /* OR of BWLSessionMode vals    */
+        uint32_t    mode_mask,    /* OR of BWLSessionMode vals    */
         BWLUserID    userid,        /* null if unwanted        */
         BWLNum64    *uptime_ret,    /* server uptime - ret or NULL    */
         BWLErrSeverity    *err_ret
@@ -849,7 +849,7 @@ BWLSessionRequest(
         BWLBoolean    sender,
         BWLTestSpec    *test_spec,
         BWLTimeStamp    *avail_time_ret,
-        u_int16_t    *recv_port,
+        uint16_t    *recv_port,
         BWLSID        sid_ret,
         BWLErrSeverity    *err_ret
         );
@@ -862,7 +862,7 @@ BWLSessionRequest(
 extern BWLErrSeverity
 BWLStartSession(
         BWLControl    control_handle,
-        u_int16_t    *dataport
+        uint16_t    *dataport
         );
 
 /*
@@ -1042,7 +1042,7 @@ BWLControlAccept(
         int        connfd,        /* conencted socket        */
         struct sockaddr    *connsaddr,    /* connected socket addr    */
         socklen_t    connsaddrlen,    /* connected socket addr len    */
-        u_int32_t    mode_offered,    /* advertised server mode    */
+        uint32_t    mode_offered,    /* advertised server mode    */
         BWLNum64    uptime,        /* uptime report        */
         int        *retn_on_intr,    /* return on i/o interrupt    */
         BWLErrSeverity    *err_ret    /* err - return            */
@@ -1241,8 +1241,8 @@ extern BWLTimeStamp *
 BWLTimespecToTimeStamp(
         BWLTimeStamp    *tstamp,
         struct timespec    *tval,
-        u_int32_t    *errest,    /* usec's */
-        u_int32_t    *last_errest    /* usec's */
+        uint32_t    *errest,    /* usec's */
+        uint32_t    *last_errest    /* usec's */
         );
 
 extern struct timespec *

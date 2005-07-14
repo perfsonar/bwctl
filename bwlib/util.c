@@ -60,7 +60,7 @@ BWLParsePorts(
     if(!endptr || (tstr == endptr) || (tint < 0) || (tint > (int)0xffff)){
         goto failed;
     }
-    prange->low = (u_int16_t)tint;
+    prange->low = (uint16_t)tint;
 
     while(isspace(*endptr)) endptr++;
 
@@ -87,7 +87,7 @@ BWLParsePorts(
     if(!endptr || (tstr == endptr) || (tint < 0) || (tint > (int)0xffff)){
         goto failed;
     }
-    prange->high = (u_int16_t)tint;
+    prange->high = (uint16_t)tint;
 
     if(prange->high < prange->low){
         goto failed;

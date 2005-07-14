@@ -66,11 +66,11 @@
  */
 void
 _BWLEncodeTimeStamp(
-	u_int8_t	buf[8],
+	uint8_t	buf[8],
 	BWLTimeStamp	*tstamp
 	)
 {
-	u_int32_t	t32;
+	uint32_t	t32;
 
 	assert(tstamp);
 	assert(buf);
@@ -113,7 +113,7 @@ _BWLEncodeTimeStamp(
  */
 BWLBoolean
 _BWLEncodeTimeStampErrEstimate(
-	u_int8_t        buf[2],
+	uint8_t        buf[2],
 	BWLTimeStamp    *tstamp
 	)
 {
@@ -165,10 +165,10 @@ _BWLEncodeTimeStampErrEstimate(
 void
 _BWLDecodeTimeStamp(
 	BWLTimeStamp	*tstamp,
-	u_int8_t	buf[8]
+	uint8_t	buf[8]
 	)
 {
-	u_int32_t	t32;
+	uint32_t	t32;
 
 	assert(tstamp);
 	assert(buf);
@@ -219,7 +219,7 @@ _BWLDecodeTimeStamp(
 BWLBoolean
 _BWLDecodeTimeStampErrEstimate(
 	BWLTimeStamp	*tstamp,
-	u_int8_t	buf[2]
+	uint8_t	buf[2]
 	)
 {
 	assert(tstamp);
@@ -357,7 +357,7 @@ BWLSetTimeStampError(
 	 * (This ensures that scale will not overflow the
 	 * 6 bits available to it.)
 	 */
-	err = val & (u_int64_t)0xFFFFFFFFFFFFFFFFULL;
+	err = val & (uint64_t)0xFFFFFFFFFFFFFFFFULL;
 
 	/*
 	 * Now shift err until it will fit in an 8 bit
@@ -396,7 +396,7 @@ BWLGetTimeStampError(
 	)
 {
 	BWLNum64	err;
-	u_int8_t	scale;
+	uint8_t	scale;
 
 	if(!tstamp)
 		return 0;
@@ -454,8 +454,8 @@ BWLTimeStamp *
 BWLTimespecToTimeStamp(
 	BWLTimeStamp	*tstamp,
 	struct timespec	*tval,
-	u_int32_t	*errest,	/* usec's */
-	u_int32_t	*last_errest
+	uint32_t	*errest,	/* usec's */
+	uint32_t	*last_errest
 	)
 {
 	/*
@@ -608,7 +608,7 @@ static struct timespec *
 _BWLGetTimespec(
 		BWLContext		ctx,
 		struct timespec		*ts,
-		u_int32_t		*esterr,
+		uint32_t		*esterr,
 		int			*sync
 		)
 {
@@ -695,7 +695,7 @@ _BWLGetTimespec(
 	/*
 	 * Set estimated error
 	 */
-	*esterr = (u_int32_t)ntp_conf.maxerror + syncfuzz;
+	*esterr = (uint32_t)ntp_conf.maxerror + syncfuzz;
 
 	/*
 	 * Error estimate should never be 0, but I've seen ntp do it!
@@ -714,7 +714,7 @@ BWLGetTimeStamp(
 	       )
 {
 	struct timespec		ts;
-	u_int32_t		errest;
+	uint32_t		errest;
 	int			sync;
 
 	if(!tstamp)

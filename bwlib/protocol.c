@@ -64,17 +64,17 @@
 BWLErrSeverity
 _BWLWriteServerGreeting(
 	BWLControl	cntrl,
-	u_int32_t	avail_modes,
-	u_int8_t	*challenge,	/* [16] */
+	uint32_t	avail_modes,
+	uint8_t	*challenge,	/* [16] */
 	int		*retn_on_err
 	)
 {
 	/*
-	 * buf_aligned it to ensure u_int32_t alignment, but I use
+	 * buf_aligned it to ensure uint32_t alignment, but I use
 	 * buf for actuall assignments to make the array offsets agree with
 	 * the byte offsets shown above.
 	 */
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 
 	if(!_BWLStateIsInitial(cntrl)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -87,7 +87,7 @@ _BWLWriteServerGreeting(
 	 */
 	memset(buf,0,12);
 
-	*((u_int32_t *)&buf[12]) = htonl(avail_modes);
+	*((uint32_t *)&buf[12]) = htonl(avail_modes);
 	memcpy(&buf[16],challenge,16);
 	if(I2Writeni(cntrl->sockfd,buf,32,retn_on_err) != 32){
 		return BWLErrFATAL;
@@ -101,11 +101,11 @@ _BWLWriteServerGreeting(
 BWLErrSeverity
 _BWLReadServerGreeting(
 	BWLControl	cntrl,
-	u_int32_t	*mode,		/* modes available - returned	*/
-	u_int8_t	*challenge	/* [16] : challenge - returned	*/
+	uint32_t	*mode,		/* modes available - returned	*/
+	uint8_t	*challenge	/* [16] : challenge - returned	*/
 )
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	int		intr = 0;
 	int		*retn_on_intr = &intr;
 
@@ -125,7 +125,7 @@ _BWLReadServerGreeting(
 		return (int)BWLErrFATAL;
 	}
 
-	*mode = ntohl(*((u_int32_t *)&buf[12]));
+	*mode = ntohl(*((uint32_t *)&buf[12]));
 	memcpy(challenge,&buf[16],16);
 
 	cntrl->state = _BWLStateSetup;
@@ -169,10 +169,10 @@ _BWLReadServerGreeting(
 BWLErrSeverity
 _BWLWriteClientGreeting(
 	BWLControl	cntrl,
-	u_int8_t	*token	/* [32]	*/
+	uint8_t	*token	/* [32]	*/
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	int		intr=0;
 	int		*retn_on_intr = &intr;
 
@@ -186,7 +186,7 @@ _BWLWriteClientGreeting(
 		return BWLErrFATAL;
 	}
 
-	*(u_int32_t *)&buf[0] = htonl(cntrl->mode);
+	*(uint32_t *)&buf[0] = htonl(cntrl->mode);
 
 	if(cntrl->mode & BWL_MODE_DOCIPHER){
 		memcpy(&buf[4],cntrl->userid,16);
@@ -205,14 +205,14 @@ _BWLWriteClientGreeting(
 BWLErrSeverity
 _BWLReadClientGreeting(
 	BWLControl	cntrl,
-	u_int32_t	*mode,
-	u_int8_t	*token,		/* [32] - return	*/
-	u_int8_t	*clientIV,	/* [16] - return	*/
+	uint32_t	*mode,
+	uint8_t	*token,		/* [32] - return	*/
+	uint8_t	*clientIV,	/* [16] - return	*/
 	int		*retn_on_intr
 	)
 {
 	ssize_t		len;
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 
 	if(!_BWLStateIsSetup(cntrl)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -234,7 +234,7 @@ _BWLReadClientGreeting(
 		return BWLErrFATAL;
 	}
 
-	*mode = ntohl(*(u_int32_t *)&buf[0]);
+	*mode = ntohl(*(uint32_t *)&buf[0]);
 	memcpy(cntrl->userid_buffer,&buf[4],16);
 	memcpy(token,&buf[20],32);
 	memcpy(clientIV,&buf[52],16);
@@ -245,7 +245,7 @@ _BWLReadClientGreeting(
 static BWLAcceptType
 GetAcceptType(
 	BWLControl	cntrl,
-	u_int8_t	val
+	uint8_t	val
 	)
 {
 	switch(val){
@@ -301,7 +301,7 @@ _BWLWriteServerOK(
 {
 	ssize_t		len;
 	BWLTimeStamp	tstamp;
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	int		ival=0;
 	int		*intr=&ival;
 
@@ -316,7 +316,7 @@ _BWLWriteServerOK(
 	}
 
 	memset(&buf[0],0,15);
-	*(u_int8_t *)&buf[15] = code & 0xff;
+	*(uint8_t *)&buf[15] = code & 0xff;
 	memcpy(&buf[16],cntrl->writeIV,16);
 	if((len = I2Writeni(cntrl->sockfd,buf,32,intr)) != 32){
 		if((len < 0) && *intr && (errno == EINTR)){
@@ -361,7 +361,7 @@ _BWLReadServerOK(
 	BWLAcceptType	*acceptval	/* ret	*/
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 
 	if(!_BWLStateIsSetup(cntrl)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -395,7 +395,7 @@ _BWLReadServerUptime(
 	BWLNum64	*uptime	/* ret	*/
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	BWLTimeStamp	tstamp;
 
 	if(!_BWLStateIs(_BWLStateUptime,cntrl)){
@@ -438,7 +438,7 @@ BWLReadRequestType(
 	int		*retn_on_intr
 	)
 {
-	u_int8_t	msgtype;
+	uint8_t	msgtype;
 	int		n;
 	int		ival=0;
 	int		*intr = &ival;
@@ -454,7 +454,7 @@ BWLReadRequestType(
 	}
 
 	/* Read one block so we can peek at the message type */
-	n = _BWLReceiveBlocksIntr(cntrl,(u_int8_t*)cntrl->msg,1,intr);
+	n = _BWLReceiveBlocksIntr(cntrl,(uint8_t*)cntrl->msg,1,intr);
 	if(n != 1){
 		cntrl->state = _BWLStateInvalid;
 		if((n < 0) && *intr && (errno == EINTR)){
@@ -463,7 +463,7 @@ BWLReadRequestType(
 		return BWLReqSockClose;
 	}
 
-	msgtype = *(u_int8_t*)cntrl->msg;
+	msgtype = *(uint8_t*)cntrl->msg;
 
 	/*
 	 * StopSession(3) message is only allowed during active tests,
@@ -529,7 +529,7 @@ _BWLWriteTimeRequest(
 	BWLControl	cntrl
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 
 	if(!_BWLStateIsRequest(cntrl) || _BWLStateIsPending(cntrl)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -556,7 +556,7 @@ _BWLReadTimeRequest(
 	int		*retn_on_intr
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	int		ival=0;
 	int		*intr=&ival;
 
@@ -626,7 +626,7 @@ _BWLWriteTimeResponse(
 	int		*ret_on_intr
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	int		ival=0;
 	int		*intr=&ival;
 
@@ -672,7 +672,7 @@ _BWLReadTimeResponse(
 	BWLTimeStamp	*tstamp
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 
 	if(!_BWLStateIs(_BWLStateTimeResponse,cntrl)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -779,12 +779,12 @@ _BWLWriteTestRequest(
 	BWLTestSession	tsession
 )
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	BWLTestSpec	*tspec = &tsession->test_spec;
 	BWLTimeStamp	tstamp;
 	BWLAddr		sender;
 	BWLAddr		receiver;
-	u_int8_t	version;
+	uint8_t	version;
 
 	/*
 	 * Ensure cntrl is in correct state.
@@ -842,7 +842,7 @@ _BWLWriteTestRequest(
 	/*
 	 * slots and npackets... convert to network byte order.
 	 */
-	*(u_int32_t*)&buf[4] = htonl(tspec->duration);
+	*(uint32_t*)&buf[4] = htonl(tspec->duration);
 	_BWLEncodeTimeStamp(&buf[8],&tspec->req_time);
 	tstamp.tstamp = tspec->latest_time;
 	_BWLEncodeTimeStamp(&buf[16],&tstamp);
@@ -851,7 +851,7 @@ _BWLWriteTestRequest(
 					"Invalid req_time time errest");
 		return BWLErrFATAL;
 	}
-	*(u_int16_t*)&buf[26] = htons(tsession->recv_port);
+	*(uint16_t*)&buf[26] = htons(tsession->recv_port);
 
 	/*
 	 * Now set addr values. (sockaddr vars will already have
@@ -875,11 +875,11 @@ _BWLWriteTestRequest(
 		case 4:
 			/* sender address */
 			saddr4 = (struct sockaddr_in*)sender->saddr;
-			*(u_int32_t*)&buf[28] = saddr4->sin_addr.s_addr;
+			*(uint32_t*)&buf[28] = saddr4->sin_addr.s_addr;
 
 			/* receiver address */
 			saddr4 = (struct sockaddr_in*)receiver->saddr;
-			*(u_int32_t*)&buf[44] = saddr4->sin_addr.s_addr;
+			*(uint32_t*)&buf[44] = saddr4->sin_addr.s_addr;
 
 			break;
 		default:
@@ -892,10 +892,10 @@ _BWLWriteTestRequest(
 	}
 
 	memcpy(&buf[60],tsession->sid,16);
-	*(u_int32_t*)&buf[76] = htonl(tspec->bandwidth);
-	*(u_int32_t*)&buf[80] = htonl(tspec->len_buffer);
-	*(u_int32_t*)&buf[84] = htonl(tspec->window_size);
-	*(u_int32_t*)&buf[88] = htonl(tspec->report_interval);
+	*(uint32_t*)&buf[76] = htonl(tspec->bandwidth);
+	*(uint32_t*)&buf[80] = htonl(tspec->len_buffer);
+	*(uint32_t*)&buf[84] = htonl(tspec->window_size);
+	*(uint32_t*)&buf[88] = htonl(tspec->report_interval);
 
 	if(tspec->dynamic_window_size){
 		buf[92] |= _BWL_DYNAMIC_WINDOW_SIZE;
@@ -946,7 +946,7 @@ _BWLReadTestRequest(
 	BWLAcceptType	*accept_ret
 )
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	BWLTimeStamp	tstamp;
 	BWLErrSeverity	err_ret=BWLErrFATAL;
 	struct sockaddr_storage	sendaddr_rec;
@@ -954,13 +954,13 @@ _BWLReadTestRequest(
 	socklen_t	addrlen = sizeof(sendaddr_rec);
 	BWLAddr		SendAddr=NULL;
 	BWLAddr		RecvAddr=NULL;
-	u_int8_t	ipvn;
+	uint8_t	ipvn;
 	BWLSID		sid;
 	BWLTestSpec	tspec;
 	BWLTestSession	tsession;
 	int		ival=0;
 	int		*intr=&ival;
-	u_int16_t	recv_port;
+	uint16_t	recv_port;
 	BWLBoolean	conf_sender;
 	BWLBoolean	conf_receiver;
 
@@ -1018,7 +1018,7 @@ _BWLReadTestRequest(
 	}
 	_BWLDecodeTimeStamp(&tstamp,&buf[16]);
 	tspec.latest_time = tstamp.tstamp;
-	recv_port = ntohs(*(u_int16_t*)&buf[26]);
+	recv_port = ntohs(*(uint16_t*)&buf[26]);
 
 	/*
 	 * copy sid (will be ignored if this is an initial receive request)
@@ -1048,7 +1048,7 @@ _BWLReadTestRequest(
 		ipvn = buf[1] & 0xF;
 		tspec.udp = (buf[1]>>4)?True:False;
 
-		tspec.duration = ntohl(*(u_int32_t*)&buf[4]);
+		tspec.duration = ntohl(*(uint32_t*)&buf[4]);
 
 		switch(buf[2]){
 			case 0:
@@ -1121,13 +1121,13 @@ _BWLReadTestRequest(
 				/* sender address and port  */
 				saddr4 = (struct sockaddr_in*)&sendaddr_rec;
 				saddr4->sin_family = AF_INET;
-				saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[28];
+				saddr4->sin_addr.s_addr = *(uint32_t*)&buf[28];
 				saddr4->sin_port = 0;
 
 				/* receiver address and port  */
 				saddr4 = (struct sockaddr_in*)&recvaddr_rec;
 				saddr4->sin_family = AF_INET;
-				saddr4->sin_addr.s_addr = *(u_int32_t*)&buf[44];
+				saddr4->sin_addr.s_addr = *(uint32_t*)&buf[44];
 				saddr4->sin_port = 0;
 
 				break;
@@ -1154,10 +1154,10 @@ _BWLReadTestRequest(
 				(struct sockaddr*)&recvaddr_rec,addrlen,
 				(tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
 
-		tspec.bandwidth = ntohl(*(u_int32_t*)&buf[76]);
-		tspec.len_buffer = ntohl(*(u_int32_t*)&buf[80]);
-		tspec.window_size = ntohl(*(u_int32_t*)&buf[84]);
-		tspec.report_interval = ntohl(*(u_int32_t*)&buf[88]);
+		tspec.bandwidth = ntohl(*(uint32_t*)&buf[76]);
+		tspec.len_buffer = ntohl(*(uint32_t*)&buf[80]);
+		tspec.window_size = ntohl(*(uint32_t*)&buf[84]);
+		tspec.report_interval = ntohl(*(uint32_t*)&buf[88]);
 
 		tspec.dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
                 tspec.tos = buf[93];
@@ -1234,7 +1234,7 @@ _BWLWriteTestAccept(
 	BWLTestSession	tsession
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	BWLTimeStamp	tstamp;
 
 	if(!_BWLStateIs(_BWLStateTestAccept,cntrl)){
@@ -1247,7 +1247,7 @@ _BWLWriteTestAccept(
 
 	buf[0] = acceptval & 0xff;
 	if(tsession->conf_receiver){
-		*(u_int16_t *)&buf[2] = htons(tsession->recv_port);
+		*(uint16_t *)&buf[2] = htons(tsession->recv_port);
 	}
 	memcpy(&buf[4],tsession->sid,16);
 	tstamp.tstamp = tsession->reserve_time;
@@ -1270,7 +1270,7 @@ _BWLReadTestAccept(
 	BWLTestSession	tsession
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	BWLTimeStamp	tstamp;
 
 	if(!_BWLStateIs(_BWLStateTestAccept,cntrl)){
@@ -1306,7 +1306,7 @@ _BWLReadTestAccept(
 	}
 
 	if(tsession->conf_receiver){
-		tsession->recv_port = ntohs(*(u_int16_t*)&buf[2]);
+		tsession->recv_port = ntohs(*(uint16_t*)&buf[2]);
 		memcpy(tsession->sid,&buf[4],16);
 	}
 
@@ -1343,10 +1343,10 @@ _BWLReadTestAccept(
 BWLErrSeverity
 _BWLWriteStartSession(
 	BWLControl	cntrl,
-	u_int16_t	dataport
+	uint16_t	dataport
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 
 	if(!_BWLStateIsRequest(cntrl) || _BWLStateIsPending(cntrl) ||
 			!cntrl->tests){
@@ -1363,7 +1363,7 @@ _BWLWriteStartSession(
 	 * If conf_sender, than need to "set" the dataport.
 	 */
 	if(cntrl->tests->conf_sender){
-		*(u_int16_t*)&buf[2] = htons(dataport);
+		*(uint16_t*)&buf[2] = htons(dataport);
 	}
 
 	if(_BWLSendBlocks(cntrl,buf,2) != 2){
@@ -1379,12 +1379,12 @@ _BWLWriteStartSession(
 BWLErrSeverity
 _BWLReadStartSession(
 	BWLControl	cntrl,
-	u_int16_t	*dataport,
+	uint16_t	*dataport,
 	int		*retn_on_intr
 )
 {
 	int		n;
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 
 	if(!_BWLStateIs(_BWLStateStartSession,cntrl) || !cntrl->tests){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -1425,7 +1425,7 @@ _BWLReadStartSession(
 	}
 
 	if(cntrl->tests->conf_sender){
-		*dataport = ntohs(*(u_int16_t*)&buf[2]);
+		*dataport = ntohs(*(uint16_t*)&buf[2]);
 	}
 	/*
 	 * The control connection is now ready to send the response.
@@ -1463,12 +1463,12 @@ BWLErrSeverity
 _BWLWriteStartAck(
 	BWLControl	cntrl,
 	int		*retn_on_intr,
-	u_int16_t	dataport,
+	uint16_t	dataport,
 	BWLAcceptType	acceptval
 	)
 {
 	int		n;
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 
 	if(!_BWLStateIs(_BWLStateStartAck,cntrl)){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -1481,7 +1481,7 @@ _BWLWriteStartAck(
 	buf[0] = acceptval & 0xff;
 
 	if(cntrl->tests->conf_receiver){
-		*(u_int16_t*)&buf[2] = htons(dataport);
+		*(uint16_t*)&buf[2] = htons(dataport);
 	}
 
 	n = _BWLSendBlocksIntr(cntrl,buf,_BWL_CONTROL_ACK_BLK_LEN,retn_on_intr);
@@ -1513,11 +1513,11 @@ _BWLWriteStartAck(
 BWLErrSeverity
 _BWLReadStartAck(
 	BWLControl	cntrl,
-	u_int16_t	*dataport,
+	uint16_t	*dataport,
 	BWLAcceptType	*acceptval
 )
 {
-	u_int8_t		*buf = (u_int8_t*)cntrl->msg;
+	uint8_t		*buf = (uint8_t*)cntrl->msg;
 
 	*acceptval = BWL_CNTRL_INVALID;
 
@@ -1548,7 +1548,7 @@ _BWLReadStartAck(
 	}
 
 	if(cntrl->tests->conf_receiver){
-		*dataport = ntohs(*(u_int16_t*)&buf[2]);
+		*dataport = ntohs(*(uint16_t*)&buf[2]);
 	}
 
 	/*
@@ -1608,9 +1608,9 @@ _BWLWriteStopSession(
 	FILE		*fp
 	)
 {
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	struct stat	sbuf;
-	u_int32_t	fsize = 0;
+	uint32_t	fsize = 0;
 
 	if(!( _BWLStateIs(_BWLStateRequest,cntrl) &&
 				_BWLStateIs(_BWLStateTest,cntrl))){
@@ -1643,7 +1643,7 @@ _BWLWriteStopSession(
 			goto datadone;
 		}
 
-		*(u_int32_t*)&buf[8] = htonl(fsize);
+		*(uint32_t*)&buf[8] = htonl(fsize);
 	}
 
 datadone:
@@ -1702,9 +1702,9 @@ _BWLReadStopSession(
 )
 {
 	int		n;
-	u_int8_t	*buf = (u_int8_t*)cntrl->msg;
+	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	BWLAcceptType	aval;
-	u_int32_t	fsize;
+	uint32_t	fsize;
 
 	if(!(_BWLStateIs(_BWLStateRequest,cntrl) &&
 					_BWLStateIs(_BWLStateTest,cntrl))){
@@ -1739,7 +1739,7 @@ _BWLReadStopSession(
 		return _BWLFailControlSession(cntrl,BWLErrFATAL);
 	}
 
-	fsize = ntohl(*(u_int32_t*)&buf[8]);
+	fsize = ntohl(*(uint32_t*)&buf[8]);
 
 	if(!fsize){
 		goto end;

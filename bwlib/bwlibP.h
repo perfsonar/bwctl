@@ -190,12 +190,12 @@ struct BWLControlRec{
      * This field is initialized to zero and used for comparisons
      * to ensure AES is working.
      */
-    u_int8_t                zero[16];
+    uint8_t                zero[16];
 
     /* area for peer's messages        */
-    /* make u_int32_t to get wanted alignment */
-    /* Usually cast to u_int8_t when used... */
-    u_int32_t               msg[_BWL_MAX_MSG/sizeof(u_int32_t)];
+    /* make uint32_t to get wanted alignment */
+    /* Usually cast to uint8_t when used... */
+    uint32_t               msg[_BWL_MAX_MSG/sizeof(uint32_t)];
 
     /*
      * Address specification and "network" information.
@@ -213,9 +213,9 @@ struct BWLControlRec{
     BWLUserID               userid_buffer;
     keyInstance             encrypt_key;
     keyInstance             decrypt_key;
-    u_int8_t                session_key[16];
-    u_int8_t                readIV[16];
-    u_int8_t                writeIV[16];
+    uint8_t                session_key[16];
+    uint8_t                readIV[16];
+    uint8_t                writeIV[16];
     int                     *retn_on_intr;
 
     struct BWLControlRec    *next;
@@ -244,7 +244,7 @@ struct BWLTestSessionRec{
     BWLTimeStamp    localtime;
     BWLNum64        reserve_time;
     BWLNum64        fuzz;
-    u_int16_t       recv_port;
+    uint16_t       recv_port;
 
     BWLBoolean      conf_sender;
     BWLBoolean      conf_receiver;
@@ -289,7 +289,7 @@ _BWLTestSessionAlloc(
         BWLBoolean  send,
         BWLAddr     sender,
         BWLAddr     receiver,
-        u_int16_t   recv_port,
+        uint16_t   recv_port,
         BWLTestSpec *test_spec
         );
 
@@ -312,15 +312,15 @@ extern int
 _BWLWriteDataHeaderFinished(
         BWLContext  ctx,
         FILE        *fp,
-        u_int32_t   finished
+        uint32_t   finished
         );
 
 extern int
 _BWLReadDataHeaderInitial(
         BWLContext  ctx,
         FILE        *fp,
-        u_int32_t   *ver,
-        u_int32_t   *fin,    /* only set if (*ver >= 2) */
+        uint32_t   *ver,
+        uint32_t   *fin,    /* only set if (*ver >= 2) */
         off_t       *hdr_off,
         struct stat *stat_buf
         );
@@ -331,7 +331,7 @@ _BWLReadDataHeaderInitial(
 extern int
 _BWLSendBlocksIntr(
         BWLControl  cntrl,
-        u_int8_t    *buf,
+        uint8_t    *buf,
         int         num_blocks,
         int         *retn_on_intr
         );
@@ -339,7 +339,7 @@ _BWLSendBlocksIntr(
 extern int
 _BWLReceiveBlocksIntr(
         BWLControl  cntrl,
-        u_int8_t    *buf,
+        uint8_t    *buf,
         int         num_blocks,
         int         *retn_on_intr
         );
@@ -347,51 +347,51 @@ _BWLReceiveBlocksIntr(
 extern int
 _BWLSendBlocks(
         BWLControl  cntrl,
-        u_int8_t    *buf,
+        uint8_t    *buf,
         int         num_blocks
         );
 
 extern int
 _BWLReceiveBlocks(
         BWLControl  cntrl,
-        u_int8_t    *buf,
+        uint8_t    *buf,
         int         num_blocks
         );
 
 extern int
 _BWLEncryptBlocks(
         BWLControl  cntrl,
-        u_int8_t    *in_buf,
+        uint8_t    *in_buf,
         int         num_blocks,
-        u_int8_t    *out_buf
+        uint8_t    *out_buf
         );
 
 extern int
 _BWLDecryptBlocks(
         BWLControl  cntrl,
-        u_int8_t    *in_buf,
+        uint8_t    *in_buf,
         int         num_blocks,
-        u_int8_t    *out_buf
+        uint8_t    *out_buf
         );
 
 extern void
 _BWLMakeKey(
         BWLControl  cntrl,
-        u_int8_t    *binKey
+        uint8_t    *binKey
         );
 
 extern int
 BWLEncryptToken(
-        u_int8_t    *binKey,
-        u_int8_t    *token_in,
-        u_int8_t    *token_out
+        uint8_t    *binKey,
+        uint8_t    *token_in,
+        uint8_t    *token_out
         );
 
 extern int
 BWLDecryptToken(
-        u_int8_t    *binKey,
-        u_int8_t    *token_in,
-        u_int8_t    *token_out
+        uint8_t    *binKey,
+        uint8_t    *token_in,
+        uint8_t    *token_out
         );
 
 /*
@@ -401,30 +401,30 @@ BWLDecryptToken(
 extern BWLErrSeverity
 _BWLWriteServerGreeting(
         BWLControl  cntrl,
-        u_int32_t   avail_modes,
-        u_int8_t    *challenge,    /* [16] */
+        uint32_t   avail_modes,
+        uint8_t    *challenge,    /* [16] */
         int         *retn_on_intr
         );
 
 extern BWLErrSeverity
 _BWLReadServerGreeting(
         BWLControl  cntrl,
-        u_int32_t   *mode,        /* modes available - returned    */
-        u_int8_t    *challenge    /* [16] : challenge - returned    */
+        uint32_t   *mode,        /* modes available - returned    */
+        uint8_t    *challenge    /* [16] : challenge - returned    */
         );
 
 extern BWLErrSeverity
 _BWLWriteClientGreeting(
         BWLControl  cntrl,
-        u_int8_t    *token    /* [32]    */
+        uint8_t    *token    /* [32]    */
         );
 
 extern BWLErrSeverity
 _BWLReadClientGreeting(
         BWLControl  cntrl,
-        u_int32_t   *mode,
-        u_int8_t    *token,        /* [32] - return    */
-        u_int8_t    *clientIV,    /* [16] - return    */
+        uint32_t   *mode,
+        uint8_t    *token,        /* [32] - return    */
+        uint8_t    *clientIV,    /* [16] - return    */
         int         *retn_on_intr
         );
 
@@ -506,13 +506,13 @@ _BWLReadTestAccept(
 extern BWLErrSeverity
 _BWLWriteStartSession(
         BWLControl  cntrl,
-        u_int16_t   dataport
+        uint16_t   dataport
         );
 
 extern BWLErrSeverity
 _BWLReadStartSession(
         BWLControl  cntrl,
-        u_int16_t   *dataport,
+        uint16_t   *dataport,
         int         *retn_on_intr
         );
 
@@ -520,14 +520,14 @@ extern BWLErrSeverity
 _BWLWriteStartAck(
         BWLControl      cntrl,
         int             *retn_on_intr,
-        u_int16_t       dataport,
+        uint16_t       dataport,
         BWLAcceptType   acceptval
         );
 
 extern BWLErrSeverity
 _BWLReadStartAck(
         BWLControl      cntrl,
-        u_int16_t       *dataport,
+        uint16_t       *dataport,
         BWLAcceptType   *acceptval
         );
 
@@ -561,7 +561,7 @@ extern BWLBoolean
 _BWLCallGetAESKey(
         BWLContext      ctx,        /* context record    */
         const char      *userid,    /* identifies key    */
-        u_int8_t        *key_ret,   /* key - return        */
+        uint8_t        *key_ret,   /* key - return        */
         BWLErrSeverity  *err_ret    /* error - return    */
         );
 
@@ -632,7 +632,7 @@ _BWLCallCloseFile(
 extern BWLBoolean
 _BWLEndpointStart(
         BWLTestSession  tsession,
-        u_int16_t       *dataport,
+        uint16_t       *dataport,
         BWLErrSeverity  *err_ret
         );
 
@@ -669,27 +669,27 @@ _BWLFailControlSession(
 
 /*
  * En/DecodeTimeStamp functions do not assume any alignment requirements
- * for buf. (Most functions in protocol.c assume u_int32_t alignment.)
+ * for buf. (Most functions in protocol.c assume uint32_t alignment.)
  */
 extern void
 _BWLEncodeTimeStamp(
-        u_int8_t        buf[8],
+        uint8_t        buf[8],
         BWLTimeStamp    *tstamp
         );
 extern BWLBoolean
 _BWLEncodeTimeStampErrEstimate(
-        u_int8_t        buf[2],
+        uint8_t        buf[2],
         BWLTimeStamp    *tstamp
         );
 extern void
 _BWLDecodeTimeStamp(
         BWLTimeStamp    *tstamp,
-        u_int8_t        buf[8]
+        uint8_t        buf[8]
         );
 extern BWLBoolean
 _BWLDecodeTimeStampErrEstimate(
         BWLTimeStamp    *tstamp,
-        u_int8_t        buf[2]
+        uint8_t        buf[2]
         );
 extern int
 _BWLInitNTP(
@@ -700,7 +700,7 @@ extern struct timespec *
 _BWLGetTimespec(
         BWLContext      ctx,
         struct timespec *ts,
-        u_int32_t       *esterr,
+        uint32_t       *esterr,
         int             *sync
         );
 

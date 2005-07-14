@@ -606,7 +606,7 @@ BWLBoolean
 _BWLCallGetAESKey(
 	BWLContext	ctx,		/* library context	*/
 	const BWLUserID	userid,		/* identifies key	*/
-	u_int8_t	*key_ret,	/* key - return		*/
+	uint8_t	*key_ret,	/* key - return		*/
 	BWLErrSeverity	*err_ret	/* error - return	*/
 )
 {

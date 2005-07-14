@@ -140,8 +140,8 @@ struct ReservationRec{
     BWLNum64    start;    /* fuzz applied */
     BWLNum64    end;    /* fuzz applied */
     BWLNum64    fuzz;
-    u_int32_t   duration;
-    u_int16_t   port;
+    uint32_t   duration;
+    uint16_t   port;
     Reservation next;
 };
 
@@ -158,7 +158,7 @@ static Reservation
 AllocReservation(
         ChldState   cstate,
         BWLSID      sid,
-        u_int16_t   *port
+        uint16_t   *port
         )
 {
     Reservation res;
@@ -255,10 +255,10 @@ ChldReservationDemand(
         BWLNum64    rtime,
         BWLNum64    ftime,
         BWLNum64    ltime,
-        u_int32_t   duration,
+        uint32_t   duration,
         BWLNum64    rtttime,
         BWLNum64    *restime,
-        u_int16_t   *port,
+        uint16_t   *port,
         int         *err)
 {
     BWLContext      ctx = cstate->policy->ctx;
@@ -646,8 +646,8 @@ CheckFD(
 
         BWLSID          sid;
         BWLNum64        rtime,ftime,ltime,restime,rtttime;
-        u_int32_t       duration;
-        u_int16_t       port;
+        uint32_t       duration;
+        uint16_t       port;
         BWLAcceptType   aval;
 
         switch(BWLDReadReqType(cstate->fd,&ipfd_exit,&err)){
@@ -1107,12 +1107,12 @@ intcmp(
     return(x.dsize != y.dsize);
 }
 
-static u_int32_t
+static uint32_t
 inthash(
         I2Datum    key
        )
 {
-    return (u_int32_t)key.dsize;
+    return (uint32_t)key.dsize;
 }
 
 static I2Boolean
@@ -1224,9 +1224,9 @@ LoadConfig(
         }
         else if(!strncasecmp(key,"iperfport",10)){
             char        *hpstr = NULL;
-            u_int16_t    lport,hport;
+            uint16_t    lport,hport;
             char        *end=NULL;
-            u_int32_t    tlng;
+            uint32_t    tlng;
 
 
             if( (hpstr = strchr(val,'-'))){
@@ -1240,7 +1240,7 @@ LoadConfig(
                 rc=-rc;
                 break;
             }
-            lport = (u_int16_t)tlng;
+            lport = (uint16_t)tlng;
             if(lport != tlng){
                 rc=-rc;
                 break;
@@ -1255,7 +1255,7 @@ LoadConfig(
                     rc=-rc;
                     break;
                 }
-                hport = (u_int16_t)tlng;
+                hport = (uint16_t)tlng;
                 if(hport != tlng){
                     rc=-rc;
                     break;
@@ -1273,7 +1273,7 @@ LoadConfig(
             }
 
             opts.port_range_len = hport-lport+1;
-            if(!(opts.iperfports = calloc(sizeof(u_int16_t),
+            if(!(opts.iperfports = calloc(sizeof(uint16_t),
                             opts.port_range_len))){
                 fprintf(stderr,"calloc(): %s\n",
                         strerror(errno));
@@ -1345,7 +1345,7 @@ LoadConfig(
         }
         else if(!strncasecmp(key,"dieby",6)){
             char        *end=NULL;
-            u_int32_t    tlng;
+            uint32_t    tlng;
 
             errno = 0;
             tlng = strtoul(val,&end,10);
@@ -1359,7 +1359,7 @@ LoadConfig(
         }
         else if(!strncasecmp(key,"controltimeout",15)){
             char        *end=NULL;
-            u_int32_t    tlng;
+            uint32_t    tlng;
 
             errno = 0;
             tlng = strtoul(val,&end,10);
@@ -1379,7 +1379,7 @@ LoadConfig(
                 rc=-rc;
                 break;
             }
-            opts.bottleneckcapacity = (u_int64_t)bneck;
+            opts.bottleneckcapacity = (uint64_t)bneck;
         }
         else if(!strncasecmp(key,"syncfuzz",9)){
             char    *end=NULL;

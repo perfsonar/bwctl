@@ -50,7 +50,7 @@ int optreset;
  */
 static    ipapp_trec    app;
 static    I2ErrHandle   eh;
-static    u_int32_t     file_offset,ext_offset;
+static    uint32_t     file_offset,ext_offset;
 static    int           ip_intr = 0;
 static    int           ip_reset = 0;
 static    int           ip_exit = 0;
@@ -64,7 +64,7 @@ static    aeskey_auth   current_auth=NULL;
 static    BWLNum64      zero64;
 static    BWLNum64      fuzz64;
 static    BWLSID        sid;
-static    u_int16_t     recv_port;
+static    uint16_t     recv_port;
 static    ipsess_t      s[2];    /* receiver == 0, sender == 1 */
 static    BWLBoolean    fake_daemon = False;
 static    pid_t         fake_pid = -1;
@@ -230,7 +230,7 @@ parse_auth_args(
 {
     aeskey_auth auth;
     char        *s;
-    u_int32_t   auth_mode = 0;
+    uint32_t   auth_mode = 0;
     FILE        *fp;
     int         rc = 0;
     char        *lbuf=NULL;
@@ -493,14 +493,14 @@ sig_check(
 
 static int
 str2num(
-        u_int32_t   *num_ret,
+        uint32_t   *num_ret,
         char        *str
        )
 {
     size_t      silen = 0;
     size_t      len;
     char        *endptr;
-    u_int32_t   npart, mult=1;
+    uint32_t   npart, mult=1;
 
     while(isdigit(str[silen])){
         silen++;
@@ -520,7 +520,7 @@ str2num(
 #if    NOT
             /*
              * Don't need these until we use something larger
-             * than u_int32_t to hold the value!
+             * than uint32_t to hold the value!
              */
             case 'z':
                 mult *= 1000;
@@ -563,14 +563,14 @@ str2num(
 
 static int
 str2bytenum(
-        u_int32_t   *num_ret,
+        uint32_t   *num_ret,
         char        *str
         )
 {
     size_t      silen = 0;
     size_t      len;
     char        *endptr;
-    u_int32_t   npart, mult=1;
+    uint32_t   npart, mult=1;
 
     while(isdigit(str[silen])){
         silen++;
@@ -590,7 +590,7 @@ str2bytenum(
 #if    NOT
             /*
              * Don't need these until we use something larger
-             * than u_int32_t to hold the value!
+             * than uint32_t to hold the value!
              */
             case 'z':
                 mult <<= 10;
@@ -637,12 +637,12 @@ str2bytenum(
 static BWLNum64
 next_start(
         I2RandomSource  rsrc,
-        u_int32_t       interval,
-        u_int32_t       alpha,
+        uint32_t       interval,
+        uint32_t       alpha,
         BWLNum64        *base
         )
 {
-    u_int32_t   r;
+    uint32_t   r;
     double      a,b;
     BWLNum64    inc;
 
@@ -659,9 +659,9 @@ next_start(
         b = (double)interval - a;
 
         /*
-         * get a random u_int32_t
+         * get a random uint32_t
          */
-        if(I2RandomBytes(rsrc,(u_int8_t*)&r,4) != 0){
+        if(I2RandomBytes(rsrc,(uint8_t*)&r,4) != 0){
             exit(1);
         }
 
@@ -689,10 +689,10 @@ next_start(
     return inc;
 }
 
-static u_int16_t *iperf_port_range = NULL;
-static u_int16_t iperf_port_range_len = 0;
-static u_int16_t iperf_port_default = 5001;
-static u_int16_t iperf_port_count = 0;
+static uint16_t *iperf_port_range = NULL;
+static uint16_t iperf_port_range_len = 0;
+static uint16_t iperf_port_default = 5001;
+static uint16_t iperf_port_count = 0;
 
 static BWLBoolean
 CheckTestPolicy(
@@ -705,7 +705,7 @@ CheckTestPolicy(
         BWLTestSpec     *tspec,
         BWLNum64        fuzz_time,
         BWLNum64        *reservation_ret,
-        u_int16_t       *port_ret,
+        uint16_t       *port_ret,
         void            **closure __attribute__((unused)),
         BWLErrSeverity  *err_ret
         )
@@ -767,10 +767,10 @@ SpawnLocalServer(
     int                 new_pipe[2];
     pid_t               pid;
     BWLErrSeverity      err = BWLErrOK;
-    u_int32_t           controltimeout = 7200;
+    uint32_t           controltimeout = 7200;
     double              syncfuzz;
     BWLTimeStamp        currtime;
-    u_int64_t           bottle;
+    uint64_t           bottle;
     char                *tstr;
     struct itimerval    itval;
     BWLControl          cntrl;
@@ -784,8 +784,8 @@ SpawnLocalServer(
         if((tstr = getenv("BWCTL_IPERFPORTRANGE"))){
             char        *hpstr;
             char        *end=NULL;
-            u_int16_t   lport,hport;
-            u_int32_t   tlng;
+            uint16_t   lport,hport;
+            uint32_t   tlng;
 
             if(!(tstr = strdup(tstr))){
                 I2ErrLog(eh,"strdup(): %M");
@@ -801,7 +801,7 @@ SpawnLocalServer(
                 I2ErrLog(eh,"strtoul(%s): %M",tstr);
                 goto portdone;
             }
-            lport = (u_int16_t)tlng;
+            lport = (uint16_t)tlng;
             if(lport != tlng){
                 I2ErrLog(eh,"Low port (%d) out-of-range",tlng);
                 goto portdone;
@@ -814,7 +814,7 @@ SpawnLocalServer(
                     I2ErrLog(eh,"strtoul(%s): %M",hpstr);
                     goto portdone;
                 }
-                hport = (u_int16_t)tlng;
+                hport = (uint16_t)tlng;
                 if(hport != tlng){
                     I2ErrLog(eh,
                             "High port (%d) out-of-range",
@@ -832,10 +832,10 @@ SpawnLocalServer(
             }
 
             iperf_port_range_len = hport-lport+1;
-            if(!(iperf_port_range = calloc(sizeof(u_int16_t),
+            if(!(iperf_port_range = calloc(sizeof(uint16_t),
                             iperf_port_range_len))){
                 I2ErrLog(eh,"calloc(%d,%d): %M",
-                        sizeof(u_int16_t),
+                        sizeof(uint16_t),
                         iperf_port_range_len);
                 exit(1);
             }
@@ -973,7 +973,7 @@ portdone:
 
     if((tstr = getenv("BWCTL_CONTROLTIMEOUT"))){
         char        *end=NULL;
-        u_int32_t    tlng;
+        uint32_t    tlng;
 
         if(!(tstr = strdup(tstr))){
             I2ErrLog(eh,"strdup(): %M");
@@ -1177,7 +1177,7 @@ main(
     char                dirpath[PATH_MAX];
     struct flock        flk;
     BWLNum64            latest64;
-    u_int32_t           p,q;
+    uint32_t           p,q;
     I2RandomSource      rsrc;
     BWLTimeStamp        wake;
     BWLTimeStamp        base;
@@ -1724,9 +1724,9 @@ main(
          * (spread out start time)
          * Use a random 32 bit integer and normalize.
          */
-        u_int32_t    r;
+        uint32_t    r;
 
-        if(I2RandomBytes(rsrc,(u_int8_t*)&r,4) != 0){
+        if(I2RandomBytes(rsrc,(uint8_t*)&r,4) != 0){
             exit(1);
         }
 
@@ -1741,7 +1741,7 @@ main(
         BWLTimeStamp    currtime;
         BWLNum64        endtime;
         BWLNum64        rel;
-        u_int16_t       dataport;
+        uint16_t       dataport;
         BWLBoolean      stop;
         char            recvfname[PATH_MAX];
         char            sendfname[PATH_MAX];

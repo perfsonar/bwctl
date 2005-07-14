@@ -24,7 +24,7 @@
 int
 _BWLSendBlocksIntr(
 	BWLControl	cntrl,
-	u_int8_t	*buf,
+	uint8_t	*buf,
 	int		num_blocks,
 	int		*retn_on_intr
 	)
@@ -50,7 +50,7 @@ _BWLSendBlocksIntr(
 int
 _BWLReceiveBlocksIntr(
 	BWLControl	cntrl,
-	u_int8_t	*buf,
+	uint8_t	*buf,
 	int		num_blocks,
 	int		*retn_on_intr
 	)
@@ -81,7 +81,7 @@ _BWLReceiveBlocksIntr(
 int
 _BWLSendBlocks(
 	BWLControl	cntrl,
-	u_int8_t	*buf,
+	uint8_t	*buf,
 	int		num_blocks
 	)
 {
@@ -98,7 +98,7 @@ _BWLSendBlocks(
 int
 _BWLReceiveBlocks(
 	BWLControl	cntrl,
-	u_int8_t	*buf,
+	uint8_t	*buf,
 	int		num_blocks
 	)
 {
@@ -120,9 +120,9 @@ _BWLReceiveBlocks(
 int
 _BWLEncryptBlocks(
 	BWLControl	cntrl,
-	u_int8_t	*buf,
+	uint8_t	*buf,
 	int		num_blocks,
-	u_int8_t	*out
+	uint8_t	*out
 	)
 {
 	int r;
@@ -137,9 +137,9 @@ _BWLEncryptBlocks(
 int
 _BWLDecryptBlocks(
 	BWLControl	cntrl,
-	u_int8_t	*buf,
+	uint8_t	*buf,
 	int		num_blocks,
-	u_int8_t	*out
+	uint8_t	*out
 	)
 {
 	int r;
@@ -158,7 +158,7 @@ _BWLDecryptBlocks(
 void
 _BWLMakeKey(
 	BWLControl	cntrl,
-	u_int8_t	*binKey
+	uint8_t	*binKey
 	)
 {
 	cntrl->encrypt_key.Nr
@@ -183,7 +183,7 @@ BWLEncryptToken(
 	)
 {
 	int		r;
-	u_int8_t	IV[16];
+	uint8_t	IV[16];
 	keyInstance	key;
 
 	memset(IV, 0, 16);
@@ -205,7 +205,7 @@ BWLDecryptToken(
 	)
 {
 	int		r;
-	u_int8_t	IV[16];
+	uint8_t	IV[16];
 	keyInstance	key;
 
 	memset(IV, 0, 16);

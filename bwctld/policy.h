@@ -83,15 +83,15 @@ struct BWLDPolicyRec{
 	 */
 	I2Table			idents;
 	/* keys:
-	 * 	key = u_int8_t[16]	(username from bwlib protocol)
+	 * 	key = uint8_t[16]	(username from bwlib protocol)
 	 * 	val = BWLKey
 	 */
 	I2Table			keys;
 
 };
 
-typedef u_int64_t	BWLDLimitT;		/* values */
-typedef u_int32_t	BWLDMesgT;
+typedef uint64_t	BWLDLimitT;		/* values */
+typedef uint32_t	BWLDMesgT;
 
 typedef struct BWLDLimRec{
 	BWLDMesgT	limit;
@@ -129,9 +129,9 @@ typedef enum{
 
 typedef struct{
 	BWLDPidType	id_type;
-	u_int8_t	mask_len;
+	uint8_t	mask_len;
 	size_t		addrsize;
-	u_int8_t	addrval[16];
+	uint8_t	addrval[16];
 } BWLDPidNetmask;
 
 typedef struct{
@@ -347,9 +347,9 @@ BWLDReadReservationQuery(
 	BWLNum64	*req_time,
 	BWLNum64	*fuzz_time,
 	BWLNum64	*last_time,
-	u_int32_t	*duration,
+	uint32_t	*duration,
 	BWLNum64	*rtt_time,
-	u_int16_t	*port,
+	uint16_t	*port,
 	int		*err
 	);
 
@@ -375,7 +375,7 @@ BWLDSendReservationResponse(
 		int		*retn_on_intr,
 		BWLDMesgT	mesg,
 		BWLNum64	reservation,
-		u_int16_t	port
+		uint16_t	port
 		);
 
 /*
@@ -422,7 +422,7 @@ extern BWLBoolean
 BWLDGetAESKey(
 	BWLContext	ctx,
 	const BWLUserID	userid,
-	u_int8_t	*key_ret,
+	uint8_t	*key_ret,
 	BWLErrSeverity	*err_ret
 	);
 
@@ -447,7 +447,7 @@ BWLDCheckTestPolicy(
 	BWLTestSpec	*tspec,
 	BWLNum64	fuzz_time,
 	BWLNum64	*reservation_ret,
-	u_int16_t	*port_ret,
+	uint16_t	*port_ret,
 	void		**closure,
 	BWLErrSeverity	*err_ret
 	);
@@ -465,7 +465,7 @@ BWLDPolicyInstall(
 	char		*datadir,	/* root dir for datafiles	*/
 	char		*confdir,	/* conf dir for policy		*/
 	char		*iperfcmd,	/* iperf exec path		*/
-	u_int64_t	*bottleneckcapacity,
+	uint64_t	*bottleneckcapacity,
 	int		*retn_on_intr,
 	char		**lbuf,
 	size_t		*lbuf_max

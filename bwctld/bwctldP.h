@@ -42,25 +42,25 @@ typedef struct {
 	char		*vardir;
 
 	char		*iperfcmd;
-	u_int64_t	bottleneckcapacity;
-	u_int16_t	*iperfports;
-	u_int16_t	def_port;
-	u_int16_t	port_range_len;
-	u_int16_t	port_count;
+	uint64_t	bottleneckcapacity;
+	uint16_t	*iperfports;
+	uint16_t	def_port;
+	uint16_t	port_range_len;
+	uint16_t	port_count;
 	char		*datadir;
 
         BWLPortRange    peerports;
 
 	char		*authmode;
-	u_int32_t	auth_mode;	/* cooked version of authmode */
+	uint32_t	auth_mode;	/* cooked version of authmode */
 	char		*srcnode;
 
 	char		*user;
 	char		*group;
         I2Boolean       allowRoot;
 
-	u_int32_t	dieby;
-	u_int32_t	controltimeout;
+	uint32_t	dieby;
+	uint32_t	controltimeout;
 #ifndef	NDEBUG
 	I2Boolean	childwait;
 #endif
