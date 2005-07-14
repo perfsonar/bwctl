@@ -206,63 +206,81 @@ _BWLClientConnect(
 	BWLErrSeverity	*err_ret
 )
 {
-	int		rc;
-	struct addrinfo	*fai;
-	struct addrinfo	*ai;
+    int		rc;
+    struct addrinfo	*fai;
+    struct addrinfo	*ai;
 
-	if(!server_addr)
-		goto error;
+    if(!server_addr)
+        goto error;
 
-	/*
-	 * Easy case - application provided socket directly.
-	 */
-        if((cntrl->sockfd = BWLAddrFD(server_addr)) > -1){
-            cntrl->remote_addr = server_addr;
-            return 0;
-        }
+    /*
+     * Easy case - application provided socket directly.
+     */
+    if((cntrl->sockfd = BWLAddrFD(server_addr)) > -1){
+        cntrl->remote_addr = server_addr;
+        return 0;
+    }
 
-	/*
-	 * Initialize addrinfo portion of server_addr record.
-	 */
-        if(!(fai = BWLAddrAddrInfo(server_addr,NULL,BWL_CONTROL_SERVICE_NAME))){
+    /*
+     * Initialize addrinfo portion of server_addr record.
+     */
+    if(!(fai = BWLAddrAddrInfo(server_addr,NULL,BWL_CONTROL_SERVICE_NAME))){
+        goto error;
+    }
+
+    /*
+     * Now that we have addresses - see if it is valid by attempting
+     * to create a socket of that type, and binding(if wanted).
+     * Also check policy for allowed connection before calling
+     * connect.
+     * (Binding will call the policy function internally.)
+     */
+#ifdef	AF_INET6
+    for(ai=fai;ai;ai=ai->ai_next){
+        struct sockaddr_in6 *saddr6;
+
+        if(ai->ai_family != AF_INET6) continue;
+
+        saddr6 = (struct sockaddr_in6*)ai->ai_addr;
+        if(IN6_IS_ADDR_LOOPBACK(saddr6->sin6_addr)){
+            errno = EADDRNOTAVAIL;
+            BWLError(cntrl->ctx,BWLErrFATAL,errno,
+                    "Loopback is not a valid test address");
             goto error;
         }
 
-	/*
-	 * Now that we have addresses - see if it is valid by attempting
-	 * to create a socket of that type, and binding(if wanted).
-	 * Also check policy for allowed connection before calling
-	 * connect.
-	 * (Binding will call the policy function internally.)
-	 */
-#ifdef	AF_INET6
-	for(ai=fai;ai;ai=ai->ai_next){
-
-		if(ai->ai_family != AF_INET6) continue;
-
-		if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
-			return 0;
-		if(rc < 0)
-			goto error;
-	}
+        if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
+            return 0;
+        if(rc < 0)
+            goto error;
+    }
 #endif
-	/*
-	 * Now try IPv4 addresses.
-	 */
-	for(ai=fai;ai;ai=ai->ai_next){
+    /*
+     * Now try IPv4 addresses.
+     */
+    for(ai=fai;ai;ai=ai->ai_next){
+        struct socakaddr_in *saddr4;
 
-		if(ai->ai_family != AF_INET) continue;
+        if(ai->ai_family != AF_INET) continue;
 
-		if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
-			return 0;
-		if(rc < 0)
-			goto error;
-	}
+        saddr4 = (struct sockaddr_in*)ai->ai_addr;
+        if(saddr4->sin_addr == INADDR_LOOPBACK){
+            errno = EADDRNOTAVAIL;
+            BWLError(cntrl->ctx,BWLErrFATAL,errno,
+                    "Loopback is not a valid test address");
+            goto error;
+        }
+
+        if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
+            return 0;
+        if(rc < 0)
+            goto error;
+    }
 
 error:
-	*err_ret = BWLErrFATAL;
+    *err_ret = BWLErrFATAL;
 
-	return -1;
+    return -1;
 }
 
 /*
@@ -314,8 +332,7 @@ BWLControlOpen(
 	/*
 	 * Initialize server record for address we are connecting to.
 	 */
-	if((!server_addr) &&
-		!(server_addr = BWLAddrByNode(cntrl->ctx,"localhost"))){
+	if(!server_addr)
 		goto error;
 	}
 	if(!BWLAddrSetSocktype(server_addr,SOCK_STREAM)){

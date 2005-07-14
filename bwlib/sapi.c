@@ -287,7 +287,7 @@ BWLControlAccept(
     }
 
     /*
-     * decide what "level" to send access logs to.
+     * TODO: decide what "level" to send access logs to.
      */
     BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
             "Connection to (%s:%s) from (%s:%s)",
