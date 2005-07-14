@@ -816,13 +816,15 @@ _BWLEndpointStart(
 
     reltime = BWLNum64Sub(tsess->reserve_time,currtime.tstamp);
 
-#if    NOT
+#if	NOT
     BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
             "currtime = %f, reservation = %f, reltime = %f",
             BWLNum64ToDouble(currtime.tstamp),
             BWLNum64ToDouble(tsess->reserve_time),
             BWLNum64ToDouble(reltime)
             );
+    BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
+	"inter = %d, catchval = %d",ipf_intr,signo_caught);
 #endif
 
     memset(&itval,0,sizeof(itval));
@@ -924,7 +926,7 @@ ACCEPT:
             }
         }
 
-        if(!local || !remote){
+       if(!local || !remote){
             BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                     "Endpoint: Unable to alloc peer addrs: %M");
             aval = BWL_CNTRL_FAILURE;
@@ -934,6 +936,7 @@ ACCEPT:
         ep->rcntrl = BWLControlOpen(ctx,local,remote,mode,
                 "endpoint",NULL,err_ret);
     }
+
     if(!ep->rcntrl){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
                 "Endpoint: Unable to connect to Peer!: %M");
@@ -944,6 +947,7 @@ ACCEPT:
         aval = BWL_CNTRL_FAILURE;
         goto end;
     }
+
     if(ipf_term)
         goto end;
 
