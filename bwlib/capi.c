@@ -242,7 +242,7 @@ _BWLClientConnect(
         if(ai->ai_family != AF_INET6) continue;
 
         saddr6 = (struct sockaddr_in6*)ai->ai_addr;
-        if(IN6_IS_ADDR_LOOPBACK(saddr6->sin6_addr)){
+        if(IN6_IS_ADDR_LOOPBACK(&saddr6->sin6_addr)){
             errno = EADDRNOTAVAIL;
             BWLError(cntrl->ctx,BWLErrFATAL,errno,
                     "Loopback is not a valid test address");
@@ -259,12 +259,12 @@ _BWLClientConnect(
      * Now try IPv4 addresses.
      */
     for(ai=fai;ai;ai=ai->ai_next){
-        struct socakaddr_in *saddr4;
+        struct sockaddr_in *saddr4;
 
         if(ai->ai_family != AF_INET) continue;
 
         saddr4 = (struct sockaddr_in*)ai->ai_addr;
-        if(saddr4->sin_addr == INADDR_LOOPBACK){
+        if(saddr4->sin_addr.s_addr == INADDR_LOOPBACK){
             errno = EADDRNOTAVAIL;
             BWLError(cntrl->ctx,BWLErrFATAL,errno,
                     "Loopback is not a valid test address");
@@ -332,7 +332,7 @@ BWLControlOpen(
 	/*
 	 * Initialize server record for address we are connecting to.
 	 */
-	if(!server_addr)
+	if(!server_addr){
 		goto error;
 	}
 	if(!BWLAddrSetSocktype(server_addr,SOCK_STREAM)){
