@@ -502,7 +502,7 @@ str2num(
     char        *endptr;
     uint32_t   npart, mult=1;
 
-    while(isdigit(str[silen])){
+    while(isdigit((int)str[silen])){
         silen++;
     }
 
@@ -572,7 +572,7 @@ str2bytenum(
     char        *endptr;
     uint32_t   npart, mult=1;
 
-    while(isdigit(str[silen])){
+    while(isdigit((int)str[silen])){
         silen++;
     }
 
@@ -1171,8 +1171,7 @@ main(
     static char         *out_opts = "pxd:I:R:n:L:e:qrvV";
     static char         *test_opts = "i:l:uw:W:P:S:b:t:c:s:S:";
     static char         *gen_opts = "hW";
-    static char         *posixly_correct="POSIXLY_CORRECT";
-    static char         *posix_getopt="True";
+    static char         *posixly_correct="POSIXLY_CORRECT=True";
 
     char                dirpath[PATH_MAX];
     struct flock        flk;
@@ -1226,9 +1225,9 @@ main(
     memset(&second,0,sizeof(second));
 
     /*
-     * Fix getopt for brain-dead linux
+     * Fix getopt if the brain-dead GNU version is being used.
      */
-    if(setenv(posixly_correct,posix_getopt,0) != 0){
+    if(putenv(posixly_correct) != 0){
         fprintf(stderr,"Unable to set POSIXLY_CORRECT getopt mode");
         exit(1);
     }
@@ -1250,7 +1249,12 @@ main(
                 app.opt.verbose++;
                 /* fallthrough */
             case 'r':
+#ifdef LOG_PERROR
                 syslogattr.logopt |= LOG_PERROR;
+#else
+		fprintf(stderr,
+		        "Warning -r: unable to implement LOG_PERROR unavailable\n");
+#endif
                 break;
             case 'q':
                 app.opt.quiet = True;
@@ -1265,9 +1269,11 @@ main(
         fprintf(stderr,"Ignoring -q (-v specified)\n");
         app.opt.quiet = False;
     }
+#ifdef LOG_PERROR
     if(!app.opt.quiet){
         syslogattr.logopt |= LOG_PERROR;
     }
+#endif
     if(app.opt.verbose > 1){
         syslogattr.logopt |= LOG_PID;
         syslogattr.line_info |= I2FILE | I2LINE;

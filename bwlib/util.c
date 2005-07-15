@@ -55,14 +55,14 @@ BWLParsePorts(
     tstr = pspec;
     endptr = NULL;
 
-    while(isspace(*tstr)) tstr++;
+    while(isspace((int)*tstr)) tstr++;
     tint = strtol(tstr,&endptr,10);
     if(!endptr || (tstr == endptr) || (tint < 0) || (tint > (int)0xffff)){
         goto failed;
     }
     prange->low = (uint16_t)tint;
 
-    while(isspace(*endptr)) endptr++;
+    while(isspace((int)*endptr)) endptr++;
 
     switch(*endptr){
         case '\0':
@@ -82,7 +82,7 @@ BWLParsePorts(
 
     tstr = endptr;
     endptr = NULL;
-    while(isspace(*tstr)) tstr++;
+    while(isspace((int)*tstr)) tstr++;
     tint = strtol(tstr,&endptr,10);
     if(!endptr || (tstr == endptr) || (tint < 0) || (tint > (int)0xffff)){
         goto failed;

@@ -29,7 +29,6 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <assert.h>
-#include <fts.h>
 
 #include <bwlib/bwlib.h>
 #include "policy.h"
@@ -254,9 +253,9 @@ parselimitline(
 		/*
 		 * Grab the keyname off the front.
 		 */
-		while(isspace(*line)){line++;}
+		while(isspace((int)*line)){line++;}
 		limname = line;
-		while(!isspace(*line) && (*line != '=')){
+		while(!isspace((int)*line) && (*line != '=')){
 			line++;
 		}
 		*line++ = '\0';
@@ -264,11 +263,11 @@ parselimitline(
 		/*
 		 * Grab the valname
 		 */
-		while(isspace(*line) || (*line == '=')){
+		while(isspace((int)*line) || (*line == '=')){
 			line++;
 		}
 		limval = line;
-		while(!isspace(*line) && (*line != '\0')){
+		while(!isspace((int)*line) && (*line != '\0')){
 			line++;
 		}
 		*line = '\0';
@@ -714,7 +713,7 @@ parselimits(
 		 */
 		if(!strncasecmp(line,"limit",5)){
 			line += 5;
-			while(isspace(*line)){
+			while(isspace((int)*line)){
 				line++;
 			}
 
@@ -729,7 +728,7 @@ parselimits(
 		 */
 		else if(!strncasecmp(line,"assign",6)){
 			line += 6;
-			while(isspace(*line)){
+			while(isspace((int)*line)){
 				line++;
 			}
 

@@ -1537,11 +1537,13 @@ main(int argc, char *argv[])
     opterr = optreset = optind = 1;
 
     /*
-     * Always use LOG_PERROR - if daemonizing, stderr will be closed,
-     * and this hurts nothing. And... commandline reporting is good
-     * until after the fork.
+     * Always use LOG_PERROR if it exists
+     * If daemonizing, stderr will be closed, and this hurts nothing.
+     * And... commandline reporting is good until after the fork.
      */
+#ifdef LOG_PERROR
     syslogattr.logopt |= LOG_PERROR;
+#endif
     errhand = I2ErrOpen(progname, I2ErrLogSyslog, &syslogattr, NULL, NULL);
     if(! errhand) {
         fprintf(stderr, "%s : Couldn't init error module\n", progname);

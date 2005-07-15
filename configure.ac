@@ -137,6 +137,9 @@ AC_DEFINE(AUTOCONF_SYSCONFDIR,/etc,"name of sysconfdir under prefix")
 AC_SUBST(BWL_PREFIX_CFLAGS)
 
 # Checks for libraries.
+AC_CHECK_LIB([socket], [main])
+AC_CHECK_LIB([nsl], [main])
+AC_CHECK_LIB([rt], [main])
 
 # Checks for header files.
 AC_HEADER_STDC
