@@ -1249,12 +1249,7 @@ main(
                 app.opt.verbose++;
                 /* fallthrough */
             case 'r':
-#ifdef LOG_PERROR
                 syslogattr.logopt |= LOG_PERROR;
-#else
-		fprintf(stderr,
-		        "Warning -r: unable to implement LOG_PERROR unavailable\n");
-#endif
                 break;
             case 'q':
                 app.opt.quiet = True;
@@ -1269,11 +1264,9 @@ main(
         fprintf(stderr,"Ignoring -q (-v specified)\n");
         app.opt.quiet = False;
     }
-#ifdef LOG_PERROR
     if(!app.opt.quiet){
         syslogattr.logopt |= LOG_PERROR;
     }
-#endif
     if(app.opt.verbose > 1){
         syslogattr.logopt |= LOG_PID;
         syslogattr.line_info |= I2FILE | I2LINE;
@@ -1608,10 +1601,11 @@ main(
     }
     else{
         /*
-         * Make sure tests start within 2 test durations.
+         * Make sure tests start within 2 test durations. (But
+         * no less than 5 minutes for the default.)
          */
         if(!app.opt.seriesWindow){
-            app.opt.seriesWindow = app.opt.timeDuration * 2;
+            app.opt.seriesWindow = MAX(app.opt.timeDuration * 2,300);
         }
         /*
          * If nIntervals not set, and seriesInterval not set
