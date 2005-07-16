@@ -583,7 +583,7 @@ _BWLInitNTP(
 {
 	struct timex	ntp_conf;
 
-	ntp_conf.modes = 0;
+        memset(&ntp_conf,0,sizeof(ntp_conf));
 
 	if(ntp_adjtime(&ntp_conf) < 0){
 		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
