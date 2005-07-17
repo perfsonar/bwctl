@@ -618,7 +618,7 @@ _BWLGetTimespec(
 	static long	syncfuzz = 0;
 	static double	*dbptr = NULL;
 
-	ntp_conf.modes = 0;
+        memset(&ntp_conf,0,sizeof(ntp_conf));
 
 	if(gettimeofday(&tod,NULL) != 0){
 		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday(): %M");
