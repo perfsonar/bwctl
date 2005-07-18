@@ -17,8 +17,17 @@
 #	Date:		Tue Sep  9 16:29:19 MDT 2003
 #
 #	Description:	
-#		This is an example "limits" file for the bwctld
+#		This is an EXAMPLE "limits" file for the bwctld
 #		process.
+#
+#		You SHOULD change this to meet the requirements for
+#		your local deployment needs!
+#
+#		This example configuration allows Abilene measurement
+#		hosts to run tests to your server, but will not allow
+#		you to run tests to your own hosts. This is intentional
+#		so you will have to look at this file and modifiy it.
+#
 #
 #	Basics:
 #	Almost the same as owampd - with the following limit types defined:
@@ -56,12 +65,7 @@ limit ami with parent=root, \
 	allow_open_mode=on
 
 # default everything to disabled
-#assign default jail
-assign default ami
-
-# loopback for testing
-assign net ::/127 ami
-assign net 127.0.0.1/32 ami
+assign default jail
 
 # nmslan networks
 assign net 2001:468::/40 ami
@@ -69,4 +73,4 @@ assign net 198.32.10.0/23 ami
 assign net 207.75.164.0/24 ami
 
 # testing
-assign user boote ami
+#assign user demo ami
