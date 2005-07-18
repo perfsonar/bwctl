@@ -2294,7 +2294,7 @@ sess_req_err:
                  * Send TerminateSession
                  */
                 if(recvfp == stdout){
-                    fprintf(stdout,"RECEIVER START\n");
+                    fprintf(stdout,"\nRECEIVER START\n");
                 }
                 if( (err_ret =BWLEndSession(s[0]->cntrl,
                                 &ip_intr,recvfp))
@@ -2303,7 +2303,7 @@ sess_req_err:
                     goto next_test;
                 }
                 if(recvfp == stdout){
-                    fprintf(stdout,"RECEIVER END\n");
+                    fprintf(stdout,"\nRECEIVER END\n");
                 }
                 else{
                     fclose(recvfp);
@@ -2319,7 +2319,7 @@ sess_req_err:
 
                 /* sender session */
                 if(sendfp == stdout){
-                    fprintf(stdout,"SENDER START\n");
+                    fprintf(stdout,"\nSENDER START\n");
                 }
                 if( (err_ret = BWLEndSession(s[1]->cntrl,
                                 &ip_intr,sendfp))
@@ -2328,7 +2328,7 @@ sess_req_err:
                     goto next_test;
                 }
                 if(sendfp == stdout){
-                    fprintf(stdout,"SENDER END\n");
+                    fprintf(stdout,"\nSENDER END\n");
                 }
                 else if(sendfp){
                     fclose(sendfp);
