@@ -52,6 +52,7 @@ static    ipapp_trec    app;
 static    I2ErrHandle   eh;
 static    uint32_t     file_offset,ext_offset;
 static    int           ip_intr = 0;
+static    int           ip_chld = 0;
 static    int           ip_reset = 0;
 static    int           ip_exit = 0;
 static    int           ip_error = SIGCONT;
@@ -395,7 +396,16 @@ static void
 CloseSessions(
         )
 {
+    struct itimerval    itval;
+
     /* TODO: Handle clearing other state. Canceling tests nicely? */
+
+    if(first.cntrl){
+        BWLControlClose(first.cntrl);
+        first.cntrl = NULL;
+        first.sockfd = 0;
+        first.tspec.req_time.tstamp = zero64;
+    }
 
     if(second.cntrl){
         BWLControlClose(second.cntrl);
@@ -409,14 +419,37 @@ CloseSessions(
                 fake_fd = -1;
             }
             if(fake_pid > 0){
-                int    status = 0;
-                pid_t    rc;
+                int     status = 0;
+                pid_t   rc;
+                int     killed=0;
 
-                (void)kill(fake_pid,SIGTERM);
+                /*
+                 * Attempt to let the spawned daemon complete on
+                 * it's own by waiting 1 seconds before killing it.
+                 */
+time_wait:
+                ip_intr=0;
+                ip_chld=0;
+                memset(&itval,0,sizeof(itval));
+                itval.it_value.tv_sec = 1;
+                if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+                    I2ErrLog(eh,"setitimer(): %M");
+                    exit(-1);
+                }
+
 again:
                 rc = waitpid(fake_pid,&status,0);
                 if(fake_pid != rc){
                     if(errno == EINTR){
+                        /*
+                         * If the timer went off, then kill the
+                         * child process.
+                         */
+                        if(ip_intr && !killed){
+                            (void)kill(fake_pid,SIGTERM);
+                            killed=1;
+                            goto time_wait;
+                        }
                         goto again;
                     }
                     I2ErrLog(eh,"waitpid() returned %d: %M",
@@ -428,13 +461,6 @@ again:
             fake_daemon = False;
         }
     }
-    if(first.cntrl){
-        BWLControlClose(first.cntrl);
-        first.cntrl = NULL;
-        first.sockfd = 0;
-        first.tspec.req_time.tstamp = zero64;
-    }
-
     return;
 }
 
@@ -450,6 +476,8 @@ sig_catch(
             ip_exit++;
             break;
         case SIGCHLD:
+            ip_chld++;
+            break;
         case SIGHUP:
             ip_reset++;
             break;
@@ -1687,7 +1715,7 @@ main(
     /*
      * setup sighandlers
      */
-    ip_reset = ip_exit = 0;
+    ip_chld = ip_reset = ip_exit = 0;
     act.sa_handler = sig_catch;
     sigemptyset(&act.sa_mask);
     act.sa_flags = SA_NOCLDSTOP;
