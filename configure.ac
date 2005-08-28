@@ -143,7 +143,7 @@ AC_CHECK_LIB([rt], [main])
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([errno.h netdb.h stdlib.h sys/param.h sys/socket.h sys/time.h])
+AC_CHECK_HEADERS([errno.h netdb.h stdlib.h sys/param.h sys/socket.h sys/time.h sys/timex.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 I2_C___ATTRIBUTE__
