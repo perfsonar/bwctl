@@ -1168,12 +1168,12 @@ end:
         BWLError(ctx,BWLErrFATAL,errno,"setitimer(): %M");
     }
 
+#if    NOT
     if(!BWLGetTimeStamp(ctx,&currtime)){
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "BWLGetTimeStamp(): %M");
         abort();
     }
-#if    NOT
     BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
             "End of test: currtime = %f",
             BWLNum64ToDouble(currtime.tstamp)
@@ -1185,20 +1185,33 @@ end:
          * Never even got to the point of forking off iperf
          */
         ep->acceptval = BWL_CNTRL_FAILURE;
-    }else{
+        goto child_done;
+    }
+
+    /*
+     * If EndpointStatus does not return a valid accept value, then
+     * the process is still alive and needs to be killed.
+     */
+    if(!_BWLEndpointStatus(tsess,&ep->acceptval,err_ret)){
+        exit(BWL_CNTRL_FAILURE);
+    }
+
+    if(ep->acceptval < 0){
         if(kill(ep->child,SIGKILL) == 0){
 
-            /* child was still alive - had to kill off child process! */
-            BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"Killing iperf child, pid=%d",
-                    ep->child);
-            /*
-             * report that this endpoint data is suspect since it
-             * had to be killed by the parent process.
-             */
-            if(fwrite("BWCTL_WARNING: iperf process killed: timslot variation",
-                        sizeof(char),55,tsess->localfp) != 55){
-                BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-                        "Error adding warning string to iperf data results");
+            if(!ipf_chld){
+                /* child was still alive - had to kill off child process! */
+                BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+                        "Killing iperf child, pid=%d",ep->child);
+                /*
+                 * report that this endpoint data is suspect since it
+                 * had to be killed by the parent process.
+                 */
+                if(fwrite("BWCTL_WARNING: iperf killed: timslot irregularity",
+                            sizeof(char),50,tsess->localfp) != 50){
+                    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                            "Error writing warning to iperf data results");
+                }
             }
         }
         else if(errno != ESRCH){
@@ -1214,6 +1227,7 @@ end:
         }
     }
 
+child_done:
     if(ep->acceptval != BWL_CNTRL_ACCEPT){
         ep->acceptval = BWL_CNTRL_FAILURE;
         tsess->localfp = NULL;
