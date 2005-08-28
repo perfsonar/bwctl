@@ -43,11 +43,11 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <bwlib/bwlib.h>
 #ifdef  HAVE_SYS_TIMEX_H
 #include <sys/timex.h>
 #endif
-#include <sys/types.h>
-#include <bwlib/bwlib.h>
 
 /*
  * Function:	_BWLEncodeTimeStamp
