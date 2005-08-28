@@ -43,7 +43,9 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/time.h>
+#ifdef  HAVE_SYS_TIMEX_H
 #include <sys/timex.h>
+#endif
 #include <sys/types.h>
 #include <bwlib/bwlib.h>
 
@@ -578,30 +580,37 @@ BWLTimeStampToTimespec(
  */
 int
 _BWLInitNTP(
-	BWLContext	ctx
+	BWLContext	ctx __attribute__((unused))
 	)
 {
-	struct timex	ntp_conf;
+    /*
+     * If this system has the ntp system calls, use them. Otherwise,
+     * just assume the clock is not synchronized.
+     * (Setting SyncFuzz is advisable in this case.)
+     */
+#ifdef  HAVE_SYS_TIMEX_H
+    struct timex	ntp_conf;
 
-        memset(&ntp_conf,0,sizeof(ntp_conf));
+    memset(&ntp_conf,0,sizeof(ntp_conf));
 
-	if(ntp_adjtime(&ntp_conf) < 0){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
-		return 1;
-	}
+    if(ntp_adjtime(&ntp_conf) < 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
+        return 1;
+    }
 
-	if(ntp_conf.status & STA_UNSYNC){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
-	}
+    if(ntp_conf.status & STA_UNSYNC){
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
+    }
 
 #ifdef	STA_NANO
-	if( !(ntp_conf.status & STA_NANO)){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-		"_BWLInitNTP: STA_NANO must be set! - try \"ntptime -N\"");
-		return 1;
-	}
-#endif
-	return 0;
+    if( !(ntp_conf.status & STA_NANO)){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "_BWLInitNTP: STA_NANO must be set! - try \"ntptime -N\"");
+        return 1;
+    }
+#endif	/*  STA_NANO */
+#endif  /*  HAVE_SYS_TIMEX_H */
+    return 0;
 }
 
 static struct timespec *
@@ -612,99 +621,125 @@ _BWLGetTimespec(
 		int			*sync
 		)
 {
-	struct timeval	tod;
-	struct timex	ntp_conf;
-	long		sec;
-	static long	syncfuzz = 0;
-	static double	*dbptr = NULL;
+    struct timeval  tod;
+    static long	    syncfuzz = 0;
+    static double   *dbptr = NULL;
+    uint32_t        maxerr;
+
+    /*
+     * By default, assume the clock is unsynchronized, but that it
+     * is still acurate to within 1 second (1000000 usec's).
+     */
+    *sync = 0;
+    maxerr = (uint32_t)1000000;
+
+    if(gettimeofday(&tod,NULL) != 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday(): %M");
+        return NULL;
+    }
+
+    /* assign localtime */
+    ts->tv_sec = tod.tv_sec;
+    ts->tv_nsec = tod.tv_usec * 1000;	/* convert to nsecs */
+
+    /*
+     * If ntp system calls are available use them to determine
+     * time error.
+     */
+#ifdef HAVE_SYS_TIMEX_H
+    {
+        struct timex	ntp_conf;
 
         memset(&ntp_conf,0,sizeof(ntp_conf));
+        if(ntp_adjtime(&ntp_conf) < 0){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
+            return NULL;
+        }
 
-	if(gettimeofday(&tod,NULL) != 0){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday(): %M");
-		return NULL;
-	}
+        /*
+         * Check sync flag
+         */
+        if(ntp_conf.status & STA_UNSYNC){
+            /*
+             * Report the unsync state - but only at level "info".
+             * This is reported at level "warning" at initialization.
+             */
+            BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
+        }
+        else{
+            long    sec;
 
-	if(ntp_adjtime(&ntp_conf) < 0){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
-		return NULL;
-	}
-
-	/* assign localtime */
-	ts->tv_sec = tod.tv_sec;
-	ts->tv_nsec = tod.tv_usec * 1000;	/* convert to nsecs */
-
-	/*
-	 * Apply ntp "offset"
-	 */
+            *sync = 1;
+            /*
+             * Apply ntp "offset"
+             */
 #ifdef	STA_NANO
-	sec = 1000000000;
+            sec = 1000000000;
 #else
-	sec = 1000000;
+            sec = 1000000;
 #endif
-	/*
-	 * Convert negative offsets to positive ones by decreasing
-	 * the ts->tv_sec.
-	 */
-	while(ntp_conf.offset < 0){
-		ts->tv_sec--;
-		ntp_conf.offset += sec;
-	}
+            /*
+             * Convert negative offsets to positive ones by decreasing
+             * the ts->tv_sec.
+             */
+            while(ntp_conf.offset < 0){
+                ts->tv_sec--;
+                ntp_conf.offset += sec;
+            }
 
-	/*
-	 * Make sure the "offset" is less than 1 second
-	 */
-	while(ntp_conf.offset >= sec){
-		ts->tv_sec++;
-		ntp_conf.offset -= sec;
-	}
+            /*
+             * Make sure the "offset" is less than 1 second
+             */
+            while(ntp_conf.offset >= sec){
+                ts->tv_sec++;
+                ntp_conf.offset -= sec;
+            }
 
 #ifndef	STA_NANO
-	ntp_conf.offset *= 1000;
+            ntp_conf.offset *= 1000;
 #endif
-	ts->tv_nsec += ntp_conf.offset;
-	if(ts->tv_nsec >= 1000000000){
-		ts->tv_sec++;
-		ts->tv_nsec -= 1000000000;
-	}
+            ts->tv_nsec += ntp_conf.offset;
+            if(ts->tv_nsec >= 1000000000){
+                ts->tv_sec++;
+                ts->tv_nsec -= 1000000000;
+            }
 
-	/*
-	 * Check sync flag
-	 */
-	if(ntp_conf.status & STA_UNSYNC)
-		*sync = 0;
-	else
-		*sync = 1;
+            maxerr = (uint32_t)ntp_conf.maxerror;
+        }
 
-	/*
-	 * See if SyncFuzz was set.
-	 * Used to increase tolerance for incomplete NTP configs.
-	 */
-	if(!dbptr){
-		dbptr = (double*)BWLContextConfigGet(ctx,BWLSyncFuzz);
-		if(dbptr){
-			/*
-			 * BWLSyncFuzz is specified as a double (sec)
-			 * ntp errors are long (usec) convert.
-			 */
-			syncfuzz = *dbptr * 1000000;
-		}
-		dbptr = (void*)1; /* not a valid pointer - just non-null */
-	}
+    }
+#endif
 
-	/*
-	 * Set estimated error
-	 */
-	*esterr = (uint32_t)ntp_conf.maxerror + syncfuzz;
+    /*
+     * See if SyncFuzz was set.
+     * Used to increase tolerance for incomplete NTP configs.
+     */
+    if(!dbptr){
+        dbptr = (double*)BWLContextConfigGet(ctx,BWLSyncFuzz);
+        if(dbptr){
+            /*
+             * BWLSyncFuzz is specified as a double (sec)
+             * ntp errors are long (usec) convert.
+             */
+            syncfuzz = *dbptr * 1000000;
+        }
+        dbptr = (void*)1; /* not a valid pointer - just non-null */
+    }
 
-	/*
-	 * Error estimate should never be 0, but I've seen ntp do it!
-	 */
-	if(!*esterr){
-		*esterr = 1;
-	}
+    /*
+     * Set estimated error
+     */
+    *esterr = maxerr + syncfuzz;
 
-	return ts;
+    /*
+     * Make sure a non-zero error is always returned - perfection
+     * is not allowed. ;)
+     */
+    if(!*esterr){
+        *esterr = 1;
+    }
+
+    return ts;
 }
 
 BWLTimeStamp *

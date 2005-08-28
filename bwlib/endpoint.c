@@ -24,7 +24,6 @@
 #include <signal.h>
 #include <netinet/in.h>
 #include <assert.h>
-#include <sys/timex.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -824,7 +823,7 @@ _BWLEndpointStart(
             BWLNum64ToDouble(reltime)
             );
     BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
-	"inter = %d, catchval = %d",ipf_intr,signo_caught);
+            "inter = %d, catchval = %d",ipf_intr,signo_caught);
 #endif
 
     memset(&itval,0,sizeof(itval));
@@ -926,7 +925,7 @@ ACCEPT:
             }
         }
 
-       if(!local || !remote){
+        if(!local || !remote){
             BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                     "Endpoint: Unable to alloc peer addrs: %M");
             aval = BWL_CNTRL_FAILURE;
@@ -979,8 +978,9 @@ ACCEPT:
 
     /*
      * Now fork again. The child will go on to "exec" iperf at the
-     * appropriate time. The parent will open a connection to the other
-     * endpoint for the test results exchange.
+     * appropriate time. The parent will exchange timestamps with the other
+     * endpoint for time-sync validation and then trade the test results
+     * upon completion of the test.
      */
     ep->child = fork();
 
@@ -1103,29 +1103,33 @@ select:
      * Is socket readable?
      */
     if(!ipf_term && (rc > 0)){
+        /*
+         * Handle unexpected error condition - goto is C's exception
+         * handler.
+         */
         if(!FD_ISSET(ep->rcntrl->sockfd,&readfds)){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                     "select(): peer connection not ready?");
             aval = BWL_CNTRL_FAILURE;
             ipf_term++;
+            goto end;
         }
-        else{
-            do_read=0;
-            msgtype = BWLReadRequestType(ep->rcntrl,&ipf_term);
-            if(msgtype == 0){
+
+        do_read=0;
+        msgtype = BWLReadRequestType(ep->rcntrl,&ipf_term);
+        switch(msgtype){
+
+            /* socket closed */
+            case 0:
                 BWLError(ctx,BWLErrFATAL,errno,
                         "Test peer closed connection.");
                 aval = BWL_CNTRL_FAILURE;
                 ipf_term++;
                 do_write=0;
-            }
-            else if(msgtype != 3){
-                BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                        "Invalid protocol message from test peer");
-                aval = BWL_CNTRL_FAILURE;
-                do_write=0;
-            }
-            else{
+                break;
+
+                /* stop session message */
+            case 3:
                 *err_ret = _BWLReadStopSession(ep->rcntrl,
                         &ipf_term,&aval,tsess->remotefp);
                 if((*err_ret == BWLErrOK) &&
@@ -1143,7 +1147,15 @@ select:
                         goto end;
                     goto select;
                 }
-            }
+                break;
+
+                /* anything else */
+            default:
+                BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                        "Invalid protocol message from test peer");
+                aval = BWL_CNTRL_FAILURE;
+                do_write=0;
+                break;
         }
     }
 
@@ -1174,7 +1186,23 @@ end:
          */
         ep->acceptval = BWL_CNTRL_FAILURE;
     }else{
-        if((kill(ep->child,SIGKILL) != 0) && (errno != ESRCH)){
+        if(kill(ep->child,SIGKILL) == 0){
+
+            /* child was still alive - had to kill off child process! */
+            BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"Killing iperf child, pid=%d",
+                    ep->child);
+            /*
+             * report that this endpoint data is suspect since it
+             * had to be killed by the parent process.
+             */
+            if(fwrite("BWCTL_WARNING: iperf process killed: timslot variation",
+                        sizeof(char),55,tsess->localfp) != 55){
+                BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                        "Error adding warning string to iperf data results");
+            }
+        }
+        else if(errno != ESRCH){
+            /* kill failed */
             BWLError(ctx,BWLErrFATAL,errno,
                     "Unable to kill test endpoint, pid=%d: %M",
                     ep->child);
@@ -1201,20 +1229,28 @@ end:
 
     if(do_read && !ipf_term){
         msgtype = BWLReadRequestType(ep->rcntrl,&ipf_term);
-        if(msgtype == 0){
-            BWLError(ctx,BWLErrFATAL,errno,
-                    "Test peer closed connection.");
-            aval = BWL_CNTRL_FAILURE;
-        }
-        else if(msgtype != 3){
-            BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                    "Invalid protocol message from test peer: %d,ipf_term=%d",
-                    msgtype,ipf_term);
-            aval = BWL_CNTRL_FAILURE;
-        }
-        else{
-            (void)_BWLReadStopSession(ep->rcntrl,
-                                      &ipf_term,&aval,tsess->remotefp);
+        switch(msgtype){
+            /* peer socket closed*/
+            case 0:
+                BWLError(ctx,BWLErrFATAL,errno,
+                        "Test peer closed connection.");
+                aval = BWL_CNTRL_FAILURE;
+                break;
+
+                /* stop session message received */
+            case 3:
+                (void)_BWLReadStopSession(ep->rcntrl,
+                                          &ipf_term,&aval,tsess->remotefp);
+                break;
+
+                /* invalid message received */
+            default:
+
+                BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                        "Invalid protocol message from test peer: %d, "
+                        "ipf_term=%d",msgtype,ipf_term);
+                aval = BWL_CNTRL_FAILURE;
+                break;
         }
     }
 
