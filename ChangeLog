@@ -1,0 +1,2762 @@
+2005-08-28  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c:
+	Modifying the "iperf killed" code to do a non-blocking waitpid just
+	before the message - just to double check that the process is still
+	going.
+
+	jeff
+
+	* bwlib/time.c:
+	Need to include timex.h *after* bwlib.h since the autoconf macro's
+	are not defined until then.
+
+	jeff
+
+	* bwlib/endpoint.c, bwlib/time.c: 2 changes:
+
+	1) Added message into data stream to indicate iperf was killed for
+	scheduling purposes.
+
+	2) Modified code to still work if ntp system calls are not available
+	or if system clock is not synchronized.
+
+	jeff
+
+	* configure.ac:
+	Adding header check for timex.h. This file is required for the ntp system
+	calls. The code has been modified to not use the system calls if this
+	header file is not found.
+
+	jeff
+
+	* I2util/doc/aespasswd.man:
+	Added a some explanitory text that mentions the name of the bwctld.keys and
+	owampd.keys file based on feedback from walter (auburn)
+
+	jeff
+
+2005-07-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c:
+	Fixed a bug in the "spawned" local server case. Need to wait for the child
+	daemon to exit on it's own, or the protocol message you read from it for
+	the "close" will not be valid...
+
+	jeff
+
+2005-07-18  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* conf/bwctld.conf, conf/bwctld.limits, configure.ac:
+	Preparing for "alpha" release - fixed config files to be more appropriate
+	for an "example".
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Adding newlines to output to make it a little more readable.
+
+	jeff
+
+2005-07-17  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/bwctl.man:
+	Changing the default -L value to be no less than 5 minutes.
+
+	jeff
+
+	* bwlib/time.c: initializing full ntp_conf structure.
+
+	jeff
+
+	* I2util/I2util/ErrLogSyslog.c:
+	Adding newline to fprintf output of PERROR code.
+
+	jeff
+
+2005-07-16  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/time.c: Initialize the whole ntp_conf structure...
+
+	jeff
+
+	* I2util/config/c-syslog-perror.m4, I2util/configure.ac:
+	Adding autoconf magic for determining if the OS syslog supports LOG_PERROR.
+
+	jeff
+
+	* I2util/I2util/ErrLogSyslog.c, I2util/I2util/errlog.h, bwctl/bwctl.c, bwctld/bwctld.c:
+	Adding code to print error messages to stderr in the I2Util error module
+	to handle LOG_PERROR directly if syslog does not provide the functionality.
+
+	jeff
+
+2005-07-15  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLogSyslog.c, I2util/I2util/Options.c, I2util/I2util/conf.c, I2util/I2util/readpassphrase.c, I2util/configure.ac, bwctl/bwctl.c, bwctld/bwctld.c, bwctld/policy.c, bwlib/util.c, configure.ac:
+	Porting to Solaris... This compiles, I have yet to do any real testing.
+	Once this is checked in, I will make sure these changes don't break
+	Linux/FreeBSD.
+
+	configure.ac:
+	    Adding socket,nsl,rt libraries
+	    Adding check for paths.h header file
+
+	ErrLogSyslog.c:
+	    Define LOG_AUTHPRIV and LOG_FTP if they are not defined.
+
+	Options.c:
+	conf.c:
+	    Adding cast from char to int for all isspace/isdigit args.
+
+	readpassphrase.c:
+	    remove cdefs.h.
+	    Add check for autoconf paths.h value, include or define _PATH_TTY.
+	    Adding cast from char to int for all isspace/isdigit args.
+
+	bwctl.c:
+	    Adding cast from char to int for all isspace/isdigit args.
+	    Change setenv to putenv to set POSIXLY_CORRECT for getopt.
+	    Check for LOG_PERROR. (Add warning if -r is passed in, and
+	        LOG_PERROR is not available.)
+
+	bwctld.c:
+	    Add check for LOG_PERROR.
+
+	policy.c:
+	    Remove fts.h - not even used here, this is an owamp leftover...
+	    Adding cast from char to int for all isspace/isdigit args.
+
+	util.c:
+	    Adding cast from char to int for all isspace/isdigit args.
+
+2005-07-14  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/readpassphrase.h: Removing cdefs here too...
+
+	* I2util/I2util/util.h:
+	changing stdint to inttypes. Sometimes standards are less than clear... !%##@
+
+	* I2util/I2util/table.h, I2util/I2util/util.h:
+	Adding include of stdint.h to get the uint* types on linux.
+
+	* I2util/I2util/md5.h: Removing reference to sys/cdefs.h.
+
+	jeff
+
+	* I2util/I2util/conf.c, I2util/I2util/conf.h, I2util/I2util/hex.c, I2util/I2util/hex.h, I2util/I2util/md5.c, I2util/I2util/md5.h, I2util/I2util/saddr.c, I2util/I2util/saddr.h, I2util/I2util/table.c, I2util/I2util/table.h, I2util/aespasswd/aespasswd.c, bwctl/bwctl.c, bwctl/bwctlP.h, bwctld/bwctld.c, bwctld/bwctldP.h, bwctld/policy.c, bwctld/policy.h, bwlib/api.c, bwlib/arithm64.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/capi.c, bwlib/context.c, bwlib/endpoint.c, bwlib/io.c, bwlib/protocol.c, bwlib/sapi.c, bwlib/schedule.c, bwlib/time.c, bwlib/util.c, conf/bwctld.conf:
+	changing all u_int* types to uint* types so they agree with the latest
+	'C' standard. This is part of a Solaris port - I am about to make sure this
+	still works on Linux/FreeBSD...
+
+	jeff
+
+	* bwlib/endpoint.c: Adding some debugging code.
+
+	jeff
+
+	* bwlib/capi.c: syntax error. Sigh.
+
+	* bwlib/capi.c, bwlib/sapi.c: capi.c:
+
+	    Added a check for localhost/loopback - those addresses are not valid
+	    test endpoints. (They are not routable off the host, and trying to
+	    use them confuses the "peer" connection.)
+
+	    Removing default address of localhost from BWLControlOpen if server
+	    address is not specified. (This would have failed had it happened
+	    anyway.)
+
+	sapi.c:
+	    Modified a comment.
+
+2005-07-12  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/api.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/sapi.c:
+	Fix for srcnode bug. (Passive bit was not being set in "hints" for
+	some configurations.)
+
+	jeff
+
+	* bwlib/capi.c:
+	Fix annoying bug that caused incorrect error to be returned. (Caused by
+	an uninitialized variable. I was jumping into the middle of a block,
+	and the static initializer was never being executed.)
+
+	(Yes, this is the one everyone always complains about.)
+
+	jeff
+
+2005-07-11  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* configure.ac:
+	Increasing version number - to prepare for bug-fix release.
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Changing version string to print at bottom of usage() message.
+
+	jeff
+
+	* bwctld/bwctld.c:
+	Changing version string to print at bottom of usage message.
+
+	jeff
+
+	* doc/index.html: Adding an ack's section.
+
+	jeff
+
+	* bwctld/bwctld.c: Just changed code formatting for readability.
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Adding more contextual information to passphrase prompt. You are now told
+	which host you are attempting to authenticate for in addition to the
+	identity name. (If it is for the -A flag, the host is listed as BOTH.)
+
+	jeff
+
+	* bwctl/bwctl.c, bwctld/bwctld.c:
+	Adding version reporting to usage() messages.
+
+	jeff
+
+2005-05-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c:
+	Corrected logic flow. -f is now REQUIRED if the uid comes back as 0.
+
+	jeff
+
+	* bwctld/bwctld.c: typo.
+
+	* doc/bwctld.conf.man, doc/bwctld.man, bwctld/bwctld.c, bwctld/bwctldP.h, conf/bwctld.conf:
+	Adding an option to allow bwctld to run with root permissions.
+	(Needed for specifying some combinations of TOS bits.)
+
+	(One bug done.)
+
+	jeff
+
+2005-04-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/aespasswd/aespasswd.c: I2util/
+	aespasswd.c:
+	    Fixed C macro for creating a string out of a constant.
+
+	doc/*:
+	    *   Added some NTP details based on user comments. (These are old, I
+	    still need to incorporate comments from the Atl workshop.
+	    *   Made arch diagram a little nicer.
+
+	owamp/*:
+	    Changes to deal with IPC for reporting back skip ranges to control
+	    process from the "sender" process. Also, changes for the file format
+	    to deal with skip records and of course changes to deal with the
+	    modifications to the StopSessions and FetchSession protocols.
+
+	owampd/*:
+	    Forgot to initialize a variable.
+
+	owping:
+	    formatting changes
+
+	powstream:
+	    change iotime to 3.
+
+	jeff
+
+2005-03-15  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/io.c, I2util/I2util/random.c, I2util/I2util/random.h, I2util/I2util/table.c:
+	better comments.
+
+	jeff
+
+2004-09-16  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c: Correct error message.
+
+	jeff
+
+	* bwctl/bwctl.c: Ugh - now fix the code to work on FreeBSD again too.
+
+	computers--
+
+	jeff
+
+	* CHANGES, bwctl/bwctl.c, configure.ac, doc/index.html:
+	correct brain-dead linux getopt.
+
+	jeff
+
+2004-09-14  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* CHANGES, INSTALL, README, configure.ac:
+	Modified to prepare for 1.1a release.
+
+	jeff
+
+	* doc/architecture.html, doc/index.html: spell checked...
+
+	* bwctl/bwctl.c, doc/architecture.html, doc/bwctl.man, doc/bwctl_arch.png, doc/bwctl_arch.vsd, doc/bwctl_arch_servless.png, doc/bwctl_arch_servless.vsd, doc/bwctld.conf.man, doc/index.html:
+	Document new features.
+
+	jeff
+
+2004-09-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* conf/bwctld.conf: document conf file a little better.
+
+	jeff
+
+	* doc/bwctl.man, doc/bwctld.conf.man:
+	Merging SERVLESS_CLIENT changes into HEAD.
+
+	bwctl
+		New athentication options
+		TOS
+		(Still need to document 3-party,servless client, env vars.)
+
+	bwctld
+		new conf options
+
+	jeff
+
+	* conf/bwctld.conf: Merging SERVLESS_CLIENT changes into HEAD.
+
+	Added example and description of:
+	peerports
+	priority
+	accesspriority
+
+	jeff
+
+	* bwlib/Makefile.am, bwlib/api.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/capi.c, bwlib/context.c, bwlib/endpoint.c, bwlib/protocol.c, bwlib/sapi.c, bwlib/util.c:
+	Merging SERVLESS_CLIENT changes into HEAD.
+
+	api.c:
+		Lots of changes to the Addr abstraction to support more
+		socktypes and address families. Unified Addr abstraction
+		a LOT. Eventually, this should probably move down into I2util.
+
+	bwlib.h:
+	bwlibP.h:
+		Added support for PeerPortRange.
+		Added support to log access and errors to different prio's.
+
+	capi.c:
+		Modified to use new Addr api.
+
+	context.c:
+		Access log prio - access function for context.
+
+	endpoint.c:
+		Modified iperf_exec to use execv in support of a user spawned daemon.
+		Modified to use new Addr api.
+		Added TOS support.
+
+	protocol.c:
+		Modified to use new Addr api.
+		Added TOS support.
+
+	sapi.c:
+		Modified to use new Addr api.
+
+	util.c:
+		Removed Hex funcs.
+		Added a parse ports function to do port range logic for
+			both bwctl and bwctld.
+
+
+	jeff
+
+	* bwctld/bwctld.c, bwctld/bwctldP.h, bwctld/policy.c, bwctld/policy.h:
+	Merging SERVLESS_CLIENT changes into HEAD.
+
+	bwctld.c:
+		Added option to configure a port range for peer connections.
+		Modified scheduling algorithm to enable 3-party to work.
+
+		Modified srcnode option to allow only setting the port to wildcard
+		the address on a different port for listening.
+
+		Added TOS support to protocol.
+
+		Modified iperf exec to bind the source address for the sender.
+
+		Modified the ordering of initialization to change when the setuid
+		will happen. (This will be more important later when bwctld notices
+		changes in the config/limits files.)
+
+		Modied daemon to send "access" messages with a different priority
+		than "error" messages to allow admins to seperate these in
+		syslog.
+
+	jeff
+
+	* bwctl/bwctl.c: Merging SERVLESS_CLIENT changes into HEAD.
+
+	bwctl.c:
+		3-party implemented:
+			bwctl can now talk to do remote servers to arrange
+			a test between them.
+		servless client implemented:
+			If only one target host is specified, then the localhost
+			is assumed to be the other target. If bwctl can't contact
+			a local daemon, it will spawn off a process to run iperf
+			itself - dealing with all peer communication with the
+			other bwctld process.
+		Completely modified the scheduling algorithm so it would work
+			with 3-party as well as point-2-point. (timing issues
+			were different, and I had to rethink.)
+		Lots of small things...
+		Enabled the -S (TOS) option to iperf.
+		Modified the way error logging happens.
+		Added a number of environment variables to control how a
+			spawned off daemon controls iperf. (port numbers etc...)
+		Generalized the authentication options to make future auth
+			protocols easier to incorporate.
+
+	jeff
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/ErrLogSyslog.c, I2util/I2util/conf.c, I2util/I2util/conf.h, I2util/I2util/errlog.h:
+	Merging SERVLESS_CLIENT changes into HEAD.
+
+	errlog.h:
+	ErrLog.c:
+		Ignore messages with level "none".
+
+	ErrLogSyslog.c:
+		Add "none" priority
+
+	conf.h:
+	conf.c:
+		Added str2num function to deal with suffix multiples. i.e. 100k 'k'.
+		Added str2byte function to deal with suffix multiples. i.e. 100k 'k'.
+		(these are different in that 'num' function uses k == 1000, and
+		byte function uses k == 1024.
+	jeff
+
+2004-09-09  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/api.c:
+	Modified address stuff a bit to fix node-less address specification.
+	(Must specify sock_stream...)
+
+	jeff
+
+	* bwlib/api.c:
+	Modified Addr code so that port numbers can be specified without a hostname.
+	This allows bwctld to bind to a non-default port and still wildcard the
+	address.
+
+	jeff
+
+	* bwctl/bwctl.c: Updated "usage" message to indicate -S will now work.
+
+	jeff
+
+	* bwctl/bwctl.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/endpoint.c, bwlib/protocol.c, doc/bwctl.man:
+	- Adding option to set TOS bits (request by Joe Metzger)
+	    (This option is backward compatible. It will simply be ignored
+	    by bwctld servers that don't know about it.)
+
+	- Updated man page to reflect TOS change.
+
+	- Modified to bind the source address for iperf senders
+
+	jeff
+
+	* bwctl/bwctl.c: removed unused var.
+
+	jeff
+
+	* bwlib/bwlib.h, bwlib/sapi.c: compile errors.
+
+	* I2util/I2util/ErrLogSyslog.c, I2util/I2util/errlog.h:
+	SYSLOG_NAMES is painful...
+
+	jeff
+
+	* I2util/I2util/ErrLogSyslog.c, I2util/I2util/errlog.h:
+	Adding includes for syslog.h in slightly different places.
+
+	jeff
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/ErrLogSyslog.c, I2util/I2util/errlog.h, bwctl/bwctl.c, bwctld/bwctld.c, bwctld/bwctldP.h, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/context.c, bwlib/sapi.c, conf/bwctld.conf, doc/bwctld.conf.man:
+	Splitting error log messages from access log messages using the syslog
+	"priority". There are two new bwctld.conf parameters to control this.
+
+	(This also now makes it possible to shut-up the spawned off daemon from
+	bwctl...)
+
+	jeff (still need to test.)
+
+2004-09-08  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* conf/bwctld.conf: Adding peerports config stanza in conf file.
+
+	jeff
+
+	* bwctl/bwctl.c, bwlib/util.c: fixed syntax errors.
+
+2004-09-07  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwctld/bwctldP.h, bwlib/Makefile.am, bwlib/bwlib.h, bwlib/endpoint.c, bwlib/util.c, doc/bwctld.conf.man:
+	Added "peerports" feature to both the bwctld and bwctl spawned servers.
+
+	(And documented it in the bwctld.conf.man page.)
+
+	jeff
+
+2004-09-02  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/sapi.c: Removed debugging messages.
+
+	jeff
+
+	* bwlib/endpoint.c: fix compile warnings.
+
+	jeff
+
+	* bwctld/bwctld.c, bwlib/bwlib.h, bwlib/endpoint.c:
+	Backend code to limit port selection for peer connections. (Still need to
+	add an option to bwctld to use it.)
+
+	jeff
+
+2004-08-27  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/api.c, bwlib/capi.c, bwlib/sapi.c:
+	Sigh. finally. Server-less client is completely working
+	again now. I ended up having to completely rip apart the
+	Addr abstraction I was using to make it work with AF_UNIX
+	sockets as well as IPV4 and IPV6. (This was needed because I
+	spawn off a local copy of the server by creating a pipe and
+	forking.) Because of these changes, I was able to collect all
+	address related functions to one area and shrink the size of
+	the code some. (It probably isn't more simple, but this may
+	make it easier to port to other things.)
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Handle interrupts in the CloseSessions wait for spawned server.
+
+	jeff
+
+	* bwlib/api.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/endpoint.c, bwlib/sapi.c:
+	fixed syntax errors.
+
+	jeff
+
+	* bwlib/api.c, bwlib/bwlib.h, bwlib/capi.c, bwlib/sapi.c:
+	More changes for Addr function changes.
+
+	jeff
+
+2004-08-26  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/api.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/capi.c, bwlib/endpoint.c, bwlib/protocol.c, bwlib/sapi.c:
+	Changed Addr functions around to make them more uniform across everything.
+
+	jeff
+
+	* bwctl/bwctl.c: Modified to use new AddrBy functions.
+
+	jeff
+
+	* bwctl/bwctl.c: reformat to 4 char indents.
+
+	* bwlib/endpoint.c: reformat with 4 char indents.
+
+	jeff
+
+2004-08-25  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/api.c, bwlib/sapi.c: api.c: more format changes
+
+	sapi.c: change call to from BySockFD to ByLocalSockFD
+
+	jeff
+
+	* bwlib/bwlib.h: formatting change (tabs to spaces)
+
+	removed AddrByAddrInfo
+	added AddrByLocalSockFD
+
+	jeff
+
+	* bwlib/api.c: changed formatting. (tabs to spaces)
+
+	Removed BWLAddrByAddrInfo()
+
+	jeff
+
+2004-08-24  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c: syntax.
+
+	* bwctl/bwctl.c:
+	Adding policy code to spawned-server to do "scheduling" for the client side.
+
+	jeff
+
+2004-08-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c:
+	Make parent process kill off child process before exiting...
+
+	jeff
+
+	* bwlib/api.c: Fixed syntax...
+
+	* bwctl/bwctl.c, bwlib/api.c, bwlib/sapi.c:
+	Modified the AddrFromFD function to do more work. It now determines the type
+	of socket so other parts of the code don't need to deal with this issue.
+	This is now needed on the client side - it wasn't before. So, I moved it
+	here are removed it from the server side.
+
+	jeff
+
+	* I2util/I2util/conf.c, bwctl/bwctl.c, bwctld/bwctld.c, bwlib/sapi.c:
+	syntax errors - stand-alone client now compiles. (now onto real testing...)
+
+	jeff
+
+	* I2util/I2util/conf.c, I2util/I2util/conf.h, bwctl/bwctl.c, bwctld/bwctld.c, bwctld/policy.c, bwctld/policy.h:
+	Completed the code to implement a client side spawned server. Not yet
+	tested.
+
+	jeff
+
+2004-08-17  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwlib/bwlibP.h, bwlib/sapi.c:
+	"local" server loop is in place. I am now adding ways for the user to
+	specify some of the more server oriented options for the client. I'm
+	doing this with environment variables. Specifically:
+		IperfCmd
+		BottleNeckCapacity
+		ControlTimeout
+		SyncFuzz
+
+	Previously the client didn't need to worry about these things. These
+	things will have defaults - but I will allow environment variables to
+	override those defaults. There will not be any way to specify these
+	things using the command-line. (I still need to document this...)
+
+	(This is just a check-point check-in. I have not tested anything but there
+	have been enough changes that I want to save them off to cvs.)
+
+	jeff
+
+2004-08-12  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwlib/sapi.c: sapi.c:
+		Modified server side functions to deal with an AF_UNIX socket.
+		(Hopefully I caught everywhere that matters...
+	bwctl.c:
+		Beginning of server loop - I've changed my mind on how I'm going
+		to do this - I think I can write a process_requests style function
+		that can be used by both bwctld and this local-server bwctl thing.
+		(monday).
+
+2004-08-11  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwlib/bwlibP.h, bwlib/endpoint.c:
+	Some of servless_client is done. Logic is worked out - need to actually
+	write the server-loop still and need to add ways of setting server-like
+	parameters using environment variables incase the defaults are not good
+	enough.
+
+	(note that I checked this into a branch, so the current "head" should
+	still be usable at the moment.)
+
+	jeff
+
+2004-08-07  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/bwlib.h, bwlib/capi.c, bwlib/endpoint.c, bwlib/sapi.c:
+	Modified BWLControlOpen function to take a new masked bit to indicate
+	that it should use the "least restrictive" mode instead of the *most*
+	restrictive mode. (It was too much of a pain to implement this above
+	this level, and adding a bit to a bitmask is a pretty easy fix.) This
+	actually made me rethink some of what I was doing in capi.c and I have
+	even simplified the code some.
+
+	jeff
+
+2004-08-06  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c: Fix bit-shift.
+
+	jeff
+
+	* bwlib/endpoint.c: passing in wrong 'mode' variable. Ugh.
+
+	jeff
+
+	* bwlib/endpoint.c, conf/bwctld.limits: syntax.
+
+	* bwlib/capi.c, bwlib/endpoint.c:
+	Modify peer connection to use the least restrictive authmode required
+	as defined by the most restrictive of the two control connections.
+
+	jeff
+
+2004-08-05  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c: Disable excess debug messages.
+
+	* bwctl/bwctl.c, bwctld/bwctld.c: Disable excess debug messages.
+
+	jeff
+
+2004-08-04  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c, bwlib/sapi.c, bwlib/time.c:
+	Another attempt at a timing algorithm.
+
+	jeff
+
+	* bwctld/bwctld.c: more still...
+
+	* bwctld/bwctld.c: More debugging...
+
+	* bwctld/bwctld.c:
+	More timing problems... Adding debugging code to daemon.
+
+2004-07-30  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c:
+	Modified how the server determines how much lead time is required before
+	a test can start and wrote a long comment explaining the algorithm.
+
+	jeff
+
+	* bwctld/bwctld.c:
+	Oops - reservation code was not using 'fuzz' to determine when a
+	reservation could happen. Only rtt. Both are needed to determine how
+	far into the future things must be scheduled.
+
+	jeff
+
+	* bwlib/capi.c, bwlib/time.c:
+	capi.c: removed error message. caller of BWLControlOpen should report
+		connect errors.
+
+	time.c: fix typo from last check-in.
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Modifying "fuzz" time to include rtt time to other server as well as NTP
+	offset. (3-party adds some delay to when a test can be started...)
+
+	jeff
+
+	* bwlib/bwlib.h, bwlib/time.c:
+	Added a set timestamp error utility function.
+
+	jeff
+
+	* bwctl/bwctl.c: Simplifying error messages.
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Added better error messages. The errors now indicate which server the client
+	was attempting to talk to.
+
+	3 party works now - although I still need to test authentication with 3 party.
+	:)
+
+	jeff
+
+2004-07-29  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwlib/capi.c:
+	Corrected logic to determine if a server is "busy" or if the request
+	is simply "denied".
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Corrected copy of session record to only tspec portion.
+
+	Corrected logic for "send" determination.
+
+	jeff
+
+	* bwctl/bwctl.c: removed unused var.
+
+	jeff
+
+	* bwctl/bwctl.c: Fix compile errors.
+
+	jeff
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwlib/time.c: bwctl:
+		Added remaining logic to support authentication to more than
+		a single auth method.
+
+	time.c:
+		Added include of sys/time.h.
+
+	Still needs to be compiled and tested, but logic is now completely there
+	for 3 party.
+
+	jeff
+
+2004-07-27  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/capi.c, doc/bwctl.man: capi.c:
+		Modifies errno to indicate if a connection was disallowed by
+		policy or simply failed.
+	bwctld.man:
+		Modified to deal with 3-party case - different authentication.
+
+	jeff
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h:
+	At least "part" of 3-party is here. server-less client is not done at all.
+
+	(This has not even been compiled, but I have enough new code here that I want it backed up to cvs...)
+
+	jeff
+
+2004-07-09  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c, bwlib/capi.c, bwlib/sapi.c, bwlib/time.c:
+	cleaned up compiler warnings.
+
+	jeff
+
+2004-07-08  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/architecture.html, doc/index.html:
+	Removed italics for "BWCTL" and added recommended hardware section.
+
+	jeff
+
+	* bwctld/bwctld.c: Reformatting.
+
+	jeff
+
+2004-06-28  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLogSyslog.c, I2util/I2util/errlogsyslog.h:
+	Corrected reset function to return I2Boolean.
+
+	jeff
+
+2004-06-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLogSyslog.c, I2util/I2util/hex.c, I2util/I2util/hex.h, I2util/I2util/table.c:
+	Some compile errors fixed... will fix the rest next week.
+
+	jeff
+
+2004-06-09  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/ErrLogSyslog.c, I2util/I2util/errlog.h, I2util/I2util/errlogsyslog.h:
+	I2Util/*:
+		Adding functionality to allow error logs to be "reset" after a
+		process forks. Specifically added this functionality to the
+		"syslog" logger.
+
+	owampd.conf,owampd.c:
+		Added portrange to owampd.
+		Removed current code that closed file descriptors in child.
+		Did not work correctly - can only close descriptors from other
+		parent/child pipes. Will fix this another time.
+		Added code to reset syslog after fork.
+	endpoint.c:
+		Fixed bad error format string.
+
+	protocol.c,owampP.h:
+		Fixed a bug that resulted in the server configured port
+		value being lost, and not saved in the owp files with the
+		rest of the TestRequest record.
+
+2004-05-28  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/policy.c, bwlib/endpoint.c: Corrected some comments...
+
+	jeff
+
+2004-05-27  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwlib/capi.c, bwlib/sapi.c:
+	checking in possible fix for reservation - cancellation bug.
+	(still needs to be tested.)
+
+	jeff
+
+2004-05-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwlib/time.c: Cleanup.
+
+	jeff
+
+2004-03-24  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/index.html: Adding performance tuning links to documentation.
+
+	jeff
+
+2004-03-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* CHANGES: this is version 1.0e
+
+	jeff
+
+	* CHANGES, bwctld/bwctld.c: Indicate "changes" for this version.
+
+	remove -q option from bwctld - (I added this here when I thought I was
+	adding it to bwctl.)
+
+	jeff
+
+	* doc/bwctld.limits.man:
+	Corrected documentation of "assign user" lines.
+
+	jeff
+
+	* configure.ac, doc/index.html: Creating version 1.0e
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Corrected order for -v/-q options so logic works correctly. Sigh.
+
+	jeff
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwctld/bwctldP.h, bwlib/bwlib.h, bwlib/endpoint.c, bwlib/time.c, doc/bwctl.man, doc/bwctld.conf.man:
+	Add syncfuzz to server, remove sync check from client.
+
+	Add -q option to bwctl properly.
+
+	document syncfuzz
+
+	Add documentation on :port for -c/-s options of bwctl
+
+	jeff
+
+	* bwctld/policy.c: Fixed variable field length for memcpy.
+
+	jeff
+
+	* bwctld/policy.c: Correct syntax errors.
+
+	jeff
+
+	* bwctld/policy.c: Fix for policy bug.
+
+	jeff
+
+2004-03-04  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* INSTALL, doc/bwctl.man, doc/bwctld.conf.man, doc/bwctld.keys.man, doc/bwctld.limits.man, doc/bwctld.man:
+	Paul and Susan edits.
+
+	jeff
+
+	* doc/architecture.html, doc/index.html: Susan/Paul Hyder edits.
+
+	jeff
+
+	* doc/index.html: Susan edits.
+
+	jeff
+
+	* I2util/doc/aespasswd.man: Susan's edits.
+
+	jeff
+
+2004-03-03  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/bootstrap:
+	Rich, the bootstrap file I was saying you needed to change was the one in
+	the top-level dir.  This one should be fine.
+
+	jeff
+
+2004-03-03  Rich Carlson, e2e, 630-971-8736  <rcarlson@packrat.internet2.edu>
+
+	* I2util/bootstrap:
+	changed bootstrap file for I2util per Jeff Boote comments
+
+2004-03-03  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/time.c: changed esterr to maxerr for timestamp errors.
+
+	Removed old version of timestamps that doesn't use "offsets".
+
+	jeff
+
+2004-03-02  Rich Carlson, e2e, 630-971-8736  <rcarlson@packrat.internet2.edu>
+
+	* I2util/config/c-attribute.m4:
+	updated configure.ac to include I2UTILINC functions.  This should allow the
+	NDT web100srv.c code to use the LoadConf function.
+
+2004-03-02  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwlib/bwlib.h, bwlib/endpoint.c:
+	Possible fix for synchronization "fuzz" problem. Uses a default of 20 msecs
+	as the maximum synchronization distance that is not accounted for by NTP
+	error estimates. (This value is in the bwlib.h header file...)
+
+	jeff
+
+2004-02-25  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/index.html: Adding ref to ntp documentation.
+
+	jeff
+
+	* CHANGES: Adding change log.
+
+	* doc/architecture.html, doc/index.html, I2util/support/mandoc.cgi:
+	mandoc.cgi:
+		calls man2html using INC path instead of using full path.
+
+	*.html:
+		removed 
+'s - futile....
+
+	* I2util/support/mandoc.cgi:
+	Added check for redirect_url to make sure access checking has happened
+	in apache. (This only works if the cgi is installed as an action handler, if
+	it is a normal cgi, this extra security is impossible.
+
+	jeff
+
+2004-02-24  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* configure.ac: inc version number.
+
+	jeff
+
+	* bwlib/time.c: corrected syntax error.
+
+	* bwlib/endpoint.c, bwlib/time.c: endpoint.c:
+		modified the error reporting to give more details if the
+		clocks look out of sync.
+	time.c:
+		Changed timestamp fetching to use the ntp "offset".
+
+	jeff
+
+2004-02-21  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/doc/aespasswd.man, doc/bwctl.man, doc/bwctld.conf.man, doc/bwctld.keys.man, doc/bwctld.limits.man, doc/bwctld.man:
+	Disabled hyphenation in url references in manpages. The hypphenation broke
+	the url stuff I added to man2html to make url's links in html'd man pages.
+
+	This all works now, but I can't install it on e2epi because the server
+	feature I need is not activated. I have made a request to websupport
+	for that.
+
+	To see the man pages for now, take a look at:
+
+	http://people.internet2.edu/~boote/bwctl.man
+
+	jeff
+
+	* I2util/support/man2html3.0.1/CHANGES, I2util/support/man2html3.0.1/COPYING, I2util/support/man2html3.0.1/MANIFEST, I2util/support/man2html3.0.1/README, I2util/support/man2html3.0.1/doc/man2html.1, I2util/support/man2html3.0.1/doc/man2html.html, I2util/support/man2html3.0.1/doc/man2html.ps, I2util/support/man2html3.0.1/doc/man2html.txt, I2util/support/man2html3.0.1/install.me, I2util/support/man2html3.0.1/man.cgi, I2util/support/man2html3.0.1/man2html, I2util/support/mandoc.cgi:
+	Adding man conversion tools into CVS... (Actually... I'm going to move
+	this down into I2util after checking in...)
+
+	jeff
+
+2004-02-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/policy.c:
+	Fix -O2 bug warren found. (Wasn't initializing the row-count variable when
+	reading the bwctld.keys file.)
+
+	jeff
+
+2004-02-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/bwctld.keys.man, doc/bwctld.limits.man, doc/bwctld.man, doc/bwctld.conf.man:
+	Remove bold formatting around man page and http refs so man2html will
+	recognize them.
+
+	jeff
+
+	* doc/bwctl.man: Remove other "bold" indicators from man page refs.
+
+	jeff
+
+	* doc/bwctl.man:
+	removed "bold" letters for man pages and for http refs so man2html
+	can more easily match them to turn them into href's.
+
+	(still need to do other man pages - still working on cgi script handler
+	to automate the man pages on the web server, but it is very close now.
+	At least I have man2html working correctly now.)
+
+	jeff
+
+2004-02-17  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* conf/Makefile.am, conf/bwctld.conf, bwctl/bwctl.c, bwlib/endpoint.c:
+	Fixing a bug with command-line arg counting. (caused incorrect usage()
+	message.)
+
+	jeff
+
+	* bwctl/bwctl.c, conf/README, conf/bwctld.sh:
+	bwctl.c: changed error message
+
+	README and bwctld.sh:
+	Adding information on example rc file.
+
+	jeff
+
+	* I2util/Makefile.am, I2util/bootstrap, I2util/configure.ac, I2util/doc/Makefile.am, Makefile.am, bootstrap, configure.ac, doc/Makefile.am:
+	Modified to support installing of man pages. This took an upgrade of the
+	autoconf tools. Ugh.
+
+	jeff
+
+2004-02-16  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/bwctld.man: Adding NTP rant into bwctld.man page.
+
+	jeff
+
+	* I2util/doc/aespasswd.man, doc/bwctl.man, doc/bwctld.conf.man, doc/bwctld.keys.man, doc/bwctld.limits.man:
+	Spell checking, and incorporating changes based on Eric's comments.
+
+	jeff
+
+	* doc/architecture.html, doc/index.html:
+	Revised based upon test in manual pages.
+
+	jeff
+
+	* I2util/doc/aespasswd.man, bwctld/bwctld.c, doc/bwctl.man, doc/bwctld.conf.man, doc/bwctld.keys.man, doc/bwctld.limits.man, doc/bwctld.man:
+	bwctld.c: modified error message.
+
+	*.man:
+		Added acknowledgments section for NSF grant disclaimer.
+
+	jeff
+
+2004-02-14  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/bwctld.limits.man:
+	Noticed a quirk in the way nroff handled the \\ in my examples and fixed it.
+
+	jeff
+
+	* doc/bwctld.limits.man: Man pages now completly written.
+
+	For first thing monday morning...
+
+	Remaining before release:
+		review html and copy back man page content.
+		spell check all docs
+		setup install rules for man pages
+		check complete build process
+		test bwctl command-line changes with abilene installation
+		build tarball
+	Then after release:
+		add man pages to website
+		add abilene measurements link to website
+		add "how to test into abilene" document to website
+
+	jeff
+
+	* I2util/doc/aespasswd.man, bwctld/policy.h, doc/bwctld.keys.man, doc/bwctld.limits.man:
+	Adding the last man pages. bwctld.limits.man is not done yet, but it is
+	getting close.
+
+	jeff
+
+2004-02-13  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c, doc/bwctld.conf.man, doc/bwctld.man:
+	bwctld.c	Reordered args printed out from "usage" message.
+			Removed unused options...
+			Added a validation check for the iperfport range.
+	bwctld.8	corrected errors
+	bwctld.conf.5	new
+
+2004-02-12  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/bwctl.man, doc/bwctld.man: Minor corrections to bwctl.1
+
+	Adding bwctld.8
+
+	jeff
+
+2004-02-11  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/bwctl.man:
+	changing order of args in page and adding Iperf website refs.
+
+	jeff
+
+	* doc/bwctl.man: Adding iperf web site reference.
+
+	jeff
+
+	* doc/bwctl.man: Ran through spell checker...
+
+	jeff
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h:
+	Removed the -K option. passphrase is now implied if -U is used without
+	the -k option.
+
+	jeff
+
+	* doc/bwctl.man: Modified based upon Matt's comments.
+
+	jeff
+
+2004-02-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/bwctl.man, doc/index.html:
+	Finished bwctl man page and corrected spelling in index.html.
+
+	Now to document the daemon...
+
+	jeff
+
+	* bwctl/bwctl.c: improve help message.
+
+	jeff
+
+	* configure.ac: change address for bug reports.
+
+	jeff
+
+	* doc/bwctl.man: checkpoint.
+
+	* doc/bwctl.man: checkpoint bwctl.1
+
+	jeff
+
+2004-02-09  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/doc/aespasswd.man, bwctl/bwctl.c, doc/bwctl.man:
+	bwctl.c: changing so remotehost is attached to the -c/-s options
+
+	bwctl.1: checkpoint
+
+2004-02-08  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/doc/aespasswd.man, doc/index.html:
+	Adding manpage for aespasswd.
+
+	* doc/index.html: formatting change.
+
+	jeff
+
+	* doc/index.html: Adding date heading to index file.
+
+	jeff
+
+	* doc/architecture.html, doc/bwctl_arch.png, doc/bwctl_arch.vsd, doc/index.html:
+	More text in the overview, added architecture description.
+
+	jeff
+
+2004-02-07  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/index.html:
+	most of the overview document. man pages tomorrow after some sleep...
+
+	jeff
+
+2004-02-06  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c: better comment.
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h:
+	Fixed error messages to report time before test results are available.
+
+	Added a -q flag for "quiet".
+	Swapped -v/-V options.
+	Changed -v so that increasing numbers of -vvvv's mean higher levels of
+	debugging.
+
+2004-02-05  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* INSTALL, README, bwctl/bwctl.c: correct some error messages in bwctl.
+
+	jeff
+
+2004-01-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c:
+	Moved policy init so it happens while bwctld is still root.
+	(Must be this way for the "keys" file to be opened.)
+
+	jeff
+
+2004-01-15  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c:
+	modified to not do dynamic window calculation for udp tests.
+
+	jeff
+
+2004-01-13  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* INSTALL: Corrected some spelling errors.
+
+	jeff
+
+	* INSTALL:
+	Adding "INSTALL" file. (First kernel of documentation on bwctl.)
+
+	jeff
+
+	* configure.ac: updating version number for bwctl for hawaii tracking.
+
+	jeff
+
+2004-01-09  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c, bwlib/endpoint.c, bwlib/sapi.c, conf/bwctld.conf:
+	Addressing two bwctl problems:
+
+	1. bwctl control connections were being disconnected unexpectedly.
+		Reason: There was an application timeout that closed the
+		connection if there was no communication for 30 min. (controltimeout)
+		Because bwctl is configured to run tests ~30 min, this means some
+		amount of the time there will be no traffic for 30 or more min
+		on a given control connection.
+
+		Solution: Change the default value to 7200 and document this
+		in the bwctld.conf file with the controltimeout option.
+
+	2. Some udp sessions end up being corrupt.
+		Reason: First the buffer space between sessions was a little to
+		small. Therefore the bwctld would kill the iperf server before
+		the job was complete. The iperf server catches SIGINT and
+		corrupts the results when it does.
+		Solution: Increased the buffer space between sessions by 1 second.
+		Then changed the kill of children that are still running at this
+		time to a SIGKILL so it will not be caught. This will ensure that
+		the invalid data will not be used.
+
+	jeff
+
+	* bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/endpoint.c:
+	Forgot to change function prototypes, and removing unused vars.
+
+	jeff
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwctld/bwctld.c, bwctld/bwctldP.h, bwlib/context.c, bwlib/endpoint.c, conf/bwctld.conf:
+	Changing the time sync check. The daemon no longer fails to start if the
+	system clock is not synchronized. (this was problematic for rc boot scripts
+	since ntp often takes some number of minutes to sync the clock).
+
+	Now, to ensure tests start properly, the peer connection does a remote
+	time check to make sure the system clocks are "close" enough, but does
+	not require actual ntp synchronization.
+
+	jeff
+
+2004-01-06  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c: typo in my typo... ugh.
+
+	* bwctld/bwctld.c: typo...
+
+	* bwctld/bwctld.c: Oops - passed in key instead of value to a function.
+
+	jeff
+
+	* bwctld/bwctld.c, bwctld/bwctldP.h, bwctld/policy.c, bwctld/policy.h, bwlib/bwlib.h, bwlib/endpoint.c, conf/bwctld.conf:
+	pseudo-dynamic window code.
+
+2003-12-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c: Making an error message a little more readable.
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Removed unused -W option to make room for new -W option.
+
+	jeff
+
+	* bwctl/bwctl.c: small typo.
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/endpoint.c, bwlib/protocol.c:
+	bwctl/*:
+		Added -W option that mirrors -w option. -W indicates to use the
+		specified window_size only if a dynamic one is unavailable.
+	bwlib/*:
+		Modified the test_spec structure and protocol encoding/decoding
+		functions to allow for an additional field for "dynamic"
+		window size determination.
+	bwlib/endpoint.c:
+		Had to change the order children were forked to allow the
+		peer control communication to happen before forking off the
+		run_iperf process. (That way the RTT can be determined as
+		part of the dynamic window calculation.)
+		** have not actually changed the function to calculate
+		a dynamic window - I wanted to test to make sure the rest
+		of this quagmire works before adding it. And I'm sorry, I'm too
+		tired - so this is going to have to wait, probably until Jan 5.
+
+	(I really underestimated what it was going to take to get this working
+	correctly. And I really, really underestimated what it was going to take
+	to get the aes passphrases working. It sounded so easy...)
+
+	jeff
+
+	* bwlib/protocol.c: Remove debugging statements from ReadStopSession.
+
+	jeff
+
+	* bwlib/protocol.c:
+	Found where cntrl->zero was being corrupted. (I forgot the "send" function
+	is destructive to the string passed in when encryption is turned on...)
+
+	jeff
+
+	* bwlib/protocol.c:
+	Hmm... message looks correct, checking cntrl->zero with this one.
+
+	jeff
+
+	* bwlib/capi.c, bwlib/endpoint.c, bwlib/protocol.c, bwlib/sapi.c:
+	Removing sid debugging and adding a debug for the StopSessions message.
+
+	jeff
+
+2003-12-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/protocol.c:
+	I think I found the corruption... One of the message offsets was not set
+	correctly.
+
+	jeff
+
+	* bwlib/capi.c: more debug stuff...
+
+	* bwlib/protocol.c, bwlib/sapi.c, conf/bwctld.conf: more...
+
+	* bwlib/protocol.c, bwlib/sapi.c: more debugging...
+
+	* bwlib/endpoint.c: more debug statements.
+
+	* bwlib/endpoint.c: adding debug statement.
+
+	jeff
+
+	* I2util/I2util/table.c:
+	Hmm - things were confused. There was a length and a num_elements entry.
+	fixed.
+
+	jeff
+
+	* I2util/I2util/table.c:
+	Wow - I can't believe this wasn't an issue before. (num_elements was not
+	initialized in the table init code.)
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Sigh - the key retrieval for the p2p connection had the same bug.
+
+	jeff
+
+	* bwctld/policy.c:
+	Fixed bug that was causing only first 4 bytes of key to be copied.
+	(Encryption doesn't work as well this way...)
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Duh. forgot to add the -K option to the optstring for getopts in bwctl.
+
+	jeff
+
+	* I2util/aespasswd/aespasswd.c:
+	Added a '.' prefix to the lockfile name.
+
+	jeff
+
+	* I2util/aespasswd/aespasswd.c:
+	Adding an error message if the identity is not found and the -d flag
+	was specified.
+
+	jeff
+
+	* I2util/I2util/conf.c: Fixed core-dump if the conf file is empty.
+
+	jeff
+
+	* I2util/I2util/conf.c, I2util/aespasswd/aespasswd.c: fixed bugs.
+
+	jeff
+
+	* I2util/Makefile.am, I2util/aespasswd/aespasswd.c, I2util/configure.ac, bwctl/bwctlP.h:
+	I2util/*:
+		Adding aespasswd into autoconf files.
+	I2util/aespasswd/*:
+		Now works on FreeBSD - need to test Linux.
+	bwctl/bwctlP.h:
+		Clean-up comments.
+
+	jeff
+
+	* I2util/I2util/conf.c, I2util/I2util/conf.h, I2util/aespasswd/Makefile.am, I2util/aespasswd/aespasswd.c, bwctl/bwctl.c:
+	I2util/conf.[ch]
+		Adding a WriteKeyLine function.
+	I2util/aespasswd/*
+		Adding an aespasswd command for managing keyfiles.
+	bwctl/bwctl.c
+		Making some error messages pretty.
+
+	jeff
+
+2003-12-18  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/conf.c, I2util/I2util/readpassphrase.c, bwctl/bwctl.c, bwctld/bwctld.c, bwlib/schedule.c:
+	Now compiles on Linux.
+
+	termios suck.
+
+	jeff
+
+	* bwctld/Makefile.am, bwctld/bwctld.c, bwctld/policy.c, I2util/I2util/ErrLogSyslog.c, I2util/I2util/conf.c, I2util/I2util/errlogsyslog.h, I2util/I2util/md5.c, I2util/I2util/md5.h, I2util/I2util/readpassphrase.c, I2util/I2util/readpassphrase.h, I2util/I2util/saddr.c, bwctl/bwctl.c:
+	Fixed compile errors.
+
+	jeff
+
+2003-12-17  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/md5.c, I2util/I2util/md5.copyright, I2util/I2util/md5.h, I2util/I2util/readpassphrase.c, I2util/I2util/readpassphrase.h, I2util/I2util/util.h, bwctl/bwctl.c, bwctl/bwctlP.h, bwctld/conf.c, bwctld/conf.h, bwctld/policy.c, bwlib/bwlib.h, I2util/I2util/ErrLog.c, I2util/I2util/ErrLogSyslog.c, I2util/I2util/Makefile.am, I2util/I2util/conf.c, I2util/I2util/conf.h, I2util/I2util/errlogsyslog.h, I2util/I2util/hex.c, I2util/I2util/hex.h:
+	I2util:
+	Added conf file handling routines, hex encode/decode, md5, readpassphrase...
+
+	Basically lots of things that owamp and bwctl will both use.
+
+	Modified bwctl to use the I2util versions of these functions.
+
+	Modified bwctl to do aeskeys with either a keyfile or a passphrase.
+
+	Modified bwctld to do aeskeys with a keyfile.
+
+	(These changes have not even been compiled yet since I did this on my
+	laptop. I will be checking in updates to this after actually testing it.)
+
+	jeff
+
+2003-11-27  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h: bwctl.[ch]:
+		Adding -R option and changing the way test interval schedules
+		are computed. The -R option specifies an "alpha" value which is
+		the percentage of the "interval" to randomize. Each test will happen
+		at +- alpha from a fixed interval from the first start.
+		(removed pseudo-poisson schedule)
+
+		Added -V option. (Verbose output.) For now it just makes bwctl
+		print an estimate for when the next test interval will begin if
+		that period is longer than 3 seconds from "now".
+
+		Added a time-check in so if the clock is off by more than the
+		error estimate then bwctl exits.
+
+	jeff
+
+2003-11-22  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c: Adding fflush to printout of filenames in -p mode.
+
+	jeff
+
+2003-11-18  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c:
+	modify debug messages to only print for priority == debug.
+
+	jeff
+
+	* bwctl/bwctl.c, bwlib/endpoint.c:
+	corrected truncated bandwidth number.
+
+	jeff
+
+	* bwlib/endpoint.c: syntax errors.
+
+	* bwlib/endpoint.c:
+	Ok, bit the bullet and wrote a routine for converting test addresses to
+	peer addresses from the perspective of the endpoints. (My quick fix wasn't
+	complete enough.)
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Opening connection with SOCK_DGRAM instead of SOCK_STREAM!!!!!!
+
+	AGGGHHHHH!
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Changing order of args passed to iperf because it is BRAIN DEAD!
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Add currtime print at end of test to try and figure out why ALRM is going
+	off...
+
+	* bwlib/endpoint.c: double is not float.
+
+	jeff
+
+	* bwlib/endpoint.c: Add timestamp information to debug output.
+
+	jeff
+
+2003-11-17  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c, bwctl/bwctl.c: Adding debug messages.
+
+	jeff
+
+	* bwlib/protocol.c:
+	Found another place i/o needed to be interruptable. Sigh.
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Found a place I could be missing the SIG_CHLD... This *could* explain
+	the zombied iperf processes.
+
+	jeff
+
+	* bwctl/bwctl.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/context.c, bwlib/endpoint.c, bwlib/io.c:
+	Adding interruptable i/o to client side communications. (The p2p aspect was
+	causing problems if processes were killed.)
+
+	jeff
+
+	* bwctl/bwctl.c: Fix broken signal mask inherited from perl.
+
+	jeff
+
+	* bwctl/bwctl.c, conf/bwctld.conf, conf/bwctld.limits:
+	tweaking schedule generation loop to deal with the case where a connection
+	is not working. (It was trying again immediately - I want it to wait until
+	the next scheduled interval.)
+
+	jeff
+
+	* bwctl/bwctl.c:
+	re-enable signal handling so the nanosleep loop can work correctly.
+
+	jeff
+
+	* I2util/I2util/saddr.c, bwctld/policy.c: blah
+
+2003-11-16  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/saddr.c, I2util/I2util/saddr.h, bwlib/sapi.c:
+	Adding test for "loopback" to allow a test. "loopback" is implicitly
+	trusted to an extent.
+
+	jeff
+
+	* bwlib/sapi.c:
+	adding additional error message to try and determine why v6 tests are failing.
+
+	jeff
+
+2003-11-15  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* conf/bwctld.conf: clean up a bit.
+
+	jeff
+
+	* bwctld/policy.c, conf/bwctld.conf, conf/bwctld.limits:
+	limits for abilene...
+
+2003-11-14  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c: I think it is working!
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Oops was overwriting the recv file with the send file...
+
+	also removed more warning messages.
+
+	jeff
+
+	* bwctl/bwctl.c:
+	fix linux specific errors. (gcc complains more on bon-jovi... Perhaps it is
+	a newer version.)
+
+	jeff
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwlib/bwlib.h:
+	adding code to make bwctl save session data in a file and print out filenames.
+	(It should now work like powstream in this respect.)
+
+	I did have it just printing to stdout until now.
+
+	jeff
+
+2003-11-08  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwlib/bwlibP.h, bwlib/endpoint.c, bwlib/sapi.c:
+	Removing debugging statements.
+
+	resetting the itimer for the peer connection and reducing the fuzz factor
+	now that I've had a chance to experiment with what is needed.
+
+	jeff
+
+2003-11-07  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/policy.c: typo.
+
+	jeff
+
+	* bwctld/policy.c:
+	Ugh - I hate when I forget to update the size of the message when I
+	change it.
+
+	jeff
+
+	* bwctld/bwctld.c, bwctld/policy.c, bwctld/policy.h, bwlib/endpoint.c, bwlib/sapi.c:
+	Add command-string that is executed to the data output.
+
+	jeff
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwctld/policy.c, bwctld/policy.h, bwlib/protocol.c:
+	Fixing a bug in the policy code that allocates port numbers.
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Remove some debugging messages and add some information to another one.
+
+	jeff
+
+	* Makefile.am, README, bwctl/Makefile.am, bwctl/bwctl.c, bwctl/bwctlP.h, bwctld/Makefile.am, bwctld/bwctld.c, bwctld/bwctldP.h, bwctld/conf.c, bwctld/conf.h, bwctld/policy.c, bwctld/policy.h, bwlib/Makefile.am, bwlib/api.c, bwlib/arithm64.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/capi.c, bwlib/context.c, bwlib/endpoint.c, bwlib/error.c, bwlib/io.c, bwlib/protocol.c, bwlib/rijndael-api-fst.c, bwlib/rijndael-api-fst.h, bwlib/sapi.c, bwlib/schedule.c, bwlib/time.c, bwlib/util.c, conf/Makefile.am, conf/bwctld.conf, conf/bwctld.limits, configure.ac:
+	Changing the name of iperfc to bwctl.
+
+	jeff
+
+2003-11-06  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, conf/bwctld.conf: Set iperf port to 5001-5004
+	allow iperfcmd to default
+
+	iperfc.c:
+	change time into future to one second.
+
+	jeff
+
+2003-11-05  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c:
+	Logic error in scheduling loop (looking for next slot). In some cases
+	the pointer into the linked list was not incremented to the next node
+	which caused it to loop forever. (This happened if concurrent requests
+	came in.)
+
+	jeff
+
+2003-11-04  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c, bwlib/sapi.c: endpoint.c:
+		Fix bug - iperf was trying to contact the wrong address.
+
+	sapi.c:
+		remove extra fuzz factor.
+
+	jeff
+
+	* bwctl/bwctl.c: bug fix for multiplier factors.
+
+	jeff
+
+2003-11-03  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/sapi.c:
+	Make fuzz factor huge since it doesn't seem to be helping...
+
+	jeff
+
+	* bwlib/sapi.c:
+	Sigh, iperf takes a long time to start up. Add a "fuzz" factor to ensure the
+	server starts before the client.
+
+	jeff
+
+	* bwctl/bwctl.c, bwlib/endpoint.c, conf/bwctld.conf:
+	Fix command-line args to iperf.
+
+	jeff
+
+	* conf/bwctld.conf:
+	Modify to run real iperf instead of my test perl script.
+
+	jeff
+
+	* bwlib/endpoint.c: Fixed syntax errors.
+
+	jeff
+
+	* bwlib/endpoint.c:
+	recrafted wait loop for peer2peer connection that should not cause the process
+	to exit if the StopSession message from the peer is "success".
+
+	(Need to test this still - I'm using cvs to transfer the diffs around to
+	my test hosts.)
+
+	jeff
+
+2003-10-31  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c:
+	Cause newly forked process to print its pid if -w is specified.
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Add check for WIFSTOPPED() for child process so children processes that
+	are currently being debugged don't look like they have exited to the
+	parent process management code.
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Modified more state for the grandchild... Needed to modify the cntrl
+	record for the tsess to point at the rcntrl pointer instead of the cntrl
+	pointer. (rcntrl is the p2p connection, cntrl goes to the client.)
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Removed more policy functions from the grandchild...
+
+	jeff
+
+2003-10-30  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c:
+	Apply "fuzz" factor to the "end" of the test so it is not pre-maturely killed.
+
+	jeff
+
+2003-10-29  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c: Remove debugging constant.
+
+	jeff
+
+	* bwlib/protocol.c:
+	AAGGHHH! Forgot a single ntohl() around the "duration" field of the message.
+
+	jeff
+
+	* bwlib/endpoint.c: Modifying policy function for p2p.
+
+	jeff
+
+	* bwlib/sapi.c: Another fix related to the "status" message.
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Fixed an endpoint status bug. This has been causing the endpoint to be killed
+	before it even really gets started.
+
+	jeff
+
+2003-10-28  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c: debugging...
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwlib/endpoint.c, conf/bwctld.conf:
+	Fixes remote address check.
+
+	Added more debugging code.
+
+	jeff
+
+2003-10-24  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c:
+	changing accept interrupt handler to exit the process on CHLD in addition
+	to TERM/HUP.
+
+	jeff
+
+	* bwlib/endpoint.c:
+	Corrected bug in EndpointStatus. (Fixed this bug in owamp too!)
+
+	jeff
+
+	* bwlib/endpoint.c: Adding debug message.
+
+	Eric,
+	I'm going through cvs to distribute code changes from one test
+	endpoint to the other - so you should probably just ignore most of these
+	messages.
+
+	jeff
+
+2003-10-23  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwlib/endpoint.c:
+	using ntohs instead of htons. (not sure that should matter...) Also adding
+	a statement to print out the port number of the receive side to try and
+	figure out why the end-2-end connection is not being made.
+
+	jeff
+
+	* bwlib/protocol.c:
+	Found the bug that was putting the "state" variable off.
+
+	jeff
+
+	* bwctl/bwctl.c:
+	tweaking the timing to make it easier to see the progression of events.
+
+	jeff
+
+	* bwlib/endpoint.c: typo...
+
+	* bwlib/endpoint.c: Corrected addresses for peer communication.
+
+	jeff
+
+	* bwlib/endpoint.c: Adding some debug info.
+
+	jeff
+
+2003-10-22  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c:
+	correcting sigprocmask call. Had SIG_BLOCK where I wanted SIG_SETMASK. (Ugh.
+	This is what I get for copying code without thinking about it enough!)
+
+	jeff
+
+	* bwctl/bwctl.c: wrong index for EndSessions call.
+
+	jeff
+
+	* bwctl/bwctlP.h, bwctld/bwctld.c: syntax errors...
+
+	jeff
+
+	* bwlib/time.c:
+	modified so an error message prints out if the clock is unsync even if
+	allowunsync is set. (This is not a good way to run!)
+
+	jeff
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwctld/bwctld.c, bwctld/bwctldP.h, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/context.c, bwlib/time.c, conf/bwctld.conf:
+	Modified code to use an allowunsync paramater to determine if the application
+	exits or continues on an unsyncronized clock.
+
+	jeff
+
+	* bwctld/bwctld.c, bwlib/time.c:
+	Add a check for unsync in NTP initialization.
+
+	jeff
+
+	* bwctld/bwctld.c, bwlib/endpoint.c:
+	Fixed syntax errors. (pervious check-in was from my laptop so I didn't get
+	a chance to compile.)
+
+	jeff
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwlib/bwlib.h, bwlib/capi.c, bwlib/endpoint.c:
+	Modified how the local address is determined. (If the src address was not
+	being specified, the test connection was assuming localhost due to an owamp
+	assumption. Now getsockname is used on the remote control connection to
+	determine a good address to use for the local host.)
+
+	jeff
+
+2003-10-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/saddr.h: saddr.h:	added comment
+
+	policy.c:	fixed bug in MSGCLAIM message decoding.
+
+	jeff
+
+2003-10-17  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwlib/capi.c, bwlib/endpoint.c:
+	Just checkpointing changes I made while flying. Have not even tried compiling
+	yet. (Monday - I'm going to go enjoy the sunshine on my bike right now!)
+
+	jeff
+
+2003-10-15  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c: Add ntohs macro for recv port number.
+
+	jeff
+
+2003-10-14  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/policy.c: Remove compiler warning.
+
+	jeff
+
+	* bwctld/policy.c: Fixed sid copy in policy code.
+
+	jeff
+
+	* bwlib/capi.c: Corrected sid copy in session request.
+
+	jeff
+
+2003-10-13  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/capi.c: Ugh. Initialize variables to NULL.
+
+	jeff
+
+	* bwlib/capi.c: Fix double-free error.
+
+	jeff
+
+	* bwctl/bwctl.c, conf/bwctld.conf:
+	Fixed some bugs in the schedule generation.
+
+	jeff
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwlib/bwlib.h, bwlib/schedule.c:
+	Added poisson interval to client loop.
+
+	jeff
+
+2003-10-11  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/protocol.c, configure.ac:
+	Fixed a bug in the TestSessionRequest message read/write functions. I
+	had added a field in this message, and forgot to modify the offset for the
+	v4 version of the address reading/writing. Therefore the addresses for the
+	test were not being communicated properly. It looks like this part of the
+	protocol is now working correctly. (I have not been able to completely test
+	due to the fact that my development system is currently behind a NAT...)
+
+	(My initial tests were trying to contact a host in Frankfurt due to the way
+	the addresses were corrupted. Oops.)
+
+	jeff
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwctld/policy.c, bwlib/api.c:
+	Fixed a couple of bugs.
+
+	jeff
+
+2003-10-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c, bwctld/bwctldP.h, bwctld/policy.c, bwctld/policy.h, bwlib/bwlib.h, bwlib/context.c, bwlib/sapi.c, conf/bwctld.conf:
+	daemon is complete. I have not even tried running any tests with it at
+	all yet. It does compile however. Attempting tests now.
+
+	jeff
+
+	* bwctl/bwctl.c:
+	Modified the time estimates for starting a session from the client perspective.
+	(i.e. the algortithm for determining a good "start" time to request.)
+
+	jeff
+
+2003-10-08  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwctld/policy.c, bwctld/policy.h, bwlib/bwlib.h, bwlib/capi.c, bwlib/context.c, bwlib/protocol.c, bwlib/sapi.c, conf/bwctld.conf, conf/bwctld.limits:
+	Fixed limits are done, but not tested.
+
+	Global limits, and the global schedule are about half way there.
+
+	jeff
+
+2003-10-06  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/policy.h, bwctl/bwctl.c, bwctld/bwctld.c, bwctld/bwctldP.h, bwctld/policy.c, bwlib/Makefile.am, bwlib/api.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/context.c, bwlib/endpoint.c, bwlib/sapi.c, bwlib/time.c, bwlib/unixtime.c, conf/bwctld.conf:
+	Getting closer.... The last major piece that needs to be written is the
+	code that actually does the scheduling and determines if a given test
+	is allowed. (I am going to shortcut this substantially by basically allowing
+	any test.)
+
+	jeff
+
+2003-10-05  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/bwlibP.h, bwlib/capi.c, bwlib/endpoint.c, bwlib/sapi.c:
+	Yet a little farther...
+
+	jeff
+
+	* bwctld/bwctld.c, bwlib/bwlibP.h, bwlib/endpoint.c: checkpoint...
+
+	doesn't compile but I've written most of the code that actually runs the
+	endpoint. (swaps results with the other server and exec's iperf)
+
+	jeff
+
+2003-10-03  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/bwctld.c, bwlib/api.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/context.c, bwlib/endpoint.c, bwlib/sapi.c:
+	Actually compiles at the moment - although there are still lots of stubs
+	for the test endpoint processes and the scheduling.
+
+	jeff
+
+2003-10-01  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctld/policy.c, bwctld/policy.h, bwctl/bwctl.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/protocol.c, bwlib/sapi.c:
+	checkpoint.
+
+	Ok - all the "fluff" is done. Now it is time to really get to it and start
+	writing the part that forks off the tests.
+
+	jeff
+
+2003-09-30  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwlib/api.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/capi.c, bwlib/endpoint.c, bwlib/protocol.c, bwlib/sapi.c:
+	check-point.
+
+	client code path is complete. (But not as functional as I would like.)
+
+	Server path still needs work, but I am getting there.
+
+	jeff
+
+2003-09-29  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwlib/endpoint.c, bwlib/time.c:
+	check-point. The whole thing actually compiles at the moment. (although there
+	is not enough functionality to test yet.)
+
+	jeff
+
+2003-09-26  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/context.c, bwlib/endpoint.c, bwlib/protocol.c, bwlib/sapi.c, bwlib/api.c, bwlib/capi.c:
+	checkpoint. Getting there...
+
+2003-09-25  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/api.c, bwlib/bwlibP.h, bwlib/capi.c, bwlib/protocol.c, bwlib/sapi.c:
+	checkpoint
+
+2003-09-24  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctld/bwctld.c, bwlib/api.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/capi.c, bwlib/context.c, bwlib/endpoint.c, bwlib/protocol.c, bwlib/sapi.c, bwlib/time.c:
+	checkpoint
+
+2003-09-22  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/capi.c, bwlib/context.c, bwlib/protocol.c:
+	checkpoint. (Much of the actual client is complete - moving down into the
+	library to fill in the details.) Have not started the server.
+
+	jeff
+
+2003-09-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c, bwctl/bwctlP.h, bwctld/bwctld.c, bwctld/policy.c, bwlib/api.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/capi.c, bwlib/context.c, bwlib/endpoint.c, bwlib/protocol.c, bwlib/sapi.c, bwlib/schedule.c, bwlib/util.c:
+	check-point.
+
+2003-09-18  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* Makefile.am, bwctl/bwctl.c, bwctl/bwctlP.h, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/schedule.c, configure.ac:
+	checkpoint.
+
+2003-09-16  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/Makefile.am, bwctl/bwctl.c, bwctl/bwctlP.h, bwctld/Makefile.am, bwctld/bwctld.c, bwctld/bwctldP.h, bwctld/conf.c, bwctld/conf.h, bwctld/policy.c, bwctld/policy.h, bwlib/rijndael-test-fst.c, bwlib/sapi.c, bwlib/schedule.c, bwlib/time.c, bwlib/unixtime.c, bwlib/util.c, Makefile.am, README, bootstrap, bwlib/Makefile.am, bwlib/api.c, bwlib/arithm64.c, bwlib/bwlib.h, bwlib/bwlibP.h, bwlib/capi.c, bwlib/context.c, bwlib/endpoint.c, bwlib/error.c, bwlib/io.c, bwlib/protocol.c, bwlib/rijndael-alg-fst.c, bwlib/rijndael-alg-fst.h, bwlib/rijndael-api-fst.c, bwlib/rijndael-api-fst.h, conf/Makefile.am, conf/bwctld.conf, conf/bwctld.limits, config/c-attribute.m4, configure.ac:
+	Initial ci of iperfc code. (This is mostly a template still - very little real
+	code yet.)
+
+	jeff
+
+2003-06-14  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/table.c, I2util/I2util/table.h: I2util/table.[ch]:
+		Added a HashClean function to clean out a hash table.
+
+	powstream.c:
+		Added some diagnostics to find out why fread is failing on the
+		partial session file. Also modified the Hash table to be cleaned
+		on error.
+
+	jeff
+
+2003-03-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/Makefile.am, I2util/I2util/io.c, I2util/I2util/io.h, I2util/I2util/random.c, I2util/I2util/saddr.c, I2util/I2util/saddr.h, I2util/I2util/table.c, I2util/I2util/table.h, I2util/Makefile.am:
+	Merging VERS5 into head. Wahoo!!!
+
+	jeff
+
+2003-03-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/saddr.h: fix bug. - I like descriptive comments.
+
+	jeff
+
+	* I2util/I2util/saddr.c, I2util/I2util/saddr.h:
+	Fixed annoying addr-check problems.
+
+	jeff
+
+	* I2util/I2util/saddr.c:
+	Grr - V6/V4 duel-stack is more troublesome then one might think at first...
+
+	Policy issues are much more difficult to deal with when trying to use
+	address matching - since addresses of v4 can be encoded within v6.
+
+	(If I'm not mistaken, I *may* have the opposite problem with v4 compatible
+	v6 addresses - but I'm not even going to look at that for now.)
+
+	jeff
+
+2003-03-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/io.c, I2util/I2util/io.h, I2util/I2util/table.c, I2util/I2util/table.h:
+	Added signal handling into owampd... This was much more complicated than
+	I expected. (On retrospect, I should have known better.) I had to modify
+	the low-level i/o routines to return on interrupts iff I wanted them to.
+	This touched LOTS of the other code. I have not been able to test it yet.
+
+	jeff
+
+2003-03-06  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/saddr.c, I2util/I2util/saddr.h, I2util/I2util/table.c:
+	I2Util:
+	saddr.*
+		moved some #includes from the .c to the .h so sockaddr_t would be
+		defined for the args to the saddr function prototype.
+
+	table.c
+		corrected a "break" to the iterate loop. (I recently modified this
+		function to allow "deletes" to occur during an iteration - but forgot
+		to break out of this loop instead of returning, so some cleanup
+		work was not happening if the iteration was terminated early.
+
+	owamp:
+		added the TestComplete policy hook function. This was needed to
+		release resources upon the completion of a test.
+		(policy sucks)
+		Policy also required changes to the CloseFile hook so differences
+		in real filesize from the resource request could be accounted for.
+		(It is necessary to do this so that delete_on_fetch can delete
+		files and release the resources from the global state. If this
+		accounting wasn't done - delete_on_fetch would be freeing the resource
+		based on the real filesize - but the accounting would be based upon
+		the original request. This would eventually cause test sessions to
+		be denied when there is actually space.)
+
+		moved all "default" policy functions over to owampd where they
+		belong. (I will need to add a policy function into owping to allow
+		a pass-phrase generated aeskey.)
+
+	owampd:
+		Added lots of policy. (The are more lines of policy code, than original
+		owampd code. Ugh.)
+
+		The current state is that messages are happening between the parent
+		resource broker, and the actual child processes that are handling
+		the requests - and the datastructures are in place for the resource
+		broker to keep track. But - the actual accounting is not happening
+		yet. I don't expect this to take more than an hour or two more to
+		add. I also still need to add the code to initialize the disk-usage
+		accounting. This is a little more tricky, although I believe I can
+		use du.c code from FreeBSD as an example.
+
+	jeff
+
+2003-02-27  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/table.h:
+	checkpoint - will not completely compile right now.
+
+	jeff
+
+2003-02-07  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/Makefile.am: prepare alpha
+
+	* I2util/I2util/Makefile.am: prepare for alpha.
+
+	jeff
+
+	* I2util/I2util/Makefile.am, I2util/Makefile.am:
+	Preparing for Alpha release.
+
+	jeff
+
+2003-01-29  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/table.c, I2util/I2util/table.h: table.[ch]:
+		Modified so hash datarecords (I2Binding) are pre-allocated for the
+		most part. This was needed to more efficiently implement the lost packet
+		buffering in the owamp reciever.
+
+	owamp/*:
+		Renamed OWPCvt functions to adhere to other naming schemes.
+
+		BIG CHANGE:
+			Removed the schedule arrays. They are now completely
+			computed on the fly.
+
+	owdigest:
+		Modified it to use a double to save the "err".
+
+		ported different context record model.
+
+	scripts:
+		Modified to read owd files with "double" format precision in the
+		header for "err". (not yet tested.)
+
+2003-01-24  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/table.c: I2util/table.c:
+		corrected memory error. (was still free'ing something I intended
+		only to mark as ready to be deleted.)
+
+	access.*:
+		Made new type records names that agree with the rest of the code.
+		None of the access stuff is actually being compiled in yet. And
+		won't be until after Jt Techs.
+
+	policy.*:
+		Made hooks for all the new policy functions. OpenFile/CloseFile
+		and childwait stuff is all working now.
+		owfetch even works now! :)
+
+	owamp/(the rest):
+		Fixed lots of small bugs. Mostly of the data-initialization type.
+
+2003-01-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/random.c, I2util/I2util/table.c, I2util/I2util/table.h:
+	random.c: simplified.
+
+	table.*: Changed datum to a non-pointer type. The way this was setup it
+		was almost impossible not to have memory problems.
+
+	owamp/*: All the control protocol functions should now be upgraded to
+		v5 - although the complete library does not complile yet, and the
+		apps need to be changed still too.
+
+	jeff
+
+2002-11-26  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/Makefile.am, I2util/I2util/saddr.c, I2util/I2util/saddr.h, I2util/I2util/util.h:
+	Adding more detailed error reporting - removing "connect" of recv udp socket.
+	Added socket compare function into I2Util.
+
+	jeff
+
+2002-11-07  owamp  <owamp@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLogSyslog.c:
+	Fixed a bug in how syslog.h was included.
+
+	jeff
+
+2002-11-05  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLogSyslog.c, I2util/I2util/errlogsyslog.h, I2util/config/c-syslog-names.m4, I2util/configure.ac:
+	Added functionality to specify syslog facilities/priorities by name.
+
+	jeff
+
+2002-09-23  karp  <karp@packrat.internet2.edu>
+
+	* I2util/I2util/Options.c, I2util/I2util/table.c:
+	Cosmetic changes (tiny).
+
+2002-08-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/io.c, I2util/I2util/io.h: see last ci.
+
+	jeff
+
+2002-08-09  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/Makefile.am, I2util/I2util/random.c, I2util/I2util/util.h, I2util/Makefile.am:
+	I2util:
+		made random use raw io so forked processes could read from the
+		same fd without problems.
+
+		added readn/writen functions from owamp
+
+	owamp:
+		made everything use I2 versions of readn/writen
+
+		removed get_timestamp_func from ctx - we are not using it.
+
+		stopped forks from closing all open descriptors
+
+	owampd/owping:
+
+		PolicyInit was core dumping because we were calling it with
+		an errhand and it was expecting a ctx... I changed the apps
+		to call it with a ctx.
+
+	jeff
+
+2002-08-08  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/errlog.h:
+	I2util: added a va_list logging function.
+
+	owamp:
+		changed the OWPError function to be a macro and removed the
+		OWPErrorLine function. The I2ErrLog stuff is used by the OWPError
+		macro.
+
+	jeff
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/errlog.h, I2util/I2util/random.c, I2util/I2util/random.h:
+	Modified the random functions to be relative to a random "context".
+	Modified the OWPErr functions to exclusively use the I2Err functions.
+	(The OWPErr functions are simply a wrapper around the I2Err functions -
+	unfortunately they can't be macros due to the var-args...)
+
+	This means if you want to have an application defined error function, you have
+	to define the I2ErrHandler yourself, and assign it to eh in the OWPContext.
+
+	This actually simplified things quite a bit. I would almost like to go
+	through and remove all the OWPError and OWPErrLine calls and replace them
+	with I2 varients - may do that later, doesn't seem worth it right now. It
+	would make the __FILE__ and __LINE__ macro's cleaner.
+
+	jeff
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/errlog.h:
+	Actually removed the lines of code I replaced - before they were just ifdef'd
+	out.
+
+	jeff
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/ErrLogImmediate.c, I2util/I2util/ErrLogSyslog.c, I2util/I2util/errlog.h, I2util/I2util/errlogimmediate.h, I2util/I2util/errlogsyslog.h:
+	Modified the I2ErrLog stuff to support a level or priority. You can
+	access this by using the new I2ErrLogT(eh,level,code,fmt,...) error reporting
+	macro/function.
+
+	(You know things are good when you actually remove lines of code to add
+	additional functionality.)
+
+	jeff
+
+2002-08-07  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/random.c, I2util/I2util/random.h, I2util/README, I2util/config/randomdev.m4, I2util/configure.ac:
+	Added an autoconfig check to ensure a kernel random device is available.
+
+	random.h will fail to compile if autoconfig doesn't find one.
+
+	(Don't update your local copy until I check in changes to owamp - I changed
+	the RAND* macro's to have I2 at the beginning.)
+
+	jeff
+
+2002-08-06  karp  <karp@packrat.internet2.edu>
+
+	* I2util/I2util/random.c, I2util/I2util/random.h:
+	Added randomness source initialization support, and updated
+	affected code elsewhere. The proper order of events now is:
+
+	1. OWPContextInitialize() [calls I2RandomSourceInit()]
+	2. repeated calls to I2RandomBytes() [not affected by any subsequent changes
+				             in underlying randomness source]
+
+2002-08-05  karp  <karp@packrat.internet2.edu>
+
+	* I2util/I2util/random.c: Tiny - forgot to add a cast
+
+	* I2util/I2util/random.c: Re-did I2RandomBytes to use /dev/urandom
+
+2002-08-05  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/table.h:
+	Test sessions seem to work - owping doesn't wait for the test session to finish - but if you wait until the -datadir/SID.i file is renamed to -datadir/SID you
+	do get a complete file.
+
+	I need to modify the file-buffering some, and owping needs to be modified to
+	wait for the test session to complete.
+
+	jeff
+
+2002-07-22  karp  <karp@packrat.internet2.edu>
+
+	* I2util/I2util/table.c: Remove debug checks (no longer needed).
+
+	* I2util/I2util/table.c: Added casts to pacify compiler.
+
+2002-07-18  karp  <karp@packrat.internet2.edu>
+
+	* I2util/I2util/table.c: Minor clarifications in comments.
+
+2002-07-15  karp  <karp@packrat.internet2.edu>
+
+	* I2util/I2util/table.c:
+	Fixed a bug in hashatom() - it was sensitive to bytes
+	outside the ones being hashed. Minor addition for easier
+	debugging.
+
+2002-06-22  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/table.c: Oops - one check too many.
+
+	jeff
+
+	* I2util/I2util/table.c, I2util/I2util/table.h:
+	added checks to make sure table is not modified from within iterate.
+
+	jeff
+
+2002-06-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/table.c, I2util/I2util/table.h, I2util/I2util/util.h:
+	Tolya - I corrected some problems with the table code, and added some features.
+
+	There was a mistake in the init function - you only used one malloc, and
+	pointed the "buckets" pointer to the memory just past the I2table record.
+	The problem is that there is nothing making sure that the memory just
+	past the I2table record is aligned properly for pointers (the type of the
+	array). There are two ways to fix this - one, add something to the end
+	of the structure to ensure the next memory is aligned, or just malloc
+	the buckets array seperately. (the extra malloc seemed easier, so that
+	is what I did.)
+
+	Another mistake in the init function was that you called exit. A library
+	function should almost never call exit - let the calling environment
+	handle the errors, just report them. In this case, it is very easy to
+	just return NULL if there is a problem.
+
+	I simplified the cmp function slightly - there was no reason to check for
+	the MIN of the sizes in the bcmp (which I changed to memcmp) since you
+	already know the sizes are equal or the first part of the || would have
+	caused the value to be returned already. (lazy evaluation)
+
+	In init - I reordered the primes array check for sizes so you don't have to
+	have the extra 509, and the bogus INT_MAX in the array. Not really necessary,
+	but I had a hard time following the logic each time I looked at it before.
+
+	hash_close - I made it take an I2table instead of a pointer to an I2table. It
+	wasn't clear to me why you had it the other way... I also removed the if
+	checkes before the free'ing of the pointers. (If those pointers were NULL you
+	would have core dumped from the lines before the if, because those pointers
+	are dereferenced.)
+
+	I added a hash_delete function so you can remove a key/value pair from the
+	hash. (I added the iterate function earlier - you probably noticed.)
+
+	I didn't do it, but I think it would be much cleaner to implement your hash
+	printing using the hash_iterate function. Then you could take the hash_print
+	function pointer out of the hash table structure. Also - you could take
+	the I2binding structure out of the header file since it wouldn't be needed.
+
+	Everything else I did was purely cosmetic - defined types for the function
+	pointers and things along those lines.
+
+	jeff
+
+2002-06-18  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/table.c, I2util/I2util/table.h:
+	Added I2hash_iterate function - this is similar to the "print" function, but
+	allows you to specify a different function to call each time you call
+	hash_iterate. It also lets you terminate the iteration by returning false
+	from the function.
+
+	jeff
+
+2002-06-14  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/util.h:
+	fix for __attribute__ check... I had put it in the config.h.in file, but since
+	that is dynamically generated, it didn't work too well....
+
+	jeff
+
+2002-06-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/ErrLogImmediate.c, I2util/I2util/ErrLogSyslog.c, I2util/I2util/Options.c, I2util/I2util/Pthread.h, I2util/I2util/errlog.h, I2util/I2util/random.c, I2util/I2util/random.h, I2util/I2util/table.c, I2util/config/c-attribute.m4, I2util/configure.ac:
+	Removed compiler warnings.
+
+	jeff
+
+2002-06-02  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/Makefile.am, I2util/I2util/random.c, I2util/I2util/random.h, I2util/I2util/util.h, I2util/Makefile.am:
+	Reorganizing things...
+
+	Tolya - when you create new files please put a $Id$ comment header at the
+	beginning of the file. (I don't really care that much if you use the comment
+	script, but I really want the version number in there - it makes it much easier
+	to determin how out-of-date printout's are.)
+
+	Also - I moved your arithmatic out of I2util and put it into owamp - it is
+	difficult to imagine something more specific to owamp. I2util is for code
+	that is likely to be used for projects completely unrelated to owamp.
+
+	I'm thinking more and more about rolling all the owpcontrib code right into
+	the owamp directory, but I decided to leave it alone for now. Let me know
+	if you have opionions one way or the other about it.
+
+	Oh - I also broke up api.c into 3 files:
+	api.c
+	capi.c
+	sapi.c
+
+	api.c contains functions that are used by capi.c and sapi.c. capi.c is client
+	api functions and sapi.c is server api functions.
+
+	Now that I've reorganized the code to more easily digestable chunks, I'm going
+	to start taking some of the code from owampd and putting it in sapi.c, and
+	extending it to actually start test sessions.
+
+	(I probably won't get enough done today to check in again today - in fact,
+	considering what I will be doing, it will probably be a few days before I
+	check-in again.)
+
+	jeff
+
+2002-05-31  karp  <karp@packrat.internet2.edu>
+
+	* I2util/I2util/Makefile.am, I2util/I2util/util.h:
+	Added support for arithmetic functions.
+
+2002-04-30  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/table.c:
+	owping first real check-in. Not real functional, but at least gives an
+	outline. Does not implement policy hooks yet. (Should be able to use exact
+	same ones as owampd after cleanup.)
+
+	I2util/I2util/
+		table.c:made sure default compare function doesn't overrun memory.
+
+	owping/
+	Makefile.am:	added localaddr template - still working on code.
+	owping.c:	organized.
+	localaddr.[ch]	localaddr template.
+	owpingP.h:	typedefs for owping.
+
+	jeff
+
+	* I2util/I2util/table.c, I2util/I2util/table.h:
+	Removed references to old table symbols are replaced them with I2hash_init
+	etc...
+
+	(I need to verify this compiles on a system up there - so expect another ci
+	shortly.)
+
+	I also changed the table code to use the I2ErrLog stuff instead of OWPError.
+
+	Tolya - I think it would be much cleaner to remove the hash functions from
+	owampd - and put them all into access.[ch]. I don't see any reason why
+	owamp_read_ip2class, owamp_read_class2limits, and read_passwd_file couldn't
+	call I2hash_init themselves and return the hash_table as the return value of
+	the function. You could still call I2hash_print for debugging purposes - but
+	the code could be much cleaner this way. What do you think?
+
+	jeff
+
+2002-04-29  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/Makefile.am, I2util/I2util/Options.c, I2util/I2util/options.h, I2util/I2util/table.c, I2util/I2util/table.h, I2util/I2util/util.h, I2util/Makefile.am:
+	Adding Tolya's hash table into the I2util library. Modified the symbols to
+	start with I2.
+
+	Makefile.am:
+		added table.h as installable.
+
+	ErrLog.c:
+		Corrected comment.
+
+	I2util/
+
+	Makefile.am:
+		added table.c source.
+
+	Options.c,options.h:
+		Added stringtoUint converter.
+		Made stringtoint converter use strtol instead of less predictable sscanf
+		Corrected arg printing routine to deal with varargs.
+	util.h:
+		added include of table.h
+
+2002-04-26  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/Options.c, I2util/I2util/options.h:
+	Adding ability for an -option to take variable args after it.
+
+	i.e. owping -sender sendaddr [sendserv]
+
+	In this example 1 or 2 args. To do this - the arg description lists the max
+	number of args it will take - and it specifies it as a negative number
+	in the description record.
+
+	This library will eventually have to be documented to some extent - I'm
+	hoping doxygen is easy...
+
+	jeff
+
+2002-04-24  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/ErrLogSyslog.c, I2util/I2util/Makefile.am, I2util/I2util/Pthread.h, I2util/I2util/mach_dep.c, I2util/I2util/mach_dep.h, I2util/I2util/options.h, I2util/I2util/util.h, I2util/Makefile.am, I2util/bootstrap, I2util/config/Make-rules, I2util/configure.ac:
+	Build for libI2util.a
+
+	jeff
+
+	* I2util/I2util/mach_dep.c: Adding mach dep code.
+
+	jeff
+
+2002-04-23  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/README:
+	Beginnings of a utility library. I don't have build files for it yet - tomorrow.
+
+	jeff
+
+	* I2util/I2util/ErrLog.c, I2util/I2util/ErrLogImmediate.c, I2util/I2util/ErrLogSyslog.c, I2util/I2util/Options.c, I2util/I2util/Pthread.c, I2util/I2util/Pthread.h, I2util/I2util/errlog.h, I2util/I2util/errlogimmediate.h, I2util/I2util/errlogsyslog.h, I2util/I2util/options.h, I2util/I2util/optionsP.h, I2util/I2util/util.h:
+	import of until library.
+
+	Based on a utility library distributed with the "volsh" code from UCAR.
+
+		http://www.scd.ucar.edu/vets/vg/Software/volsh
+
+	I have used this in the past - and it seemed silly not to use it since it
+	is freely distributed.
+
+	jeff
+
