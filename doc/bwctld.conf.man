@@ -228,13 +228,15 @@ ensures the port number is distinct from the address specification.
 .TP
 .BI syncfuzz " syncfuzz"
 This value is added to the NTP error estimates to increase the tolerance
-of bwctld to incomplete NTP configurations. If not enough NTP peers are
-specified, NTP can not accurately determine the time error. This option
-is specified as a floating point number in seconds. For example, to indicate
-that the system is synchronized to one second, you could specify this option as 1.0.
+of bwctld to incomplete NTP configurations, or if the NTP system calls
+are not available. If NTP is unavailable to \fBbwctld\fR it assumes the
+clock is accurate to within one second plus the value of \fIsyncfuzz\fR.
+This option is specified as a floating point number
+in seconds. For example, to indicate that the system is synchronized within
+one second, you could specify this option as 1.0.
 .RS
 .IP Default:
-0.0 (NTP error estimates are used as is.)
+0.0
 .RE
 .TP
 .BI user " user"

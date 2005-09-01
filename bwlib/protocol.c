@@ -946,261 +946,261 @@ _BWLReadTestRequest(
 	BWLAcceptType	*accept_ret
 )
 {
-	uint8_t	*buf = (uint8_t*)cntrl->msg;
-	BWLTimeStamp	tstamp;
-	BWLErrSeverity	err_ret=BWLErrFATAL;
-	struct sockaddr_storage	sendaddr_rec;
-	struct sockaddr_storage	recvaddr_rec;
-	socklen_t	addrlen = sizeof(sendaddr_rec);
-	BWLAddr		SendAddr=NULL;
-	BWLAddr		RecvAddr=NULL;
-	uint8_t	ipvn;
-	BWLSID		sid;
-	BWLTestSpec	tspec;
-	BWLTestSession	tsession;
-	int		ival=0;
-	int		*intr=&ival;
-	uint16_t	recv_port;
-	BWLBoolean	conf_sender;
-	BWLBoolean	conf_receiver;
+    uint8_t                 *buf = (uint8_t*)cntrl->msg;
+    BWLTimeStamp            tstamp;
+    BWLErrSeverity          err_ret=BWLErrFATAL;
+    struct sockaddr_storage sendaddr_rec;
+    struct sockaddr_storage recvaddr_rec;
+    socklen_t               addrlen = sizeof(sendaddr_rec);
+    BWLAddr                 SendAddr=NULL;
+    BWLAddr                 RecvAddr=NULL;
+    uint8_t                 ipvn;
+    BWLSID                  sid;
+    BWLTestSpec             tspec;
+    BWLTestSession          tsession;
+    int                     ival=0;
+    int                     *intr=&ival;
+    uint16_t                recv_port;
+    BWLBoolean              conf_sender;
+    BWLBoolean              conf_receiver;
 
-	if(!_BWLStateIs(_BWLStateTestRequest,cntrl)){
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-			"_BWLReadTestRequest: called in wrong state.");
-		return BWLErrFATAL;
-	}
+    if(!_BWLStateIs(_BWLStateTestRequest,cntrl)){
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+                "_BWLReadTestRequest: called in wrong state.");
+        return BWLErrFATAL;
+    }
 
-	memset(&sendaddr_rec,0,addrlen);
-	memset(&recvaddr_rec,0,addrlen);
-	memset(&tspec,0,sizeof(tspec));
-	memset(sid,0,sizeof(sid));
-
-
-	/*
-	 * Initialize BWLAcceptType
-	 */
-	*accept_ret = BWL_CNTRL_INVALID;
-
-	/*
-	 * If caller wants to participate in interrupts, use the passed in addr.
-	 */
-	if(retn_on_intr){
-		intr = retn_on_intr;
-	}
-
-	/*
-	 * Already read the first block - read the rest for this message
-	 * type.
-	 */
-	if(_BWLReceiveBlocksIntr(cntrl,&buf[16],_BWL_TEST_REQUEST_BLK_LEN-1,
-				intr) != (_BWL_TEST_REQUEST_BLK_LEN-1)){
-		BWLError(cntrl->ctx,BWLErrFATAL,errno,
-		"_BWLReadTestRequest: Unable to read from socket.");
-		goto error;
-	}
+    memset(&sendaddr_rec,0,addrlen);
+    memset(&recvaddr_rec,0,addrlen);
+    memset(&tspec,0,sizeof(tspec));
+    memset(sid,0,sizeof(sid));
 
 
-	if(memcmp(cntrl->zero,&buf[96],_BWL_RIJNDAEL_BLOCK_SIZE)){
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-			"_BWLReadTestRequest: Invalid zero padding");
-		goto error;
-	}
+    /*
+     * Initialize BWLAcceptType
+     */
+    *accept_ret = BWL_CNTRL_INVALID;
 
-	/*
-	 * Decode the parameters that are used for initial request AND
-	 * for reservation update.
-	 */
-	_BWLDecodeTimeStamp(&tspec.req_time,&buf[8]);
-	if(!_BWLDecodeTimeStampErrEstimate(&tspec.req_time,&buf[24])){
-		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-				"_BWLReadTestRequest: Invalid time errest");
-		goto error;
-	}
-	_BWLDecodeTimeStamp(&tstamp,&buf[16]);
-	tspec.latest_time = tstamp.tstamp;
-	recv_port = ntohs(*(uint16_t*)&buf[26]);
+    /*
+     * If caller wants to participate in interrupts, use the passed in addr.
+     */
+    if(retn_on_intr){
+        intr = retn_on_intr;
+    }
 
-	/*
-	 * copy sid (will be ignored if this is an initial receive request)
-	 */
-	memcpy(sid,&buf[60],16);
+    /*
+     * Already read the first block - read the rest for this message
+     * type.
+     */
+    if(_BWLReceiveBlocksIntr(cntrl,&buf[16],_BWL_TEST_REQUEST_BLK_LEN-1,
+                intr) != (_BWL_TEST_REQUEST_BLK_LEN-1)){
+        BWLError(cntrl->ctx,BWLErrFATAL,errno,
+                "_BWLReadTestRequest: Unable to read from socket.");
+        goto error;
+    }
 
-	if(*test_session){
-		tsession = *test_session;
-		if(memcmp(sid,tsession->sid,16) != 0){
-			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-				"_BWLReadTestRequest: sid mismatch");
-			goto error;
-		}
-		tsession->test_spec.req_time = tspec.req_time;
-		tsession->test_spec.latest_time = tspec.latest_time;
-		if(!tsession->conf_receiver){
-			tsession->recv_port = recv_port;
-		}
-	}
-	else{
-		/*
-		 * If *test_session is NULL, than there are currently no
-		 * outstanding reservations. Therefore, this is a new request
-		 * so decode it.
-		 */
 
-		ipvn = buf[1] & 0xF;
-		tspec.udp = (buf[1]>>4)?True:False;
+    if(memcmp(cntrl->zero,&buf[96],_BWL_RIJNDAEL_BLOCK_SIZE)){
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+                "_BWLReadTestRequest: Invalid zero padding");
+        goto error;
+    }
 
-		tspec.duration = ntohl(*(uint32_t*)&buf[4]);
+    /*
+     * Decode the parameters that are used for initial request AND
+     * for reservation update.
+     */
+    _BWLDecodeTimeStamp(&tspec.req_time,&buf[8]);
+    if(!_BWLDecodeTimeStampErrEstimate(&tspec.req_time,&buf[24])){
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+                "_BWLReadTestRequest: Invalid time errest");
+        goto error;
+    }
+    _BWLDecodeTimeStamp(&tstamp,&buf[16]);
+    tspec.latest_time = tstamp.tstamp;
+    recv_port = ntohs(*(uint16_t*)&buf[26]);
 
-		switch(buf[2]){
-			case 0:
-				conf_sender = False;
-				break;
-			case 1:
-			default:
-				conf_sender = True;
-				break;
-		}
-		switch(buf[3]){
-			case 0:
-				conf_receiver = False;
-				break;
-			case 1:
-			default:
-				conf_receiver = True;
-				break;
-		}
+    /*
+     * copy sid (will be ignored if this is an initial receive request)
+     */
+    memcpy(sid,&buf[60],16);
 
-		if(conf_sender == conf_receiver){
-			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-				"_BWLReadTestRequest: Invalid req(send/recv?)");
-			goto error;
-		}
+    if(*test_session){
+        tsession = *test_session;
+        if(memcmp(sid,tsession->sid,16) != 0){
+            BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+                    "_BWLReadTestRequest: sid mismatch");
+            goto error;
+        }
+        tsession->test_spec.req_time = tspec.req_time;
+        tsession->test_spec.latest_time = tspec.latest_time;
+        if(!tsession->conf_receiver){
+            tsession->recv_port = recv_port;
+        }
+    }
+    else{
+        /*
+         * If *test_session is NULL, than there are currently no
+         * outstanding reservations. Therefore, this is a new request
+         * so decode it.
+         */
 
-		if(conf_receiver){
-			recv_port = 0;
-		}
+        ipvn = buf[1] & 0xF;
+        tspec.udp = (buf[1]>>4)?True:False;
 
-		switch(ipvn){
-		struct sockaddr_in	*saddr4;
-#ifdef	AF_INET6
-		struct sockaddr_in6	*saddr6;
-			case 6:
-				if(addrlen < sizeof(struct sockaddr_in6)){
-					BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-		"_BWLReadTestRequest: socklen not large enough (%d < %d)",
-						addrlen,
-						sizeof(struct sockaddr_in6));
-					goto error;
-				}
-				addrlen = sizeof(struct sockaddr_in6);
+        tspec.duration = ntohl(*(uint32_t*)&buf[4]);
 
-				/* sender address and port */
-				saddr6 = (struct sockaddr_in6*)&sendaddr_rec;
-				saddr6->sin6_family = AF_INET6;
-				memcpy(saddr6->sin6_addr.s6_addr,&buf[28],16);
-				saddr6->sin6_port = 0;
+        switch(buf[2]){
+            case 0:
+                conf_sender = False;
+                break;
+            case 1:
+            default:
+                conf_sender = True;
+                break;
+        }
+        switch(buf[3]){
+            case 0:
+                conf_receiver = False;
+                break;
+            case 1:
+            default:
+                conf_receiver = True;
+                break;
+        }
 
-				/* receiver address and port  */
-				saddr6 = (struct sockaddr_in6*)&recvaddr_rec;
-				saddr6->sin6_family = AF_INET6;
-				memcpy(saddr6->sin6_addr.s6_addr,&buf[44],16);
-				saddr6->sin6_port = 0;
+        if(conf_sender == conf_receiver){
+            BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+                    "_BWLReadTestRequest: Invalid req(send/recv?)");
+            goto error;
+        }
 
-				break;
+        if(conf_receiver){
+            recv_port = 0;
+        }
+
+        switch(ipvn){
+            struct sockaddr_in    *saddr4;
+#ifdef    AF_INET6
+            struct sockaddr_in6    *saddr6;
+            case 6:
+            if(addrlen < (socklen_t)sizeof(struct sockaddr_in6)){
+                BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+                        "_BWLReadTestRequest: socklen not large enough (%d < %d)",
+                        addrlen,
+                        sizeof(struct sockaddr_in6));
+                goto error;
+            }
+            addrlen = sizeof(struct sockaddr_in6);
+
+            /* sender address and port */
+            saddr6 = (struct sockaddr_in6*)&sendaddr_rec;
+            saddr6->sin6_family = AF_INET6;
+            memcpy(saddr6->sin6_addr.s6_addr,&buf[28],16);
+            saddr6->sin6_port = 0;
+
+            /* receiver address and port  */
+            saddr6 = (struct sockaddr_in6*)&recvaddr_rec;
+            saddr6->sin6_family = AF_INET6;
+            memcpy(saddr6->sin6_addr.s6_addr,&buf[44],16);
+            saddr6->sin6_port = 0;
+
+            break;
 #endif
-			case 4:
-				if(addrlen < sizeof(struct sockaddr_in)){
-					BWLError(cntrl->ctx,BWLErrFATAL,
-						BWLErrINVALID,
-		"_BWLReadTestRequest: socklen not large enough (%d < %d)",
-						addrlen,
-						sizeof(struct sockaddr_in));
-					goto error;
-				}
-				addrlen = sizeof(struct sockaddr_in);
+            case 4:
+            if(addrlen < (socklen_t)sizeof(struct sockaddr_in)){
+                BWLError(cntrl->ctx,BWLErrFATAL,
+                        BWLErrINVALID,
+                        "_BWLReadTestRequest: socklen not large enough (%d < %d)",
+                        addrlen,
+                        sizeof(struct sockaddr_in));
+                goto error;
+            }
+            addrlen = sizeof(struct sockaddr_in);
 
-				/* sender address and port  */
-				saddr4 = (struct sockaddr_in*)&sendaddr_rec;
-				saddr4->sin_family = AF_INET;
-				saddr4->sin_addr.s_addr = *(uint32_t*)&buf[28];
-				saddr4->sin_port = 0;
+            /* sender address and port  */
+            saddr4 = (struct sockaddr_in*)&sendaddr_rec;
+            saddr4->sin_family = AF_INET;
+            saddr4->sin_addr.s_addr = *(uint32_t*)&buf[28];
+            saddr4->sin_port = 0;
 
-				/* receiver address and port  */
-				saddr4 = (struct sockaddr_in*)&recvaddr_rec;
-				saddr4->sin_family = AF_INET;
-				saddr4->sin_addr.s_addr = *(uint32_t*)&buf[44];
-				saddr4->sin_port = 0;
+            /* receiver address and port  */
+            saddr4 = (struct sockaddr_in*)&recvaddr_rec;
+            saddr4->sin_family = AF_INET;
+            saddr4->sin_addr.s_addr = *(uint32_t*)&buf[44];
+            saddr4->sin_port = 0;
 
-				break;
-			default:
-				BWLError(cntrl->ctx,BWLErrWARNING,BWLErrINVALID,
-			"_BWLReadTestRequest: Unsupported IP version (%d)",
-									ipvn);
-				goto error;
-		}
+            break;
+            default:
+            BWLError(cntrl->ctx,BWLErrWARNING,BWLErrINVALID,
+                    "_BWLReadTestRequest: Unsupported IP version (%d)",
+                    ipvn);
+            goto error;
+        }
 
-#ifdef	HAVE_STRUCT_SOCKADDR_SA_LEN
-		((struct sockaddr *)&sendaddr_rec)->sa_len =
-		((struct sockaddr *)&recvaddr_rec)->sa_len = addrlen;
+#ifdef    HAVE_STRUCT_SOCKADDR_SA_LEN
+        ((struct sockaddr *)&sendaddr_rec)->sa_len =
+            ((struct sockaddr *)&recvaddr_rec)->sa_len = addrlen;
 #endif
-		/*
-		 * Prepare the address buffers.
-		 * (Don't bother checking for null return - it will be checked
-		 * by _BWLTestSessionAlloc.)
-		 */
-		SendAddr = BWLAddrBySAddr(cntrl->ctx,
-				(struct sockaddr*)&sendaddr_rec,addrlen,
-				(tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
-		RecvAddr = BWLAddrBySAddr(cntrl->ctx,
-				(struct sockaddr*)&recvaddr_rec,addrlen,
-				(tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
+        /*
+         * Prepare the address buffers.
+         * (Don't bother checking for null return - it will be checked
+         * by _BWLTestSessionAlloc.)
+         */
+        SendAddr = BWLAddrBySAddr(cntrl->ctx,
+                (struct sockaddr*)&sendaddr_rec,addrlen,
+                (tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
+        RecvAddr = BWLAddrBySAddr(cntrl->ctx,
+                (struct sockaddr*)&recvaddr_rec,addrlen,
+                (tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
 
-		tspec.bandwidth = ntohl(*(uint32_t*)&buf[76]);
-		tspec.len_buffer = ntohl(*(uint32_t*)&buf[80]);
-		tspec.window_size = ntohl(*(uint32_t*)&buf[84]);
-		tspec.report_interval = ntohl(*(uint32_t*)&buf[88]);
+        tspec.bandwidth = ntohl(*(uint32_t*)&buf[76]);
+        tspec.len_buffer = ntohl(*(uint32_t*)&buf[80]);
+        tspec.window_size = ntohl(*(uint32_t*)&buf[84]);
+        tspec.report_interval = ntohl(*(uint32_t*)&buf[88]);
 
-		tspec.dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
-                tspec.tos = buf[93];
+        tspec.dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
+        tspec.tos = buf[93];
 
-		/*
-		 * Allocate a record for this test.
-		 */
-		if( !(tsession = _BWLTestSessionAlloc(cntrl,conf_sender,
-					SendAddr,RecvAddr,recv_port,&tspec))){
-			err_ret = BWLErrWARNING;
-			*accept_ret = BWL_CNTRL_FAILURE;
-			goto error;
-		}
+        /*
+         * Allocate a record for this test.
+         */
+        if( !(tsession = _BWLTestSessionAlloc(cntrl,conf_sender,
+                        SendAddr,RecvAddr,recv_port,&tspec))){
+            err_ret = BWLErrWARNING;
+            *accept_ret = BWL_CNTRL_FAILURE;
+            goto error;
+        }
 
-		/*
-		 * copy sid into tsession - if the sid still needs to be
-		 * generated - it still will be in sapi.c:BWLProcessTestRequest
-		 */
-		memcpy(tsession->sid,&buf[60],16);
-	}
+        /*
+         * copy sid into tsession - if the sid still needs to be
+         * generated - it still will be in sapi.c:BWLProcessTestRequest
+         */
+        memcpy(tsession->sid,&buf[60],16);
+    }
 
 
-	*test_session = tsession;
-	*accept_ret = BWL_CNTRL_ACCEPT;
+    *test_session = tsession;
+    *accept_ret = BWL_CNTRL_ACCEPT;
 
-	cntrl->state &= ~_BWLStateTestRequest;
-	cntrl->state |= _BWLStateTestAccept;
+    cntrl->state &= ~_BWLStateTestRequest;
+    cntrl->state |= _BWLStateTestAccept;
 
-	return BWLErrOK;
+    return BWLErrOK;
 
 error:
-	if(tsession){
-		_BWLTestSessionFree(tsession,BWL_CNTRL_FAILURE);
-	}else{
-		BWLAddrFree(SendAddr);
-		BWLAddrFree(RecvAddr);
-	}
+    if(tsession){
+        _BWLTestSessionFree(tsession,BWL_CNTRL_FAILURE);
+    }else{
+        BWLAddrFree(SendAddr);
+        BWLAddrFree(RecvAddr);
+    }
 
-	if(err_ret < BWLErrWARNING){
-		cntrl->state = _BWLStateInvalid;
-	}
+    if(err_ret < BWLErrWARNING){
+        cntrl->state = _BWLStateInvalid;
+    }
 
-	return err_ret;
+    return err_ret;
 }
 
 /*

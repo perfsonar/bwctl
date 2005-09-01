@@ -530,6 +530,14 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
  */
 #define BWLSyncFuzz    "BWLSyncFuzz"
 
+/*
+ * This value is used to indicate if NTP synchronization is required
+ * for tests to happen. If this value is set, then the application
+ * can attempt to continue without determining if the current clock
+ * is really synchronized.
+ */
+#define BWLAllowUnsync  "BWLAllowUnsync"
+
 #ifndef    NDEBUG
 /*
  * This integer type is used to aid in child-debugging. If BWLChildWait is
@@ -545,7 +553,8 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
 
 extern BWLContext
 BWLContextCreate(
-        I2ErrHandle    eh
+        I2ErrHandle    eh,
+        ...
         );
 
 extern void

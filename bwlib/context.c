@@ -19,6 +19,7 @@
 */
 #include <assert.h>
 #include <signal.h>
+#include <stdarg.h>
 
 #include "bwlibP.h"
 
@@ -69,123 +70,139 @@ notmuch(
  */
 BWLContext
 BWLContextCreate(
-	I2ErrHandle	eh
+	I2ErrHandle	eh,
+        ...
 )
 {
-	struct sigaction	act;
-	I2LogImmediateAttr	ia;
-	BWLContext		ctx = calloc(1,sizeof(BWLContextRec));
-	char			*tmpdir;
+    struct sigaction    act;
+    I2LogImmediateAttr  ia;
+    BWLContext          ctx = calloc(1,sizeof(BWLContextRec));
+    char                *tmpdir;
+    va_list             ap;
+    char                *key;
 
-	if(!ctx){
-		BWLError(eh,
-			BWLErrFATAL,ENOMEM,":calloc(1,%d): %M",
-						sizeof(BWLContextRec));
-		return NULL;
-	}
+    if(!ctx){
+        BWLError(eh,
+                BWLErrFATAL,ENOMEM,":calloc(1,%d): %M",
+                sizeof(BWLContextRec));
+        return NULL;
+    }
 
-	if(!eh){
-		ctx->lib_eh = True;
-		ia.line_info = (I2NAME|I2MSG);
-		ia.fp = stderr;
-		ctx->eh = I2ErrOpen("libbwlib",I2ErrLogImmediate,&ia,
-				NULL,NULL);
-		if(!ctx->eh){
-			BWLError(NULL,BWLErrFATAL,BWLErrUNKNOWN,
-					"Cannot init error module");
-			free(ctx);
-			return NULL;
-		}
-	}
-	else{
-		ctx->lib_eh = False;
-		ctx->eh = eh;
-	}
+    if(!eh){
+        ctx->lib_eh = True;
+        ia.line_info = (I2NAME|I2MSG);
+        ia.fp = stderr;
+        ctx->eh = I2ErrOpen("libbwlib",I2ErrLogImmediate,&ia,
+                NULL,NULL);
+        if(!ctx->eh){
+            BWLError(NULL,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Cannot init error module");
+            free(ctx);
+            return NULL;
+        }
+    }
+    else{
+        ctx->lib_eh = False;
+        ctx->eh = eh;
+    }
 
-        ctx->access_prio = BWLErrINFO;
+    ctx->access_prio = BWLErrINFO;
 
-	if(_BWLInitNTP(ctx) != 0){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-				"Unable to initialize clock interface.");
-		BWLContextFree(ctx);
-		return NULL;
-	}
+    if( !(ctx->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,
+                    NULL,NULL))){
+        BWLContextFree(ctx);
+        return NULL;
+    }
 
-	if( !(ctx->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,
-								NULL,NULL))){
-		BWLContextFree(ctx);
-		return NULL;
-	}
+    va_start(ap,eh);
+    while( (key = (char *)va_arg(ap, char *)) != NULL){
 
-	if( !(ctx->rand_src = I2RandomSourceInit(ctx->eh,I2RAND_DEV,NULL))){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-			     "Failed to initialize randomness sources");
-		BWLContextFree(ctx);
-		return NULL;
-	}
+        if(!BWLContextConfigSet(ctx,key,va_arg(ap, void *))){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to set Context value for %s",key);
+            BWLContextFree(ctx);
+            return NULL;
+        }
+    }
+    va_end(ap);
 
-	if( (tmpdir = getenv("TMPDIR")))
-		strncpy(ctx->tmpdir,tmpdir,PATH_MAX);
-	else
-		strncpy(ctx->tmpdir,_BWL_DEFAULT_TMPDIR,PATH_MAX);
 
-	if(strlen(ctx->tmpdir) + strlen(_BWL_PATH_SEPARATOR) +
-					strlen(_BWL_TMPFILEFMT) > PATH_MAX){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN, "TMPDIR too long");
-		BWLContextFree(ctx);
-		return NULL;
-	}
+    if( !(ctx->rand_src = I2RandomSourceInit(ctx->eh,I2RAND_DEV,NULL))){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "Failed to initialize randomness sources");
+        BWLContextFree(ctx);
+        return NULL;
+    }
 
-	/*
-	 * Do NOT exit on SIGPIPE. To defeat this in the least intrusive
-	 * way only set SIG_IGN if SIGPIPE is currently set to SIG_DFL.
-	 * Presumably if someone actually set a SIGPIPE handler, they
-	 * knew what they were doing...
-	 */
-	sigemptyset(&act.sa_mask);
-	act.sa_handler = SIG_DFL;
-	act.sa_flags = 0;
-	if(sigaction(SIGPIPE,NULL,&act) != 0){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
-		BWLContextFree(ctx);
-		return NULL;
-	}
-	if(act.sa_handler == SIG_DFL){
-		act.sa_handler = SIG_IGN;
-		if(sigaction(SIGPIPE,&act,NULL) != 0){
-			BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-					"sigaction(): %M");
-			BWLContextFree(ctx);
-			return NULL;
-		}
-	}
+    if( (tmpdir = getenv("TMPDIR")))
+        strncpy(ctx->tmpdir,tmpdir,PATH_MAX);
+    else
+        strncpy(ctx->tmpdir,_BWL_DEFAULT_TMPDIR,PATH_MAX);
 
-	/*
-	 * This library uses calls to select that are intended to
-	 * interrupt select in the case of SIGCHLD, so I must
-	 * ensure that the process is getting SIGCHLD events.
-	 */
-	memset(&act,0,sizeof(act));
-	sigemptyset(&act.sa_mask);
-	act.sa_handler = SIG_DFL;
-	/* fetch current handler */
-	if(sigaction(SIGCHLD,NULL,&act) != 0){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
-		BWLContextFree(ctx);
-		return NULL;
-	}
-	/* If there is no current handler - set a "do nothing" one. */
-	if(act.sa_handler == SIG_DFL){
-		act.sa_handler = notmuch;
-		if(sigaction(SIGCHLD,&act,NULL) != 0){
-			BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-					"sigaction(): %M");
-			BWLContextFree(ctx);
-			return NULL;
-		}
-	}
+    if(strlen(ctx->tmpdir) + strlen(_BWL_PATH_SEPARATOR) +
+            strlen(_BWL_TMPFILEFMT) > PATH_MAX){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN, "TMPDIR too long");
+        BWLContextFree(ctx);
+        return NULL;
+    }
 
-	return ctx;
+    /*
+     * Do NOT exit on SIGPIPE. To defeat this in the least intrusive
+     * way only set SIG_IGN if SIGPIPE is currently set to SIG_DFL.
+     * Presumably if someone actually set a SIGPIPE handler, they
+     * knew what they were doing...
+     */
+    sigemptyset(&act.sa_mask);
+    act.sa_handler = SIG_DFL;
+    act.sa_flags = 0;
+    if(sigaction(SIGPIPE,NULL,&act) != 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
+        BWLContextFree(ctx);
+        return NULL;
+    }
+    if(act.sa_handler == SIG_DFL){
+        act.sa_handler = SIG_IGN;
+        if(sigaction(SIGPIPE,&act,NULL) != 0){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "sigaction(): %M");
+            BWLContextFree(ctx);
+            return NULL;
+        }
+    }
+
+    /*
+     * This library uses calls to select that are intended to
+     * interrupt select in the case of SIGCHLD, so I must
+     * ensure that the process is getting SIGCHLD events.
+     */
+    memset(&act,0,sizeof(act));
+    sigemptyset(&act.sa_mask);
+    act.sa_handler = SIG_DFL;
+    /* fetch current handler */
+    if(sigaction(SIGCHLD,NULL,&act) != 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
+        BWLContextFree(ctx);
+        return NULL;
+    }
+    /* If there is no current handler - set a "do nothing" one. */
+    if(act.sa_handler == SIG_DFL){
+        act.sa_handler = notmuch;
+        if(sigaction(SIGCHLD,&act,NULL) != 0){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "sigaction(): %M");
+            BWLContextFree(ctx);
+            return NULL;
+        }
+    }
+
+    if(_BWLInitNTP(ctx) != 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "Unable to initialize clock interface.");
+        BWLContextFree(ctx);
+        return NULL;
+    }
+
+    return ctx;
 }
 
 /*

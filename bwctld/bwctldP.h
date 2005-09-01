@@ -67,6 +67,7 @@ typedef struct {
 	I2Boolean	daemon;
 
 	double		syncfuzz;
+        I2Boolean       allowUnsync;
 } bwctld_opts;
 
 #endif	/*	_BWCTLDP_H_	*/

@@ -1509,6 +1509,9 @@ main(
                 }
                 break;
                 /* Generic options.*/
+            case 'a':
+                app.opt.allowUnsync = True;
+                break;
             case 'h':
             case '?':
             default:
@@ -1573,26 +1576,13 @@ main(
     /*
      * Initialize library with configuration functions.
      */
-    if( !(ctx = BWLContextCreate(eh))){
+    if( !(ctx = BWLContextCreate(eh,
+                    BWLAllowUnsync, app.opt.allowUnsync,
+                    BWLInterruptIO, &ip_intr,
+                    BWLGetAESKey,   getclientkey,
+                    NULL))){
         I2ErrLog(eh, "Unable to initialize BWL library.");
         exit(1);
-    }
-
-    /*
-     * Set the retn_on_intr flag.
-     */
-    if(!BWLContextConfigSet(ctx,BWLInterruptIO,(void*)&ip_intr)){
-        BWLError(ctx,BWLErrFATAL,errno,
-                "Unable to set Context var: %M");
-        exit(1);
-    }
-
-    /*
-     * install getaeskey func (key is in aesbuff)
-     */
-    if(!BWLContextConfigSet(ctx,BWLGetAESKey,(void*)getclientkey)){
-        I2ErrLog(eh,"Unable to set GetAESKey function for context: %M");
-        return 1;
     }
 
     /*

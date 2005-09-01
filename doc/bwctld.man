@@ -132,11 +132,14 @@ kill it's child processes and exit.) This is useful for debugging.
 The \fBbwctld\fR daemon requires a reasonably synchronized clock. It is
 scheduling tests and needs to be sure it has the same idea of when a test
 should take place as does the peer system with which the test is being done.
-Therefore, \fBbwctld\fR requires that \fBNTP\fR be running to synchronize
-the system clock. This means that \fBNTP\fR needs to be setup correctly
-on the system so that \fBNTP\fR can actually calculate a reasonable
-estimate of the time error. For the \fBNTP\fR algorithms to work correctly,
-ntpd \fBMUST\fR be configured with no fewer than 4 clocks.
+Therefore, \fBbwctld\fR attempts to use NTP specific system calls to determine
+the accuracy of the localclock. If those system calls are unavailable, or
+NTP reports the clock is unsynchronized, \fBbwctld\fR assumes the clock is
+within one second of true time. If this assumption does not hold true, the
+test will fail. The downside to this assumption is that \fBbwctld\fR
+still reserved a time for this test to take place even though it was not able
+to occur. To force the old behavior that required NTP set the \fIrequiresync\fR
+option.
 .SH FILES
 bwctld.pid
 .br

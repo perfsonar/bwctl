@@ -1401,6 +1401,9 @@ LoadConfig(
             }
             opts.syncfuzz = tdbl;
         }
+        else if(!strncasecmp(key,"allowunsync",12)){
+            opts.allowUnsync = True;
+        }
         else{
             fprintf(stderr,"Unknown key=%s\n",key);
             rc = -rc;
@@ -1661,10 +1664,17 @@ main(int argc, char *argv[])
      * Initialize the context. (Set the error handler to the app defined
      * one.)
      */
-    if(!(ctx = BWLContextCreate(errhand))){
+    if(!(ctx = BWLContextCreate(errhand,
+                    BWLAllowUnsync,&opts.allowUnsync,
+                    NULL))){
         exit(1);
     }
 
+    /*
+     * TODO: Add Context var for setting access log priority.
+     * It seems silly to have this extra function for this.
+     * (Perhaps I've been doing too much java lately...)
+     */
     if(opts.access_prio != -1){
         BWLContextSetAccessLogPriority(ctx,opts.access_prio);
     }
@@ -1675,6 +1685,7 @@ main(int argc, char *argv[])
         I2ErrLog(errhand,"Unable to set SyncFuzz.");
         exit(1);
     }
+
 
     if((opts.peerports) &&
             !BWLContextConfigSet(ctx,BWLPeerPortRange,

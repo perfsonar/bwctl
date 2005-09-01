@@ -138,6 +138,7 @@ typedef	struct {
 		uint32_t	timeDuration;	/* -t (secs) */
 		uint32_t	parallel;	/* -P	*/
 		uint32_t	tos;		/* -S	*/
+                I2Boolean       allowUnsync;    /* -a   */
 
 	} opt;
 

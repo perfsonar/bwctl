@@ -585,31 +585,34 @@ _BWLInitNTP(
 {
     /*
      * If this system has the ntp system calls, use them. Otherwise,
-     * just assume the clock is not synchronized.
+     * assume the clock is not synchronized.
      * (Setting SyncFuzz is advisable in this case.)
      */
 #ifdef  HAVE_SYS_TIMEX_H
-    struct timex	ntp_conf;
+    {
+        struct timex	ntp_conf;
 
-    memset(&ntp_conf,0,sizeof(ntp_conf));
+        memset(&ntp_conf,0,sizeof(ntp_conf));
 
-    if(ntp_adjtime(&ntp_conf) < 0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
-        return 1;
-    }
+        if(ntp_adjtime(&ntp_conf) < 0){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
+            return 1;
+        }
 
-    if(ntp_conf.status & STA_UNSYNC){
-        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
-    }
+        if(ntp_conf.status & STA_UNSYNC){
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
+        }
 
 #ifdef	STA_NANO
-    if( !(ntp_conf.status & STA_NANO)){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                "_BWLInitNTP: STA_NANO must be set! - try \"ntptime -N\"");
-        return 1;
-    }
+        if( !(ntp_conf.status & STA_NANO)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "_BWLInitNTP: STA_NANO must be set! - try \"ntptime -N\"");
+            return 1;
+        }
 #endif	/*  STA_NANO */
-#endif  /*  HAVE_SYS_TIMEX_H */
+    }
+#endif  /* HAVE_SYS_TIMEX_H */
+
     return 0;
 }
 
@@ -621,10 +624,10 @@ _BWLGetTimespec(
 		int			*sync
 		)
 {
-    struct timeval  tod;
-    static long	    syncfuzz = 0;
-    static double   *dbptr = NULL;
-    uint32_t        maxerr;
+    struct timeval      tod;
+    static long	        syncfuzz = 0;
+    static double       *dbptr = NULL;
+    uint32_t            maxerr;
 
     /*
      * By default, assume the clock is unsynchronized, but that it
@@ -665,6 +668,11 @@ _BWLGetTimespec(
              * This is reported at level "warning" at initialization.
              */
             BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
+            if(!((BWLBoolean)BWLContextConfigGet(ctx,BWLAllowUnsync))){
+                BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                        "allowunsync is not set, failing.");
+                return NULL;
+            }
         }
         else{
             long    sec;

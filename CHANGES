@@ -1,9 +1,23 @@
 $Id$
 
+version 1.2a
+* Added -f option to bwctld to allow it to run with root permissions.
+* Added better usage() messages and more information to several
+user prompts.
+* Fixed uninitialized variable error that caused error returns from
+the server to be incorrectly reported.
+* Fixed srcnode bug.
+* Ported to Solaris.
+* Ported to OS X.
+* Removed ntp system call dependancy.
+* Increased default -L value for bwctl.
+* Added message to data output to indicate that iperf was killed.
+
 version 1.1b
 * bwctl now sets POSIXLY_CORRECT env var before calling getopt because
   Linux is too brain-dead to have a POSIX compliant getopt without it.
   (And I was too brain-dead to test it propely before releasing 1.1a.)
+
 version 1.1a
 * Added 3-party support.
 * Added server-less client support.
