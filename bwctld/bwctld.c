@@ -1198,23 +1198,28 @@ LoadConfig(
             }
             syslogattr.priority = prio;
         }
-        else if(!strncasecmp(key,"rootfolly",10)){
+        else if(!strncasecmp(key,"rootfolly",10) ||
+                !strncasecmp(key,"root_folly",11)){
             opts.allowRoot = True;
         }
-        else if(!strncasecmp(key,"accesspriority",15)){
+        else if(!strncasecmp(key,"accesspriority",15) ||
+                !strncasecmp(key,"access_priority",16)){
             opts.access_prio = I2ErrLogSyslogPriority(val);
             if(opts.access_prio == -1){
                 fprintf(stderr,
-                        "Invalid syslog priority \"%s\" unknown\n",
+                        "Invalid syslog priority for access_priority: "
+                        "\"%s\" unknown\n",
                         val);
                 rc = -rc;
                 break;
             }
         }
-        else if(!strncasecmp(key,"loglocation",12)){
+        else if(!strncasecmp(key,"loglocation",12)  ||
+                !strncasecmp(key,"log_location",13)){
             syslogattr.line_info |= I2FILE|I2LINE;
         }
-        else if(!strncasecmp(key,"iperfcmd",9)){
+        else if(!strncasecmp(key,"iperfcmd",9) ||
+                !strncasecmp(key,"iperf_cmd",10)){
             if(!(opts.iperfcmd = strdup(val))) {
                 fprintf(stderr,"strdup(): %s\n",
                         strerror(errno));
@@ -1222,7 +1227,8 @@ LoadConfig(
                 break;
             }
         }
-        else if(!strncasecmp(key,"iperfport",10)){
+        else if(!strncasecmp(key,"iperfport",10) ||
+                !strncasecmp(key,"iperf_port",11)){
             char        *hpstr = NULL;
             uint16_t    lport,hport;
             char        *end=NULL;
@@ -1267,7 +1273,7 @@ LoadConfig(
 
             if(hport < lport){
                 fprintf(stderr,
-                        "iperfport: invalid range specified");
+                        "iperf_port: invalid range specified");
                 rc=-rc;
                 break;
             }
@@ -1285,14 +1291,16 @@ LoadConfig(
                 opts.iperfports[tlng] = tlng + lport;
             }
         }
-        else if(!strncasecmp(key,"peerports",10)){
+        else if(!strncasecmp(key,"peerports",10) ||
+                !strncasecmp(key,"peer_ports",11)){
             if(!BWLParsePorts(val,&peerports,&opts.peerports,NULL,stderr)){
-                fprintf(stderr,"Invalid peerports range specified.");
+                fprintf(stderr,"Invalid peer_ports range specified.");
                 rc=-rc;
                 break;
             }
         }
-        else if(!strncasecmp(key,"datadir",8)){
+        else if(!strncasecmp(key,"datadir",8) ||
+                !strncasecmp(key,"data_dir",9)){
             if(!(opts.datadir = strdup(val))) {
                 fprintf(stderr,"strdup(): %s\n",
                         strerror(errno));
@@ -1319,7 +1327,8 @@ LoadConfig(
         else if(!strncasecmp(key,"verbose",8)){
             opts.verbose = True;
         }
-        else if(!strncasecmp(key,"authmode",9)){
+        else if(!strncasecmp(key,"authmode",9) ||
+                !strncasecmp(key,"auth_mode",10)){
             if(!(opts.authmode = strdup(val))) {
                 fprintf(stderr,"strdup(): %s\n",
                         strerror(errno));
@@ -1327,7 +1336,8 @@ LoadConfig(
                 break;
             }
         }
-        else if(!strncasecmp(key,"srcnode",8)){
+        else if(!strncasecmp(key,"srcnode",8) ||
+                !strncasecmp(key,"src_node",9)){
             if(!(opts.srcnode = strdup(val))) {
                 fprintf(stderr,"strdup(): %s\n",
                         strerror(errno));
@@ -1335,7 +1345,8 @@ LoadConfig(
                 break;
             }
         }
-        else if(!strncasecmp(key,"vardir",7)){
+        else if(!strncasecmp(key,"vardir",7) ||
+                !strncasecmp(key,"var_dir",8)){
             if(!(opts.vardir = strdup(val))) {
                 fprintf(stderr,"strdup(): %s\n",
                         strerror(errno));
@@ -1343,7 +1354,8 @@ LoadConfig(
                 break;
             }
         }
-        else if(!strncasecmp(key,"dieby",6)){
+        else if(!strncasecmp(key,"dieby",6) ||
+                !strncasecmp(key,"die_by",7)){
             char        *end=NULL;
             uint32_t    tlng;
 
@@ -1357,7 +1369,8 @@ LoadConfig(
             }
             opts.dieby = tlng;
         }
-        else if(!strncasecmp(key,"controltimeout",15)){
+        else if(!strncasecmp(key,"controltimeout",15) ||
+                !strncasecmp(key,"control_timeout",16)){
             char        *end=NULL;
             uint32_t    tlng;
 
@@ -1371,7 +1384,8 @@ LoadConfig(
             }
             opts.controltimeout = tlng;
         }
-        else if(!strncasecmp(key,"bottleneckcapacity",19)){
+        else if(!strncasecmp(key,"bottleneckcapacity",19) ||
+                !strncasecmp(key,"bottleneck_capacity",20)){
             BWLDLimitT    bneck;
             if(I2StrToNum(&bneck,val)){
                 fprintf(stderr,"Invalid value: %s\n",
@@ -1381,7 +1395,8 @@ LoadConfig(
             }
             opts.bottleneckcapacity = (uint64_t)bneck;
         }
-        else if(!strncasecmp(key,"syncfuzz",9)){
+        else if(!strncasecmp(key,"syncfuzz",9) ||
+                !strncasecmp(key,"sync_fuzz",10)){
             char    *end=NULL;
             double    tdbl;
 
@@ -1394,14 +1409,15 @@ LoadConfig(
                 break;
             }
             if(tdbl < 0.0){
-                fprintf(stderr,"Invalid value syncfuzz: %f\n",
+                fprintf(stderr,"Invalid value sync_fuzz: %f\n",
                         tdbl);
                 rc=-rc;
                 break;
             }
             opts.syncfuzz = tdbl;
         }
-        else if(!strncasecmp(key,"allowunsync",12)){
+        else if(!strncasecmp(key,"allowunsync",12) ||
+                !strncasecmp(key,"allow_unsync",13)){
             opts.allowUnsync = True;
         }
         else{
@@ -1561,16 +1577,10 @@ main(int argc, char *argv[])
             case 'v':    /* -v "verbose" */
                 opts.verbose = True;
                 break;
-            case 'd':    /* -d "data directory" */
-                if (!(opts.datadir = strdup(optarg))) {
-                    I2ErrLog(errhand,"strdup(): %M");
-                    exit(1);
-                }
-                break;
             case 'f':
                 opts.allowRoot = True;
                 break;
-            case 'a':    /* -a "authmode" */
+            case 'a':    /* -a "auth_mode" */
                 if (!(opts.authmode = strdup(optarg))) {
                     I2ErrLog(errhand,"strdup(): %M");
                     exit(1);
