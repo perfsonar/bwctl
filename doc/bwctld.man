@@ -26,11 +26,11 @@ bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
 .SH SYNOPSIS
 .B bwctld
 [
-.BI \-a " authmode"
+.BI \-a " auth_mode"
 ] [
-.BI \-c " confdir"
+.BI \-c " conf_dir"
 ] [
-.BI \-d " datadir"
+.BI \-d " data_dir"
 ] [
 .BI \-e " facility"
 ] [
@@ -40,7 +40,7 @@ bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
 ] [
 .B \-h
 ] [
-.BI \-R " vardir"
+.BI \-R " var_dir"
 ] [
 .BI \-S " nodename:port"
 ] [
@@ -72,9 +72,9 @@ Most of the command line options for \fBbwctld\fR have analogous options
 in the \fBbwctld.conf\fR file. The command line takes precedence.
 .SH OPTIONS
 .TP
-.BI \-a " authmode"
+.BI \-a " auth_mode"
 Specify the authentication modes the server is willing to use for
-communication. \fIauthmode\fR should be set as a character string with
+communication. \fIauth_mode\fR should be set as a character string with
 any or all of the characters "AEO". The modes are:
 .RS
 .IP \fBA\fR
@@ -94,14 +94,14 @@ will be selected.
 "AEO".
 .RE
 .TP
-.BI \-c " confdir"
+.BI \-c " conf_dir"
 Specify the directory that holds the \fBbwctld\fR configuration files.
 .RS
 .IP Default:
 Current working directory.
 .RE
 .TP
-.BI \-d " datadir"
+.BI \-d " data_dir"
 Specify the directory that holds the output data files. (\fBbwctld\fR does
 not currently save the results of the \fBIperf\fR tests. This option is a place
 holder for when it does.)
@@ -129,17 +129,17 @@ messages are printed to stderr as well as being sent to syslog. Also, normal
 terminal controls are available. (i.e., <Cntr\-C> will cause the daemon to
 kill it's child processes and exit.) This is useful for debugging.
 .SH REQUIREMENTS
-The \fBbwctld\fR daemon requires a reasonably synchronized clock. It is
+The \fBbwctld\fR daemon prefers a reasonably synchronized clock. It is
 scheduling tests and needs to be sure it has the same idea of when a test
-should take place as does the peer system with which the test is being done.
+should take place as does the peer test system.
 Therefore, \fBbwctld\fR attempts to use NTP specific system calls to determine
 the accuracy of the localclock. If those system calls are unavailable, or
-NTP reports the clock is unsynchronized, \fBbwctld\fR assumes the clock is
-within one second of true time. If this assumption does not hold true, the
-test will fail. The downside to this assumption is that \fBbwctld\fR
-still reserved a time for this test to take place even though it was not able
-to occur. To force the old behavior that required NTP set the \fIrequiresync\fR
-option.
+the administrator has set the \fIallow_unsync\fR option in the \fBbwctld.conf\fR
+file, then \fBbwctld\fR will blindly accept tests assuming the clock is
+synchronized to within the \fIsync_fuzz\fR value that is also defined
+in the \fBbwctld.conf\fR file. If this assumption does not hold true, then
+the test will eventually fail. Unfortunately, because the time offset
+is not detected early, this test will have taken up a schedule slot.
 .SH FILES
 bwctld.pid
 .br
@@ -176,7 +176,7 @@ only used if \fBbwctld\fR is started as root.
 .B \-h
 Print a help message.
 .TP
-.BI \-R " vardir"
+.BI \-R " var_dir"
 Specify the directory to hold the bwctld.pid file.
 .RS
 .IP Default:

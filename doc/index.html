@@ -30,8 +30,7 @@
 <body>
 
 <center>
-<h1>
-BWCTL Version 1.2a <font color="#FF0000">(beta)</font></h1></center>
+<h1>BWCTL Version 1.2a</h1></center>
 
 <center>(<b>B</b>and<b>w</b>idth <b>C</b>on<b>t</b>ro<b>l</b>)
 <br><a href="http://e2epi.internet2.edu/bwctl">http://e2epi.internet2.edu/bwctl/</a></center>
@@ -91,33 +90,22 @@ will be allowed. (More details on the policy controls can be found in the
 manual page.)
 <h3>
 
-<hr WIDTH="100%">What's New</h3>
+<hr WIDTH="100%">What's Changed Since Version 1.1b</h3>
 
 <ul>
-<li>
-3-Party communication is now supported. The client does not have to be
-on one of the endpoint hosts.</li>
-
-<ul>
-<li>
-Modified authentication options to allow the client to authenticate to
-each side of the test using different authentication.</li>
-</ul>
-
-<li>
-A local <b>bwctld</b> is no longer required. <b>bwctl</b> will detect if
-there is a local <b>bwctld</b> and use it if it is there, and mimic the
-functionality if it is not.</li>
-
-<li>
-Port ranges for the <b>bwctld</b> peer connections can be specified to
-allow <b>bwctld</b> to work in firewall environments.</li>
-
-<li>
-Split access logging from error logging in <b>bwctld</b>.</li>
-
-<li>
-Added support for setting the TOS bits in the test packets.</li>
+    <li>Added -f option to bwctld to allow it to run with root permissions.</li>
+    <li>Added better usage() messages and more information to several user
+    prompts.</li>
+    <li>Fixed bug that caused all server side errors to be reported incorrectly
+    be the client.</li>
+    <li>Fixed bwctld bug that disabled srcnode option.</li>
+    <li>Ported to Solaris.</li>
+    <li>Ported to OS X.</li>
+    <li>Removed NTP system call dependency. Added allow_unsync options</li>
+    <li>Increased default -L value for bwctl.</li>
+    <li>Added messages to data output to indicate if iperf was killed.</li>
+    <li>Modified all config options to have '_' between words.
+    (old versions are supported as well for now.)</li>
 </ul>
 
 <h3>
@@ -126,7 +114,7 @@ Added support for setting the TOS bits in the test packets.</li>
 
 <ul>
 <li>
-Supports (and requires) versions 1.7.0 or 2.0.b of <b>Iperf</b>.</li>
+Supports version 2.0 of <b>Iperf</b>.</li>
 
 <li>
 Full IPv6 support. No options needed. If the target of a test is specified
@@ -162,8 +150,8 @@ BWCTL needs to know how long the test will take before the test is started.</li>
 <li>
 Supports dynamic TCP window size determination. (Currently, this is limited
 because the bottleneck capacity is specified as a constant in the config
-file. In the future, bottleneck capacity will most likely be dynamically
-determined using packet dispersion techniques.)</li>
+file. In the future, bottleneck capacity could potentially be dynamically
+determined using techniques such as packet dispersion.)</li>
 </ul>
 
 <h3>
@@ -172,32 +160,26 @@ determined using packet dispersion techniques.)</li>
 
 <ul>
 <li>
-BWCTL currently requires <b>Iperf</b> version 1.7.0 (or 2.0.b for the adventurous).</li>
+BWCTL currently requires <b>Iperf</b> 2.0.</li>
 
 <li>
-The
-<b>bwctld</b> daemon requires a reasonably synchronized clock. It is
-scheduling tests and must be sure it has the same idea of when a test should
-take place as does the peer system with which the test is being done. Therefore,
-BWCTL requires that <b>NTP</b> be running to synchronize the system clock.
-This means that <b>NTP</b> needs to be setup correctly on the system so
-that
-<b>NTP</b> can actually calculate a reasonable estimate of the time
-error. For the
-<b>NTP</b> algorithms to work correctly, <b>NTP <font color="#FF0000">MUST</font></b><font color="#000000">
+The <b>bwctld</b> daemon prefers an NTP synchronized system clock to ensure the
+two endpoints of the test are actually agreeing to the same scheduled time
+window for test execution.
+Therefore, BWCTL requires that <b>NTP</b> be running to synchronize the
+system clock. (See the <em>allow_unsync</em> configuration option
+described in the <a href="bwctld.conf.man.html">bwctld.conf(8)</a> manual page
+to see how to by-pass this requirement.)
+<b>NTP</b> should be setup correctly on the system so that <b>bwctld</b>
+can actually fetch reasonable estimates of the time error from <b>NTP</b>.
+For the <b>NTP</b> algorithms to work correctly,
+<b>NTP <font color="#FF0000">MUST</font></b><font color="#000000">
 be configured with no fewer than 4 clocks. (See</font> <a href="http://twiki.ntp.org/bin/view/Support/SelectingOffsiteNTPServers">http://twiki.ntp.org/bin/view/Support/SelectingOffsiteNTPServers</a>&nbsp;<font color="#000000">
 for more details.)</font></li>
 
 <li>
-Additionally, BWCTL (<b>bwctl </b>and <b>bwctld</b>) uses the NTP-specific
-system calls to fetch time and time error estimates from the system kernel,
-so the kernel must support these interfaces. All modern UNIX systems support
-them.</li>
-
-<li>
 <b>gnumake</b> may be required for the build process (see
-<a href="#Build">Building
-the Application</a>).</li>
+<a href="#Build">Building the Application</a>).</li>
 
 <li>
 To get good results, the end hosts will almost certainly need to be well
@@ -210,7 +192,8 @@ for some excellent tips in that regard.</li>
 
 <hr WIDTH="100%">Supported Systems</h3>
 BWCTL has been tested most extensively on FreeBSD 4.7 and Linux 2.4.20
-but most recent versions of UNIX should work.
+but most recent versions of UNIX should work. The code
+cleanly compiles on FreeBSD, Linux, Solaris, and OS X.
 <h3>
 
 <hr WIDTH="100%">Recommended Hardware</h3>
@@ -361,9 +344,10 @@ Jeff Boote
 The following individuals have greatly aided in the development, testing or
 debugging of BWCTL:
 <ul>
-<li>Paul Hyder (NOAA)</li>
 <li>Shumon Huque (UPenn)</li>
+<li>Paul Hyder (NOAA)</li>
 <li>Warren Matthews (GaTech)</li>
+<li>Sean Peisert (SDSC)</li>
 </ul>
 
 <pre>

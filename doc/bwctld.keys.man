@@ -28,7 +28,8 @@ bwctld.keys \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
 The \fBbwctld.keys\fR file is used to hold the identity/AES keys pairs
 needed for \fBbwctld\fR to authenticate users. The format of this file
 is described in the aespasswd(1) manual page. The location of this
-file is controlled by the \fB\-c\fR option to \fBbwctld\fR.
+file is controlled by the \fB\-c\fR option to \fBbwctld\fR but it
+must be named \fBbwctld.keys\fR.
 .PP
 \fBbwctld\fR uses symmetric AES keys for authentication. Therefore, the
 \fBbwctl\fR client will have to have access to the exact same AES key

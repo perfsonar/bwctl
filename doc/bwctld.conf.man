@@ -53,16 +53,37 @@ separated by whitespace.
 .RE
 .SH CONFIGURATION OPTIONS
 .TP
-.BI accesspriority " priority"
+.BI access_priority " priority"
 Syslog \fIpriority\fR to log access messages.
 .RS
 .IP Default:
 LOG_INFO
 .RE
 .TP
-.BI authmode " authmode"
+.B allow_unsync
+Directs \fBbwctld\fR to continue accepting valid requests for throughput
+tests when the system clock is not synchronized. \fBbwctld\fR prefers
+to have an NTP synchronized system clock to ensure the two endpoints of the
+test are actually agreeing to the same scheduled time window for
+test execution. This option is used to bypass this requirement for
+systems that either do not have the NTP system calls, or prefer not
+to configure NTP.
+.RS
+.PP
+Note, if the difference between the system clocks on the two endpoints
+is too great the eventual throughput test will fail when the
+endpoints attempt to run the test at different times. The threshold
+for this difference is controlled using the \fIsync_fuzz\fR option.
+(If you set allow_unsync, you should set \fIsync_fuzz\fR to a reasonable
+value for your system.)
+.PP
+.IP Default:
+unset (set if the operating system does have the NTP system calls)
+.RE
+.TP
+.BI auth_mode " authmode"
 Specify the authentication modes the server is willing to use for
-communication. \fIauthmode\fR should be set as a character string, with
+communication. \fIauth_mode\fR should be set as a character string, with
 any or all of the characters "AEO". The modes are:
 .RS
 .IP \fBA\fR
@@ -82,10 +103,10 @@ will be selected.
 "AEO"
 .RE
 .TP
-.BI bottleneckcapacity " bottleneckcapacity"
+.BI bottleneck_capacity " bottleneckcapacity"
 This value is used in the algorithm to dynamically set the TCP
 send/recv window sizes. This option is likely to be removed in the
-future once a dynamic \fIbottleneckcapacity\fR algorithm is incorporated
+future once a dynamic \fIbottleneck_capacity\fR algorithm is incorporated
 into the code. (This option only really works when the local NIC is
 the bottleneck.) If this option is not specified, the dynamic window
 calculation requested by the \fB-W\fR option to \fBbwctl\fR is not
@@ -95,7 +116,7 @@ done and the advisory value is used.
 unset
 .RE
 .TP
-.BI controltimeout " controltimeout"
+.BI control_timeout " controltimeout"
 Number of seconds to wait for protocol messages before timing out. This
 value should be significantly larger than what typical users specify
 for the \fB-I\fR flag of \fBbwctl\fR or \fBbwctl\fR will have to open
@@ -105,7 +126,7 @@ a new control connection for each new test it requests.
 7200 (Picked to be the same as the default for TCP keepalive)
 .RE
 .TP
-.BI datadir " datadir"
+.BI data_dir " datadir"
 Directory path where output data files will be placed. (\fBbwctld\fR
 does not currently save the results of the \fBIperf\fR tests. This
 option is a place holder for when it does.)
@@ -114,7 +135,7 @@ option is a place holder for when it does.)
 Current directory
 .RE
 .TP
-.BI dieby " dieby"
+.BI die_by " dieby"
 Number of seconds to wait for child processes to gracefully terminate
 before killing them with \fBSIGKILL\fR. This is in response to the master
 process receiving \fBSIGTERM\fR or \fBSIGHUP\fR.
@@ -139,8 +160,8 @@ This option is only used if \fBbwctld\fR is started as root.
 unset
 .RE
 .TP
-.BI iperfcmd " iperfcmd"
-The path to the \fBIperf\fR command on the system. If the \fIiperfcmd\fR
+.BI iperf_cmd " iperfcmd"
+The path to the \fBIperf\fR command on the system. If the \fIiperf_cmd\fR
 does not contain a '/' character, then the PATH of the \fBbwctld\fR
 environment will be searched to find the \fBIperf\fR executable.
 .RS
@@ -148,20 +169,20 @@ environment will be searched to find the \fBIperf\fR executable.
 iperf
 .RE
 .TP
-.BI iperfport " iperfport"
+.BI iperf_port " iperfport"
 The port number(s) that \fBIperf\fR receivers will use.
 Currently, \fBbwctld\fR simply cycles through this range linearly.
-\fIiperfport\fR can be specified as a single valid port number or as
+\fIiperf_port\fR can be specified as a single valid port number or as
 a range as \fIlow\fR-\fIhigh\fR. The range must be specified as two valid
 port numbers with the '-' character separating them. Whitespace is
-not allowed within the \fIiperfport\fR. For example, \fB"5001-5004"\fR would
+not allowed within the \fIiperf_port\fR. For example, \fB"5001-5004"\fR would
 be valid, but \fB"5001 - 5004"\fR would be invalid.
 .RS
 .IP Default:
 5001
 .RE
 .TP
-.B loglocation
+.B log_location
 Directs the \fBbwctld\fR process to report source code file and line
 number information with error messages. This is a particularly useful
 option to set when sending in messages as part of a bug report.
@@ -170,7 +191,7 @@ option to set when sending in messages as part of a bug report.
 unset
 .RE
 .TP
-.BI peerports " 0 | lowport-highport"
+.BI peer_ports " 0 | lowport-highport"
 Specify the port range that will be used on the local host for peer
 connections to other
 .B bwctld
@@ -201,7 +222,7 @@ Syslog \fIpriority\fR to log error messages.
 LOG_ERR
 .RE
 .TP
-.B rootfolly
+.B root_folly
 Disables the checks that disable \fBbwctld\fR if it is run with \fIroot\fR
 permissions. There are legitimate reasons to run \fBbwctld\fR as root, but
 it is risky. Forcing this additional option will make it less likely root
@@ -211,7 +232,7 @@ permissions are accidently used.
 unset
 .RE
 .TP
-.BI srcnode " nodename:port"
+.BI src_node " nodename:port"
 Specify the address and port that \fBbwctld\fR will listen for requests on.
 \fInodename\fR can be specified using a DNS name or using the textual
 representation of the address. It is possible to set the source address
@@ -226,15 +247,18 @@ ensures the port number is distinct from the address specification.
 \fIport\fR is 4823.
 .RE
 .TP
-.BI syncfuzz " syncfuzz"
+.BI sync_fuzz " syncfuzz"
 This value is added to the NTP error estimates to increase the tolerance
 of bwctld to incomplete NTP configurations, or if the NTP system calls
 are not available. If NTP is unavailable to \fBbwctld\fR it assumes the
-clock is accurate to within one second plus the value of \fIsyncfuzz\fR.
+clock is accurate to within one second plus the value of \fIsync_fuzz\fR.
 This option is specified as a floating point number
 in seconds. For example, to indicate that the system is synchronized within
 one second, you could specify this option as 1.0.
 .RS
+.PP
+Practically, this option is used to determine the size of the time window
+buffer before and after each throughput test.
 .IP Default:
 0.0
 .RE
@@ -243,14 +267,14 @@ one second, you could specify this option as 1.0.
 Specifies the uid the \fBbwctld\fR process should run as. \fIuser\fR
 can be specified using a valid user name on the system or by using -uid.
 This option is only used if \fBbwctld\fR is started as root. If the
-given \fIuser\fR has \fIroot\fR permissions, the \fIrootfolly\fR option
+given \fIuser\fR has \fIroot\fR permissions, the \fIroot_folly\fR option
 must also be specified.
 .RS
 .IP Default:
 unset
 .RE
 .TP
-.BI vardir " vardir"
+.BI var_dir " vardir"
 Directory path where the bwctld.pid file will be placed.
 .RS
 .IP Default:
