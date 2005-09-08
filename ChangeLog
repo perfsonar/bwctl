@@ -1,3 +1,93 @@
+2005-09-07  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* conf/bwctld.conf: Adding new options into example config file.
+
+	jeff
+
+	* doc/bwctl.man, doc/bwctld.conf.man, doc/bwctld.keys.man, doc/bwctld.man, doc/index.html:
+	Modified documentation for new options in this release.
+
+	jeff
+
+	* bwctld/bwctld.c:
+	Changing the names of the config options to be consistent. They now all
+	have '_' between words. (Before, some did and some did not.)
+
+	The old versions will still be recognized for now.
+
+	jeff
+
+	* CHANGES:
+	Adding description of file and few more additional things that have been
+	added.
+
+2005-09-01  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* CHANGES, bwctl/bwctl.c, bwctl/bwctlP.h, bwctld/bwctld.c, bwctld/bwctldP.h, bwlib/bwlib.h, bwlib/context.c, bwlib/protocol.c, bwlib/time.c, doc/bwctld.conf.man, doc/bwctld.man, doc/index.html:
+	Preparing for new release. Unfortunately, I will not be able to test
+	until next week.
+
+	CHANGES
+	    enumerate changes from last release
+
+	Modified the BWLCreateContext function to be a varargs function so
+	Context values can be set upon creation. This is how a new variable
+	can be added to modify how the use of NTP is initialized.
+
+	corrected compiler warnings...
+
+	Began to document NTP changes - this is not done yet.
+
+	jeff
+
+2005-08-29  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* configure.ac: Modifying version tag.
+
+	jeff
+
+	* ChangeLog: Adding an rcs2log changelog.
+
+	jeff
+
+2005-08-28  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/endpoint.c:
+	Modifying the "iperf killed" code to do a non-blocking waitpid just
+	before the message - just to double check that the process is still
+	going.
+
+	jeff
+
+	* bwlib/time.c:
+	Need to include timex.h *after* bwlib.h since the autoconf macro's
+	are not defined until then.
+
+	jeff
+
+	* bwlib/endpoint.c, bwlib/time.c: 2 changes:
+
+	1) Added message into data stream to indicate iperf was killed for
+	scheduling purposes.
+
+	2) Modified code to still work if ntp system calls are not available
+	or if system clock is not synchronized.
+
+	jeff
+
+	* configure.ac:
+	Adding header check for timex.h. This file is required for the ntp system
+	calls. The code has been modified to not use the system calls if this
+	header file is not found.
+
+	jeff
+
+	* I2util/doc/aespasswd.man:
+	Added a some explanitory text that mentions the name of the bwctld.keys and
+	owampd.keys file based on feedback from walter (auburn)
+
+	jeff
+
 2005-08-28  Jeff W. Boote  <boote@packrat.internet2.edu>
 
 	* bwlib/endpoint.c:
