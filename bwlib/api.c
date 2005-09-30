@@ -460,12 +460,12 @@ BWLAddrBySockFD(
     BWLAddr                 addr;
 
     if(getpeername(fd,(void*)saddr,&saddrlen) != 0){
-        BWLError(ctx,BWLErrFATAL,errno,"getsockname(): %M");
+        BWLError(ctx,BWLErrFATAL,errno,"getpeername(): %M");
         return NULL;
     }
 
     /*
-     * *BSD getsockname returns 0 size for AF_UNIX.
+     * *BSD getpeername returns 0 size for AF_UNIX.
      * fake a sockaddr to describe this.
      */
     if(!saddrlen){
