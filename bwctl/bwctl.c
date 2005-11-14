@@ -93,6 +93,7 @@ print_test_args(
 {
     fprintf(stderr,
             "            [Test Args]\n\n"
+            "  -a             allow running with unsynchronized clock\n"
             "  -i interval    report interval (seconds)\n"
             "  -l len         length of read/write buffers (bytes)\n"
             "  -u             UDP test\n"
@@ -1197,7 +1198,7 @@ main(
     char                optstring[128];
     static char         *conn_opts = "AB:";
     static char         *out_opts = "pxd:I:R:n:L:e:qrvV";
-    static char         *test_opts = "i:l:uw:W:P:S:b:t:c:s:S:";
+    static char         *test_opts = "ai:l:uw:W:P:S:b:t:c:s:S:";
     static char         *gen_opts = "hW";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
