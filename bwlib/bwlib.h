@@ -644,12 +644,20 @@ BWLAddrBySAddr(
         int             socktype
         );
 
+/*
+ * Return the address for the remote side of the given socket.
+ * (wrapper for getpeername)
+ */
 extern BWLAddr
 BWLAddrBySockFD(
         BWLContext    ctx,
         int        fd    /* fd must be an already connected socket */
         );
 
+/*
+ * Return the address for the remote side of the given socket.
+ * (wrapper for getsockname)
+ */
 extern BWLAddr
 BWLAddrByLocalSockFD(
         BWLContext    ctx,

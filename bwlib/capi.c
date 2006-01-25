@@ -816,9 +816,7 @@ BWLSessionRequest(
 		goto error;
 	}
 
-	if(recv_port){
-		*recv_port = tsession->recv_port;
-	}
+	*recv_port = tsession->recv_port;
 
 	/*
 	 * Server accepted our request, and we were able to initialize this
