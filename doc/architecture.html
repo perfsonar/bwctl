@@ -36,6 +36,7 @@ BWCTL Architecture</h1></center>
 <center>
 <h5>
 $Date$</h5></center>
+<h4>Components Overview</h4>
 In the general case, BWCTL works by having a <b>bwctld</b> process on each
 of the endpoint test systems. The <b>bwctl</b> client contacts each of
 those daemons and requests a test. That request includes an indication
@@ -43,13 +44,8 @@ of the desired time period as well as a full parameterization of the desired
 <b>Iperf</b>
 test. <b>bwctld</b> is responsible for implementing the policy and scheduling
 constraints.
-<center>
-<h3>
-General Case</h3></center>
-
-<center>
-<h5>
-<img SRC="bwctl_arch.png" height=501 width=601></h5></center>
+<center><h3>General Case</h3></center>
+<center><h5><img SRC="bwctl_arch.png" height=501 width=601></h5></center>
 <b>bwctld</b> has been developed as a classic accept/fork daemon. The master
 daemon process listens for new network connections and also manages the
 resources for all child <b>bwctld</b> processes. Once a connection comes
@@ -64,6 +60,7 @@ is valid, it makes a request to the <i>master daemon</i> for the resources
 and time period requested by the client. If the <i>master daemon</i> has
 the resources available (including the open time period), it grants the
 request.
+<h4>Scheduling Algorithm</h4>
 <p>The time period for the test is always requested by the client. It makes
 a request to the <i>request broker</i> process on each endpoint of the
 test in turn. The time period is requested by specifying two timestamps.
@@ -80,6 +77,7 @@ it must then confirm the reservation with a <b>start session</b> message.
 The <b>start session</b> message must be received before a configurable
 timeout period and before the reservation time, or the server will disallow
 the reservation.
+<h4>Test Execution</h4>
 <p>Once the client sends the the <b>start session</b> message, the <i>request
 broker</i> forks off a <i>peer agent</i> that is responsible for verifying
 the time offset to the other endpoint of the test and initializing the
@@ -91,17 +89,13 @@ The <i>test process</i> waits until the scheduled start time and then executes
 with the correct command-line parameters. Note: Experience is showing that
 a closer integration with the testing process (<b>Iperf</b>) may be needed
 in the future.
+<h4>End User Workstation Configuration</h4>
 <p>In the event that the local host is one of the endpoints and there is
 no local <b>bwctld</b> running, <b>bwctl</b> will spawn additional processes
 to execute the local side of the test directly. In this case, a diagram
 of the processes involved would look like the following:
-<center>
-<h3>
-Local bwctld not available</h3></center>
-
-<center>
-<h5>
-<img SRC="bwctl_arch_servless.png" height=501 width=601></h5></center>
+<center><h3>Local bwctld not available</h3></center>
+<center><h5><img SRC="bwctl_arch_servless.png" height=501 width=601></h5></center>
 The same basic communication takes place between the different processes
 in this alignment. The main difference is that the client has no need of
 a resource broker. This is the expected usage scenario for end user workstations
