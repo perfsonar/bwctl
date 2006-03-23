@@ -92,7 +92,7 @@ BWLContextCreate(
         ctx->lib_eh = True;
         ia.line_info = (I2NAME|I2MSG);
         ia.fp = stderr;
-        ctx->eh = I2ErrOpen("libbwlib",I2ErrLogImmediate,&ia,
+        ctx->eh = I2ErrOpen("bwlib",I2ErrLogImmediate,&ia,
                 NULL,NULL);
         if(!ctx->eh){
             BWLError(NULL,BWLErrFATAL,BWLErrUNKNOWN,
