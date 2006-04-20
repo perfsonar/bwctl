@@ -2,3 +2,5 @@ Multi-cast support
 thrulay integration
 (other tools?)
 meta-scheduler daemon
+Authorization Logging
+    Currently just logs integer limit req/resp - should log all resource reqs.
