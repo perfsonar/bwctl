@@ -60,7 +60,7 @@ is valid, it makes a request to the <i>master daemon</i> for the resources
 and time period requested by the client. If the <i>master daemon</i> has
 the resources available (including the open time period), it grants the
 request.
-<h4>Scheduling Algorithm</h4>
+<h4>Scheduling Requests</h4>
 <p>The time period for the test is always requested by the client. It makes
 a request to the <i>request broker</i> process on each endpoint of the
 test in turn. The time period is requested by specifying two timestamps.
@@ -77,6 +77,49 @@ it must then confirm the reservation with a <b>start session</b> message.
 The <b>start session</b> message must be received before a configurable
 timeout period and before the reservation time, or the server will disallow
 the reservation.
+<h4>Scheduling Algorithm</h4>
+<p>The <b>bwctld</b> parent <i>resource broker</i> process holds the master
+schedule. When requests come in from clients, the <i>request broker</i>
+process does the non-global authorization checks and then passes the
+global authorization checks up to the <i>resource broker</i> including
+the request for a given time slot. The scheduling
+itself is simply a first-fit algorithm with limits imposed on how far
+it is willing to schedule into the future.</p>
+<p>Each time slot that is requested is padded to allow for time synchronization
+issues. The algorithm for the padding is dynamic and depends upon the
+following factors:
+<ul>
+<dl>
+    <dt>L (local)
+    <dd>accuracy of the local clock as reported by NTP and the local
+    sync_fuzz parameter setting
+    <dt>P (peer)
+    <dd>accuracy of the peer clock as reported by NTP and the peer
+    sync_fuzz parameter setting
+    <dt>R (round trip time)
+    <dd>Round Trip Time between the local host and the peer
+</dl>
+</ul>
+The algorithm is:<br>
+<ul>A + L + P + (2 * R)</ul>
+Where <b>A</b> is a small constant. (Currently 1 second in the code.)
+</p>
+<p>
+This amount of time is padded before and after each time slot that is
+requested.
+The algorithm was designed to continue to work in the case when
+the test peer is not as well synchronized and is perhaps halfway around
+the globe.</p>
+<p>
+The padding is placed before and after the test slot because there is
+2 RTT of communication before and after each test.
+For well synchronized hosts that are fairly near one another,
+this algorithm usually provides 2-3 seconds of padding between each
+test (time slot). This could potentially be reduced by making the
+<b>A</b> constant smaller. That constant represents the amount of time it
+takes a host to context switch, start processes, and includes how quickly
+iperf notices that its time is up. Experimentation has shown that even
+with 1 second of padding, iperf sometimes ends up needing to be killed off.</p>
 <h4>Test Execution</h4>
 <p>Once the client sends the the <b>start session</b> message, the <i>request
 broker</i> forks off a <i>peer agent</i> that is responsible for verifying
