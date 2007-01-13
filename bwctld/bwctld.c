@@ -265,7 +265,7 @@ ChldReservationDemand(
     BWLTimeStamp    currtime;
     Reservation     res;
     Reservation     *rptr;
-    BWLDLimitT      hsecs;
+    I2numT          hsecs;
     BWLNum64        dtime;    /* duration with fuzz applied */
     BWLNum64        minstart;
 
@@ -1386,7 +1386,7 @@ LoadConfig(
         }
         else if(!strncasecmp(key,"bottleneckcapacity",19) ||
                 !strncasecmp(key,"bottleneck_capacity",20)){
-            BWLDLimitT    bneck;
+            I2numT    bneck;
             if(I2StrToNum(&bneck,val)){
                 fprintf(stderr,"Invalid value: %s\n",
                         strerror(errno));
@@ -1735,18 +1735,19 @@ main(int argc, char *argv[])
         /*
          * Validate user option.
          */
-        if(!opts.user){
-            /* no-op */
-            ;
-        }
-        else if((pw = getpwnam(opts.user))){
-            setuser = pw->pw_uid;
-        }
-        else if(opts.user[0] == '-'){
-            setuser = strtoul(&opts.user[1],NULL,10);
-            if(errno || !getpwuid(setuser)){
-                I2ErrLog(errhand,"Invalid user/-U option: %s",
-                    opts.user);
+        if(opts.user){
+            if((pw = getpwnam(opts.user))){
+                setuser = pw->pw_uid;
+            }
+            else if(opts.user[0] == '-'){
+                setuser = strtoul(&opts.user[1],NULL,10);
+                if(errno || !getpwuid(setuser)){
+                    I2ErrLog(errhand,"Invalid user/-U option: %s",opts.user);
+                    exit(1);
+                }
+            }
+            else{
+                I2ErrLog(errhand,"Invalid user/-U option: %s",opts.user);
                 exit(1);
             }
         }

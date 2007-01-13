@@ -610,12 +610,14 @@ run_iperf(
     /*
      * Now run iperf!
      */
-    BWLGetTimeStamp(ctx,&currtime);
-    fprintf(nstdout,"%f:",BWLNum64ToDouble(currtime.tstamp));
+    fprintf(nstdout,"bwctl: exec_line: ");
     for(a=0;ipargs[a];a++){
         fprintf(nstdout," %s",ipargs[a]);
     }
     fprintf(nstdout,"\n");
+
+    BWLGetTimeStamp(ctx,&currtime);
+    fprintf(nstdout,"bwctl: start_exec: %f",BWLNum64ToDouble(currtime.tstamp));
     fflush(nstdout);
 
     execvp(iperf,ipargs);
@@ -1070,14 +1072,14 @@ ACCEPT:
         if((t1-e1) > (tr+er)){
             BWLError(ctx,BWLErrFATAL,errno,
                     "Remote clock is at least %f(secs) "
-                    "ahead of local, time error = %f(secs)",
+                    "ahead of local, time error specified: %f(secs)",
                     t1-tr,e1+er);
             goto end;
         }
         else if((tr-er) > (t2+e2)){
             BWLError(ctx,BWLErrFATAL,errno,
                     "Remote clock is at least %f(secs) "
-                    "behind local, time error = %f(secs)",
+                    "behind local, time error specified: %f(secs)",
                     tr-t2,e2+er);
             goto end;
         }
@@ -1168,18 +1170,6 @@ end:
         BWLError(ctx,BWLErrFATAL,errno,"setitimer(): %M");
     }
 
-#if    NOT
-    if(!BWLGetTimeStamp(ctx,&currtime)){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                "BWLGetTimeStamp(): %M");
-        abort();
-    }
-    BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
-            "End of test: currtime = %f",
-            BWLNum64ToDouble(currtime.tstamp)
-            );
-#endif
-
     if(!ep->child){
         /*
          * Never even got to the point of forking off iperf
@@ -1207,8 +1197,7 @@ end:
                  * report that this endpoint data is suspect since it
                  * had to be killed by the parent process.
                  */
-                if(fwrite("BWCTL_WARNING: iperf killed: timslot irregularity",
-                            sizeof(char),50,tsess->localfp) != 50){
+                if(fprintf(tsess->localfp,"bwctl: WARNING: child killed: timeslot irregularity\n") < 0){
                     BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                             "Error writing warning to iperf data results");
                 }
@@ -1233,7 +1222,12 @@ child_done:
         tsess->localfp = NULL;
     }
 
+
     if(do_write){
+        BWLGetTimeStamp(ctx,&currtime);
+        fprintf(tsess->localfp,"bwctl: stop_exec: %f",BWLNum64ToDouble(currtime.tstamp));
+        fflush(tsess->localfp);
+
         *err_ret = _BWLWriteStopSession(ep->rcntrl,&ipf_term,
                 ep->acceptval,tsess->localfp);
         if(*err_ret != BWLErrOK){

@@ -797,9 +797,8 @@ SpawnLocalServer(
     pid_t               pid;
     BWLErrSeverity      err = BWLErrOK;
     uint32_t           controltimeout = 7200;
-    double              syncfuzz;
     BWLTimeStamp        currtime;
-    uint64_t           bottle;
+    I2numT           bottle;
     char                *tstr;
     struct itimerval    itval;
     BWLControl          cntrl;
@@ -933,6 +932,9 @@ portdone:
      * Set them in the Context if appropriate.
      * (Also set other Context things that are needed.)
      *
+     * Stack values are ok - this process never leaves this
+     * function context again.
+     *
      */
 
     /*
@@ -974,28 +976,6 @@ portdone:
                     (void*)&bottle)){
             I2ErrLog(eh,
                     "BWLContextconfigSet(BottleNeckCapacity): %M");
-            _exit(1);
-        }
-    }
-
-    if((tstr = getenv("BWCTL_SYNCFUZZ"))){
-        char    *end=NULL;
-
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-
-        errno = 0;
-        syncfuzz = strtod(tstr,&end);
-        if((end == tstr) || (errno == ERANGE)){
-            I2ErrLog(eh,"strtod(): %M");
-            I2ErrLog(eh,"Ignoring invalid BWCTL_SYNCFUZZ value");
-        }
-        else if((syncfuzz != 0.0) &&
-                !BWLContextConfigSet(ctx,BWLSyncFuzz,
-                    (void*)&syncfuzz)){
-            I2ErrLog(eh,"BWLContextconfigSet(SyncFuzz): %M");
             _exit(1);
         }
     }
@@ -1042,6 +1022,7 @@ portdone:
         I2ErrLog(eh,"BWLContextConfigSet(\"CheckTestPolicy\")");
         _exit(1);
     }
+
 
     /*
      * Initialize interval timer
@@ -1194,9 +1175,9 @@ main(
 
     int                 fname_len;
     int                 ch;
-    char                *endptr = NULL;
+    char                *tstr = NULL;
     char                optstring[128];
-    static char         *conn_opts = "AB:";
+    static char         *conn_opts = "AB:a:";
     static char         *out_opts = "pxd:I:R:n:L:e:qrvV";
     static char         *test_opts = "ai:l:uw:W:P:S:b:t:c:s:S:";
     static char         *gen_opts = "hW";
@@ -1212,6 +1193,7 @@ main(
     struct sigaction    act;
     sigset_t            sigs;
     int                 exit_val=0;
+    double              syncfuzz;
 
     /*
      * Make sure the signal mask is UNBLOCKING TERM/HUP/INT
@@ -1394,16 +1376,16 @@ main(
                 }
                 break;
             case 'I':
-                app.opt.seriesInterval =strtoul(optarg, &endptr, 10);
-                if (*endptr != '\0') {
+                app.opt.seriesInterval =strtoul(optarg, &tstr, 10);
+                if (*tstr != '\0') {
                     usage(progname, 
                             "Invalid value. (-I) Positive integer expected");
                     exit(1);
                 }
                 break;
             case 'R':
-                app.opt.randomizeStart = strtoul(optarg,&endptr,10);
-                if(*endptr != '\0'){
+                app.opt.randomizeStart = strtoul(optarg,&tstr,10);
+                if(*tstr != '\0'){
                     usage(progname,
                             "Invalid value. (-R) Positive integer expected");
                     exit(1);
@@ -1415,16 +1397,16 @@ main(
                 }
                 break;
             case 'n':
-                app.opt.nIntervals =strtoul(optarg, &endptr, 10);
-                if (*endptr != '\0') {
+                app.opt.nIntervals =strtoul(optarg, &tstr, 10);
+                if (*tstr != '\0') {
                     usage(progname, 
                             "Invalid value. Positive integer expected");
                     exit(1);
                 }
                 break;
             case 'L':
-                app.opt.seriesWindow = strtoul(optarg,&endptr,10);
-                if(*endptr != '\0'){
+                app.opt.seriesWindow = strtoul(optarg,&tstr,10);
+                if(*tstr != '\0'){
                     usage(progname, 
                             "Invalid value. Positive integer expected");
                     exit(1);
@@ -1443,8 +1425,8 @@ main(
 
                 /* TEST OPTIONS */
             case 'i':
-                app.opt.reportInterval =strtoul(optarg, &endptr, 10);
-                if (*endptr != '\0') {
+                app.opt.reportInterval =strtoul(optarg, &tstr, 10);
+                if (*tstr != '\0') {
                     usage(progname, 
                             "Invalid value. (-i) positive integer expected");
                     exit(1);
@@ -1476,8 +1458,8 @@ main(
                 }
                 break;
             case 'P':
-                app.opt.parallel =strtoul(optarg, &endptr, 10);
-                if (*endptr != '\0') {
+                app.opt.parallel =strtoul(optarg, &tstr, 10);
+                if (*tstr != '\0') {
                     usage(progname, 
                             "Invalid value. Positive integer expected");
                     exit(1);
@@ -1486,8 +1468,8 @@ main(
                 exit(1);
                 break;
             case 'S':
-                app.opt.tos = strtoul(optarg, &endptr, 0);
-                if((*endptr != '\0') || (app.opt.tos > 0xff) ||
+                app.opt.tos = strtoul(optarg, &tstr, 0);
+                if((*tstr != '\0') || (app.opt.tos > 0xff) ||
                         (app.opt.tos & 0x01)){
                     usage(progname,
                             "Invalid value for TOS. (-S)");
@@ -1502,16 +1484,23 @@ main(
                 }
                 break;
             case 't':
-                app.opt.timeDuration = strtoul(optarg, &endptr, 10);
-                if((*endptr != '\0') || (app.opt.timeDuration == 0)){
+                app.opt.timeDuration = strtoul(optarg, &tstr, 10);
+                if((*tstr != '\0') || (app.opt.timeDuration == 0)){
                     usage(progname, 
-                            "Invalid value. Positive integer expected");
+                            "Invalid value \'-t\'. Positive integer expected");
                     exit(1);
                 }
                 break;
                 /* Generic options.*/
             case 'a':
-                app.opt.allowUnsync = True;
+                app.opt.allowUnsync = strtod(optarg,&tstr);
+                if((optarg == tstr) || (errno == ERANGE) ||
+                        (app.opt.allowUnsync < 0.0)){
+                    usage(progname, 
+                            "Invalid value \'-a\'. Positive float expected");
+                    exit(1);
+                }
+                break;
                 break;
             case 'h':
             case '?':
@@ -1574,17 +1563,42 @@ main(
         app.opt.timeDuration = 10; /* 10 second default */
     }
 
+    syncfuzz = app.opt.allowUnsync;
+    if((syncfuzz != 0.0) && (tstr = getenv("BWCTL_SYNCFUZZ"))){
+        char    *end=NULL;
+
+        if(!(tstr = strdup(tstr))){
+            I2ErrLog(eh,"strdup(): %M");
+            _exit(1);
+        }
+
+        errno = 0;
+        syncfuzz = strtod(tstr,&end);
+        if((end == tstr) || (errno == ERANGE)){
+            I2ErrLog(eh,"strtod(): %M");
+            I2ErrLog(eh,"Ignoring invalid BWCTL_SYNCFUZZ value");
+        }
+    }
+
     /*
      * Initialize library with configuration functions.
      */
     if( !(ctx = BWLContextCreate(eh,
-                    BWLAllowUnsync, app.opt.allowUnsync,
+                    BWLAllowUnsync, (app.opt.allowUnsync != 0.0),
                     BWLInterruptIO, &ip_intr,
                     BWLGetAESKey,   getclientkey,
                     NULL))){
         I2ErrLog(eh, "Unable to initialize BWL library.");
         exit(1);
     }
+
+    if((syncfuzz != 0.0) &&
+                !BWLContextConfigSet(ctx,BWLSyncFuzz,
+                    (void*)&syncfuzz)){
+        I2ErrLog(eh,"BWLContextconfigSet(SyncFuzz): %M");
+        _exit(1);
+    }
+
 
     /*
      * If seriesInterval is in use, verify the args and pick a
@@ -1834,7 +1848,7 @@ AGAIN:
 
             /* TODO: deal with temporary failures? */
             if(!first.cntrl){
-                I2ErrLog(eh,"Unable to connect to %s: %M",
+                I2ErrLog(eh,"Unable to connect to %s",
                         first.host);
                 goto next_test;
             }
@@ -1913,7 +1927,7 @@ AGAIN:
                 goto finish;
             }
             if(!second.cntrl){
-                I2ErrLog(eh,"Unable to connect to %s: %M",
+                I2ErrLog(eh,"Unable to connect to %s",
                         second.host);
                 goto next_test;
             }

@@ -42,7 +42,7 @@ typedef struct {
 	char		*vardir;
 
 	char		*iperfcmd;
-	uint64_t	bottleneckcapacity;
+	I2numT          bottleneckcapacity;
 	uint16_t	*iperfports;
 	uint16_t	def_port;
 	uint16_t	port_range_len;

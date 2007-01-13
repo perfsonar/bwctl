@@ -1397,11 +1397,11 @@ BWLDResourceDemand(
 	ret = IntegerResourceDemand(node,query,lim,limkind);
 
 	/*
-	 * These messages are printed to INFO so they can be selected
+	 * These messages are printed to DEBUG so they can be selected
 	 * as non-interesting.
 	 */
 	for(;!ret && node;node = node->parent){
-		BWLError(node->policy->ctx,BWLErrINFO,BWLErrPOLICY,
+		BWLError(node->policy->ctx,BWLErrDEBUG,BWLErrPOLICY,
 		"ResReq %s: %s:%s:%s = %llu (result = %llu, limit = %llu)",
 		(ret)?"ALLOWED":"DENIED",
 		node->nodename,
@@ -2061,7 +2061,7 @@ BWLDCheckControlPolicy(
 	 */
 	if(((mode & BWL_MODE_DOCIPHER) && userid) &&
 			!(node = GetNodeFromUserID(policy,userid))){
-		BWLError(policy->ctx,BWLErrINFO,BWLErrUNKNOWN,
+		BWLError(policy->ctx,BWLErrDEBUG,BWLErrUNKNOWN,
 				"BWLDCheckControlPolicy: No policy match for userid(%s) - using netmask match",userid);
 	}
 

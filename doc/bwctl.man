@@ -329,26 +329,24 @@ Unset (system defaults).
 .RE
 .SS Scheduling Arguments:
 .TP
-\fB\-a\fR
+\fB\-a\fR \fIsyncfuzz\fR
 .br
-Allow \fBbwctl\fR to run without a synchronized system clock. \fBbwctl\fR
-prefers to have an NTP synchronized system clock to ensure the two endpoints
-of the test are actually agreeing to the same scheduled time window
+Allow \fBbwctl\fR to run without a synchronized system clock. Use this to
+specify how far off the local clock is from \fBUTC\fR. \fBbwctl\fR
+prefers to have an \fBNTP\fR synchronized system clock to ensure the two
+endpoints of the test are actually agreeing to the same scheduled time window
 for test execution.
-This option is used to bypass this requirement for systems that
-either do not have the NTP system calls, or prefer not to configure
-NTP.
 .RS
 .PP
 If two systems do NOT have a close enough notion of time, then
 the throughput test will eventually fail because one endpoint of the test
 will attempt to run at a different time than the other.
 .PP
-If the operating system supports the NTP system calls, and the system
+If the operating system supports the \fBNTP\fR system calls, and the system
 clock is determined to be unsynchronized, error messages will still
 be reported depending upon the value of the \fI\-e\fR flag.
 .IP Default:
-Unset (Defaults to Set for systems without the NTP system calls.)
+Unset (Defaults to Set for systems without the \fBNTP\fR system calls.)
 .RE
 .TP
 \fB\-I\fR \fIinterval\fR

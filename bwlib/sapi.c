@@ -471,7 +471,6 @@ BWLProcessTestRequest(
     BWLAcceptType    acceptval = BWL_CNTRL_FAILURE;
     int        ival=0;
     int        *intr = &ival;
-    BWLAddr        raddr;
 
     if(retn_on_intr){
         intr = retn_on_intr;
@@ -543,49 +542,6 @@ BWLProcessTestRequest(
      * TODO: Make this constant configurable somehow?
      */
     tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLULongToNum64(1));
-
-    /*
-     * TODO:
-     * Determine if this check is really needed... The StartSession
-     * command causes the two servers to handshake before running a
-     * test, so perhaps this is not needed. I'm not sure the check
-     * the (local_addr == remote_addr) is good enough to determine
-     * a connection is coming from the local host. (hosts with multiple
-     * addrs may have their addrs talking to each other...)
-     *
-     * Check for possible DoS.
-     * (control-client MUST be same address as remote test if openmode
-     * unless the request is coming from the local host.)
-     */
-    raddr = (tsession->conf_sender)?
-        tsession->test_spec.receiver:
-        tsession->test_spec.sender;
-
-    if(!(cntrl->mode & BWL_MODE_DOCIPHER) &&
-            (cntrl->remote_addr->saddr->sa_family != AF_UNIX) &&
-            !I2SockAddrIsLoopback(cntrl->remote_addr->saddr,
-                cntrl->remote_addr->saddrlen) &&
-            (I2SockAddrEqual(cntrl->remote_addr->saddr,
-                             cntrl->remote_addr->saddrlen,
-                             cntrl->local_addr->saddr,
-                             cntrl->local_addr->saddrlen,
-                             I2SADDR_ADDR) <= 0) &&
-            (I2SockAddrEqual(cntrl->remote_addr->saddr,
-                             cntrl->remote_addr->saddrlen,
-                             raddr->saddr,
-                             raddr->saddrlen,
-                             I2SADDR_ADDR) <= 0)){
-        BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
-                "Test Denied: OpenMode remote_addr(%s) != control_client(%s)",
-                raddr->node,cntrl->remote_addr->node);
-        BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
-                "Test Denied: OpenMode local_addr(%s) != control_client(%s)",
-                cntrl->local_addr->node,
-                cntrl->remote_addr->node);
-        acceptval = BWL_CNTRL_REJECT;
-        err_ret = BWLErrINFO;
-        goto error;
-    }
 
     if(!_BWLCallCheckTestPolicy(cntrl,tsession,&err_ret)){
         if(err_ret < BWLErrOK)

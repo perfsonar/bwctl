@@ -90,8 +90,8 @@ struct BWLDPolicyRec{
 
 };
 
-typedef uint64_t	BWLDLimitT;		/* values */
-typedef uint32_t	BWLDMesgT;
+typedef I2numT      BWLDLimitT;		/* values */
+typedef uint32_t    BWLDMesgT;
 
 typedef struct BWLDLimRec{
 	BWLDMesgT	limit;
