@@ -809,7 +809,8 @@ BWLDPolicyInstall(
 	BWLContext	ctx,
 	char		*datadir,
 	char		*confdir,
-	char		*iperfcmd,
+	char		*tester,
+	char		*testercmd,
 	uint64_t	*bottleneckcapacity,
 	int		*retn_on_intr,
 	char		**lbuf,
@@ -960,8 +961,22 @@ BADLINE:
 	if(!BWLContextConfigSet(ctx,BWLDPOLICY,policy)){
 		return NULL;
 	}
-	if(iperfcmd && !BWLContextConfigSet(ctx,BWLIperfCmd,(void*)iperfcmd)){
-		return NULL;
+
+	if(tester && !strncasecmp(tester,"iperf",6)){
+		if(!BWLContextConfigSet(ctx,BWLTester,"iperf")){
+			return NULL;
+		}
+		if(testercmd && 
+		   !BWLContextConfigSet(ctx,BWLIperfCmd,(void*)testercmd)){
+			return NULL;
+		}
+	}
+	else{
+		/* Any value of the tester key different to iperf is
+		   considered 'thrulay' */
+		if(!BWLContextConfigSet(ctx,BWLTester,"thrulay")){
+			return NULL;
+		}
 	}
 	if(bottleneckcapacity && *bottleneckcapacity &&
 			!BWLContextConfigSet(ctx,BWLBottleNeckCapacity,
@@ -2141,6 +2156,7 @@ BWLDCheckTestPolicy(
 	BWLDTestInfo	tinfo;
 	BWLDMesgT	ret;
 	BWLDLimRec	lim;
+	BWLTesterAvailability allowed_testers;
 
 	*err_ret = BWLErrOK;
 
@@ -2189,6 +2205,15 @@ BWLDCheckTestPolicy(
 	lim.limit = BWLDLimDuration;
 	lim.value = tspec->duration;
 	if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim))
+		goto done;
+
+	/*
+	 * Make sure the requested tester is allowed.
+	 */
+	/* TODO: really check this if the `tester' key or something
+	   similar if finally kept. */
+	allowed_testers = 0xffffffff;
+	if(!(tspec->tester & allowed_testers))
 		goto done;
 
 	/*

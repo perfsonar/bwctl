@@ -219,14 +219,15 @@ error:
  */
 BWLControl
 BWLControlAccept(
-        BWLContext      ctx,            /* library context              */
-        int             connfd,         /* connected socket             */
-        struct sockaddr *connsaddr,     /* connected socket addr        */
-        socklen_t       connsaddrlen,   /* connected socket addr len    */
-        uint32_t       mode_offered,   /* advertised server mode       */
-        BWLNum64        uptime,         /* uptime for server            */
-        int             *retn_on_intr,  /* if *retn_on_intr return      */
-        BWLErrSeverity  *err_ret        /* err - return                 */
+        BWLContext      ctx,              /* library context              */
+        int             connfd,           /* connected socket             */
+        struct sockaddr *connsaddr,       /* connected socket addr        */
+        socklen_t       connsaddrlen,     /* connected socket addr len    */
+        uint32_t       mode_offered,      /* advertised server mode       */
+        BWLNum64        uptime,           /* uptime for server            */
+	BWLTesterAvailability  avail_testers, /* server available testers */
+        int             *retn_on_intr,    /* if *retn_on_intr return      */
+        BWLErrSeverity  *err_ret          /* err - return                 */
         )
 {
     BWLControl      cntrl;
@@ -350,7 +351,7 @@ BWLControlAccept(
                 cntrl->local_addr->node,cntrl->local_addr->port,
                 cntrl->remote_addr->node,
                 cntrl->remote_addr->port,cntrl->mode);
-        if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,intr)) <
+        if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr)) <
                 BWLErrOK){
             *err_ret = (BWLErrSeverity)rc;
         }
@@ -370,7 +371,7 @@ BWLControlAccept(
         getkey_success = _BWLCallGetAESKey(cntrl->ctx,
                 cntrl->userid_buffer,binKey,err_ret);
         if(!getkey_success && (*err_ret != BWLErrOK)){
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,0,0,intr);
             goto error;
         }
 
@@ -379,7 +380,7 @@ BWLControlAccept(
                     BWLErrUNKNOWN,
                     "Encryption state problem?!?!");
             (void)_BWLWriteServerOK(cntrl,
-                                    BWL_CNTRL_FAILURE,0,intr);
+                                    BWL_CNTRL_FAILURE,0,0,intr);
             *err_ret = BWLErrFATAL;
             goto error;
         }
@@ -399,7 +400,7 @@ BWLControlAccept(
                         cntrl->remote_addr->node,
                         cntrl->remote_addr->port);
             }
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr);
             goto error;
         }
 
@@ -408,7 +409,7 @@ BWLControlAccept(
         if(I2RandomBytes(cntrl->ctx->rand_src,cntrl->writeIV,16) != 0){
             BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
                     "Unable to fetch randomness...");
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,0,0,intr);
             goto error;
         }
         memcpy(cntrl->session_key,&token[16],16);
@@ -427,12 +428,12 @@ BWLControlAccept(
             /*
              * send mode of 0 to client, and then close.
              */
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr);
         }
         else{
             BWLError(ctx,*err_ret,BWLErrUNKNOWN,
                     "Policy function failed.");
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,0,0,intr);
         }
         goto error;
     }
@@ -440,7 +441,8 @@ BWLControlAccept(
     /*
      * Made it through the gauntlet - accept the control session!
      */
-    if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_ACCEPT,uptime,intr)) <
+    if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_ACCEPT,uptime,
+				avail_testers,intr)) <
             BWLErrOK){
         *err_ret = (BWLErrSeverity)rc;
         goto error;
@@ -462,6 +464,7 @@ error:
 BWLErrSeverity
 BWLProcessTestRequest(
         BWLControl    cntrl,
+	BWLTesterAvailability avail_testers,
         int        *retn_on_intr
         )
 {
@@ -477,7 +480,7 @@ BWLProcessTestRequest(
     }
 
     /*
-     * Read the TestRequest and alloate tsession to hold the information.
+     * Read the TestRequest and allocate tsession to hold the information.
      */
     if((rc = _BWLReadTestRequest(cntrl,intr,&tsession,&acceptval)) !=
             BWLErrOK){

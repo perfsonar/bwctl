@@ -53,7 +53,7 @@
  */
 #define _BWL_RIJNDAEL_BLOCK_SIZE    16
 #define _BWL_TIME_REQUEST_BLK_LEN   2
-#define _BWL_TEST_REQUEST_BLK_LEN   7
+#define _BWL_TEST_REQUEST_BLK_LEN   8                /* may be 7 or 8 */
 #define _BWL_START_SESSIONS_BLK_LEN 2
 #define _BWL_STOP_SESSIONS_BLK_LEN  2
 #define _BWL_CONTROL_ACK_BLK_LEN    2
@@ -111,6 +111,7 @@
 #define _BWL_DEFAULT_TMPDIR "/tmp"
 #define _BWL_DEV_NULL       "/dev/null"
 #define _BWL_IPERF_CMD      "iperf"
+#define _BWL_NUTTCP_CMD     "nuttcp"
 #define _BWL_ERR_MAXSTRING  (1024)
 #define _BWL_PATH_SEPARATOR "/"
 #define _BWL_TMPFILEFMT     "iperfc.XXXXXX"
@@ -176,6 +177,7 @@ struct BWLControlRec{
     BWLBoolean              server;    /* this record represents server */
     int                     state;    /* current state of connection */
     BWLSessionMode          mode;
+    BWLTesterNegotiationVersion tester_negotiation_version;
 
     /*
      * Very rough upper bound estimate of
@@ -244,11 +246,12 @@ struct BWLTestSessionRec{
     BWLTimeStamp    localtime;
     BWLNum64        reserve_time;
     BWLNum64        fuzz;
-    uint16_t       recv_port;
+    uint16_t        recv_port;
 
     BWLBoolean      conf_sender;
     BWLBoolean      conf_receiver;
     BWLTestSpec     test_spec;
+    BWLTesterAvailability avail_testers;
 
     FILE            *localfp;
     FILE            *remotefp;
@@ -430,16 +433,18 @@ _BWLReadClientGreeting(
 
 extern BWLErrSeverity
 _BWLWriteServerOK(
-        BWLControl      cntrl,
-        BWLAcceptType   code,
-        BWLNum64        uptime,
-        int             *retn_on_intr
+	BWLControl      	cntrl,
+	BWLAcceptType   	code,
+	BWLNum64        	uptime,
+	BWLTesterAvailability	avail_testers,
+	int		*retn_on_intr
         );
 
 extern BWLErrSeverity
 _BWLReadServerOK(
-        BWLControl      cntrl,
-        BWLAcceptType   *acceptval    /* ret    */
+	BWLControl	        cntrl,
+	BWLAcceptType	        *acceptval,	/* ret	*/
+	BWLTesterAvailability	*avail  	/* ret	*/
         );
 
 extern BWLErrSeverity

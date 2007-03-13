@@ -269,9 +269,17 @@ typedef enum{
     BWL_CNTRL_UNSUPPORTED=0x4
 } BWLAcceptType;
 
+/* Supported testers. */
+typedef enum{
+    BWL_TESTER_THRULAY=0x1,
+    BWL_TESTER_IPERF=0x2,
+    BWL_TESTER_NUTTCP=0x4
+} BWLTester;
+
 typedef uint32_t   BWLBoolean;
 typedef uint8_t    BWLSID[16];
 typedef uint8_t    BWLSequence[4];
+typedef uint32_t   BWLTesterAvailability;
 
 /*
  * technically the username in the client greeting message can have uint8_t
@@ -281,6 +289,8 @@ typedef uint8_t    BWLSequence[4];
 typedef char        BWLUserID[BWL_USERID_LEN+1];    /* add 1 for '\0' */
 typedef uint8_t    BWLKey[16];
 
+#define BWL_MODE_TESTER_NEGOTIATION_VERSION   (0x01000000)
+#define BWL_MODE_TESTER_NEGOTIATION_MASK      (0xff000000)
 #define BWL_MODE_UNDEFINED          (0x0)
 #define BWL_MODE_LEAST_RESTRICTIVE  (0x80)
 #define BWL_MODE_OPEN               (0x1)
@@ -290,8 +300,10 @@ typedef uint8_t    BWLKey[16];
 #define BWL_MODE_ALLMODES           (BWL_MODE_DOCIPHER|BWL_MODE_OPEN)
 
 typedef uint32_t    BWLSessionMode;
+typedef uint32_t    BWLTesterNegotiationVersion;
 
 typedef struct{
+    BWLTester       tester;
     BWLAddr         sender;
     BWLAddr         receiver;
     BWLTimeStamp    req_time;
@@ -303,10 +315,14 @@ typedef struct{
     uint32_t       window_size;
     uint32_t       len_buffer;
     uint16_t       report_interval;
+    uint8_t        parallel_streams;
     BWLBoolean      dynamic_window_size;
 } BWLTestSpec;
 
 typedef uint32_t   BWLPacketSizeT;
+
+BWLTesterAvailability
+LookForTesters(BWLContext ctx);
 
 /*
  * an BWLScheduleContextRec is used to maintain state for the schedule
@@ -406,10 +422,17 @@ typedef struct BWLPortRangeRec{
 } BWLPortRangeRec, *BWLPortRange;
 
 /*
- * This type is used to hold the path to the iperf executable.
+ * This types are used to hold the path to the iperf/thrulay executables.
  * (char *)
  */
-#define    BWLIperfCmd        "BWLIperfCmd"
+#define    BWLIperfCmd           "BWLIperfCmd"
+#define    BWLNuttcpCmd          "BWLNuttcpCmd"
+
+/*
+ * Which tester tool was selected ("iperf", "thrulay", etc.).
+ * (char *)
+ */
+#define    BWLTester          "BWLTester"
 
 /*
  * This type is used to hold a pointer to an unsigned-64 bit int that
@@ -798,6 +821,7 @@ BWLControlOpen(
         uint32_t    mode_mask,    /* OR of BWLSessionMode vals    */
         BWLUserID    userid,        /* null if unwanted        */
         BWLNum64    *uptime_ret,    /* server uptime - ret or NULL    */
+	BWLTesterAvailability	*avail_testers,	/* server supported testers */
         BWLErrSeverity    *err_ret
         );
 
@@ -1061,6 +1085,7 @@ BWLControlAccept(
         socklen_t    connsaddrlen,    /* connected socket addr len    */
         uint32_t    mode_offered,    /* advertised server mode    */
         BWLNum64    uptime,        /* uptime report        */
+	BWLTesterAvailability  avail_testers, /* server available testers */
         int        *retn_on_intr,    /* return on i/o interrupt    */
         BWLErrSeverity    *err_ret    /* err - return            */
         );
@@ -1083,6 +1108,7 @@ BWLReadRequestType(
 extern BWLErrSeverity
 BWLProcessTestRequest(
         BWLControl    cntrl,
+	BWLTesterAvailability avail_testers,
         int        *retn_on_intr
         );
 

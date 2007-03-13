@@ -1,4 +1,3 @@
-/*! \file bwctld.c */
 /*
  * ex: set tabstop=4 ai expandtab softtabstop=4 shiftwidth=4:
  * -*- mode: c-basic-indent: 4; tab-width: 4; indent-tabls-mode: nil -*-
@@ -181,7 +180,7 @@ AllocReservation(
      * Could add randomness... For now just step through.
      */
     if(!*port){
-        res->port = opts.iperfports[
+        res->port = opts.testerports[
             opts.port_count++ % opts.port_range_len];
     }
     else{
@@ -804,7 +803,8 @@ NewConnection(
         BWLDPolicy  policy,
         BWLAddr     listenaddr,
         int         *maxfd,
-        fd_set      *readfds
+        fd_set      *readfds,
+	BWLTesterAvailability avail_testers
         )
 {
     int                     connfd;
@@ -961,7 +961,7 @@ ACCEPT:
         }
         cntrl = BWLControlAccept(policy->ctx,connfd,
                 (struct sockaddr *)&sbuff,sbufflen,
-                mode,uptime,&ipfd_intr,&out);
+                mode,uptime,avail_testers,&ipfd_intr,&out);
         /*
          * session not accepted.
          */
@@ -995,7 +995,7 @@ ACCEPT:
             switch (msgtype){
 
                 case BWLReqTest:
-                    rc = BWLProcessTestRequest(cntrl,&ipfd_intr);
+                    rc = BWLProcessTestRequest(cntrl,avail_testers,&ipfd_intr);
                     break;
 
                 case BWLReqTime:
@@ -1175,8 +1175,17 @@ LoadConfig(
     while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max))
             > 0){
 
+	/* Tester selection (thrulay/iperf/nuttcp) */
+	if(!strncasecmp(key,"tester",7)){
+	    if(!(opts.tester = strdup(val))){
+                fprintf(stderr,"strdup(): %s\n",
+                        strerror(errno));
+                rc=-rc;
+                break;
+	    }
+	}
         /* syslog facility */
-        if(!strncasecmp(key,"facility",9)){
+        else if(!strncasecmp(key,"facility",9)){
             int fac = I2ErrLogSyslogFacility(val);
             if(fac == -1){
                 fprintf(stderr,
@@ -1220,7 +1229,8 @@ LoadConfig(
         }
         else if(!strncasecmp(key,"iperfcmd",9) ||
                 !strncasecmp(key,"iperf_cmd",10)){
-            if(!(opts.iperfcmd = strdup(val))) {
+            if(!strncasecmp(opts.tester,"iperf",6) && 
+	       !(opts.testercmd = strdup(val))) {
                 fprintf(stderr,"strdup(): %s\n",
                         strerror(errno));
                 rc=-rc;
@@ -1228,12 +1238,20 @@ LoadConfig(
             }
         }
         else if(!strncasecmp(key,"iperfport",10) ||
-                !strncasecmp(key,"iperf_port",11)){
+                !strncasecmp(key,"iperf_port",11) ||
+		!strncasecmp(key,"thrulay_port",13)){
             char        *hpstr = NULL;
             uint16_t    lport,hport;
             char        *end=NULL;
             uint32_t    tlng;
 
+	    /* Only process ports for the selected tool */
+	    if((!strncasecmp(key,"iperfport",10) || 
+		!strncasecmp(key,"iperf_port",11) &&
+		strncasecmp(opts.tester,"iperf",6) ||
+		(!strncasecmp(key,"thrulay_port",13) && 
+		 strncasecmp(opts.tester,"thrulay",8))))
+	       continue;
 
             if( (hpstr = strchr(val,'-'))){
                 *hpstr++ = '\0';
@@ -1272,14 +1290,21 @@ LoadConfig(
             }
 
             if(hport < lport){
+		char *tester;
+		if(!strncasecmp(key,"thrulay_port",13))
+		    tester = "thrulay";
+		else if(!strncasecmp(key,"iperf_port",11))
+		    tester = "iperf";
+		else
+		    tester = "nuttcp";
                 fprintf(stderr,
-                        "iperf_port: invalid range specified");
+                        "%s_port: invalid range specified",tester);
                 rc=-rc;
                 break;
             }
 
             opts.port_range_len = hport-lport+1;
-            if(!(opts.iperfports = calloc(sizeof(uint16_t),
+            if(!(opts.testerports = calloc(sizeof(uint16_t),
                             opts.port_range_len))){
                 fprintf(stderr,"calloc(): %s\n",
                         strerror(errno));
@@ -1288,7 +1313,7 @@ LoadConfig(
             }
 
             for(tlng=0;tlng<opts.port_range_len;tlng++){
-                opts.iperfports[tlng] = tlng + lport;
+                opts.testerports[tlng] = tlng + lport;
             }
         }
         else if(!strncasecmp(key,"peerports",10) ||
@@ -1449,6 +1474,7 @@ main(int argc, char *argv[])
     BWLContext          ctx;
     BWLDPolicy          policy;
     BWLAddr             listenaddr = NULL;
+    BWLTesterAvailability avail_testers = 0xffffffff;
     int                 listenfd;
     int                 rc;
     I2Datum             data;
@@ -1641,11 +1667,6 @@ main(int argc, char *argv[])
         opts.confdir = opts.cwd;
     if(!opts.datadir)
         opts.datadir = opts.cwd;
-    if(!opts.iperfports){
-        opts.def_port = 5001;
-        opts.iperfports = &opts.def_port;
-        opts.port_range_len = 1;
-    }
 
     /*  Get exclusive lock for pid file. */
     strcpy(pid_file, opts.vardir);
@@ -1696,7 +1717,6 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-
     if((opts.peerports) &&
             !BWLContextConfigSet(ctx,BWLPeerPortRange,
                 (void*)opts.peerports)){
@@ -1708,13 +1728,31 @@ main(int argc, char *argv[])
      * Install policy for "ctx" - and return policy record.
      */
     if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
-                    opts.iperfcmd,
+                    opts.tester,
+                    opts.testercmd,
                     &opts.bottleneckcapacity,
                     &ipfd_exit,
                     &lbuf,&lbuf_max))){
         I2ErrLog(errhand, "PolicyInit failed. Exiting...");
         exit(1);
     };
+
+    /* Check which testers are available */
+    avail_testers = LookForTesters(ctx);
+
+    if(!opts.testerports){
+	if(opts.tester && (!strncasecmp(opts.tester,"iperf",6) 
+			   || !strncasecmp(opts.tester,"nuttcp",7))){
+	    /* iperf and nuttcp */
+	    opts.def_port = 5001;
+	} 
+	else{
+	    /* thrulay */
+	    opts.def_port = 5003;
+	}
+        opts.testerports = &opts.def_port;
+        opts.port_range_len = 1;
+    }
 
     /*
      * Done with the line buffer. (reset to 0 for consistancy.)
@@ -2057,7 +2095,7 @@ main(int argc, char *argv[])
             continue;
 
         if(FD_ISSET(listenfd, &ready)){ /* new connection */
-            NewConnection(policy,listenaddr,&maxfd,&readfds);
+            NewConnection(policy,listenaddr,&maxfd,&readfds,avail_testers);
         }
         else{
             CleanPipes(&ready,&maxfd,&readfds,nfound);

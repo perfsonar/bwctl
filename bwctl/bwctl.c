@@ -93,6 +93,7 @@ print_test_args(
 {
     fprintf(stderr,
             "            [Test Args]\n\n"
+	    "  -T tool        select iperf, nuttcp or thrulay (default)\n"
             "  -a             allow running with unsynchronized clock\n"
             "  -i interval    report interval (seconds)\n"
             "  -l len         length of read/write buffers (bytes)\n"
@@ -108,10 +109,10 @@ print_test_args(
            );
     fprintf(stderr,
             "  -c recvhost [AUTHMETHOD [AUTHOPTS]]\n"
-            "                 recvhost will run iperf server \n"
+            "                 recvhost will run thrulay/nuttcp/iperf server \n"
             "            AUTHMETHODS: (See -A argument)\n"
             "  -s sendhost [AUTHMETHOD [AUTHOPTS]]\n"
-            "                 sendhost will run iperf server \n"
+            "                 sendhost will run thrulay/nuttcp/iperf client \n"
             "            AUTHMETHODS: (See -A argument)\n"
             "             [MUST SPECIFY AT LEAST ONE OF -c/-s]"
            );
@@ -718,10 +719,10 @@ next_start(
     return inc;
 }
 
-static uint16_t *iperf_port_range = NULL;
-static uint16_t iperf_port_range_len = 0;
-static uint16_t iperf_port_default = 5001;
-static uint16_t iperf_port_count = 0;
+static uint16_t *tester_port_range = NULL;
+static uint16_t tester_port_range_len = 0;
+static uint16_t tester_port_default = 5001;
+static uint16_t tester_port_count = 0;
 
 static BWLBoolean
 CheckTestPolicy(
@@ -781,8 +782,8 @@ CheckTestPolicy(
     *reservation_ret = BWLNum64Add(start,fuzz_time);
 
     if(!*port_ret){
-        *port_ret = iperf_port_range[
-            iperf_port_count++ % iperf_port_range_len];
+        *port_ret = tester_port_range[
+            tester_port_count++ % tester_port_range_len];
     }
 
     return True;
@@ -790,7 +791,8 @@ CheckTestPolicy(
 
 static BWLControl
 SpawnLocalServer(
-        BWLContext    ctx
+        BWLContext    ctx,
+	BWLTesterAvailability avail_testers
         )
 {
     int                 new_pipe[2];
@@ -806,9 +808,9 @@ SpawnLocalServer(
     BWLPortRangeRec     peerports_mem;
 
     /*
-     * Set up port info for iperf tests.
+     * Set up port info for iperf/thrulay tests.
      */
-    if(!iperf_port_range){
+    if(!tester_port_range){
         if((tstr = getenv("BWCTL_IPERFPORTRANGE"))){
             char        *hpstr;
             char        *end=NULL;
@@ -859,29 +861,29 @@ SpawnLocalServer(
                 goto portdone;
             }
 
-            iperf_port_range_len = hport-lport+1;
-            if(!(iperf_port_range = calloc(sizeof(uint16_t),
-                            iperf_port_range_len))){
+            tester_port_range_len = hport-lport+1;
+            if(!(tester_port_range = calloc(sizeof(uint16_t),
+                            tester_port_range_len))){
                 I2ErrLog(eh,"calloc(%d,%d): %M",
                         sizeof(uint16_t),
-                        iperf_port_range_len);
+                        tester_port_range_len);
                 exit(1);
             }
 
-            for(tlng=0;tlng<iperf_port_range_len;tlng++){
-                iperf_port_range[tlng] = tlng + lport;
+            for(tlng=0;tlng<tester_port_range_len;tlng++){
+                tester_port_range[tlng] = tlng + lport;
             }
 
 portdone:
-            if(!iperf_port_range){
+            if(!tester_port_range){
                 I2ErrLog(eh,
                         "Invalid BWCTL_IPERFPORTRANGE env variable");
                 exit(1);
             }
         }
         else{
-            iperf_port_range = &iperf_port_default;
-            iperf_port_range_len = 1;
+            tester_port_range = &tester_port_default;
+            tester_port_range_len = 1;
         }
     }
 
@@ -905,7 +907,7 @@ portdone:
 
         cntrl = BWLControlOpen(ctx,NULL,
                 BWLAddrBySockFD(ctx,new_pipe[0]),
-                BWL_MODE_OPEN,NULL,NULL,&err);
+                BWL_MODE_OPEN,NULL,NULL,NULL,&err);
 
         if(!cntrl) return NULL;
 
@@ -1046,7 +1048,7 @@ portdone:
      * Accept connection and send server greeting.
      */
     cntrl = BWLControlAccept(ctx,new_pipe[1],NULL,0,BWL_MODE_OPEN,
-            currtime.tstamp,&ip_exit,&err);
+            currtime.tstamp,avail_testers,&ip_exit,&err);
     if(!cntrl){
         _exit(err);
     }
@@ -1083,7 +1085,7 @@ portdone:
             int    wstate;
 
             case BWLReqTest:
-            rc = BWLProcessTestRequest(cntrl,&ip_exit);
+            rc = BWLProcessTestRequest(cntrl,avail_testers,&ip_exit);
             break;
 
             case BWLReqTime:
@@ -1179,7 +1181,7 @@ main(
     char                optstring[128];
     static char         *conn_opts = "AB:a:";
     static char         *out_opts = "pxd:I:R:n:L:e:qrvV";
-    static char         *test_opts = "ai:l:uw:W:P:S:b:t:c:s:S:";
+    static char         *test_opts = "T:ai:l:uw:W:P:S:b:t:c:s:S:";
     static char         *gen_opts = "hW";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
@@ -1424,6 +1426,19 @@ main(
                 exit(0);
 
                 /* TEST OPTIONS */
+	case 'T':
+                if (0 == strncasecmp(optarg,"iperf",6)) { 
+                    app.opt.tester = BWL_TESTER_IPERF;
+		} else if (0 == strncasecmp(optarg,"thrulay",8)) {
+                    app.opt.tester = BWL_TESTER_THRULAY;
+		} else if (0 == strncasecmp(optarg,"nuttcp",7)) {
+                    app.opt.tester = BWL_TESTER_NUTTCP;
+		} else {
+                    usage(progname, "Invalid tester tool. "
+			  "'iperf', 'nuttcp' or 'thrulay' expected");
+                    exit(1);
+                }
+                break;
             case 'i':
                 app.opt.reportInterval =strtoul(optarg, &tstr, 10);
                 if (*tstr != '\0') {
@@ -1464,8 +1479,6 @@ main(
                             "Invalid value. Positive integer expected");
                     exit(1);
                 }
-                I2ErrLog(eh,"-P option not currently supported");
-                exit(1);
                 break;
             case 'S':
                 app.opt.tos = strtoul(optarg, &tstr, 0);
@@ -1650,6 +1663,9 @@ main(
     }
     latest64 = BWLULongToNum64(app.opt.seriesWindow);
 
+    /*
+     * UDP bandwidth checks.
+     */
     if(app.opt.udpTest && !app.opt.bandWidth){
         app.opt.bandWidth = DEF_UDP_RATE;
     }
@@ -1696,6 +1712,13 @@ main(
      * Initialize session records
      */
     /* skip req_time/latest_time - set per/test */
+    if(app.opt.tester){
+	first.tspec.tester = second.tspec.tester = app.opt.tester;
+    }
+    else{
+	/* Default to thrulay */
+	first.tspec.tester = second.tspec.tester = BWL_TESTER_THRULAY;
+    }
     first.tspec.duration = app.opt.timeDuration;
     first.tspec.udp = app.opt.udpTest;
     first.tspec.tos = app.opt.tos;
@@ -1706,6 +1729,7 @@ main(
     first.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
     first.tspec.len_buffer = app.opt.lenBuffer;
     first.tspec.report_interval = app.opt.reportInterval;
+    first.tspec.parallel_streams = app.opt.parallel;
 
     /*
      * copy first tspec to second record.
@@ -1781,6 +1805,7 @@ main(
         FILE            *recvfp = NULL;
         FILE            *sendfp = NULL;
         struct timespec tspec;
+	BWLTesterAvailability common_testers;
 
 AGAIN:
         if(sig_check()){
@@ -1839,8 +1864,7 @@ AGAIN:
                      current_auth->auth_mode:BWL_MODE_OPEN),
                     ((current_auth)?
                      current_auth->identity:NULL),
-                    NULL,&err_ret);
-
+                    NULL,&first.avail_testers,&err_ret);
             if(sig_check()){
                 exit_val = 1;
                 goto finish;
@@ -1889,7 +1913,7 @@ AGAIN:
                          BWL_MODE_OPEN),
                         ((current_auth)?
                          current_auth->identity:NULL),
-                        NULL,&err_ret);
+                        NULL,&second.avail_testers,&err_ret);
             }else{
                 /*
                  * Try "localhost" server.
@@ -1905,17 +1929,18 @@ AGAIN:
                 second.cntrl = BWLControlOpen(ctx,NULL,laddr,
                         ((current_auth)?current_auth->auth_mode:BWL_MODE_OPEN),
                         ((current_auth)?current_auth->identity:NULL),
-                        NULL,&err_ret);
+                        NULL,&second.avail_testers,&err_ret);
                 if(!second.cntrl && (errno==ECONNREFUSED)){
                     /*
                      * No local daemon - spawn something.
                      */
                     I2ErrLog(eh,
-                            "Unable to contact a local bwctld: Spawning local iperf controller");
+                            "Unable to contact a local bwctld: Spawning local tester controller");
+		    second.avail_testers = LookForTesters(ctx);
                     if(!(second.cntrl =
-                                SpawnLocalServer(ctx))){
+                                SpawnLocalServer(ctx,second.avail_testers))){
                         I2ErrLog(eh,
-                                "Unable to spawn local iperf controller");
+                                "Unable to spawn local tester controller");
                     }
                     fake_daemon = True;
                 }
@@ -1970,6 +1995,30 @@ AGAIN:
             exit_val = 1;
             goto finish;
         }
+
+	/* Check if the requested tester is available at both servers. */
+	common_testers = first.avail_testers & second.avail_testers;
+	if (!(first.tspec.tester & common_testers)){
+            I2ErrLog(eh,"Requested tester (%x) not supported by both servers "
+		     "(%x %x).",
+		     first.tspec.tester,
+		     first.avail_testers,second.avail_testers);
+	    /* Try to fall-back to iperf. */
+	    /* We assume those servers that say they do not support any
+	       tester are old versions and should support iperf. */
+	    if((!first.avail_testers || 
+	       (first.avail_testers & BWL_TESTER_IPERF)) &&
+	       (!second.avail_testers ||
+	       (second.avail_testers & BWL_TESTER_IPERF))) {
+		I2ErrLog(eh,"Falling-back to iperf.");
+		first.tspec.tester = second.tspec.tester = BWL_TESTER_IPERF;
+	    }
+	    else{
+		I2ErrLog(eh,"Falling-back to iperf was not possible.");
+		exit_val = 1;
+		goto finish;
+	    }
+	}
 
         /*
          * Query first time error and update round-trip bound.
@@ -2211,7 +2260,7 @@ sess_req_err:
 #if    NOT
             I2ErrLog(eh,"Res(%s): %24.10f",s[p]->host,BWLNum64ToDouble(req_time.tstamp));
 #endif
-
+	    
             if(BWLNum64Cmp(req_time.tstamp,
                         s[p]->tspec.latest_time) > 0){
                 I2ErrLog(eh,

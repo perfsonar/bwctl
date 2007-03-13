@@ -60,6 +60,8 @@
  *	28|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
+ *        Note: The last byte of 'Modes' is set to 
+ *        BWL_MODE_TESTER_NEGOTIATION_VERSION.
  */
 BWLErrSeverity
 _BWLWriteServerGreeting(
@@ -87,7 +89,8 @@ _BWLWriteServerGreeting(
 	 */
 	memset(buf,0,12);
 
-	*((uint32_t *)&buf[12]) = htonl(avail_modes);
+	*((uint32_t *)&buf[12]) = htonl(avail_modes | 
+					BWL_MODE_TESTER_NEGOTIATION_VERSION);
 	memcpy(&buf[16],challenge,16);
 	if(I2Writeni(cntrl->sockfd,buf,32,retn_on_err) != 32){
 		return BWLErrFATAL;
@@ -126,6 +129,14 @@ _BWLReadServerGreeting(
 	}
 
 	*mode = ntohl(*((uint32_t *)&buf[12]));
+	/*
+	 * Get tester negotiation byte and clear it for subsequent
+	 * operations on the mode field.
+	 */
+	cntrl->tester_negotiation_version = 
+		*mode & BWL_MODE_TESTER_NEGOTIATION_MASK;
+	*mode &= ~BWL_MODE_TESTER_NEGOTIATION_MASK;
+
 	memcpy(challenge,&buf[16],16);
 
 	cntrl->state = _BWLStateSetup;
@@ -165,6 +176,9 @@ _BWLReadServerGreeting(
  *	64|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
+ *        Note: The last byte of 'Mode' is set to 
+ *        cntrl->tester_negotiation_version, which is the
+ *        BWL_MODE_TESTER_NEGOTIATION_VERSION from the server.
  */
 BWLErrSeverity
 _BWLWriteClientGreeting(
@@ -186,7 +200,8 @@ _BWLWriteClientGreeting(
 		return BWLErrFATAL;
 	}
 
-	*(uint32_t *)&buf[0] = htonl(cntrl->mode);
+	*(uint32_t *)&buf[0] = htonl(cntrl->mode | 
+				     cntrl->tester_negotiation_version);
 
 	if(cntrl->mode & BWL_MODE_DOCIPHER){
 		memcpy(&buf[4],cntrl->userid,16);
@@ -235,6 +250,14 @@ _BWLReadClientGreeting(
 	}
 
 	*mode = ntohl(*(uint32_t *)&buf[0]);
+	/*
+	 * Get tester negotiation byte and clear it for subsequent
+	 * operations on the mode field.
+	 */
+	cntrl->tester_negotiation_version = 
+		*mode & BWL_MODE_TESTER_NEGOTIATION_MASK;
+	*mode &= ~BWL_MODE_TESTER_NEGOTIATION_MASK;
+
 	memcpy(cntrl->userid_buffer,&buf[4],16);
 	memcpy(token,&buf[20],32);
 	memcpy(clientIV,&buf[52],16);
@@ -272,8 +295,9 @@ GetAcceptType(
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                                                               |
- *	04|                      Unused (15 octets)                       |
+ *	00|                Tester availability bit-mask                   |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *	04|                      Unused (11 octets)                       |
  *	08|                                                               |
  *	  +                                               +-+-+-+-+-+-+-+-+
  *	12|                                               |   Accept      |
@@ -293,9 +317,10 @@ GetAcceptType(
  */
 BWLErrSeverity
 _BWLWriteServerOK(
-	BWLControl	cntrl,
-	BWLAcceptType	code,
-	BWLNum64	uptime,
+	BWLControl      	cntrl,
+	BWLAcceptType   	code,
+	BWLNum64        	uptime,
+	BWLTesterAvailability	avail_testers,
 	int		*retn_on_intr
 	)
 {
@@ -315,7 +340,10 @@ _BWLWriteServerOK(
 		intr = retn_on_intr;
 	}
 
-	memset(&buf[0],0,15);
+	/* Available testers bit-mask. */
+	*(uint32_t*)&buf[0] = htonl(avail_testers);
+	/* 11 unused bytes */
+	memset(&buf[4],0,11);
 	*(uint8_t *)&buf[15] = code & 0xff;
 	memcpy(&buf[16],cntrl->writeIV,16);
 	if((len = I2Writeni(cntrl->sockfd,buf,32,intr)) != 32){
@@ -357,8 +385,9 @@ _BWLWriteServerOK(
 
 BWLErrSeverity
 _BWLReadServerOK(
-	BWLControl	cntrl,
-	BWLAcceptType	*acceptval	/* ret	*/
+	BWLControl	        cntrl,
+	BWLAcceptType	        *acceptval,	/* ret	*/
+	BWLTesterAvailability	*avail_testers 	/* ret	*/
 	)
 {
 	uint8_t	*buf = (uint8_t*)cntrl->msg;
@@ -380,6 +409,10 @@ _BWLReadServerOK(
 	if(*acceptval == BWL_CNTRL_INVALID){
 		cntrl->state = _BWLStateInvalid;
 		return BWLErrFATAL;
+	}
+
+	if(avail_testers){
+		*avail_testers = ntohl(*(uint32_t *)&buf[0]);
 	}
 
 	memcpy(cntrl->readIV,&buf[16],16);
@@ -718,7 +751,7 @@ _BWLReadTimeResponse(
 /*
  * 	TestRequest message format:
  *
- * 	size:112 octets
+ * 	size:112(+16) octets (+16 octets added if tester negotiation supported)
  *
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -760,18 +793,29 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	88|                        Report Interval                        |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	92|    Dynamic    |      TOS      |            MBZ                |
+ *	92|    Dynamic    |      TOS      |   nParallel   |      MBZ      |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	96|                                                               |
- *     100|                Integrity Zero Padding (16 octets)             |
- *     104|                                                               |
+ *	96|                   Tester selection bit-mask                   |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     100|                                                               |
+ *     104|                            Unused                             |
  *     108|                                                               |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     112|                                                               |
+ *     116|                Integrity Zero Padding (16 octets)             |
+ *     120|                                                               |
+ *     124|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  *	  Dynamic is a bit mask.
  *	  BWL_DYNAMIC_WINSIZE = 0x1
  *	  If this bit is set, the "Window Size" parameter is only used if
  *	  the server can't determine a better dynamic one.
+ *
+ *        The block with 'Tester selection bit-mask' and 12 unused
+ *        bytes is written only when the mode byte previously returned
+ *        by the server indicates that the current tester negotiation
+ *        version is supported (BWL_MODE_TESTER_NEGOTIATION_VERSION).
  */
 BWLErrSeverity
 _BWLWriteTestRequest(
@@ -784,7 +828,10 @@ _BWLWriteTestRequest(
 	BWLTimeStamp	tstamp;
 	BWLAddr		sender;
 	BWLAddr		receiver;
-	uint8_t	version;
+	uint8_t		version;
+	uint32_t	message_len;
+	uint32_t	blocks;
+	BWLBoolean	tester_negotiation;
 
 	/*
 	 * Ensure cntrl is in correct state.
@@ -826,10 +873,21 @@ _BWLWriteTestRequest(
 			return BWLErrFATAL;
 	}
 
+	/* Is there support for tester negotiation as in this version? */
+	/* If so, the tester selection block will be written. */
+	tester_negotiation = cntrl->tester_negotiation_version >=
+		BWL_MODE_TESTER_NEGOTIATION_VERSION;
+	if (tester_negotiation){
+		message_len = 8*_BWL_RIJNDAEL_BLOCK_SIZE;
+	}
+	else { 
+		message_len = 7*_BWL_RIJNDAEL_BLOCK_SIZE;
+	}
+
 	/*
 	 * Initialize buffer
 	 */
-	memset(&buf[0],0,112);
+	memset(&buf[0],0,message_len);
 
 	buf[0] = 1;	/* Request-Session message # */
 	buf[1] = version & 0xF;	/* version */
@@ -905,10 +963,16 @@ _BWLWriteTestRequest(
             buf[93] = tspec->tos;
         }
 
+	buf[94] = tspec->parallel_streams;
+
+	if(tester_negotiation){
+		*(uint32_t*)&buf[96] = htonl(tspec->tester);
+	}
 	/*
-	 * Now - send the request! 112 octets == 7 blocks.
+	 * Now - send the request! 112(+4) octets == 7(+1) blocks.
 	 */
-	if(_BWLSendBlocks(cntrl,buf,7) != 7){
+	blocks = message_len / _BWL_RIJNDAEL_BLOCK_SIZE;
+	if(_BWLSendBlocks(cntrl,buf,blocks) != blocks){
 		cntrl->state = _BWLStateInvalid;
 		return BWLErrFATAL;
 	}
@@ -963,6 +1027,9 @@ _BWLReadTestRequest(
     uint16_t                recv_port;
     BWLBoolean              conf_sender;
     BWLBoolean              conf_receiver;
+    uint32_t                blocks=_BWL_TEST_REQUEST_BLK_LEN; /* 8 */
+    uint32_t                padding_pos;
+    BWLBoolean	tester_negotiation;
 
     if(!_BWLStateIs(_BWLStateTestRequest,cntrl)){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -974,7 +1041,6 @@ _BWLReadTestRequest(
     memset(&recvaddr_rec,0,addrlen);
     memset(&tspec,0,sizeof(tspec));
     memset(sid,0,sizeof(sid));
-
 
     /*
      * Initialize BWLAcceptType
@@ -989,18 +1055,26 @@ _BWLReadTestRequest(
     }
 
     /*
+     * Check if tester negotiation has been requested.
+     */
+    tester_negotiation =  cntrl->tester_negotiation_version >=
+	    BWL_MODE_TESTER_NEGOTIATION_VERSION;
+    if(!tester_negotiation){
+	    blocks--;
+    }
+    padding_pos = (blocks -1) * _BWL_RIJNDAEL_BLOCK_SIZE;
+
+    /*
      * Already read the first block - read the rest for this message
      * type.
      */
-    if(_BWLReceiveBlocksIntr(cntrl,&buf[16],_BWL_TEST_REQUEST_BLK_LEN-1,
-                intr) != (_BWL_TEST_REQUEST_BLK_LEN-1)){
+    if(_BWLReceiveBlocksIntr(cntrl,&buf[16],blocks-1,intr) != (blocks-1)){
         BWLError(cntrl->ctx,BWLErrFATAL,errno,
                 "_BWLReadTestRequest: Unable to read from socket.");
         goto error;
     }
 
-
-    if(memcmp(cntrl->zero,&buf[96],_BWL_RIJNDAEL_BLOCK_SIZE)){
+    if(memcmp(cntrl->zero,&buf[padding_pos],_BWL_RIJNDAEL_BLOCK_SIZE)){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
                 "_BWLReadTestRequest: Invalid zero padding");
         goto error;
@@ -1161,6 +1235,12 @@ _BWLReadTestRequest(
 
         tspec.dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
         tspec.tos = buf[93];
+
+	tspec.parallel_streams = buf[94];
+
+	if(tester_negotiation){
+		tspec.tester = ntohl(*(uint32_t*)&buf[96]);
+	}
 
         /*
          * Allocate a record for this test.

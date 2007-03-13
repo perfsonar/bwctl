@@ -1,3 +1,523 @@
+2006-08-19  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/endpoint.c: Disable output from the client and process new
+	  return codes of the thrulay API.
+
+2006-08-19  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/sapi.c: Specify what tester was requested and what are
+	  available when complaining about a tester not available being
+	  requested.
+
+2006-08-17  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/endpoint.c: nuttcp options fixed. Updates for the last
+	  changes in the thrulay API.
+
+2006-08-17  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctl/bwctl.c: Fixed an error in a usage string.
+
+2006-08-14  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/endpoint.c: Specify new verbosity parameters of the thrulay
+	  API (in run_tester).
+
+2006-08-11  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* configure.ac: New configure option: --with-thrulay
+
+2006-08-11  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctl/bwctl.c: Fix and comment the fall-back to iperf code.
+
+2006-08-10  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctl/bwctl.c: Fall-back to iperf when the requested tool is not
+	  supported by both endpoints.
+
+2006-08-09  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/util.c: Filled in LookForTesters (thrulay+iperf+nuttcp
+	  version).
+
+2006-08-09  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/endpoint.c: Added code to run nuttcp tests.
+
+2006-08-09  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/: bwlib.h, bwlibP.h: Added nuttcp related defines and
+	  removed those ones that were introduced for thrulay as a command
+	  line tool.
+
+2006-08-09  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctld/: bwctld.c, policy.c: Added support for nuttcp. Removed
+	  deprecated thrulay command line related stuff.
+
+2006-08-09  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctl/: bwctl.c, bwctlP.h: Added support for nuttcp.
+
+2006-07-26  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/util.h: Updating Boolean type to be intptr_t so
+	  get/set funcitions work better.
+
+	  jeff
+
+2006-07-26  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/addr.c: addr.c:     Modifed the 64-bit byte
+	  swapping code so it does not violate	   the strict alias rules
+	  for gcc's optimizing compiler.      (Now, instead of casting a
+	  uint8_t * into the uint64_t I do	a memcpy and set the memory
+	  back into the uint64_t. How is that	   for un-optimizing...)
+
+	  endpoint.c:	  Corrected a bug in the tempfile creation. (Failed
+	  permissions were     not being detected correctly.)
+
+	  jeff
+
+2006-07-02  jeremian
+
+	* I2util/I2util/addr.c: Fixed small bug in the I2AddrSockLen.
+
+2006-06-29  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* configure.ac, bwlib/endpoint.c: Use the thrulay server and client
+	  APIs when libthrulay is available.  Updated for the client API
+	  changes.
+
+2006-06-29  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* configure.ac: Check for thrulay library and headers.
+
+2006-06-29  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/bwlib.h: LookForTesters prototype fixed and modified to
+	  accept a context parameter.
+
+2006-06-29  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctl/bwctl.c, bwctld/bwctld.c: Pass context to LookForTesters.
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/capi.c: Get avail_testers when reading ServerOK.
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/util.c: New function: LookForTesters. This is yet TODO!
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/sapi.c: Added avail_testers parameter to message
+	  reading/writing functions.
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/protocol.c: Handle 'tester negotiation version' in last
+	  octet of the mode field (functions Read/Write
+	  ClientGreeting/ServerOK).
+
+	  Added number of parallel streams and 4 octets long tester
+	  selection bit-mask in a new block (Read/Write TestRequest)
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/endpoint.c: Use new tester data member of TestSpec
+	  structures. Support for parallel streams: -m (thrulay) / -P
+	  (iperf).
+
+	  Pass avail_testers param to those functions that now require it.
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/bwlibP.h: Updated maximum request length and added
+	  avail_testers parameter to message reading/writing functions.
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/bwlib.h: Added BWLTester enum type,
+	  BWL_MODE_TESTER_NEGOTIATION_VERSION and two fields in
+	  BWLTestSpec: selected tester and number of parallel streams.
+
+	  New function: BWLTesterAvailability. New parameter
+	  (avail_testers) for those messages processing functions that need
+	  it.
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctld/policy.c: Added check against allowed_testers (this is yet
+	  TODO).
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctld/bwctld.c: Added support for tester availability (when
+	  doing BWLControlAccept and BWLProcessTestRequest).
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctl/bwctlP.h: tester_t removed. Equivalent enum type
+	  (BWLTester) added to bwlib.h
+
+2006-06-22  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctl/bwctl.c: Added checks for tester support at servers and
+	  updated for related changes in bwlib.
+
+2006-06-21  jeremian
+
+	* I2util/I2util/addr.c: Small fix in the preprocessor directives.
+
+2006-06-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/saddr.c: Using -j to update saddr.c - perhaps that
+	  will make it easier for jslawins to back-merge...
+
+	  jeff
+
+2006-06-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/addr.c: Accepting I2SockAddrLen() from jslawins
+	  branch into head.
+
+	  jeff
+
+2006-06-19  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/saddr.c: pulling jslawins fix into head. (thanks)
+
+	  jeff
+
+2006-06-18  jeremian
+
+	* I2util/I2util/: ErrLogImmediate.c, errlog.h: Added the
+	  possibility to log immediately without the new line.
+
+2006-06-18  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctld/: bwctld.c, policy.c, policy.h: Process tester and
+	  testercmd in BWLDPolicyInstall.
+
+2006-06-18  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctld/bwctld.c: In LoadConfig, process new configuration keys:
+	  tester, thrulay_server_cmd and thrulay_port. Use new defaults and
+	  variable names defined in bwctldP.h.
+
+2006-06-18  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctld/bwctldP.h: Added default port for thrulayd. New member for
+	  the bwctld_opts struct: tester. iperfcmd and iperfports renamed
+	  to testercmd and testerports.
+
+2006-06-17  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctl/: bwctl.c, bwctlP.h: New client option (test section): -T,
+	  with a mandatory argument: [iperf|thrulay]. (Added a new field
+	  (tester) of type tester_t (new enum type) to ipapp_trec.opt.
+
+	  After processing getopt options and filling in app.opt, a new
+	  context variable (BWLTester) is set to what was especified with
+	  -T or defaults to thrulay.
+
+	  Handle -P option (not yet supported with iperf tests)
+
+	  iperf_port_range, iperf_port_range_len, etc. renamed to
+	  tester_port_range
+
+	  Updated a few output messages that mention iperf.
+
+2006-06-17  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/endpoint.c: Include thrulay.h and use thrulay API for
+	  running tests as thrulay client.
+
+	  run_iperf renamed to run_tester, which now runs thrulay or iperf
+	  tests depending on the value of the BWLTester context variable.
+
+	  Added a new function (prepare_and_wait_for_test) for thrulay and
+	  iperf common stuff.
+
+2006-06-17  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/bwlib.h: Added a new type (BWLThrulayServerCmd) to hold the
+	  thrulay server command. Added parallel_streams to BWLTestSpec
+	  struct type.
+
+2006-06-17  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/bwlibP.h: Added default thrulay server command.
+
+2006-06-17  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* conf/bwctld.conf: New keys: tester (thrulay/iperf selection),
+	  thrulay_server_cmd and thrulay_port.
+
+2006-06-17  jeremian
+
+	* I2util/I2util/addr.c: Added the implementation of the
+	  I2AddrSockLen.
+
+2006-06-17  jeremian
+
+	* I2util/I2util/saddr.c: Fixed the bug in I2SockAddrIsLoopback.
+
+2006-06-15  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwlib/bwlib.h: New context variables: BWLTester and
+	  BWLThrulayCmd.
+
+2006-06-15  Federico Montesino Pouzols  <fedemp@altern.org>
+
+	* bwctl/: bwctl.c, bwctlP.h: Added -T to client [Test Args] for
+	  selecting tester tool.
+
+2006-06-08  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/saddr.c: typo.
+
+2006-06-08  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/saddr.c: Incorporate patch from (jeremia@poczta.fm
+	  to fix I2SockAddrEqual).
+
+	  jeff
+
+2006-04-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* TODO: Additional todo...
+
+2006-04-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/architecture.html: Now after running ispell...
+
+	  jeff
+
+2006-04-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/architecture.html: Adding more description of the scheduling
+	  algorithm to the architecture page.
+
+	  jeff
+
+2006-04-20  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* TODO: Adding TODO file.
+
+	  jeff
+
+2006-03-23  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/context.c: Change program registration for default syslog.
+
+	  jeff
+
+2006-03-15  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/: configure.ac, I2util/ErrLog.c, I2util/ErrLogImmediate.c,
+	  I2util/ErrLogSyslog.c, I2util/Options.c, I2util/addr.c,
+	  I2util/addr.h, I2util/conf.c, I2util/conf.h, I2util/errlog.h,
+	  I2util/hex.c, I2util/hex.h, I2util/io.c, I2util/io.h,
+	  I2util/mach_dep.c, I2util/md5.c, I2util/options.h,
+	  I2util/random.c, I2util/random.h, I2util/readpassphrase.c,
+	  I2util/saddr.c, I2util/saddr.h, I2util/table.c, I2util/util.h:
+	  Corrected header-file ordering so that the conf.h file gets
+	  included before system header files. This allows
+	  _LARGEFILE_SOURCE and other posix/STDC flags to be set more
+	  easily from autoconf macros.
+
+	  jeff
+
+2006-03-14  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/io.c: Mostly corrections for 64-bit FreeBSD. (plus
+	  one bug fix in endpoint.c)
+
+	  io.c	   adding include of <string.h>
+
+	  endpoint.c	 Fixing buf for skip record allocation. (had MIN
+	  where I should have had MAX)	   Changing type for 'waitfor'
+	  variable. - needed for 64-bit.
+
+	  fts.c     casting to remove warning on 64-bit
+
+	  owampd.c,owampdP.h,owping.c,owpingP.h     change type for
+	  'waitfor'
+
+	  jeff
+
+2006-03-13  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/: addr.c, io.c, io.h, util.h: I2util:	  Created
+	  utility function to copy files by fd. (Uses mmap/memcpy so
+	  entire copy is in kernel space.)
+
+	  owamp/*:     changed post-session processing to use two files if
+	  needed to	remove records from the datafile. (section 3.8 of
+	  owamp draft-14)
+
+	  powstream:	 Modified to use mmap utility function. (used to
+	  use a local function	   here - bascially moved it to I2util.)
+
+	  jeff
+
+2006-03-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/time.c: format change...
+
+2006-03-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/configure.ac: Changes to make owamp compile on solaris.
+	  (This was much more of a pain than I realized. Solaris does not
+	  support quite the same directory API (fts/dirent) as the other
+	  systems owamp has been ported to.)
+
+	  Thank goodness FreeBSD has reasonable licensing.
+
+	  (I'm going to go back to FreeBSD/Linux/OS X and make sure I
+	  didn't break anything compile-wise before I do any tests of the
+	  running code...)
+
+	  jeff
+
+2006-01-25  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/: bwlib.h, capi.c: bwlib.h:	corrected comment.
+
+	  capi.c:     removed redundant 'if' - recv_port MUST be passed in.
+	  It is better	   to core dump than to hide the fact that it was
+	  not.
+
+	  jeff
+
+2006-01-25  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* doc/architecture.html: Adding headings to paragraphs in bwctl
+	  architecture discussion to help outline what information is where
+	  and make it more readable.
+
+	  (Feedback from DFN.)
+
+	  jeff
+
+2006-01-06  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/addr.c: add cast to remove compiler warning.
+
+2006-01-05  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/configure.ac: Fixed bug with IPv4 mapped IPv6 addresses.
+	  (Internally, these are converted into v4 sockaddr structures so
+	  the policy matching code gets what it expects.  The bug was
+	  simply that configure was not initializing the macro that tells
+	  the code that generates that structure that it should be setting
+	  the sa_len field.)
+
+2006-01-05  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/addr.c: byte swapping functions fail if gcc -O2 is
+	  used. I still have not been able to figure out why. (It is very
+	  hard to examine variables when optimization is on.) I have broken
+	  up the algorithm in to pieces hoping that this will fix it. (will
+	  test now)
+
+	  Oh, this also only seems to be a problem on native 64 bit hosts.
+	  computers suck.
+
+	  jeff
+
+2005-12-23  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/addr.c: addr.c:     comment added
+
+	  owamp/doc:	 Revised for new release. Added documentation for
+	  all new features.
+
+	  owamp/sapi.c:     Changed error messages to be more consistent.
+
+	  owamp/stats.c:     Modified summary output to report hops instead
+	  of TTL.
+
+	  owampd.c:	Modified usage message to include new options.
+
+	  owping.c:	Modified usage message to include new options.
+
+2005-12-23  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/: configure.ac, I2util/Makefile.am, I2util/addr.c,
+	  I2util/addr.h, I2util/errlog.h, I2util/util.h: configure:
+	  Bumping version     Adding library checks for math functions
+
+	  I2util:     configure: Adding checks for socket api calls
+	  Adding I2Addr abstraction api from owamp (cleaned it up too).
+
+	  owamp:     Removed addr abstraction api.	Now using I2Addr
+	  abstraction api.	    (localized almost all V4/V6 code into
+	  one file!)	  Found a memory leak in the client FetchSession
+	  api.
+
+	  powstream:	 Modified the signal handling code to properly
+	  process     the current session when a signal comes in. It
+	  catches     the signal - stops the session and saves as much of
+	  the	  current session as it can based on the process outlined
+	    in the spec. (Saving only packet records earlier than the
+	  last actual received packet.)
+
+2005-12-10  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/I2util/: table.c, table.h: I2Util:	table.c (Modify a
+	  signed value to an unsigned one for num table elems.)
+
+	  doc:	   owping - command-line option additions for statistics.
+		 added -a multiple percentile options (modified from
+	  previous)	     added -n units option	    added -M
+	  (machine parsable output)
+
+	  owamp:     Added stats.c functions and headers.      endpoint.c -
+	  cleanup	   Corrected recv session to output missing packet
+	  records	   for early terminated tests.	    owping.c -
+	  totally changed statistics. They now use a fixed	    amount
+	  of memory, and are correct in many cases where	  they were
+	  not before. Added 'jitter' as well.	       added options.
+
+	  powstream still needs to be modified to use the statistics.
+
+	  jeff
+
+2005-11-15  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwctl/bwctl.c: Adding the '-a' flag into the getopts string. The
+	  option was added and documented, but did not actually work due to
+	  the slacker developer.
+
+2005-10-01  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* bwlib/api.c: Corrected comments...
+
+	  jeff
+
+2005-10-01  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* config/c-attribute.m4: Fixing autoconf macro mess in bwctl too...
+
+2005-09-30  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* I2util/config/: c-attribute.m4, c-syslog-names.m4,
+	  c-syslog-perror.m4, randomdev.m4: autoconf depricated macros I
+	  was using. Modified these to use new ones.
+
+	  jeff
+
+2005-09-08  Jeff W. Boote  <boote@packrat.internet2.edu>
+
+	* ChangeLog: Last round of rcs changes added into file.
+
+	  jeff
+
 2005-09-07  Jeff W. Boote  <boote@packrat.internet2.edu>
 
 	* conf/bwctld.conf: Adding new options into example config file.

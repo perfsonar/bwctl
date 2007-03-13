@@ -125,7 +125,7 @@ The format for \fIauthmethod\fR is:
 .TP
 \fIauthmode\fR
 Specifies the authentication mode the client is willing to speak with
-a client. It must be set as a character string with
+a server. It must be set as a character string with
 any or all of the characters "AEO". The modes are:
 .RS
 .IP \fBA\fR

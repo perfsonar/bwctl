@@ -464,7 +464,8 @@ BWLDPolicyInstall(
 	BWLContext	ctx,
 	char		*datadir,	/* root dir for datafiles	*/
 	char		*confdir,	/* conf dir for policy		*/
-	char		*iperfcmd,	/* iperf exec path		*/
+	char		*tester,	/* iperf/thrulay        	*/
+	char		*testercmd,	/* iperf/thrulay exec path	*/
 	uint64_t	*bottleneckcapacity,
 	int		*retn_on_intr,
 	char		**lbuf,

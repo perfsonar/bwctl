@@ -27,8 +27,13 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
-
 #include "bwlibP.h"
+#ifdef HAVE_THRULAY_CLIENT_H
+#include <thrulay/client.h>
+#endif
+#ifdef HAVE_THRULAY_SERVER_H
+#include <thrulay/server.h>
+#endif
 
 static int ipf_term;
 static int ipf_chld;
@@ -421,134 +426,41 @@ uint32dup(
     exit(BWL_CNTRL_FAILURE);
 }
 
-/*
- * This function redirects stdout to the tmpfile that was created
- * to hold the result, and then waits until it should fire off
- * the test - and then exec's.
- */
 static void
-run_iperf(
-        BWLEndpoint    ep
-        )
+prepare_and_wait_for_test(
+			BWLContext    ctx, 
+			BWLTestSession   tsess,
+			int    outfd,
+			char    *ipargs[]
+			)
 {
-    BWLTestSession      tsess = ep->tsess;
-    BWLContext          ctx = tsess->cntrl->ctx;
-    int                 outfd = fileno(ep->tsess->localfp);
+    int                 a = 0;
     int                 nullfd;
     struct sigaction    act;
     BWLTimeStamp        currtime;
     BWLNum64            reltime;
     struct timespec     ts_sleep;
     struct timespec     ts_remain;
-    int                 a = 0;
-    char                recvhost[MAXHOSTNAMELEN];
-    char                sendhost[MAXHOSTNAMELEN];
-    size_t              hlen = sizeof(recvhost);
-    char                *ipargs[_BWL_MAX_IPERFARGS*2];
-    char                *iperf = (char*)BWLContextConfigGet(ctx,BWLIperfCmd);
     FILE                *nstdout;
-
-    /*
-     * First figure out the args for iperf
-     */
-    if(!iperf) iperf = _BWL_IPERF_CMD;
-    ipargs[a++] = iperf;
-
-    if(tsess->conf_receiver){
-        ipargs[a++] = "-B";
-        ipargs[a++] = recvhost;
-
-        ipargs[a++] = "-P";
-        ipargs[a++] = "1";
-        ipargs[a++] = "-s";
-    }
-    else{
-        ipargs[a++] = "-c";
-        ipargs[a++] = recvhost;
-        ipargs[a++] = "-B";
-        ipargs[a++] = sendhost;
-        if(tsess->test_spec.tos){
-            ipargs[a++] = "-S";
-            ipargs[a++] = uint32dup(ctx,tsess->test_spec.tos);
-        }
-    }
-
-    ipargs[a++] = "-f";
-    ipargs[a++] = "b";
-
-    if(tsess->test_spec.len_buffer){
-        ipargs[a++] = "-l";
-        ipargs[a++] = uint32dup(ctx,tsess->test_spec.len_buffer);
-    }
-
-    ipargs[a++] = "-m";
-
-    ipargs[a++] = "-p";
-    ipargs[a++] = uint32dup(ctx,tsess->recv_port);
-
-    if(tsess->test_spec.udp){
-        ipargs[a++] = "-u";
-        if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
-            ipargs[a++] = "-b";
-            ipargs[a++] = uint32dup(ctx,tsess->test_spec.bandwidth);
-        }
-    }
-
-    if(tsess->test_spec.window_size){
-        ipargs[a++] = "-w";
-        ipargs[a++] = uint32dup(ctx,tsess->test_spec.window_size);
-    }
-
-    ipargs[a++] = "-t";
-    ipargs[a++] = uint32dup(ctx,tsess->test_spec.duration);
-
-    if(tsess->test_spec.report_interval){
-        ipargs[a++] = "-i";
-        ipargs[a++] = uint32dup(ctx,tsess->test_spec.report_interval);
-    }
-
-    switch(tsess->test_spec.receiver->saddr->sa_family){
-#ifdef    AF_INET6
-        case AF_INET6:
-            ipargs[a++] = "-V";
-            break;
-#endif
-        case AF_INET:
-        default:
-            break;
-    }
-
-    BWLAddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
-    if(!hlen){
-        exit(BWL_CNTRL_FAILURE);
-    }
-
-    hlen = sizeof(sendhost);
-    BWLAddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
-    if(!hlen){
-        exit(BWL_CNTRL_FAILURE);
-    }
-
-    ipargs[a++] = NULL;
 
     /*
      * Open /dev/null to dup to stdin before the exec.
      */
     if( (nullfd = open(_BWL_DEV_NULL,O_RDONLY)) < 0){
-        BWLError(ctx,BWLErrFATAL,errno,"open(/dev/null): %M");
-        exit(BWL_CNTRL_FAILURE);
+	BWLError(ctx,BWLErrFATAL,errno,"open(/dev/null): %M");
+	exit(BWL_CNTRL_FAILURE);
     }
 
     if(        (dup2(nullfd,STDIN_FILENO) < 0) ||
-            (dup2(outfd,STDOUT_FILENO) < 0) ||
-            (dup2(outfd,STDERR_FILENO) < 0)){
-        BWLError(ctx,BWLErrFATAL,errno,"dup2(): %M");
-        exit(BWL_CNTRL_FAILURE);
+	       (dup2(outfd,STDOUT_FILENO) < 0) ||
+	       (dup2(outfd,STDERR_FILENO) < 0)){
+	BWLError(ctx,BWLErrFATAL,errno,"dup2(): %M");
+	exit(BWL_CNTRL_FAILURE);
     }
 
     if(!(nstdout = fdopen(STDOUT_FILENO,"a"))){
-        BWLError(ctx,BWLErrFATAL,errno,"fdopen(STDOUT): %M");
-        exit(BWL_CNTRL_FAILURE);
+	BWLError(ctx,BWLErrFATAL,errno,"fdopen(STDOUT): %M");
+	exit(BWL_CNTRL_FAILURE);
     }
 
     /*
@@ -559,25 +471,25 @@ run_iperf(
     act.sa_handler = SIG_DFL;
     sigemptyset(&act.sa_mask);
     if(    (sigaction(SIGPIPE,&act,NULL) != 0) ||
-            (sigaction(SIGALRM,&act,NULL) != 0)){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
-        exit(BWL_CNTRL_FAILURE);
+	   (sigaction(SIGALRM,&act,NULL) != 0)){
+	BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
+	exit(BWL_CNTRL_FAILURE);
     }
 
     /*
      * Compute the time until the test should start.
      */
     if(!BWLGetTimeStamp(ctx,&currtime)){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                "BWLGetTimeStamp(): %M");
-        exit(BWL_CNTRL_FAILURE);
+	BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+		 "BWLGetTimeStamp(): %M");
+	exit(BWL_CNTRL_FAILURE);
     }
     if(ipf_term) exit(BWL_CNTRL_FAILURE);
 
     if(BWLNum64Cmp(tsess->reserve_time,currtime.tstamp) < 0){
-        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                "run_iperf(): Too LATE!");
-        exit(BWL_CNTRL_FAILURE);
+	BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+		 "run_tester(): Too LATE!");
+	exit(BWL_CNTRL_FAILURE);
     }
 
     reltime = BWLNum64Sub(tsess->reserve_time,currtime.tstamp);
@@ -587,12 +499,12 @@ run_iperf(
      * recv side that much before the test time.
      */
     if(tsess->conf_receiver){
-        if(BWLNum64Cmp(reltime,tsess->fuzz) > 0){
-            reltime = BWLNum64Sub(reltime,tsess->fuzz);
-        }
-        else{
-            reltime = BWLULongToNum64(0);
-        }
+	if(BWLNum64Cmp(reltime,tsess->fuzz) > 0){
+	    reltime = BWLNum64Sub(reltime,tsess->fuzz);
+	}
+	else{
+	    reltime = BWLULongToNum64(0);
+	}
     }
 
     timespecclear(&ts_sleep);
@@ -600,30 +512,389 @@ run_iperf(
     BWLNum64ToTimespec(&ts_sleep,reltime);
 
     while(timespecisset(&ts_sleep)){
-        if(nanosleep(&ts_sleep,&ts_remain) == 0){
-            break;
-        }
-        if(ipf_term) exit(BWL_CNTRL_FAILURE);
-        ts_sleep = ts_remain;
+	if(nanosleep(&ts_sleep,&ts_remain) == 0){
+	    break;
+	}
+	if(ipf_term) exit(BWL_CNTRL_FAILURE);
+	ts_sleep = ts_remain;
     }
 
     /*
      * Now run iperf!
      */
     fprintf(nstdout,"bwctl: exec_line: ");
+
     for(a=0;ipargs[a];a++){
-        fprintf(nstdout," %s",ipargs[a]);
+	fprintf(nstdout," %s",ipargs[a]);
     }
     fprintf(nstdout,"\n");
 
     BWLGetTimeStamp(ctx,&currtime);
     fprintf(nstdout,"bwctl: start_exec: %f",BWLNum64ToDouble(currtime.tstamp));
     fflush(nstdout);
+}
 
-    execvp(iperf,ipargs);
+/*
+ * This function redirects stdout to the tmpfile that was created
+ * to hold the result, and then waits until it should fire off
+ * the test - and then exec's.
+ */
+static void
+run_tester(
+        BWLEndpoint    ep
+        )
+{
+    BWLTestSession      tsess = ep->tsess;
+    BWLContext          ctx = tsess->cntrl->ctx;
+    int                 outfd = fileno(ep->tsess->localfp);
+    BWLTimeStamp        currtime;
+    int                 a = 0;
+    char                recvhost[MAXHOSTNAMELEN];
+    char                sendhost[MAXHOSTNAMELEN];
+    size_t              hlen = sizeof(recvhost);
+    char                *ipargs[_BWL_MAX_IPERFARGS*2];
 
-    BWLError(ctx,BWLErrFATAL,errno,"execv(%s): %M",iperf);
-    exit(BWL_CNTRL_FAILURE);
+    if(BWL_TESTER_THRULAY == tsess->test_spec.tester){
+#if defined(HAVE_LIBTHRULAY) && defined(HAVE_THRULAY_SERVER_H) && defined(HAVE_THRULAY_CLIENT_H)
+	int rc;
+	if(tsess->conf_receiver){
+	    /* Run thrulay server through its API */
+	    int port, window, num_streams;
+
+	    BWLAddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+	    if(!hlen){
+		exit(BWL_CNTRL_FAILURE);
+	    }
+
+	    hlen = sizeof(sendhost);
+	    BWLAddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+	    if(!hlen){
+		exit(BWL_CNTRL_FAILURE);
+	    }
+
+	    /* -p server port */
+	    port = tsess->recv_port;
+
+	    /* -w window size in bytes */
+	    if(tsess->test_spec.window_size){
+		window = tsess->test_spec.window_size;
+	    }
+	    else{
+		window = THRULAY_DEFAULT_WINDOW;
+	    }
+
+	    /* -m parallel test streams */
+	    if(tsess->test_spec.parallel_streams > 0){
+		num_streams = tsess->test_spec.parallel_streams;
+	    }
+	    else{
+		num_streams = 1;
+	    }
+
+	    /* Log through stderr and verbose reports. */
+	    rc = thrulay_server_init(LOGTYPE_STDERR,1);
+	    if (rc < 0)
+		BWLError(ctx,BWLErrFATAL,errno,"Initializing thrulay server: "
+			 "%s", thrulay_server_strerror(rc));
+
+	    prepare_and_wait_for_test(ctx,tsess,outfd,ipargs);
+
+	    /*
+	     * Now run thrulay server!
+	     */
+	    rc = thrulay_server_listen(port,window);
+	    if (rc < 0)
+		BWLError(ctx,BWLErrFATAL,errno,"Thrulay server listen: %s", 
+			 thrulay_server_strerror(rc));
+	    rc = thrulay_server_start(num_streams, NULL);
+	    if (rc < 0)
+		BWLError(ctx,BWLErrFATAL,errno,"Thrulay server: %s", 
+			 thrulay_server_strerror(rc));
+	    exit(0);
+	}
+	else{
+	    /* Run thrulay client through its API */
+	    thrulay_opt_t thrulay_opt;
+
+	    /* Give default values to the test spec struct */
+	    thrulay_client_options_init(&thrulay_opt);
+	    /* But disable output. */
+	    thrulay_opt.reporting_verbosity = -1;
+
+	    hlen = sizeof(sendhost);
+	    BWLAddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+	    if(!hlen){
+		exit(BWL_CNTRL_FAILURE);
+	    }
+
+	    /* server to send test data to */
+	    BWLAddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+	    if(!hlen){
+		exit(BWL_CNTRL_FAILURE);
+	    }
+
+	    thrulay_opt.server_name = recvhost;
+
+	    /* -t test duration in seconds */
+	    thrulay_opt.test_duration = tsess->test_spec.duration;
+
+	    /* -i reporting interval in seconds */
+	    if(tsess->test_spec.report_interval){
+		thrulay_opt.reporting_interval = 
+		    tsess->test_spec.report_interval;
+	    }
+
+	    /* -w window size in bytes */
+	    if(tsess->test_spec.window_size){
+		thrulay_opt.window = tsess->test_spec.window_size;
+	    }
+
+	    /* -l block size */
+	    if(tsess->test_spec.len_buffer){
+		thrulay_opt.block_size = tsess->test_spec.len_buffer;
+	    }
+
+	    /* -p server port */
+	    thrulay_opt.port = tsess->recv_port;
+
+	    /* Rate, if UDP test */
+	    if(tsess->test_spec.udp){
+		thrulay_opt.rate = tsess->test_spec.bandwidth;
+	    }
+
+	    /* -m parallel test streams */
+	    if(tsess->test_spec.parallel_streams > 0){
+		thrulay_opt.num_streams = tsess->test_spec.parallel_streams;
+	    }
+
+	    /* -b (busy wait in UDP test) and -D (DSCP value for TOS
+                byte): not used for the moment. */
+	    /* Multicast options not used too. */
+	    rc = thrulay_client_init(thrulay_opt);
+	    if (rc < 0)
+		BWLError(ctx,BWLErrFATAL,errno,"Initializing thrulay "
+			 "client: %s", thrulay_client_strerror(rc));
+
+	    prepare_and_wait_for_test(ctx,tsess,outfd,ipargs);
+
+	    /*
+	     * Now run thrulay client!
+	     */
+	    rc = thrulay_client_start();
+	    if (rc < 0)
+		BWLError(ctx,BWLErrFATAL,errno,"While performing thrulay "
+			 "test: %s", thrulay_client_strerror(rc));
+	    rc = thrulay_client_report_final();
+	    if (rc < 0)
+		BWLError(ctx,BWLErrFATAL,errno,"While generating thrulay"
+			 " final report: %s", thrulay_client_strerror(rc));
+	    thrulay_client_exit();
+	    exit(0);
+	}
+#else
+	BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"A thrulay test was requested, "
+		 "but libthrulay is not available. Something must have gone "
+		 "wrong with the tester negotiation.");
+	exit(BWL_CNTRL_FAILURE);
+#endif
+    }
+    else if(BWL_TESTER_IPERF == tsess->test_spec.tester){
+	/* Run iperf */
+	char *iperf = (char*)BWLContextConfigGet(ctx,BWLIperfCmd);
+	if(!iperf) iperf = _BWL_IPERF_CMD;
+
+	/*
+	 * First figure out the args for iperf
+	 */
+	ipargs[a++] = iperf;
+
+	if(tsess->conf_receiver){
+	    ipargs[a++] = "-B";
+	    ipargs[a++] = recvhost;
+
+	    if(tsess->test_spec.parallel_streams > 0){
+		ipargs[a++] = "-P";
+		ipargs[a++] = uint32dup(ctx,tsess->test_spec.parallel_streams);
+	    }
+	    ipargs[a++] = "-s";
+	}
+	else{
+	    ipargs[a++] = "-c";
+	    ipargs[a++] = recvhost;
+	    ipargs[a++] = "-B";
+	    ipargs[a++] = sendhost;
+	    if(tsess->test_spec.tos){
+		ipargs[a++] = "-S";
+		ipargs[a++] = uint32dup(ctx,tsess->test_spec.tos);
+	    }
+	}
+
+	ipargs[a++] = "-f";
+	ipargs[a++] = "b";
+
+	if(tsess->test_spec.len_buffer){
+	    ipargs[a++] = "-l";
+	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.len_buffer);
+	}
+
+	ipargs[a++] = "-m";
+
+	ipargs[a++] = "-p";
+	ipargs[a++] = uint32dup(ctx,tsess->recv_port);
+
+	if(tsess->test_spec.udp){
+	    ipargs[a++] = "-u";
+	    if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
+		ipargs[a++] = "-b";
+		ipargs[a++] = uint32dup(ctx,tsess->test_spec.bandwidth);
+	    }
+	}
+
+	if(tsess->test_spec.window_size){
+	    ipargs[a++] = "-w";
+	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.window_size);
+	}
+
+	ipargs[a++] = "-t";
+	ipargs[a++] = uint32dup(ctx,tsess->test_spec.duration);
+
+	if(tsess->test_spec.report_interval){
+	    ipargs[a++] = "-i";
+	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.report_interval);
+	}
+
+	switch(tsess->test_spec.receiver->saddr->sa_family){
+#ifdef    AF_INET6
+        case AF_INET6:
+            ipargs[a++] = "-V";
+            break;
+#endif
+        case AF_INET:
+        default:
+            break;
+	}
+
+	BWLAddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+	if(!hlen){
+	    exit(BWL_CNTRL_FAILURE);
+	}
+
+	hlen = sizeof(sendhost);
+	BWLAddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+	if(!hlen){
+	    exit(BWL_CNTRL_FAILURE);
+	}
+
+	ipargs[a++] = NULL;
+
+	prepare_and_wait_for_test(ctx,tsess,outfd,ipargs);
+
+	/*
+	 * Now run iperf!
+	 */
+	execvp(iperf,ipargs);
+
+	BWLError(ctx,BWLErrFATAL,errno,"execv(%s): %M",iperf);
+	exit(BWL_CNTRL_FAILURE);
+    
+    }
+    else if(BWL_TESTER_NUTTCP == tsess->test_spec.tester){
+	/* Run nuttcp. We use the client/server mode. */
+	char *nuttcp = (char*)BWLContextConfigGet(ctx,BWLNuttcpCmd);
+	if(!nuttcp) nuttcp = _BWL_NUTTCP_CMD;
+
+	/* Figure out arguments. */
+	ipargs[a++] = nuttcp;
+	/* Be verbose */
+	ipargs[a++] = "-vv";
+	if(tsess->conf_receiver){
+	    ipargs[a++] = "-r";
+
+	    if(tsess->test_spec.parallel_streams > 0){
+		ipargs[a++] = "-N";
+		ipargs[a++] = uint32dup(ctx,tsess->test_spec.parallel_streams);
+	    }
+	}
+	else{
+	    if(tsess->test_spec.tos){
+		ipargs[a++] = "-c";
+		ipargs[a++] = uint32dup(ctx,tsess->test_spec.tos);
+	    }
+	}
+
+	if(tsess->test_spec.len_buffer){
+	    ipargs[a++] = "-l";
+	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.len_buffer);
+	}
+
+	ipargs[a++] = "-p";
+	ipargs[a++] = uint32dup(ctx,tsess->recv_port);
+
+	if(tsess->test_spec.udp){
+	    ipargs[a++] = "-u";
+	    if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
+		ipargs[a++] = "-R";
+		/* nuttcp expects a number of Kbytes. */
+		ipargs[a++] = uint32dup(ctx,tsess->test_spec.bandwidth / 1024);
+	    }
+	}
+
+	if(tsess->test_spec.window_size){
+	    ipargs[a++] = "-w";
+	    /* nuttcp expects a number of Kbytes. */
+	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.window_size / 1024);
+	}
+
+	ipargs[a++] = "-T";
+	ipargs[a++] = uint32dup(ctx,tsess->test_spec.duration);
+
+	/* tsess->test_spec.report_interval (-i) is ignored, as the
+	   transmitter/receiver mode of nuttcp does not support is.*/
+
+	switch(tsess->test_spec.receiver->saddr->sa_family){
+#ifdef    AF_INET6
+        case AF_INET6:
+            ipargs[a++] = "-6";
+            break;
+#endif
+        case AF_INET:
+        default:
+            break;
+	}
+
+	if(!tsess->conf_receiver){
+	    ipargs[a++] = "-t";
+	    ipargs[a++] = recvhost;
+	}
+
+	BWLAddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+	if(!hlen){
+	    exit(BWL_CNTRL_FAILURE);
+	}
+
+	hlen = sizeof(sendhost);
+	BWLAddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+	if(!hlen){
+	    exit(BWL_CNTRL_FAILURE);
+	}
+
+	ipargs[a++] = NULL;
+
+	prepare_and_wait_for_test(ctx,tsess,outfd,ipargs);
+
+	/*
+	 * Now run nuttcp!
+	 */
+	execvp(nuttcp,ipargs);
+
+	BWLError(ctx,BWLErrFATAL,errno,"execv(%s): %M",nuttcp);
+	exit(BWL_CNTRL_FAILURE);
+    }
+    else{
+	BWLError(ctx,BWLErrFATAL,errno,"Unknown tester tool: %x",
+		 tsess->test_spec.tester);
+	exit(BWL_CNTRL_UNSUPPORTED);
+    }
 }
 
 BWLBoolean
@@ -899,7 +1170,7 @@ ACCEPT:
 
         ep->rcntrl = BWLControlAccept(ctx,connfd,
                 (struct sockaddr *)&sbuff,sbuff_len,
-                mode,currtime.tstamp,
+                mode,tsess->avail_testers,currtime.tstamp,
                 &ipf_term,err_ret);
     }
     else{
@@ -935,7 +1206,7 @@ ACCEPT:
         }
 
         ep->rcntrl = BWLControlOpen(ctx,local,remote,mode,
-                "endpoint",NULL,err_ret);
+                "endpoint",NULL,&tsess->avail_testers,err_ret);
     }
 
     if(!ep->rcntrl){
@@ -993,8 +1264,8 @@ ACCEPT:
     }
 
     if(ep->child == 0){
-        /* go run iperf */
-        run_iperf(ep);
+        /* go run tester. */
+        run_tester(ep);
         /* NOTREACHED */
     }
 
@@ -1192,14 +1463,15 @@ end:
             if(!ipf_chld){
                 /* child was still alive - had to kill off child process! */
                 BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
-                        "Killing iperf child, pid=%d",ep->child);
+                        "Killing tester child, pid=%d",ep->child);
                 /*
                  * report that this endpoint data is suspect since it
                  * had to be killed by the parent process.
                  */
-                if(fprintf(tsess->localfp,"bwctl: WARNING: child killed: timeslot irregularity\n") < 0){
+                if(fwrite("BWCTL_WARNING: tester killed: timslot irregularity",
+                            sizeof(char),50,tsess->localfp) != 50){
                     BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-                            "Error writing warning to iperf data results");
+                            "Error writing warning to tester data results");
                 }
             }
         }

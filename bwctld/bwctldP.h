@@ -25,7 +25,8 @@
 #define	BWCTLD_CONF_FILE	"bwctld.conf"
 #endif
 
-#define	BWCTLD_DEF_TESTPORT	(5001)
+#define	BWCTLD_IPERF_DEF_TESTPORT	(5001)
+#define	BWCTLD_THRULAYD_DEF_TESTPORT	(5003)
 
 /*
  * Types
@@ -41,9 +42,10 @@ typedef struct {
 	char		*confdir;
 	char		*vardir;
 
-	char		*iperfcmd;
-	I2numT          bottleneckcapacity;
-	uint16_t	*iperfports;
+	char		*tester;
+	char		*testercmd;
+	I2numT  	bottleneckcapacity;
+	uint16_t	*testerports;
 	uint16_t	def_port;
 	uint16_t	port_range_len;
 	uint16_t	port_count;

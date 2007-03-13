@@ -305,6 +305,7 @@ BWLControlOpen(
 	uint32_t	mode_req_mask,	/* requested modes	*/
 	BWLUserID	userid,		/* userid or NULL	*/
 	BWLNum64	*uptime_ret,	/* server uptime - ret	*/
+	BWLTesterAvailability	*avail_testers,	/* server supported testers */
 	BWLErrSeverity	*err_ret	/* err - return		*/
 )
 {
@@ -483,7 +484,8 @@ gotmode:
 	 * Write the client greeting, and see if the Server agree's to it.
 	 */
 	if( ((rc=_BWLWriteClientGreeting(cntrl,token)) < BWLErrOK) ||
-			((rc=_BWLReadServerOK(cntrl,&acceptval)) < BWLErrOK)){
+			((rc=_BWLReadServerOK(cntrl,&acceptval,
+					      avail_testers)) < BWLErrOK)){
 		*err_ret = (BWLErrSeverity)rc;
 		goto error;
 	}

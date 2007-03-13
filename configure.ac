@@ -27,9 +27,9 @@
 #
 #	Options:
 # Process this file with autoconf to produce a configure script.
-AC_INIT(bwctl, 1.2b, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.3rc, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.2b, [no-define])
+AM_INIT_AUTOMAKE(bwctl, 1.3rc, [no-define])
 AC_CONFIG_SRCDIR(bwlib/context.c)
 AM_CONFIG_HEADER(bwlib/config.h)
 
@@ -108,6 +108,23 @@ if test "$with_I2util" != "no"; then
 		I2UTILLIBS="$I2UTILLDFLAGS -lI2util"
 	fi
 fi
+
+#
+# Configure option to specify where to look for libthrulay if not installed.
+#
+AC_ARG_WITH([thrulay],
+		AC_HELP_STRING([--with-thrulay=<path>],
+				[libthrulay path; defaults to system installation]),
+				with_thrulay=$withval)
+
+if test -n "$with_thrulay" -a "$with_thrulay" != "yes"; then 
+	# Path given for libthrulay
+	LDFLAGS="$LDFLAGS -L$with_thrulay"
+	CFLAGS="$CFLAGS -I$with_thrulay"
+fi
+AC_CHECK_LIB([thrulay], [main])
+AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h])
+
 
 BWLINCS='-I${top_srcdir}'
 
