@@ -33,7 +33,7 @@ static int
 OpenSocket(
         BWLContext  ctx    __attribute__((unused)),
         int         family,
-        BWLAddr     addr
+        I2Addr     addr
         )
 {
     struct addrinfo *fai;
@@ -41,7 +41,7 @@ OpenSocket(
     int             on;
     int             fd;
 
-    if(!(fai = BWLAddrAddrInfo(addr,NULL,BWL_CONTROL_SERVICE_NAME))){
+    if(!(fai = I2AddrAddrInfo(addr,NULL,BWL_CONTROL_SERVICE_NAME))){
         return -2;
     }
 
@@ -75,10 +75,10 @@ OpenSocket(
 
         if(bind(fd,ai->ai_addr,ai->ai_addrlen) == 0){
 
-            BWLAddrSetFD(addr,-1,True);
-            BWLAddrSetSocktype(addr,ai->ai_socktype);
-            BWLAddrSetSAddr(addr,ai->ai_addr,ai->ai_addrlen);
-            BWLAddrSetFD(addr,fd,True);
+            I2AddrSetFD(addr,-1,True);
+            I2AddrSetSocktype(addr,ai->ai_socktype);
+            I2AddrSetSAddr(addr,ai->ai_addr,ai->ai_addrlen);
+            I2AddrSetFD(addr,fd,True);
 
             break;
         }
@@ -107,12 +107,12 @@ failsock:
  *         over IPV4.)
  *
  *         The addr should be NULL for a wildcard socket, or bound to
- *         a specific interface using BWLAddrByNode or BWLAddrByAddrInfo.
+ *         a specific interface using I2AddrByNode or I2AddrByAddrInfo.
  *
  *         This function will create the socket, bind it, and set the
  *         "listen" backlog length.
  *
- *         If addr is set using BWLAddrByFD, it will cause an error.
+ *         If addr is set using I2AddrByFD, it will cause an error.
  *         (It doesn't really make much sense to call this function at
  *         all if you are going to    create and bind your own socket -
  *         the only thing left is to call "listen"...)
@@ -125,10 +125,10 @@ failsock:
  * Returns:    
  * Side Effect:    
  */
-BWLAddr
+I2Addr
 BWLServerSockCreate(
         BWLContext      ctx,
-        BWLAddr         addr,
+        I2Addr         addr,
         BWLErrSeverity  *err_ret
         )
 {
@@ -137,26 +137,26 @@ BWLServerSockCreate(
     *err_ret = BWLErrOK;
 
     /*
-     * AddrByFD is invalid.
+     * I2AddrByFD is invalid.
      */
-    if(addr && (addr->fd > -1)){
+    if(addr && (I2AddrFD(addr) > -1)){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                "Invalid BWLAddr record - fd already specified.");
+                "Invalid I2Addr record - fd already specified.");
         goto error;
     }
 
     /*
      * If no addr specified, then use wildcard address.
      */
-    if((!addr) && !(addr = BWLAddrByWildcard(ctx,SOCK_STREAM)))
+    if((!addr) &&
+            !(addr = I2AddrByWildcard(BWLContextErrHandle(ctx),SOCK_STREAM,
+                    BWL_CONTROL_SERVICE_NAME))){
         goto error;
+    }
 
-    /*
-     * Tell Addr API that this should be created as a "passive"
-     * socket.
-     */
-     if(!BWLAddrSetPassive(addr,True))
+     if(!I2AddrSetPassive(addr,True)){
         goto error;
+     }
 
 #ifdef    AF_INET6
     /*
@@ -192,7 +192,7 @@ BWLServerSockCreate(
     return addr;
 
 error:
-    BWLAddrFree(addr);
+    I2AddrFree(addr);
     *err_ret = BWLErrFATAL;
     return NULL;
 
@@ -238,6 +238,12 @@ BWLControlAccept(
     struct timeval  tvalstart,tvalend;
     int             ival=0;
     int             *intr = &ival;
+    char            remotenode[NI_MAXHOST],remoteserv[NI_MAXSERV];
+    size_t          remotenodelen = sizeof(remotenode);
+    size_t          remoteservlen = sizeof(remoteserv);
+    char            localnode[NI_MAXHOST],localserv[NI_MAXSERV];
+    size_t          localnodelen = sizeof(localnode);
+    size_t          localservlen = sizeof(localserv);
 
     if(connfd < 0)
         return NULL;
@@ -258,32 +264,36 @@ BWLControlAccept(
     /*
      * set up remote_addr for policy decisions, and log reporting.
      *
-     * set fd_user false to make BWLAddrFree of remote_addr close the
-     * socket. (This will happen from BWLControlClose.)
-     */
-    /*
      * If connsaddr is not existant, than create the Addr using the
      * socket only.
      */
     if(!connsaddr || !connsaddrlen){
-        if(!(cntrl->remote_addr = BWLAddrBySockFD(ctx,connfd))){
+        if(!(cntrl->remote_addr = I2AddrBySockFD(ctx,connfd,True))){
             goto error;
         }
     }
-    else if(!(cntrl->remote_addr =
-                BWLAddrBySAddr(ctx,connsaddr,connsaddrlen,SOCK_STREAM))){
-        goto error;
-    }
-    /* set fd_user to False so a Free of the addr will close the fd. */
-    if(!BWLAddrSetFD(cntrl->remote_addr,connfd,True)){
-        goto error;
+    else{
+        if( !(cntrl->remote_addr = I2AddrBySAddr(
+                        BWLContextErrHandle(ctx),
+                        connsaddr,connsaddrlen,SOCK_STREAM,0)) ||
+                !I2AddrSetFD(cntrl->remote_addr,connfd,True)){
+            goto error;
+        }
     }
 
     /*
      * set up local_addr for policy decisions, and log reporting.
      */
-    if( !(cntrl->local_addr = BWLAddrByLocalSockFD(ctx,connfd))){
+    if( !(cntrl->local_addr = I2AddrByLocalSockFD(
+                    BWLContextErrHandle(ctx),connfd,False))){
         *err_ret = BWLErrFATAL;
+        goto error;
+    }
+
+    if( !I2AddrNodeName(cntrl->remote_addr,remotenode,&remotenodelen) ||
+            !I2AddrServName(cntrl->remote_addr,remoteserv,&remoteservlen) ||
+            !I2AddrNodeName(cntrl->local_addr,localnode,&localnodelen) ||
+            !I2AddrServName(cntrl->local_addr,localserv,&localservlen)){
         goto error;
     }
 
@@ -292,8 +302,7 @@ BWLControlAccept(
      */
     BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
             "Connection to (%s:%s) from (%s:%s)",
-            cntrl->local_addr->node,cntrl->local_addr->port,
-            cntrl->remote_addr->node, cntrl->remote_addr->port);
+            localnode,localserv,remotenode,remoteserv);
 
     /* generate 16 random bytes of challenge and save them away. */
     if(I2RandomBytes(ctx->rand_src,challenge, 16) != 0){
@@ -319,8 +328,7 @@ BWLControlAccept(
     if(!mode_offered){
         BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
                 "Control request to (%s:%s) denied from (%s:%s): mode == 0",
-                cntrl->local_addr->node,cntrl->local_addr->port,
-                cntrl->remote_addr->node,cntrl->remote_addr->port);
+                localnode,localserv,remotenode,remoteserv);
         goto error;
     }
 
@@ -347,10 +355,8 @@ BWLControlAccept(
 
     if(!(cntrl->mode | mode_offered)){ /* can't provide requested mode */
         BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
-                "Control request to (%s:%s) denied from (%s:%s):mode not offered (%u)",
-                cntrl->local_addr->node,cntrl->local_addr->port,
-                cntrl->remote_addr->node,
-                cntrl->remote_addr->port,cntrl->mode);
+                "Control request to (%s:%s) denied from (%s:%s): mode not offered (%u)",
+                localnode,localserv,remotenode,remoteserv,cntrl->mode);
         if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr)) <
                 BWLErrOK){
             *err_ret = (BWLErrSeverity)rc;
@@ -395,10 +401,7 @@ BWLControlAccept(
             else{
                 BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
                         "Control request to (%s:%s) denied from (%s:%s):Invalid challenge encryption",
-                        cntrl->local_addr->node,
-                        cntrl->local_addr->port,
-                        cntrl->remote_addr->node,
-                        cntrl->remote_addr->port);
+                        localnode,localserv,remotenode,remoteserv);
             }
             (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr);
             goto error;
@@ -417,14 +420,14 @@ BWLControlAccept(
     }
 
     if(!_BWLCallCheckControlPolicy(cntrl,cntrl->mode,cntrl->userid, 
-                cntrl->local_addr->saddr,cntrl->remote_addr->saddr,err_ret)){
+                I2AddrSAddr(cntrl->local_addr,NULL),
+                I2AddrSAddr(cntrl->remote_addr,NULL),err_ret)){
         if(*err_ret > BWLErrWARNING){
             BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
                     "ControlSession request to (%s:%s) denied from userid(%s):(%s:%s)",
-                    cntrl->local_addr->node,cntrl->local_addr->port,
+                    localnode,localserv,
                     (cntrl->userid)?cntrl->userid:"nil",
-                    cntrl->remote_addr->node,
-                    cntrl->remote_addr->port);
+                    remotenode,remoteserv);
             /*
              * send mode of 0 to client, and then close.
              */
@@ -449,10 +452,9 @@ BWLControlAccept(
     }
     BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
             "ControlSession([%s]:%s) accepted from userid(%s):([%s]:%s)",
-            cntrl->local_addr->node,cntrl->local_addr->port,
+            localnode,localserv,
             (cntrl->userid)?cntrl->userid:"nil",
-            cntrl->remote_addr->node,
-            cntrl->remote_addr->port);
+            remotenode,remoteserv);
 
     return cntrl;
 

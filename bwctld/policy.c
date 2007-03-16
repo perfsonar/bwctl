@@ -546,11 +546,23 @@ parseassignline(
 #ifdef	AF_INET6
 			struct sockaddr_in6	*saddr6;
 
-		case AF_INET6:
-			saddr6 = (struct sockaddr_in6*)res->ai_addr;
-			tpid.net.addrsize = 16;
-			memcpy(tpid.net.addrval,saddr6->sin6_addr.s6_addr,16);
-			break;
+                    case AF_INET6:
+                        saddr6 = (struct sockaddr_in6*)res->ai_addr;
+
+                        /*
+                         * If this is a v4 mapped address - save as v4 address.
+                         */
+                        if(IN6_IS_ADDR_V4MAPPED(&saddr6->sin6_addr)){
+                            tpid.net.addrsize = 4;
+                            memcpy(tpid.net.addrval,
+                                    &saddr6->sin6_addr.s6_addr[12],4);
+                        }
+                        else{
+                            tpid.net.addrsize = 16;
+                            memcpy(tpid.net.addrval,
+                                    saddr6->sin6_addr.s6_addr,16);
+                        }
+                        break;
 #endif
 		case AF_INET:
 			saddr4 = (struct sockaddr_in*)res->ai_addr;

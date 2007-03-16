@@ -121,7 +121,6 @@
  * Data structures
  */
 typedef struct BWLContextRec BWLContextRec;
-typedef struct BWLAddrRec BWLAddrRec;
 typedef struct BWLControlRec BWLControlRec;
 
 #define _BWL_CONTEXT_TABLE_SIZE    64
@@ -135,28 +134,6 @@ struct BWLContextRec{
     I2RandomSource  rand_src;
     char            tmpdir[PATH_MAX+1];
     BWLControlRec   *cntrl_list;
-};
-
-struct BWLAddrRec{
-    BWLContext      ctx;
-
-    BWLBoolean      node_set;
-    char            node[MAXHOSTNAMELEN+1];
-
-    BWLBoolean      port_set;
-    char            port[MAXHOSTNAMELEN+1];
-
-    BWLBoolean      ai_free;    /* free ai list directly...*/
-    struct addrinfo *ai;
-
-    struct sockaddr *saddr;
-    socklen_t       saddrlen;
-    int             so_type;    /* socktype saddr works with    */
-    int             so_protocol;    /* protocol saddr works with    */
-    BWLBoolean      passive;
-
-    BWLBoolean      fd_user;
-    int             fd;
 };
 
 typedef struct BWLTestSessionRec BWLTestSessionRec, *BWLTestSession;
@@ -203,8 +180,8 @@ struct BWLControlRec{
      * Address specification and "network" information.
      * (Control socket addr information)
      */
-    BWLAddr                 remote_addr;
-    BWLAddr                 local_addr;
+    I2Addr                 remote_addr;
+    I2Addr                 local_addr;
     int                     sockfd;
 
     /*
@@ -264,34 +241,13 @@ struct BWLTestSessionRec{
 /*
  * Private api.c prototypes
  */
-extern BWLAddr
-_BWLAddrAlloc(
-        BWLContext  ctx
-        );
-
-extern BWLAddr
-_BWLAddrCopy(
-        BWLAddr     from
-        );
-
-extern socklen_t
-_BWLAddrSAddr(
-        BWLAddr         from,
-        struct sockaddr **saddr_ret
-        );
-
-extern BWLBoolean
-_BWLAddrSetFD(
-        BWLAddr addr,
-        int     close_on_free
-        );
 
 extern BWLTestSession
 _BWLTestSessionAlloc(
         BWLControl  cntrl,
         BWLBoolean  send,
-        BWLAddr     sender,
-        BWLAddr     receiver,
+        I2Addr      sender,
+        I2Addr      receiver,
         uint16_t   recv_port,
         BWLTestSpec *test_spec
         );

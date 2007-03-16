@@ -55,7 +55,7 @@ static BWLBoolean
 _BWLClientBind(
 	BWLControl	cntrl,
 	int		fd,
-	BWLAddr		local_addr,
+	I2Addr		local_addr,
 	struct addrinfo	*remote_addrinfo,
 	BWLErrSeverity	*err_ret
 )
@@ -65,8 +65,9 @@ _BWLClientBind(
 
 	*err_ret = BWLErrOK;
 
-        if(!BWLAddrSetSocktype(local_addr,SOCK_STREAM) ||
-                !(fai = BWLAddrAddrInfo(local_addr,NULL,NULL))){
+        if(!I2AddrSetSocktype(local_addr,SOCK_STREAM) ||
+                !I2AddrSetProtocol(local_addr,IPPROTO_TCP) ||
+                !(fai = I2AddrAddrInfo(local_addr,NULL,NULL))){
             *err_ret = BWLErrFATAL;
             return False;
         }
@@ -83,9 +84,12 @@ _BWLClientBind(
 			continue;
 
 		if(bind(fd,ai->ai_addr,ai->ai_addrlen) == 0){
-			local_addr->saddr = ai->ai_addr;
-			local_addr->saddrlen = ai->ai_addrlen;
-			return True;
+                    if( I2AddrSetSAddr(local_addr,ai->ai_addr,ai->ai_addrlen)){
+                        return True;
+                    }
+                    BWLError(cntrl->ctx,BWLErrFATAL,errno,
+                            "I2AddrSetSAddr(): failed to set saddr");
+                    return False;
 		}else{
 			switch(errno){
 				/* report these errors */
@@ -138,8 +142,8 @@ static int
 TryAddr(
 	BWLControl	cntrl,
 	struct addrinfo	*ai,
-	BWLAddr		local_addr,
-	BWLAddr		server_addr
+	I2Addr		local_addr,
+	I2Addr		server_addr
 	)
 {
 	BWLErrSeverity	addr_ok=BWLErrOK;
@@ -161,18 +165,29 @@ TryAddr(
 	/*
 	 * Call connect - if it succeeds, return else try again.
 	 */
-	if(connect(fd,ai->ai_addr,ai->ai_addrlen) == 0){
-		server_addr->fd = fd;
-		server_addr->saddr = ai->ai_addr;
-		server_addr->saddrlen = ai->ai_addrlen;
-		server_addr->so_type = ai->ai_socktype;
-		server_addr->so_protocol = ai->ai_protocol;
-		cntrl->remote_addr = server_addr;
-		cntrl->local_addr = local_addr;
-		cntrl->sockfd = fd;
+        if(connect(fd,ai->ai_addr,ai->ai_addrlen) == 0){
 
-		return 0;
-	}
+            /*
+             * connected, set the fields in the addr records
+             */
+            if(I2AddrSetSAddr(server_addr,ai->ai_addr,ai->ai_addrlen) &&
+                    I2AddrSetSocktype(server_addr,ai->ai_socktype) &&
+                    I2AddrSetProtocol(server_addr,ai->ai_protocol) &&
+                    I2AddrSetFD(server_addr,fd,True)){
+
+                cntrl->remote_addr = server_addr;
+                cntrl->local_addr = local_addr;
+                cntrl->sockfd = fd;
+                return 0;
+            }
+
+            /*
+             * Connected, but addr record stuff failed.
+             */
+            BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "I2Addr functions failed after successful connection");
+
+        }
 
 cleanup:
 	while((close(fd) < 0) && (errno == EINTR));
@@ -184,7 +199,7 @@ cleanup:
  *
  * Description:	
  * 	This function attempts to create a socket connection between
- * 	the local client and the server. Each specified with BWLAddr
+ * 	the local client and the server. Each specified with I2Addr
  * 	records. If the local_addr is not specified, then the source
  * 	addr is not bound. The server_addr is used to get a valid list
  * 	of addrinfo records and each addrinfo description record is
@@ -201,8 +216,8 @@ cleanup:
 static int
 _BWLClientConnect(
 	BWLControl	cntrl,
-	BWLAddr		local_addr,
-	BWLAddr		server_addr,
+	I2Addr		local_addr,
+	I2Addr		server_addr,
 	BWLErrSeverity	*err_ret
 )
 {
@@ -216,7 +231,7 @@ _BWLClientConnect(
     /*
      * Easy case - application provided socket directly.
      */
-    if((cntrl->sockfd = BWLAddrFD(server_addr)) > -1){
+    if((cntrl->sockfd = I2AddrFD(server_addr)) > -1){
         cntrl->remote_addr = server_addr;
         return 0;
     }
@@ -224,7 +239,7 @@ _BWLClientConnect(
     /*
      * Initialize addrinfo portion of server_addr record.
      */
-    if(!(fai = BWLAddrAddrInfo(server_addr,NULL,BWL_CONTROL_SERVICE_NAME))){
+    if(!(fai = I2AddrAddrInfo(server_addr,NULL,BWL_CONTROL_SERVICE_NAME))){
         goto error;
     }
 
@@ -300,8 +315,8 @@ error:
 BWLControl
 BWLControlOpen(
 	BWLContext	ctx,		/* control context	*/
-	BWLAddr		local_addr,	/* local addr or null	*/
-	BWLAddr		server_addr,	/* server addr		*/
+	I2Addr		local_addr,	/* local addr or null	*/
+	I2Addr		server_addr,	/* server addr		*/
 	uint32_t	mode_req_mask,	/* requested modes	*/
 	BWLUserID	userid,		/* userid or NULL	*/
 	BWLNum64	*uptime_ret,	/* server uptime - ret	*/
@@ -320,7 +335,6 @@ BWLControlOpen(
 	BWLAcceptType	acceptval;
 	struct timeval	tvalstart,tvalend;
 	BWLNum64	uptime;
-	struct sockaddr	*lsaddr;
 
 	*err_ret = BWLErrOK;
 
@@ -336,7 +350,7 @@ BWLControlOpen(
 	if(!server_addr){
 		goto error;
 	}
-	if(!BWLAddrSetSocktype(server_addr,SOCK_STREAM)){
+	if(!I2AddrSetSocktype(server_addr,SOCK_STREAM)){
 		goto error;
 	}
 
@@ -388,34 +402,35 @@ BWLControlOpen(
 	 * least_restrictive is in the bitmask, then pick the
 	 * "lowest" level mode.
 	 */
-	lsaddr = (local_addr)?local_addr->saddr:NULL;
-	if(mode_req_mask & BWL_MODE_LEAST_RESTRICTIVE){
-		do_mode = BWL_MODE_OPEN;
-		while((*err_ret == BWLErrOK) &&(do_mode <= BWL_MODE_ENCRYPTED)){
-			if((mode_avail & do_mode) &&
-					_BWLCallCheckControlPolicy(cntrl,
-						do_mode,cntrl->userid,
-						lsaddr,server_addr->saddr,
-						err_ret)){
-				cntrl->mode = do_mode;
-				goto gotmode;
-			}
-			do_mode <<= 1;
-		}
-	}else{
-		do_mode = BWL_MODE_ENCRYPTED;
-		while((*err_ret == BWLErrOK) && (do_mode > BWL_MODE_UNDEFINED)){
-			if((mode_avail & do_mode) &&
-					_BWLCallCheckControlPolicy(cntrl,
-						do_mode,cntrl->userid,
-						lsaddr,server_addr->saddr,
-						err_ret)){
-				cntrl->mode = do_mode;
-				goto gotmode;
-			}
-			do_mode >>= 1;
-		}
-	}
+        if(mode_req_mask & BWL_MODE_LEAST_RESTRICTIVE){
+            do_mode = BWL_MODE_OPEN;
+            while((*err_ret == BWLErrOK) &&(do_mode <= BWL_MODE_ENCRYPTED)){
+                if((mode_avail & do_mode) &&
+                        _BWLCallCheckControlPolicy(cntrl,
+                            do_mode,cntrl->userid,
+                            I2AddrSAddr(cntrl->local_addr,NULL),
+                            I2AddrSAddr(cntrl->remote_addr,NULL),
+                            err_ret)){
+                    cntrl->mode = do_mode;
+                    goto gotmode;
+                }
+                do_mode <<= 1;
+            }
+        }else{
+            do_mode = BWL_MODE_ENCRYPTED;
+            while((*err_ret == BWLErrOK) && (do_mode > BWL_MODE_UNDEFINED)){
+                if((mode_avail & do_mode) &&
+                        _BWLCallCheckControlPolicy(cntrl,
+                            do_mode,cntrl->userid,
+                            I2AddrSAddr(cntrl->local_addr,NULL),
+                            I2AddrSAddr(cntrl->remote_addr,NULL),
+                            err_ret)){
+                    cntrl->mode = do_mode;
+                    goto gotmode;
+                }
+                do_mode >>= 1;
+            }
+        }
 
 	if(*err_ret != BWLErrOK){
 		goto error;
@@ -531,9 +546,9 @@ error:
 	 */
 denied:
 	if(cntrl->local_addr != local_addr)
-		BWLAddrFree(local_addr);
+		I2AddrFree(local_addr);
 	if(cntrl->remote_addr != server_addr)
-		BWLAddrFree(server_addr);
+		I2AddrFree(server_addr);
 	BWLControlClose(cntrl);
 	return NULL;
 }
@@ -658,8 +673,11 @@ BWLSessionRequest(
 	struct addrinfo		*sai=NULL;
 	BWLTestSession		tsession = NULL;
 	int			rc=0;
-	BWLAddr			receiver=NULL;
-	BWLAddr			sender=NULL;
+	I2Addr			receiver=NULL;
+	I2Addr			sender=NULL;
+        struct sockaddr         *rsaddr;
+        struct sockaddr         *ssaddr;
+        socklen_t               saddrlen;
 	BWLNum64		zero64=BWLULongToNum64(0);
 	BWLAcceptType	        acceptval = BWL_CNTRL_FAILURE;
 	BWLBoolean	        retval = False;
@@ -701,7 +719,7 @@ BWLSessionRequest(
 	}else{
 
 		if(test_spec->receiver){
-			receiver = _BWLAddrCopy(test_spec->receiver);
+			receiver = I2AddrCopy(test_spec->receiver);
 		}else{
 			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 				"BWLSessionRequest:Invalid receive address");
@@ -711,7 +729,7 @@ BWLSessionRequest(
 			goto error;
 	
 		if(test_spec->sender){
-			sender = _BWLAddrCopy(test_spec->sender);
+			sender = I2AddrCopy(test_spec->sender);
 		}else{
 			BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 				"BWLSessionRequest:Invalid receive address");
@@ -724,9 +742,9 @@ BWLSessionRequest(
                  * Set the socktypes needed for this type of test so the
                  * getaddrinfo happens correctly.
                  */
-                if(     !BWLAddrSetSocktype(receiver,
+                if(     !I2AddrSetSocktype(receiver,
                             (test_spec->udp)? SOCK_DGRAM: SOCK_STREAM) ||
-                        !BWLAddrSetSocktype(sender,
+                        !I2AddrSetSocktype(sender,
                             (test_spec->udp)? SOCK_DGRAM: SOCK_STREAM)){
                     goto error;
                 }
@@ -735,9 +753,9 @@ BWLSessionRequest(
                  * Get addrinfo for address spec's so we can choose between
                  * the different address possiblities in the next step.
                  */
-                if(     !(frai = BWLAddrAddrInfo(receiver,NULL,
+                if(     !(frai = I2AddrAddrInfo(receiver,NULL,
                                 BWL_CONTROL_SERVICE_NAME)) ||
-                        !(fsai = BWLAddrAddrInfo(sender,NULL,
+                        !(fsai = I2AddrAddrInfo(sender,NULL,
                                 BWL_CONTROL_SERVICE_NAME))){
                     goto error;
                 }
@@ -779,17 +797,22 @@ BWLSessionRequest(
 	
 	foundaddr:
 		/*
-		 * Fill BWLAddr records with "selected" addresses for test.
+		 * Fill I2Addr records with "selected" addresses for test.
 		 */
-		receiver->saddr = rai->ai_addr;
-		receiver->saddrlen = rai->ai_addrlen;
-		receiver->so_type = rai->ai_socktype;
-		receiver->so_protocol = rai->ai_protocol;
-		sender->saddr = sai->ai_addr;
-		sender->saddrlen = sai->ai_addrlen;
-		sender->so_type = sai->ai_socktype;
-		sender->so_protocol = sai->ai_protocol;
+                if( !I2AddrSetSAddr(receiver,rai->ai_addr,rai->ai_addrlen) ||
+                        !I2AddrSetSAddr(sender,sai->ai_addr,sai->ai_addrlen)){
+                    BWLError(cntrl->ctx,*err_ret,BWLErrINVALID,
+                            "BWLSessionRequest: Unable to set socket info");
+                    goto error;
+                }
 	
+                /*
+                 * Save direct pointers to recv/send saddr's for policy funcs
+                 */
+                rsaddr = rai->ai_addr;
+                ssaddr = sai->ai_addr;
+                saddrlen = sai->ai_addrlen;
+
 		/*
 		 * Create a structure to store the stuff we need to keep for
 		 * later calls.
@@ -866,8 +889,8 @@ error:
 		 * If tsession exists - the addr's will be free'd as
 		 * part of it - otherwise, do it here.
 		 */
-		BWLAddrFree(receiver);
-		BWLAddrFree(sender);
+		I2AddrFree(receiver);
+		I2AddrFree(sender);
 	}
 
 	return retval;

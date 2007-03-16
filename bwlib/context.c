@@ -17,11 +17,12 @@
 **
 **	Description:	
 */
+#include "bwlibP.h"
+
 #include <assert.h>
 #include <signal.h>
 #include <stdarg.h>
 
-#include "bwlibP.h"
 
 /*
  * Function:	notmuch
@@ -220,7 +221,7 @@ BWLContextCreate(
  * Side Effect:	
  */
 extern I2ErrHandle
-BWLContextGetErrHandle(
+BWLContextErrHandle(
 	BWLContext	ctx
 	)
 {
@@ -357,10 +358,8 @@ BWLControlClose(BWLControl cntrl)
 	/*
 	 * these functions will close the control socket if it is open.
 	 */
-	lerr = BWLAddrFree(cntrl->remote_addr);
-	err = MIN(err,lerr);
-	lerr = BWLAddrFree(cntrl->local_addr);
-	err = MIN(err,lerr);
+	I2AddrFree(cntrl->remote_addr);
+	I2AddrFree(cntrl->local_addr);
 
 	free(cntrl);
 
@@ -694,8 +693,10 @@ _BWLCallCheckTestPolicy(
 )
 {
 	BWLCheckTestPolicyFunc	func;
-	BWLAddr			local;
-	BWLAddr			remote;
+        struct sockaddr         *lsaddr;
+        struct sockaddr         *rsaddr;
+        socklen_t               lsaddrlen;
+        socklen_t               rsaddrlen;
 
 	*err_ret = BWLErrOK;
 
@@ -710,18 +711,17 @@ _BWLCallCheckTestPolicy(
 	}
 
 	if(tsess->conf_sender){
-		local = tsess->test_spec.sender;
-		remote = tsess->test_spec.receiver;
+            lsaddr = I2AddrSAddr(tsess->test_spec.sender,&lsaddrlen);
+            rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen);
 	}
 	else{
-		local = tsess->test_spec.receiver;
-		remote = tsess->test_spec.sender;
+            lsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen);
+            rsaddr = I2AddrSAddr(tsess->test_spec.sender,&lsaddrlen);
 	}
 
-	return func(cntrl,tsess->sid,tsess->conf_sender,local->saddr,
-			remote->saddr,local->saddrlen,&tsess->test_spec,
-			tsess->fuzz,&tsess->reserve_time,&tsess->recv_port,
-			&tsess->closure,err_ret);
+	return func(cntrl,tsess->sid,tsess->conf_sender,lsaddr,rsaddr,
+                lsaddrlen,&tsess->test_spec,tsess->fuzz,&tsess->reserve_time,
+                &tsess->recv_port,&tsess->closure,err_ret);
 }
 
 /*

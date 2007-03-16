@@ -906,7 +906,7 @@ portdone:
         while((close(new_pipe[1]) < 0) && (errno == EINTR));
 
         cntrl = BWLControlOpen(ctx,NULL,
-                BWLAddrBySockFD(ctx,new_pipe[0]),
+                I2AddrBySockFD(ctx,new_pipe[0]),
                 BWL_MODE_OPEN,NULL,NULL,NULL,&err);
 
         if(!cntrl) return NULL;
@@ -1858,8 +1858,8 @@ AGAIN:
              */
             current_auth = ((first.auth)?first.auth:app.def_auth);
             first.cntrl = BWLControlOpen(ctx,
-                    BWLAddrByNode(ctx,app.opt.srcaddr),
-                    BWLAddrByNode(ctx,first.host),
+                    I2AddrByNode(ctx,app.opt.srcaddr),
+                    I2AddrByNode(ctx,first.host),
                     ((current_auth)?
                      current_auth->auth_mode:BWL_MODE_OPEN),
                     ((current_auth)?
@@ -1879,11 +1879,11 @@ AGAIN:
             first.sockfd = BWLControlFD(first.cntrl);
             if(first.send){
                 first.tspec.sender = second.tspec.sender =
-                    BWLAddrByControl(first.cntrl);
+                    I2AddrByControl(first.cntrl);
             }
             else{
                 first.tspec.receiver = second.tspec.receiver =
-                    BWLAddrByControl(first.cntrl);
+                    I2AddrByControl(first.cntrl);
             }
 
         }
@@ -1906,8 +1906,8 @@ AGAIN:
                  * process is required.
                  */
                 second.cntrl = BWLControlOpen(ctx,
-                        BWLAddrByNode(ctx,app.opt.srcaddr),
-                        BWLAddrByNode(ctx,second.host),
+                        I2AddrByNode(ctx,app.opt.srcaddr),
+                        I2AddrByNode(ctx,second.host),
                         ((current_auth)?
                          current_auth->auth_mode:
                          BWL_MODE_OPEN),
@@ -1918,9 +1918,9 @@ AGAIN:
                 /*
                  * Try "localhost" server.
                  */
-                BWLAddr laddr = BWLAddrByLocalControl(first.cntrl);
-                if(!BWLAddrSetPort(laddr,BWL_CONTROL_SERVICE_NUMBER)){
-                    if(laddr) BWLAddrFree(laddr);
+                I2Addr laddr = I2AddrByLocalControl(first.cntrl);
+                if(!I2AddrSetPort(laddr,BWL_CONTROL_SERVICE_NUMBER)){
+                    if(laddr) I2AddrFree(laddr);
                     I2ErrLog(eh,"Unable to determine address for local server");
                     exit_val = 1;
                     goto finish;
@@ -1961,13 +1961,13 @@ AGAIN:
                 if(second.send){
                     first.tspec.sender =
                         second.tspec.sender =
-                        BWLAddrByLocalControl(
+                        I2AddrByLocalControl(
                                 first.cntrl);
                 }
                 else{
                     first.tspec.receiver =
                         second.tspec.receiver =
-                        BWLAddrByLocalControl(
+                        I2AddrByLocalControl(
                                 first.cntrl);
                 }
             }
@@ -1975,12 +1975,12 @@ AGAIN:
                 if(second.send){
                     first.tspec.sender =
                         second.tspec.sender =
-                        BWLAddrByControl(second.cntrl);
+                        I2AddrByControl(second.cntrl);
                 }
                 else{
                     first.tspec.receiver =
                         second.tspec.receiver =
-                        BWLAddrByControl(second.cntrl);
+                        I2AddrByControl(second.cntrl);
                 }
             }
         }

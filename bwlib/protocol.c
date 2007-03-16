@@ -826,8 +826,8 @@ _BWLWriteTestRequest(
 	uint8_t	*buf = (uint8_t*)cntrl->msg;
 	BWLTestSpec	*tspec = &tsession->test_spec;
 	BWLTimeStamp	tstamp;
-	BWLAddr		sender;
-	BWLAddr		receiver;
+        struct sockaddr *ssaddr;
+        struct sockaddr *rsaddr;
 	uint8_t		version;
 	uint32_t	message_len;
 	uint32_t	blocks;
@@ -845,10 +845,15 @@ _BWLWriteTestRequest(
 	/*
 	 * Interpret addresses
 	 */
-	sender = tspec->sender;
-	receiver = tspec->receiver;
+        ssaddr = I2AddrSAddr(tspec->sender,NULL);
+        rsaddr = I2AddrSAddr(tspec->receiver,NULL);
+        if(!ssaddr || !rsaddr){
+            BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
+                    "_BWLWriteTestRequest: Unable to decode sockaddrs");
+            return BWLErrFATAL;
+        }
 
-	if(sender->saddr->sa_family != receiver->saddr->sa_family){
+	if(ssaddr->sa_family != rsaddr->sa_family){
 		BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
 					"Address Family mismatch");
 		return BWLErrFATAL;
@@ -858,7 +863,7 @@ _BWLWriteTestRequest(
 	 * Addresses are consistant. Can we deal with what we
 	 * have been given? (We only support AF_INET and AF_INET6.)
 	 */
-	switch (sender->saddr->sa_family){
+	switch (ssaddr->sa_family){
 		case AF_INET:
 			version = 4;
 			break;
@@ -921,22 +926,22 @@ _BWLWriteTestRequest(
 	struct sockaddr_in6	*saddr6;
 		case 6:
 			/* sender address */
-			saddr6 = (struct sockaddr_in6*)sender->saddr;
+			saddr6 = (struct sockaddr_in6*)ssaddr;
 			memcpy(&buf[28],saddr6->sin6_addr.s6_addr,16);
 
 			/* receiver address and port  */
-			saddr6 = (struct sockaddr_in6*)receiver->saddr;
+			saddr6 = (struct sockaddr_in6*)rsaddr;
 			memcpy(&buf[44],saddr6->sin6_addr.s6_addr,16);
 
 			break;
 #endif
 		case 4:
 			/* sender address */
-			saddr4 = (struct sockaddr_in*)sender->saddr;
+			saddr4 = (struct sockaddr_in*)ssaddr;
 			*(uint32_t*)&buf[28] = saddr4->sin_addr.s_addr;
 
 			/* receiver address */
-			saddr4 = (struct sockaddr_in*)receiver->saddr;
+			saddr4 = (struct sockaddr_in*)rsaddr;
 			*(uint32_t*)&buf[44] = saddr4->sin_addr.s_addr;
 
 			break;
@@ -1016,8 +1021,10 @@ _BWLReadTestRequest(
     struct sockaddr_storage sendaddr_rec;
     struct sockaddr_storage recvaddr_rec;
     socklen_t               addrlen = sizeof(sendaddr_rec);
-    BWLAddr                 SendAddr=NULL;
-    BWLAddr                 RecvAddr=NULL;
+    int                     socktype;
+    int                     protocol;
+    I2Addr                  SendAddr=NULL;
+    I2Addr                  RecvAddr=NULL;
     uint8_t                 ipvn;
     BWLSID                  sid;
     BWLTestSpec             tspec;
@@ -1221,12 +1228,20 @@ _BWLReadTestRequest(
          * (Don't bother checking for null return - it will be checked
          * by _BWLTestSessionAlloc.)
          */
-        SendAddr = BWLAddrBySAddr(cntrl->ctx,
+        if(tspec.udp){
+            socktype = SOCK_DGRAM;
+            protocol = IPPROTO_UDP;
+        }
+        else{
+            socktype = SOCK_STREAM;
+            protocol = IPPROTO_TCP;
+        }
+        SendAddr = I2AddrBySAddr(BWLContextErrHandle(cntrl->ctx),
                 (struct sockaddr*)&sendaddr_rec,addrlen,
-                (tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
-        RecvAddr = BWLAddrBySAddr(cntrl->ctx,
+                socktype,protocol);
+        RecvAddr = I2AddrBySAddr(cntrl->ctx,
                 (struct sockaddr*)&recvaddr_rec,addrlen,
-                (tspec.udp)?SOCK_DGRAM:SOCK_STREAM);
+                socktype,protocol);
 
         tspec.bandwidth = ntohl(*(uint32_t*)&buf[76]);
         tspec.len_buffer = ntohl(*(uint32_t*)&buf[80]);
@@ -1272,8 +1287,8 @@ error:
     if(tsession){
         _BWLTestSessionFree(tsession,BWL_CNTRL_FAILURE);
     }else{
-        BWLAddrFree(SendAddr);
-        BWLAddrFree(RecvAddr);
+        I2AddrFree(SendAddr);
+        I2AddrFree(RecvAddr);
     }
 
     if(err_ret < BWLErrWARNING){

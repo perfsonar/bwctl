@@ -801,7 +801,7 @@ ClosePipes(
 static void
 NewConnection(
         BWLDPolicy  policy,
-        BWLAddr     listenaddr,
+        I2Addr     listenaddr,
         int         *maxfd,
         fd_set      *readfds,
 	BWLTesterAvailability avail_testers
@@ -813,7 +813,7 @@ NewConnection(
     int                     new_pipe[2];
     pid_t                   pid;
     BWLSessionMode          mode = opts.auth_mode;
-    int                     listenfd = BWLAddrFD(listenaddr);
+    int                     listenfd = I2AddrFD(listenaddr);
     BWLControl              cntrl=NULL;
     BWLErrSeverity          out;
 
@@ -1239,19 +1239,20 @@ LoadConfig(
         }
         else if(!strncasecmp(key,"iperfport",10) ||
                 !strncasecmp(key,"iperf_port",11) ||
-		!strncasecmp(key,"thrulay_port",13)){
+                !strncasecmp(key,"thrulay_port",13)){
             char        *hpstr = NULL;
             uint16_t    lport,hport;
             char        *end=NULL;
             uint32_t    tlng;
 
-	    /* Only process ports for the selected tool */
-	    if((!strncasecmp(key,"iperfport",10) || 
-		!strncasecmp(key,"iperf_port",11) &&
-		strncasecmp(opts.tester,"iperf",6) ||
-		(!strncasecmp(key,"thrulay_port",13) && 
-		 strncasecmp(opts.tester,"thrulay",8))))
-	       continue;
+            /* Only process ports for the selected tool */
+            if(!strncasecmp(key,"iperfport",10) || 
+                    !strncasecmp(key,"iperf_port",11) &&
+                    strncasecmp(opts.tester,"iperf",6) ||
+                    (!strncasecmp(key,"thrulay_port",13) && 
+                     strncasecmp(opts.tester,"thrulay",8))){
+                continue;
+            }
 
             if( (hpstr = strchr(val,'-'))){
                 *hpstr++ = '\0';
@@ -1290,13 +1291,13 @@ LoadConfig(
             }
 
             if(hport < lport){
-		char *tester;
-		if(!strncasecmp(key,"thrulay_port",13))
-		    tester = "thrulay";
-		else if(!strncasecmp(key,"iperf_port",11))
-		    tester = "iperf";
-		else
-		    tester = "nuttcp";
+                char *tester;
+                if(!strncasecmp(key,"thrulay_port",13))
+                    tester = "thrulay";
+                else if(!strncasecmp(key,"iperf_port",11))
+                    tester = "iperf";
+                else
+                    tester = "nuttcp";
                 fprintf(stderr,
                         "%s_port: invalid range specified",tester);
                 rc=-rc;
@@ -1473,7 +1474,7 @@ main(int argc, char *argv[])
     int                 maxfd;    /* max fd in readfds */
     BWLContext          ctx;
     BWLDPolicy          policy;
-    BWLAddr             listenaddr = NULL;
+    I2Addr             listenaddr = NULL;
     BWLTesterAvailability avail_testers = 0xffffffff;
     int                 listenfd;
     int                 rc;
@@ -2004,7 +2005,7 @@ main(int argc, char *argv[])
      * If the local interface was specified, use it - otherwise use NULL
      * for wildcard.
      */
-    if(opts.srcnode && !(listenaddr = BWLAddrByNode(ctx,opts.srcnode))){
+    if(opts.srcnode && !(listenaddr = I2AddrByNode(ctx,opts.srcnode))){
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "Invalid source address specified: %s",opts.srcnode);
         exit(1);
@@ -2052,7 +2053,7 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    listenfd = BWLAddrFD(listenaddr);
+    listenfd = I2AddrFD(listenaddr);
     FD_ZERO(&readfds);
     FD_SET(listenfd,&readfds);
     maxfd = listenfd;
@@ -2113,7 +2114,7 @@ main(int argc, char *argv[])
      * Close the server socket. reset the readfds/maxfd so they
      * can't confuse later ReapChildren calls.
      */
-    BWLAddrFree(listenaddr);
+    I2AddrFree(listenaddr);
     FD_ZERO(&readfds);
     maxfd = -1;
 

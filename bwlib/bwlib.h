@@ -222,7 +222,6 @@ BWLUsecToNum64(uint32_t usec);
  */
 typedef struct BWLContextRec    *BWLContext;
 typedef struct BWLControlRec    *BWLControl;
-typedef struct BWLAddrRec    *BWLAddr;
 
 /*
  * TimeStamp related types and structures needed throughout.
@@ -304,8 +303,8 @@ typedef uint32_t    BWLTesterNegotiationVersion;
 
 typedef struct{
     BWLTester       tester;
-    BWLAddr         sender;
-    BWLAddr         receiver;
+    I2Addr          sender;
+    I2Addr          receiver;
     BWLTimeStamp    req_time;
     BWLNum64        latest_time;
     uint32_t       duration;
@@ -586,7 +585,7 @@ BWLContextFree(
         );
 
 extern I2ErrHandle
-BWLContextGetErrHandle(
+BWLContextErrHandle(
         BWLContext  ctx
         );
 
@@ -640,152 +639,6 @@ BWLControlConfigDelete(
         );
 
 /*
- * The BWLAddrBy* functions are used to allow the BWL API to more
- * adequately manage the memory associated with the many different ways
- * of specifying an address - and to provide a uniform way to specify an
- * address to the main API functions.
- * These functions return NULL on failure. (They call the error handler
- * to specify the reason.)
- */
-extern BWLAddr
-BWLAddrByNode(
-        BWLContext    ctx,
-        const char    *node    /* dns or valid char representation of addr */
-        );
-
-extern BWLAddr
-BWLAddrByWildcard(
-        BWLContext  ctx,
-        int         socktype
-        );
-
-extern BWLAddr
-BWLAddrBySAddr(
-        BWLContext      ctx,
-        struct sockaddr *saddr,
-        socklen_t       saddr_len,
-        int             socktype
-        );
-
-/*
- * Return the address for the remote side of the given socket.
- * (wrapper for getpeername)
- */
-extern BWLAddr
-BWLAddrBySockFD(
-        BWLContext    ctx,
-        int        fd    /* fd must be an already connected socket */
-        );
-
-/*
- * Return the address for the remote side of the given socket.
- * (wrapper for getsockname)
- */
-extern BWLAddr
-BWLAddrByLocalSockFD(
-        BWLContext    ctx,
-        int        fd    /* fd must be an already connected socket */
-        );
-
-/*
- * Return the address for the remote side of the control connection.
- * (getpeername)
- */
-BWLAddr
-BWLAddrByControl(
-        BWLControl    cntrl
-        );
-
-/*
- * Return the address for the local side of the control connection.
- * (getsockname)
- */
-BWLAddr
-BWLAddrByLocalControl(
-        BWLControl    cntrl
-        );
-
-/*
- * Addr access functions.
- * The set functions are only valid *before* a real socket is associated
- * with the Addr. So, the internal fd cannot be set upon entrance.
- */
-BWLBoolean
-BWLAddrSetSAddr(
-        BWLAddr         addr,
-        struct sockaddr *saddr,
-        socklen_t       saddr_len
-        );
-
-BWLBoolean
-BWLAddrSetFD(
-        BWLAddr addr,
-        int     fd,
-        int     close_on_free
-        );
-
-BWLBoolean
-BWLAddrSetPort(
-        BWLAddr     addr,
-        uint16_t   port
-        );
-
-BWLBoolean
-BWLAddrSetSocktype(
-        BWLAddr addr,
-        int     so_type
-        );
-
-BWLBoolean
-BWLAddrSetPassive(
-        BWLAddr     addr,
-        BWLBoolean  passive
-        );
-
-struct addrinfo
-*BWLAddrAddrInfo(
-        BWLAddr     addr,
-        char        *def_node,
-        char        *def_serv
-        );
-
-BWLBoolean
-BWLAddrNodeName(
-        BWLAddr addr,
-        char    *buf,
-        size_t  *len    /* in/out parameter for buf len */
-        );
-
-BWLBoolean
-BWLAddrNodeService(
-        BWLAddr addr,
-        char    *buf,
-        size_t  *len    /* in/out parameter for buf len */
-        );
-
-/*
- * return FD for given BWLAddr or -1 if it doesn't refer to a socket yet.
- */
-extern int
-BWLAddrFD(
-        BWLAddr    addr
-        );
-
-/*
- * return socket address length (for use in calling accept etc...)
- * or 0 if it doesn't refer to a socket yet.
- */
-extern socklen_t
-BWLAddrSockLen(
-        BWLAddr    addr
-        );
-
-extern BWLErrSeverity
-BWLAddrFree(
-        BWLAddr    addr
-        );
-
-/*
  * BWLControlOpen allocates an BWLclient structure, opens a connection to
  * the BWL server and goes through the initialization phase of the
  * connection. This includes AES/CBC negotiation. It returns after receiving
@@ -805,10 +658,10 @@ BWLAddrFree(
  *     If successful - even marginally - a valid BWLclient handle
  *     is returned. If unsuccessful, NULL is returned.
  *
- * local_addr can only be set using BWLAddrByNode or BWLAddrByAddrInfo
- * server_addr can use any of the BWLAddrBy* functions.
+ * local_addr can only be set using I2AddrByNode or I2AddrByAddrInfo
+ * server_addr can use any of the I2AddrBy* functions.
  *
- * Once an BWLAddr record is passed into this function - it is
+ * Once an I2Addr record is passed into this function - it is
  * automatically free'd and should not be referenced again in any way.
  *
  * Client
@@ -816,8 +669,8 @@ BWLAddrFree(
 extern BWLControl
 BWLControlOpen(
         BWLContext    ctx,
-        BWLAddr        local_addr,    /* src addr or NULL        */
-        BWLAddr        server_addr,    /* server addr or NULL        */
+        I2Addr        local_addr,    /* src addr or NULL        */
+        I2Addr        server_addr,    /* server addr or NULL        */
         uint32_t    mode_mask,    /* OR of BWLSessionMode vals    */
         BWLUserID    userid,        /* null if unwanted        */
         BWLNum64    *uptime_ret,    /* server uptime - ret or NULL    */
@@ -876,7 +729,7 @@ BWLControlClose(
  * 3. Local resource problem (malloc/fork/fdopen): err_ret == ErrFATAL
  * 4. Bad addresses: err_ret == ErrWARNING
  *
- * Once an BWLAddr record has been passed into this function, it
+ * Once an I2Addr record has been passed into this function, it
  * is automatically free'd. It should not be referenced again in any way.
  *
  * Conversely, the test_spec is completely copied, and the caller continues
@@ -1046,10 +899,10 @@ BWLErrorFD(
         );
 
 extern
-BWLAddr
+I2Addr
 BWLServerSockCreate(
         BWLContext    ctx,
-        BWLAddr        addr,
+        I2Addr        addr,
         BWLErrSeverity    *err_ret
         );
 
