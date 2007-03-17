@@ -60,7 +60,7 @@ parsekeys(
 	BWLUserID	username;
 	BWLKey		tkey;
 	I2Datum		key,val;
-	I2ErrHandle	eh = BWLContextGetErrHandle(policy->ctx);
+	I2ErrHandle	eh = BWLContextErrHandle(policy->ctx);
 
 	/*
 	 * TODO: Replace with an autoconf test
@@ -701,7 +701,7 @@ parselimits(
 	size_t	i;
 	size_t	maxlim = 0;
 	char	*line;
-	I2ErrHandle	eh = BWLContextGetErrHandle(policy->ctx);
+	I2ErrHandle	eh = BWLContextErrHandle(policy->ctx);
 
 	/*
 	 * Count number of possible limit parameters
@@ -848,7 +848,7 @@ BWLDPolicyInstall(
 	BWLTestCompleteFunc		testcompletefunc = BWLDTestComplete;
 
 
-	eh = BWLContextGetErrHandle(ctx);
+	eh = BWLContextErrHandle(ctx);
 
 	/*
 	 * Alloc main policy record

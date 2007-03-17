@@ -100,6 +100,74 @@ BWLControlFD(
 }
 
 /*
+ * Function:    BWLAddrByControl
+ *
+ * Description:    
+ *              Wrapper for some I2Addr functions on the
+ *              control socket.
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+I2Addr
+BWLAddrByControl(
+        BWLControl  cntrl
+        )
+{
+    struct sockaddr *saddr;
+    socklen_t       saddrlen;
+
+    if(!cntrl->remote_addr ||
+            !(saddr = I2AddrSAddr(cntrl->remote_addr,&saddrlen))){
+        return NULL;
+    }
+
+    return I2AddrBySAddr(BWLContextErrHandle(cntrl->ctx),
+            saddr,saddrlen,
+            I2AddrSocktype(cntrl->remote_addr),
+            I2AddrProtocol(cntrl->remote_addr));
+}
+
+/*
+ * Function:    BWLAddrByLocalControl
+ *
+ * Description:    
+ *              Wrapper for some I2Addr functions on the
+ *              control socket.
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+I2Addr
+BWLAddrByLocalControl(
+        BWLControl  cntrl
+        )
+{
+    struct sockaddr *saddr;
+    socklen_t       saddrlen;
+
+    if(!cntrl->local_addr ||
+            !(saddr = I2AddrSAddr(cntrl->local_addr,&saddrlen))){
+        return NULL;
+    }
+
+    return I2AddrBySAddr(BWLContextErrHandle(cntrl->ctx),
+            saddr,saddrlen,
+            I2AddrSocktype(cntrl->local_addr),
+            I2AddrProtocol(cntrl->local_addr));
+}
+
+/*
  * Function:    BWLGetRTTBound
  *
  * Description: Returns a very rough estimate of the upper-bound rtt to

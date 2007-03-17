@@ -638,6 +638,16 @@ BWLControlConfigDelete(
         const char    *key
         );
 
+extern I2Addr
+BWLAddrByControl(
+        BWLControl  cntrl
+        );
+
+extern I2Addr
+BWLAddrByLocalControl(
+        BWLControl  cntrl
+        );
+
 /*
  * BWLControlOpen allocates an BWLclient structure, opens a connection to
  * the BWL server and goes through the initialization phase of the

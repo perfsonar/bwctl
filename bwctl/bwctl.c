@@ -906,7 +906,7 @@ portdone:
         while((close(new_pipe[1]) < 0) && (errno == EINTR));
 
         cntrl = BWLControlOpen(ctx,NULL,
-                I2AddrBySockFD(ctx,new_pipe[0]),
+                I2AddrBySockFD(eh,new_pipe[0],True),
                 BWL_MODE_OPEN,NULL,NULL,NULL,&err);
 
         if(!cntrl) return NULL;
@@ -1851,7 +1851,7 @@ AGAIN:
             goto finish;
         }
 
-        /* Open first connection */
+        /* Open first (definitely remote) connection */
         if(!first.cntrl){
             /*
              * pick auth to use
@@ -1872,18 +1872,26 @@ AGAIN:
 
             /* TODO: deal with temporary failures? */
             if(!first.cntrl){
-                I2ErrLog(eh,"Unable to connect to %s",
-                        first.host);
+                I2ErrLog(eh,"Unable to connect to %s",first.host);
                 goto next_test;
             }
+
+            /*
+             * Get sockfd for later 'select' usage
+             */
             first.sockfd = BWLControlFD(first.cntrl);
+
+            /*
+             * Need to get a clean I2Addr that is basically a copy of
+             * the control connection (but unconnected).
+             */
             if(first.send){
                 first.tspec.sender = second.tspec.sender =
-                    I2AddrByControl(first.cntrl);
+                    BWLAddrByControl(first.cntrl);
             }
             else{
                 first.tspec.receiver = second.tspec.receiver =
-                    I2AddrByControl(first.cntrl);
+                    BWLAddrByControl(first.cntrl);
             }
 
         }
@@ -1918,7 +1926,7 @@ AGAIN:
                 /*
                  * Try "localhost" server.
                  */
-                I2Addr laddr = I2AddrByLocalControl(first.cntrl);
+                I2Addr laddr = BWLAddrByLocalControl(first.cntrl);
                 if(!I2AddrSetPort(laddr,BWL_CONTROL_SERVICE_NUMBER)){
                     if(laddr) I2AddrFree(laddr);
                     I2ErrLog(eh,"Unable to determine address for local server");
@@ -1936,7 +1944,8 @@ AGAIN:
                      */
                     I2ErrLog(eh,
                             "Unable to contact a local bwctld: Spawning local tester controller");
-		    second.avail_testers = LookForTesters(ctx);
+
+		            second.avail_testers = LookForTesters(ctx);
                     if(!(second.cntrl =
                                 SpawnLocalServer(ctx,second.avail_testers))){
                         I2ErrLog(eh,
@@ -1952,35 +1961,33 @@ AGAIN:
                 goto finish;
             }
             if(!second.cntrl){
-                I2ErrLog(eh,"Unable to connect to %s",
-                        second.host);
+                I2ErrLog(eh,"Unable to connect to %s",second.host);
                 goto next_test;
             }
+
+            /*
+             * Get sockfd for later 'select' usage
+             */
             second.sockfd = BWLControlFD(second.cntrl);
+
             if(fake_daemon){
                 if(second.send){
-                    first.tspec.sender =
-                        second.tspec.sender =
-                        I2AddrByLocalControl(
-                                first.cntrl);
+                    first.tspec.sender = second.tspec.sender =
+                        BWLAddrByLocalControl(first.cntrl);
                 }
                 else{
-                    first.tspec.receiver =
-                        second.tspec.receiver =
-                        I2AddrByLocalControl(
-                                first.cntrl);
+                    first.tspec.receiver = second.tspec.receiver =
+                        BWLAddrByLocalControl(first.cntrl);
                 }
             }
             else{
                 if(second.send){
-                    first.tspec.sender =
-                        second.tspec.sender =
-                        I2AddrByControl(second.cntrl);
+                    first.tspec.sender = second.tspec.sender =
+                        BWLAddrByControl(second.cntrl);
                 }
                 else{
-                    first.tspec.receiver =
-                        second.tspec.receiver =
-                        I2AddrByControl(second.cntrl);
+                    first.tspec.receiver = second.tspec.receiver =
+                        BWLAddrByControl(second.cntrl);
                 }
             }
         }

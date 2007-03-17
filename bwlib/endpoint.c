@@ -182,25 +182,32 @@ epssock(
         uint16_t       *dataport
        )
 {
-    BWLAddr                 localaddr;
     int                     fd;
     int                     on;
+    struct sockaddr         *lsaddr;
+    socklen_t               lsaddrlen;
     struct sockaddr_storage sbuff;
     socklen_t               sbuff_len = sizeof(sbuff);
     struct sockaddr         *saddr = (struct sockaddr *)&sbuff;
-    uint16_t               port;
-    uint16_t               p;
-    uint16_t               range;
+    char                    nodebuff[MAXHOSTNAMELEN];
+    size_t                  nodebufflen = sizeof(nodebuff);
+    uint16_t                port;
+    uint16_t                p;
+    uint16_t                range;
     BWLPortRange            portrange=NULL;
     int                     saveerr=0;
 
 
-    localaddr = tsess->test_spec.receiver;
+    if( !(lsaddr = I2AddrSAddr(tsess->test_spec.receiver,&lsaddrlen))){
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
+                "epssock: Invalid receiver I2Addr");
+        return -1;
+    }
 
-    fd = socket(localaddr->ai->ai_family,SOCK_STREAM,IPPROTO_IP);
+    fd = socket(lsaddr->sa_family,SOCK_STREAM,IPPROTO_IP);
     if(fd < 0){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
-                "Unable to open Endpoint Server Socket: %M");
+                "Unable to open Endpoint Peer Server-Socket: %M");
         return fd;
     }
 
@@ -213,9 +220,8 @@ epssock(
 
 #if    defined(AF_INET6) && defined(IPPROTO_IPV6) && defined(IPV6_V6ONLY)
     on=0;
-    if((localaddr->ai->ai_family == AF_INET6) &&
-            setsockopt(fd,IPPROTO_IPV6,IPV6_V6ONLY,
-                &on,sizeof(on)) != 0){
+    if((lsaddr->sa_family == AF_INET6) &&
+            setsockopt(fd,IPPROTO_IPV6,IPV6_V6ONLY,&on,sizeof(on)) != 0){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
                 "setsockopt(!IPV6_V6ONLY): %M");
         goto failsock;
@@ -247,19 +253,22 @@ epssock(
     }
 
     do{
+        memset(&sbuff,0,sizeof(sbuff));
+        memcpy(&sbuff,lsaddr,lsaddrlen);
+
         /* Specify port number to use */
-        switch(localaddr->ai->ai_addr->sa_family){
+        switch(lsaddr->sa_family){
             struct sockaddr_in  *s4;
 #ifdef  AF_INET6
             struct sockaddr_in6 *s6;
 
             case AF_INET6:
-            s6 = (struct sockaddr_in6*)localaddr->ai->ai_addr;
+            s6 = (struct sockaddr_in6*)&sbuff;
             s6->sin6_port = htons(p);
             break;
 #endif
             case AF_INET:
-            s4 = (struct sockaddr_in*)localaddr->ai->ai_addr;
+            s4 = (struct sockaddr_in*)&sbuff;
             s4->sin_port = htons(p);
             break;
 
@@ -269,7 +278,7 @@ epssock(
             goto failsock;
         }
         
-        if(bind(fd,localaddr->ai->ai_addr,localaddr->ai->ai_addrlen) == 0)
+        if(bind(fd,(struct sockaddr *)&sbuff,lsaddrlen) == 0)
             goto bind_success;
 
         /*
@@ -295,7 +304,7 @@ epssock(
 bind_fail:
     if(!saveerr) saveerr = errno;
     BWLError(tsess->cntrl->ctx,BWLErrFATAL,saveerr,"bind([%s]:%d): %M",
-            localaddr->node,p);
+            I2AddrNodeName(tsess->test_spec.receiver,nodebuff,&nodebufflen),p);
     goto failsock;
 
 bind_success:
@@ -553,6 +562,14 @@ run_tester(
     char                sendhost[MAXHOSTNAMELEN];
     size_t              hlen = sizeof(recvhost);
     char                *ipargs[_BWL_MAX_IPERFARGS*2];
+    struct sockaddr     *rsaddr;
+    socklen_t           rsaddrlen;
+
+    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen))){
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
+                "run_tester: Invalid receiver I2Addr");
+	exit(BWL_CNTRL_FAILURE);
+    }
 
     if(BWL_TESTER_THRULAY == tsess->test_spec.tester){
 #if defined(HAVE_LIBTHRULAY) && defined(HAVE_THRULAY_SERVER_H) && defined(HAVE_THRULAY_CLIENT_H)
@@ -561,13 +578,13 @@ run_tester(
 	    /* Run thrulay server through its API */
 	    int port, window, num_streams;
 
-	    BWLAddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+	    I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
 	    if(!hlen){
 		exit(BWL_CNTRL_FAILURE);
 	    }
 
 	    hlen = sizeof(sendhost);
-	    BWLAddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+	    I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
 	    if(!hlen){
 		exit(BWL_CNTRL_FAILURE);
 	    }
@@ -622,13 +639,13 @@ run_tester(
 	    thrulay_opt.reporting_verbosity = -1;
 
 	    hlen = sizeof(sendhost);
-	    BWLAddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+	    I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
 	    if(!hlen){
 		exit(BWL_CNTRL_FAILURE);
 	    }
 
 	    /* server to send test data to */
-	    BWLAddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+	    I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
 	    if(!hlen){
 		exit(BWL_CNTRL_FAILURE);
 	    }
@@ -763,7 +780,7 @@ run_tester(
 	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.report_interval);
 	}
 
-	switch(tsess->test_spec.receiver->saddr->sa_family){
+	switch(rsaddr->sa_family){
 #ifdef    AF_INET6
         case AF_INET6:
             ipargs[a++] = "-V";
@@ -774,13 +791,13 @@ run_tester(
             break;
 	}
 
-	BWLAddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+	I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
 	if(!hlen){
 	    exit(BWL_CNTRL_FAILURE);
 	}
 
 	hlen = sizeof(sendhost);
-	BWLAddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+	I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
 	if(!hlen){
 	    exit(BWL_CNTRL_FAILURE);
 	}
@@ -851,7 +868,7 @@ run_tester(
 	/* tsess->test_spec.report_interval (-i) is ignored, as the
 	   transmitter/receiver mode of nuttcp does not support is.*/
 
-	switch(tsess->test_spec.receiver->saddr->sa_family){
+	switch(rsaddr->sa_family){
 #ifdef    AF_INET6
         case AF_INET6:
             ipargs[a++] = "-6";
@@ -867,13 +884,13 @@ run_tester(
 	    ipargs[a++] = recvhost;
 	}
 
-	BWLAddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+	I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
 	if(!hlen){
 	    exit(BWL_CNTRL_FAILURE);
 	}
 
 	hlen = sizeof(sendhost);
-	BWLAddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+	I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
 	if(!hlen){
 	    exit(BWL_CNTRL_FAILURE);
 	}
@@ -1130,9 +1147,17 @@ _BWLEndpointStart(
     }
 
     if(tsess->conf_receiver){
-        struct sockaddr_storage    sbuff;
-        socklen_t        sbuff_len;
-        int            connfd;
+        struct sockaddr         *ssaddr;
+        socklen_t               ssaddrlen;
+        struct sockaddr_storage sbuff;
+        socklen_t               sbuff_len;
+        int                     connfd;
+
+        if( !(ssaddr = I2AddrSAddr(tsess->test_spec.sender,&ssaddrlen))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
+                    "_BWLEndpointStart: Invalid sender I2Addr");
+            goto end;
+        }
 
 ACCEPT:
         sbuff_len = sizeof(sbuff);
@@ -1155,8 +1180,7 @@ ACCEPT:
         /*
          * Only allow connections from the remote testaddr
          */
-        if(I2SockAddrEqual(tsess->test_spec.sender->saddr,
-                    tsess->test_spec.sender->saddrlen,
+        if(I2SockAddrEqual(ssaddr,ssaddrlen,
                     (struct sockaddr *)&sbuff,sbuff_len,
                     I2SADDR_ADDR) <= 0){
             BWLError(ctx,BWLErrFATAL,BWLErrPOLICY,
@@ -1178,22 +1202,30 @@ ACCEPT:
          * Copy remote address, with modified port number
          * and other fields for contacting remote host.
          */
-        BWLAddr         local;
-        BWLAddr         remote;
+        I2Addr          local;
+        I2Addr          remote;
         struct sockaddr *saddr;
-        socklen_t       saddr_len;
+        socklen_t       saddrlen;
 
-        if((saddr_len = _BWLAddrSAddr(tsess->test_spec.sender,&saddr)) &&
-                (local = BWLAddrBySAddr(ctx,saddr,saddr_len,SOCK_STREAM))){
-            if(!(BWLAddrSetPort(local,0))){
-                BWLAddrFree(local);
+        if( (saddr = I2AddrSAddr(tsess->test_spec.sender,&saddrlen)) &&
+                (local = I2AddrBySAddr(BWLContextErrHandle(ctx),
+                                       saddr,saddrlen,
+                                       I2AddrSocktype(tsess->test_spec.sender),
+                                       I2AddrProtocol(tsess->test_spec.sender)
+                                       ))){
+            if(!(I2AddrSetPort(local,0))){
+                I2AddrFree(local);
                 local = NULL;
             }
         }
-        if((saddr_len = _BWLAddrSAddr(tsess->test_spec.receiver,&saddr)) &&
-                (remote = BWLAddrBySAddr(ctx,saddr,saddr_len,SOCK_STREAM))){
-            if(!(BWLAddrSetPort(remote,*dataport))){
-                BWLAddrFree(remote);
+        if( (saddr = I2AddrSAddr(tsess->test_spec.receiver,&saddrlen)) &&
+                (remote =I2AddrBySAddr(BWLContextErrHandle(ctx),
+                                       saddr,saddrlen,
+                                       I2AddrSocktype(tsess->test_spec.receiver),
+                                       I2AddrProtocol(tsess->test_spec.receiver)
+                                      ))){
+            if(!(I2AddrSetPort(remote,*dataport))){
+                I2AddrFree(remote);
                 remote = NULL;
             }
         }

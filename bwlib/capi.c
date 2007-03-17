@@ -753,10 +753,8 @@ BWLSessionRequest(
                  * Get addrinfo for address spec's so we can choose between
                  * the different address possiblities in the next step.
                  */
-                if(     !(frai = I2AddrAddrInfo(receiver,NULL,
-                                BWL_CONTROL_SERVICE_NAME)) ||
-                        !(fsai = I2AddrAddrInfo(sender,NULL,
-                                BWL_CONTROL_SERVICE_NAME))){
+                if(     !(frai = I2AddrAddrInfo(receiver,NULL,NULL)) ||
+                        !(fsai = I2AddrAddrInfo(sender,NULL,NULL))){
                     goto error;
                 }
 
