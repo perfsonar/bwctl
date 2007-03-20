@@ -23,13 +23,13 @@
 
 int
 _BWLSendBlocksIntr(
-	BWLControl	cntrl,
-	uint8_t	*buf,
-	int		num_blocks,
-	int		*retn_on_intr
+	BWLControl  cntrl,
+	uint8_t	    *buf,
+	int	    num_blocks,
+	int	    *retn_on_intr
 	)
 {
-	ssize_t		n;
+	ssize_t	n;
 
 	if (cntrl->mode & BWL_MODE_DOCIPHER)
 		_BWLEncryptBlocks(cntrl, buf, num_blocks, buf);
@@ -49,13 +49,13 @@ _BWLSendBlocksIntr(
 
 int
 _BWLReceiveBlocksIntr(
-	BWLControl	cntrl,
-	uint8_t	*buf,
-	int		num_blocks,
-	int		*retn_on_intr
+	BWLControl  cntrl,
+	uint8_t	    *buf,
+	int	    num_blocks,
+	int	    *retn_on_intr
 	)
 {
-	ssize_t		n;
+	ssize_t	n;
 
 	n = I2Readni(cntrl->sockfd,buf,num_blocks*_BWL_RIJNDAEL_BLOCK_SIZE,
 								retn_on_intr);
@@ -80,9 +80,9 @@ _BWLReceiveBlocksIntr(
 
 int
 _BWLSendBlocks(
-	BWLControl	cntrl,
-	uint8_t	*buf,
-	int		num_blocks
+	BWLControl  cntrl,
+	uint8_t	    *buf,
+	int	    num_blocks
 	)
 {
 	int	intr=0;
@@ -97,13 +97,13 @@ _BWLSendBlocks(
 
 int
 _BWLReceiveBlocks(
-	BWLControl	cntrl,
-	uint8_t	*buf,
-	int		num_blocks
+	BWLControl  cntrl,
+	uint8_t	    *buf,
+	int	    num_blocks
 	)
 {
-	int	intr=0;
-	int	*retn_on_intr = &intr;
+	int intr=0;
+	int *retn_on_intr = &intr;
 
 	if(cntrl->retn_on_intr){
 		retn_on_intr = cntrl->retn_on_intr;
@@ -119,10 +119,10 @@ _BWLReceiveBlocks(
 */
 int
 _BWLEncryptBlocks(
-	BWLControl	cntrl,
-	uint8_t	*buf,
-	int		num_blocks,
-	uint8_t	*out
+	BWLControl  cntrl,
+	uint8_t	    *buf,
+	int	    num_blocks,
+	uint8_t	    *out
 	)
 {
 	int r;
@@ -136,10 +136,10 @@ _BWLEncryptBlocks(
 
 int
 _BWLDecryptBlocks(
-	BWLControl	cntrl,
-	uint8_t	*buf,
-	int		num_blocks,
-	uint8_t	*out
+	BWLControl  cntrl,
+	uint8_t	    *buf,
+	int	    num_blocks,
+	uint8_t	    *out
 	)
 {
 	int r;
@@ -157,8 +157,8 @@ _BWLDecryptBlocks(
 
 void
 _BWLMakeKey(
-	BWLControl	cntrl,
-	uint8_t	*binKey
+	BWLControl  cntrl,
+	uint8_t	    *binKey
 	)
 {
 	cntrl->encrypt_key.Nr
@@ -177,7 +177,7 @@ _BWLMakeKey(
 
 int
 BWLEncryptToken(
-	unsigned char	*binKey,
+	unsigned char   *binKey,
 	unsigned char	*token_in,
 	unsigned char	*token_out
 	)

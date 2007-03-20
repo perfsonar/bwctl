@@ -1,22 +1,22 @@
 /*
-**      $Id$
-*/
+ **      $Id$
+ */
 /************************************************************************
-*									*
-*			     Copyright (C)  2003			*
-*				Internet2				*
-*			     All Rights Reserved			*
-*									*
-************************************************************************/
+ *									*
+ *			     Copyright (C)  2003			*
+ *				Internet2				*
+ *			     All Rights Reserved			*
+ *									*
+ ************************************************************************/
 /*
-**	File:		context.c
-**
-**	Author:		Jeff W. Boote
-**
-**	Date:		Tue Sep 16 14:25:42 MDT 2003
-**
-**	Description:	
-*/
+ **	File:		context.c
+ **
+ **	Author:		Jeff W. Boote
+ **
+ **	Date:		Tue Sep 16 14:25:42 MDT 2003
+ **
+ **	Description:	
+ */
 #include "bwlibP.h"
 
 #include <assert.h>
@@ -41,16 +41,16 @@
  */
 static void
 notmuch(
-		int	signo
-		)
+        int	signo
+       )
 {
-	switch(signo){
-		case SIGCHLD:
-			break;
-		default:
-			abort();
-			raise(SIGFPE);
-	}
+    switch(signo){
+        case SIGCHLD:
+            break;
+        default:
+            abort();
+            raise(SIGFPE);
+    }
 }
 
 /*
@@ -71,9 +71,9 @@ notmuch(
  */
 BWLContext
 BWLContextCreate(
-	I2ErrHandle	eh,
+        I2ErrHandle	eh,
         ...
-)
+        )
 {
     struct sigaction    act;
     I2LogImmediateAttr  ia;
@@ -222,10 +222,10 @@ BWLContextCreate(
  */
 extern I2ErrHandle
 BWLContextErrHandle(
-	BWLContext	ctx
-	)
+        BWLContext	ctx
+        )
 {
-	return ctx->eh;
+    return ctx->eh;
 }
 
 /*
@@ -253,267 +253,270 @@ BWLContextSetAccessLogPriority(
 }
 
 struct _BWLContextHashRecord{
-	char	key[_BWL_CONTEXT_MAX_KEYLEN+1];
-	void	*value;
+    char	key[_BWL_CONTEXT_MAX_KEYLEN+1];
+    void	*value;
 };
 
 struct _BWLFreeHashRecord{
-	BWLContext	ctx;
-	I2Table		table;
+    BWLContext	ctx;
+    I2Table		table;
 };
 
 static I2Boolean
 free_hash_entries(
-	I2Datum	key,
-	I2Datum	value,
-	void	*app_data
-	)
+        I2Datum	key,
+        I2Datum	value,
+        void	*app_data
+        )
 {
-	struct _BWLFreeHashRecord	*frec =
-					(struct _BWLFreeHashRecord*)app_data;
+    struct _BWLFreeHashRecord	*frec =
+        (struct _BWLFreeHashRecord*)app_data;
 
-	/*
-	 * Delete hash so key.dptr will not be referenced again.
-	 * (key.dptr is part of value.dptr alloc)
-	 */
-	if(I2HashDelete(frec->table,key) != 0){
-		BWLError(frec->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-				"Unable to clean out Context hash?");
-		return False;
-	}
+    /*
+     * Delete hash so key.dptr will not be referenced again.
+     * (key.dptr is part of value.dptr alloc)
+     */
+    if(I2HashDelete(frec->table,key) != 0){
+        BWLError(frec->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "Unable to clean out Context hash?");
+        return False;
+    }
 
-	free(value.dptr);
+    free(value.dptr);
 
-	return True;
+    return True;
 }
 
 
 void
 BWLContextFree(
-	BWLContext	ctx
-)
+        BWLContext	ctx
+        )
 {
-	struct _BWLFreeHashRecord	frec; 
+    struct _BWLFreeHashRecord	frec; 
 
-	while(ctx->cntrl_list){
-		BWLControlClose(ctx->cntrl_list);
-	}
+    while(ctx->cntrl_list){
+        BWLControlClose(ctx->cntrl_list);
+    }
 
-	frec.ctx = ctx;
-	frec.table = ctx->table;
+    frec.ctx = ctx;
+    frec.table = ctx->table;
 
-	if(ctx->table){
-		I2HashIterate(ctx->table,free_hash_entries,(void*)&frec);
-		I2HashClose(ctx->table);
-		ctx->table = NULL;
-	}
+    if(ctx->table){
+        I2HashIterate(ctx->table,free_hash_entries,(void*)&frec);
+        I2HashClose(ctx->table);
+        ctx->table = NULL;
+    }
 
-	if(ctx->rand_src){
-		I2RandomSourceClose(ctx->rand_src);
-		ctx->rand_src = NULL;
-	}
+    if(ctx->rand_src){
+        I2RandomSourceClose(ctx->rand_src);
+        ctx->rand_src = NULL;
+    }
 
-	if(ctx->lib_eh && ctx->eh){
-		I2ErrClose(ctx->eh);
-		ctx->eh = NULL;
-	}
+    if(ctx->lib_eh && ctx->eh){
+        I2ErrClose(ctx->eh);
+        ctx->eh = NULL;
+    }
 
-	free(ctx);
+    free(ctx);
 
-	return;
+    return;
 }
 
+
 BWLErrSeverity
-BWLControlClose(BWLControl cntrl)
+BWLControlClose(
+        BWLControl cntrl
+        )
 {
-	BWLErrSeverity			err = BWLErrOK;
-	BWLErrSeverity			lerr = BWLErrOK;
-	struct _BWLFreeHashRecord	frec; 
-	BWLControl			*list = &cntrl->ctx->cntrl_list;
+    BWLErrSeverity			err = BWLErrOK;
+    BWLErrSeverity			lerr = BWLErrOK;
+    struct _BWLFreeHashRecord	frec; 
+    BWLControl			*list = &cntrl->ctx->cntrl_list;
 
-	/*
-	 * remove all test sessions
-	 */
-	while(cntrl->tests){
-		lerr = _BWLTestSessionFree(cntrl->tests,BWL_CNTRL_FAILURE);
-		err = MIN(err,lerr);
-	}
+    /*
+     * remove all test sessions
+     */
+    while(cntrl->tests){
+        lerr = _BWLTestSessionFree(cntrl->tests,BWL_CNTRL_FAILURE);
+        err = MIN(err,lerr);
+    }
 
-	frec.ctx = cntrl->ctx;
-	frec.table = cntrl->table;
+    frec.ctx = cntrl->ctx;
+    frec.table = cntrl->table;
 
-	if(cntrl->table){
-		I2HashIterate(cntrl->table,free_hash_entries,(void*)&frec);
-		I2HashClose(cntrl->table);
-	}
+    if(cntrl->table){
+        I2HashIterate(cntrl->table,free_hash_entries,(void*)&frec);
+        I2HashClose(cntrl->table);
+    }
 
-	/*
-	 * Remove cntrl from ctx list.
-	 */
-	while(*list && (*list != cntrl))
-		list = &(*list)->next;
-	if(*list == cntrl)
-		*list = cntrl->next;
+    /*
+     * Remove cntrl from ctx list.
+     */
+    while(*list && (*list != cntrl))
+        list = &(*list)->next;
+    if(*list == cntrl)
+        *list = cntrl->next;
 
-	/*
-	 * these functions will close the control socket if it is open.
-	 */
-	I2AddrFree(cntrl->remote_addr);
-	I2AddrFree(cntrl->local_addr);
+    /*
+     * these functions will close the control socket if it is open.
+     */
+    I2AddrFree(cntrl->remote_addr);
+    I2AddrFree(cntrl->local_addr);
 
-	free(cntrl);
+    free(cntrl);
 
-	return err;
+    return err;
 }
 
 BWLControl
 _BWLControlAlloc(
-	BWLContext		ctx,
-	BWLErrSeverity		*err_ret
-)
+        BWLContext      ctx,
+        BWLErrSeverity  *err_ret
+        )
 {
-	BWLControl	cntrl;
-	
-	if( !(cntrl = calloc(1,sizeof(BWLControlRec)))){
-		BWLError(ctx,BWLErrFATAL,errno,
-				":calloc(1,%d)",sizeof(BWLControlRec));
-		*err_ret = BWLErrFATAL;
-		return NULL;
-	}
+    BWLControl	cntrl;
 
-	/*
-	 * Init state fields
-	 */
-	cntrl->ctx = ctx;
+    if( !(cntrl = calloc(1,sizeof(BWLControlRec)))){
+        BWLError(ctx,BWLErrFATAL,errno,
+                ":calloc(1,%d)",sizeof(BWLControlRec));
+        *err_ret = BWLErrFATAL;
+        return NULL;
+    }
 
-	/*
-	 * Initialize control policy state hash.
-	 */
-	if( !(cntrl->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,
-								NULL,NULL))){
-		*err_ret = BWLErrFATAL;
-		free(cntrl);
-		return NULL;
-	}
+    /*
+     * Init state fields
+     */
+    cntrl->ctx = ctx;
 
-	/*
-	 * Init addr fields
-	 */
-	cntrl->sockfd = -1;
+    /*
+     * Initialize control policy state hash.
+     */
+    if( !(cntrl->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,
+                    NULL,NULL))){
+        *err_ret = BWLErrFATAL;
+        free(cntrl);
+        return NULL;
+    }
 
-	/*
-	 * Init I/O fields
-	 */
-	cntrl->retn_on_intr = (int *)BWLContextConfigGet(ctx,BWLInterruptIO);
+    /*
+     * Init addr fields
+     */
+    cntrl->sockfd = -1;
 
-	/*
-	 * Init encryption fields
-	 */
-	memset(cntrl->userid_buffer,'\0',sizeof(cntrl->userid_buffer));
+    /*
+     * Init I/O fields
+     */
+    cntrl->retn_on_intr = (int *)BWLContextConfigGet(ctx,BWLInterruptIO);
 
-	/*
-	 * Put this control record on the ctx list.
-	 */
-	cntrl->next = ctx->cntrl_list;
-	ctx->cntrl_list = cntrl;
+    /*
+     * Init encryption fields
+     */
+    memset(cntrl->userid_buffer,'\0',sizeof(cntrl->userid_buffer));
 
-	return cntrl;
+    /*
+     * Put this control record on the ctx list.
+     */
+    cntrl->next = ctx->cntrl_list;
+    ctx->cntrl_list = cntrl;
+
+    return cntrl;
 }
 
 static BWLBoolean
 ConfigSet(
-	I2Table		table,
-	const char	*key,
-	void		*value
-	)
+        I2Table	    table,
+        const char  *key,
+        void	    *value
+        )
 {
-	struct _BWLContextHashRecord	*rec,*trec;
-	I2Datum				k,v,t;
+    struct _BWLContextHashRecord    *rec,*trec;
+    I2Datum			    k,v,t;
 
-	assert(table);
-	assert(key);
+    assert(table);
+    assert(key);
 
-	if(!(rec = calloc(1,sizeof(struct _BWLContextHashRecord)))){
-		return False;
-	}
-	/* ensure nul byte */
-	rec->key[_BWL_CONTEXT_MAX_KEYLEN] = '\0';
+    if(!(rec = calloc(1,sizeof(struct _BWLContextHashRecord)))){
+        return False;
+    }
+    /* ensure nul byte */
+    rec->key[_BWL_CONTEXT_MAX_KEYLEN] = '\0';
 
-	/* set key datum */
-	strncpy(rec->key,key,_BWL_CONTEXT_MAX_KEYLEN);
-	rec->value = value;
+    /* set key datum */
+    strncpy(rec->key,key,_BWL_CONTEXT_MAX_KEYLEN);
+    rec->value = value;
 
-	k.dptr = rec->key;
-	k.dsize = strlen(rec->key);
+    k.dptr = rec->key;
+    k.dsize = strlen(rec->key);
 
-	/* set value datum */
-	v.dptr = rec;
-	v.dsize = sizeof(rec);
+    /* set value datum */
+    v.dptr = rec;
+    v.dsize = sizeof(rec);
 
-	/*
-	 * If there is already a key by this entry - free that record.
-	 */
-	if(I2HashFetch(table,k,&t)){
-		trec = (struct _BWLContextHashRecord*)t.dptr;
-		I2HashDelete(table,k);
-		free(trec);
-	}
+    /*
+     * If there is already a key by this entry - free that record.
+     */
+    if(I2HashFetch(table,k,&t)){
+        trec = (struct _BWLContextHashRecord*)t.dptr;
+        I2HashDelete(table,k);
+        free(trec);
+    }
 
-	if(I2HashStore(table,k,v) == 0){
-		return True;
-	}
+    if(I2HashStore(table,k,v) == 0){
+        return True;
+    }
 
-	free(rec);
-	return False;
+    free(rec);
+    return False;
 }
 
 static void *
 ConfigGet(
-	I2Table		table,
-	const char	*key
-	)
+        I2Table	    table,
+        const char  *key
+        )
 {
-	struct _BWLContextHashRecord	*rec;
-	I2Datum				k,v;
-	char				kval[_BWL_CONTEXT_MAX_KEYLEN+1];
+    struct _BWLContextHashRecord	*rec;
+    I2Datum				k,v;
+    char				kval[_BWL_CONTEXT_MAX_KEYLEN+1];
 
-	assert(key);
+    assert(key);
 
-	kval[_BWL_CONTEXT_MAX_KEYLEN] = '\0';
-	strncpy(kval,key,_BWL_CONTEXT_MAX_KEYLEN);
-	k.dptr = kval;
-	k.dsize = strlen(kval);
+    kval[_BWL_CONTEXT_MAX_KEYLEN] = '\0';
+    strncpy(kval,key,_BWL_CONTEXT_MAX_KEYLEN);
+    k.dptr = kval;
+    k.dsize = strlen(kval);
 
-	if(!I2HashFetch(table,k,&v)){
-		return NULL;
-	}
+    if(!I2HashFetch(table,k,&v)){
+        return NULL;
+    }
 
-	rec = (struct _BWLContextHashRecord*)v.dptr;
+    rec = (struct _BWLContextHashRecord*)v.dptr;
 
-	return rec->value;
+    return rec->value;
 }
 
 static BWLBoolean
 ConfigDelete(
-	I2Table		table,
-	const char	*key
-	)
+        I2Table	    table,
+        const char  *key
+        )
 {
-	I2Datum	k;
-	char	kval[_BWL_CONTEXT_MAX_KEYLEN+1];
+    I2Datum	k;
+    char	kval[_BWL_CONTEXT_MAX_KEYLEN+1];
 
-	assert(key);
+    assert(key);
 
-	kval[_BWL_CONTEXT_MAX_KEYLEN] = '\0';
-	strncpy(kval,key,_BWL_CONTEXT_MAX_KEYLEN);
-	k.dptr = kval;
-	k.dsize = strlen(kval);
+    kval[_BWL_CONTEXT_MAX_KEYLEN] = '\0';
+    strncpy(kval,key,_BWL_CONTEXT_MAX_KEYLEN);
+    k.dptr = kval;
+    k.dsize = strlen(kval);
 
-	if(I2HashDelete(table,k) == 0){
-		return True;
-	}
+    if(I2HashDelete(table,k) == 0){
+        return True;
+    }
 
-	return False;
+    return False;
 }
 
 /*
@@ -531,36 +534,36 @@ ConfigDelete(
  */
 BWLBoolean
 BWLContextConfigSet(
-	BWLContext	ctx,
-	const char	*key,
-	void		*value
-	)
+        BWLContext  ctx,
+        const char  *key,
+        void	    *value
+        )
 {
-	assert(ctx);
+    assert(ctx);
 
-	return ConfigSet(ctx->table,key,value);
+    return ConfigSet(ctx->table,key,value);
 }
 
 void *
 BWLContextConfigGet(
-	BWLContext	ctx,
-	const char	*key
-	)
+        BWLContext  ctx,
+        const char  *key
+        )
 {
-	assert(ctx);
+    assert(ctx);
 
-	return ConfigGet(ctx->table,key);
+    return ConfigGet(ctx->table,key);
 }
 
 BWLBoolean
 BWLContextConfigDelete(
-	BWLContext	ctx,
-	const char	*key
-	)
+        BWLContext  ctx,
+        const char  *key
+        )
 {
-	assert(ctx);
+    assert(ctx);
 
-	return ConfigDelete(ctx->table,key);
+    return ConfigDelete(ctx->table,key);
 }
 
 /*
@@ -578,36 +581,36 @@ BWLContextConfigDelete(
  */
 BWLBoolean
 BWLControlConfigSet(
-	BWLControl	cntrl,
-	const char	*key,
-	void		*value
-	)
+        BWLControl  cntrl,
+        const char  *key,
+        void	    *value
+        )
 {
-	assert(cntrl);
+    assert(cntrl);
 
-	return ConfigSet(cntrl->table,key,value);
+    return ConfigSet(cntrl->table,key,value);
 }
 
 void *
 BWLControlConfigGet(
-	BWLControl	cntrl,
-	const char	*key
-	)
+        BWLControl  cntrl,
+        const char  *key
+        )
 {
-	assert(cntrl);
+    assert(cntrl);
 
-	return ConfigGet(cntrl->table,key);
+    return ConfigGet(cntrl->table,key);
 }
 
 BWLBoolean
 BWLControlConfigDelete(
-	BWLControl	cntrl,
-	const char	*key
-	)
+        BWLControl  cntrl,
+        const char  *key
+        )
 {
-	assert(cntrl);
+    assert(cntrl);
 
-	return ConfigDelete(cntrl->table,key);
+    return ConfigDelete(cntrl->table,key);
 }
 
 /*
@@ -620,26 +623,26 @@ BWLControlConfigDelete(
  */
 BWLBoolean
 _BWLCallGetAESKey(
-	BWLContext	ctx,		/* library context	*/
-	const BWLUserID	userid,		/* identifies key	*/
-	uint8_t	*key_ret,	/* key - return		*/
-	BWLErrSeverity	*err_ret	/* error - return	*/
-)
+        BWLContext	ctx,		/* library context	*/
+        const BWLUserID userid,		/* identifies key	*/
+        uint8_t	        *key_ret,	/* key - return		*/
+        BWLErrSeverity	*err_ret	/* error - return	*/
+        )
 {
-	BWLGetAESKeyFunc	func;
+    BWLGetAESKeyFunc	func;
 
-	*err_ret = BWLErrOK;
+    *err_ret = BWLErrOK;
 
-	func = (BWLGetAESKeyFunc)BWLContextConfigGet(ctx,BWLGetAESKey);
+    func = (BWLGetAESKeyFunc)BWLContextConfigGet(ctx,BWLGetAESKey);
 
-	/*
-	 * Default action is no encryption support.
-	 */
-	if(!func){
-		return False;
-	}
+    /*
+     * Default action is no encryption support.
+     */
+    if(!func){
+        return False;
+    }
 
-	return func(ctx,userid,key_ret,err_ret);
+    return func(ctx,userid,key_ret,err_ret);
 }
 
 /*
@@ -652,29 +655,29 @@ _BWLCallGetAESKey(
  */
 BWLBoolean
 _BWLCallCheckControlPolicy(
-	BWLControl	cntrl,		/* control record		*/
-	BWLSessionMode	mode,		/* requested mode       	*/
-	const BWLUserID	userid,		/* key identity			*/
-	struct sockaddr	*local_sa_addr,	/* local addr or NULL		*/
-	struct sockaddr	*remote_sa_addr,/* remote addr			*/
-	BWLErrSeverity	*err_ret	/* error - return		*/
-)
+        BWLControl	cntrl,		/* control record		*/
+        BWLSessionMode	mode,		/* requested mode       	*/
+        const BWLUserID	userid,		/* key identity			*/
+        struct sockaddr	*local_sa_addr,	/* local addr or NULL		*/
+        struct sockaddr	*remote_sa_addr,/* remote addr			*/
+        BWLErrSeverity	*err_ret	/* error - return		*/
+        )
 {
-	BWLCheckControlPolicyFunc	func;
+    BWLCheckControlPolicyFunc	func;
 
-	*err_ret = BWLErrOK;
+    *err_ret = BWLErrOK;
 
-	func = (BWLCheckControlPolicyFunc)BWLContextConfigGet(cntrl->ctx,
-							BWLCheckControlPolicy);
+    func = (BWLCheckControlPolicyFunc)BWLContextConfigGet(cntrl->ctx,
+            BWLCheckControlPolicy);
 
-	/*
-	 * Default action is to allow anything.
-	 */
-	if(!func){
-		return True;
-	}
-	
-	return func(cntrl,mode,userid,local_sa_addr,remote_sa_addr,err_ret);
+    /*
+     * Default action is to allow anything.
+     */
+    if(!func){
+        return True;
+    }
+
+    return func(cntrl,mode,userid,local_sa_addr,remote_sa_addr,err_ret);
 }
 
 /*
@@ -687,41 +690,41 @@ _BWLCallCheckControlPolicy(
  */
 BWLBoolean
 _BWLCallCheckTestPolicy(
-	BWLControl	cntrl,		/* control handle		*/
-	BWLTestSession	tsess,
-	BWLErrSeverity	*err_ret	/* error - return		*/
-)
+        BWLControl	cntrl,		/* control handle		*/
+        BWLTestSession	tsess,
+        BWLErrSeverity	*err_ret	/* error - return		*/
+        )
 {
-	BWLCheckTestPolicyFunc	func;
-        struct sockaddr         *lsaddr;
-        struct sockaddr         *rsaddr;
-        socklen_t               lsaddrlen;
-        socklen_t               rsaddrlen;
+    BWLCheckTestPolicyFunc  func;
+    struct sockaddr         *lsaddr;
+    struct sockaddr         *rsaddr;
+    socklen_t               lsaddrlen;
+    socklen_t               rsaddrlen;
 
-	*err_ret = BWLErrOK;
+    *err_ret = BWLErrOK;
 
-	func = (BWLCheckTestPolicyFunc)BWLContextConfigGet(cntrl->ctx,
-							BWLCheckTestPolicy);
-	/*
-	 * Default action is to fail since the function needs to
-	 * return the reservation time and the port for the test.
-	 */
-	if(!func){
-		return False;
-	}
+    func = (BWLCheckTestPolicyFunc)BWLContextConfigGet(cntrl->ctx,
+            BWLCheckTestPolicy);
+    /*
+     * Default action is to fail since the function needs to
+     * return the reservation time and the port for the test.
+     */
+    if(!func){
+        return False;
+    }
 
-	if(tsess->conf_sender){
-            lsaddr = I2AddrSAddr(tsess->test_spec.sender,&lsaddrlen);
-            rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen);
-	}
-	else{
-            lsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen);
-            rsaddr = I2AddrSAddr(tsess->test_spec.sender,&lsaddrlen);
-	}
+    if(tsess->conf_sender){
+        lsaddr = I2AddrSAddr(tsess->test_spec.sender,&lsaddrlen);
+        rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen);
+    }
+    else{
+        lsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen);
+        rsaddr = I2AddrSAddr(tsess->test_spec.sender,&lsaddrlen);
+    }
 
-	return func(cntrl,tsess->sid,tsess->conf_sender,lsaddr,rsaddr,
-                lsaddrlen,&tsess->test_spec,tsess->fuzz,&tsess->reserve_time,
-                &tsess->recv_port,&tsess->closure,err_ret);
+    return func(cntrl,tsess->sid,tsess->conf_sender,lsaddr,rsaddr,
+            lsaddrlen,&tsess->test_spec,tsess->fuzz,&tsess->reserve_time,
+            &tsess->recv_port,&tsess->closure,err_ret);
 }
 
 /*
@@ -737,24 +740,24 @@ _BWLCallCheckTestPolicy(
  */
 void
 _BWLCallTestComplete(
-	BWLTestSession	tsession,
-	BWLAcceptType	aval
-)
+        BWLTestSession	tsession,
+        BWLAcceptType	aval
+        )
 {
-	BWLTestCompleteFunc	func;
+    BWLTestCompleteFunc	func;
 
-	func = (BWLTestCompleteFunc)BWLContextConfigGet(tsession->cntrl->ctx,
-							BWLTestComplete);
-	/*
-	 * Default action is nothing...
-	 */
-	if(!func){
-		return;
-	}
+    func = (BWLTestCompleteFunc)BWLContextConfigGet(tsession->cntrl->ctx,
+            BWLTestComplete);
+    /*
+     * Default action is nothing...
+     */
+    if(!func){
+        return;
+    }
 
-	func(tsession->cntrl,tsession->closure,aval);
+    func(tsession->cntrl,tsession->closure,aval);
 
-	return;
+    return;
 }
 
 /*
@@ -766,26 +769,26 @@ _BWLCallTestComplete(
  */
 BWLErrSeverity
 _BWLCallProcessResults(
-	BWLTestSession	tsession
-)
+        BWLTestSession	tsession
+        )
 {
-	BWLProcessResultsFunc	func;
+    BWLProcessResultsFunc	func;
 
-	func = (BWLProcessResultsFunc)BWLContextConfigGet(tsession->cntrl->ctx,
-							BWLProcessResults);
-	/*
-	 * Default action is to do nothing...
-	 */
-	if(!func){
-		return BWLErrOK;
-	}
+    func = (BWLProcessResultsFunc)BWLContextConfigGet(tsession->cntrl->ctx,
+            BWLProcessResults);
+    /*
+     * Default action is to do nothing...
+     */
+    if(!func){
+        return BWLErrOK;
+    }
 
-	if(tsession->conf_sender){
-		return func(tsession->cntrl,True,&tsession->test_spec,
-				tsession->localfp,tsession->remotefp);
-	}
-	else{
-		return func(tsession->cntrl,False,&tsession->test_spec,
-				tsession->remotefp,tsession->localfp);
-	}
+    if(tsession->conf_sender){
+        return func(tsession->cntrl,True,&tsession->test_spec,
+                tsession->localfp,tsession->remotefp);
+    }
+    else{
+        return func(tsession->cntrl,False,&tsession->test_spec,
+                tsession->remotefp,tsession->localfp);
+    }
 }

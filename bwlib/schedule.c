@@ -2,12 +2,12 @@
  *      $Id$
  */
 /************************************************************************
-*									*
-*			     Copyright (C)  2003			*
-*				Internet2				*
-*			     All Rights Reserved			*
-*									*
-************************************************************************/
+ *									*
+ *			     Copyright (C)  2003			*
+ *				Internet2				*
+ *			     All Rights Reserved			*
+ *									*
+ ************************************************************************/
 /*
  *	File:		schedule.c
  *
@@ -23,14 +23,15 @@
 #include <bwlib/bwlib.h>
 
 struct BWLScheduleContextRec {
-	BWLContext	ctx;
+    BWLContext	ctx;
 
-	/* AES random number generator fields */
-	keyInstance	key;		/* key used to encrypt the counter */
-	uint8_t	counter[16];	/* 128-bit counter (network order) */
-	uint8_t	out[16];	/* encrypted block buffer.         */
+    /* AES random number generator fields */
 
-	uint32_t	mean;
+    keyInstance	key;		/* key used to encrypt the counter */
+    uint8_t	counter[16];	/* 128-bit counter (network order) */
+    uint8_t	out[16];	/* encrypted block buffer.         */
+
+    uint32_t	mean;
 };
 
 /*
@@ -50,53 +51,53 @@ struct BWLScheduleContextRec {
  */
 static BWLNum64
 BWLUnifRand64(
-	BWLScheduleContext	sctx
-	)
+        BWLScheduleContext	sctx
+        )
 {
-	uint8_t	forth = sctx->counter[15] & (uint8_t)3;
-	uint8_t	*buf;
-	int		j;
-	BWLNum64	ret = 0;
+    uint8_t	forth = sctx->counter[15] & (uint8_t)3;
+    uint8_t	*buf;
+    int		j;
+    BWLNum64	ret = 0;
 
-	/*
-	 * Only generate a new AES number every 4'th UnifRand.
-	 * The (out) buffer holds 128 random bits - enough for 4 x 32bit
-	 * random numbers for the algorithm.
-	 */
-	if (!forth){
-		rijndaelEncrypt(sctx->key.rk,sctx->key.Nr,sctx->counter,
-								sctx->out);
-	}
+    /*
+     * Only generate a new AES number every 4'th UnifRand.
+     * The (out) buffer holds 128 random bits - enough for 4 x 32bit
+     * random numbers for the algorithm.
+     */
+    if (!forth){
+        rijndaelEncrypt(sctx->key.rk,sctx->key.Nr,sctx->counter,
+                sctx->out);
+    }
 
-	/*
-	 * Increment the counter as a 128-bit single quantity in
-	 * network byte order for AES counter mode.
-	 */
-	for (j = 15; j >= 0; j--){
-		if (++sctx->counter[j]){
-			break;
-		}
-	}
+    /*
+     * Increment the counter as a 128-bit single quantity in
+     * network byte order for AES counter mode.
+     */
+    for (j = 15; j >= 0; j--){
+        if (++sctx->counter[j]){
+            break;
+        }
+    }
 
-	/*
-	 * Point buf to correct 1/4th of the out buffer.
-	 */
-	buf = &sctx->out[4*forth];
+    /*
+     * Point buf to correct 1/4th of the out buffer.
+     */
+    buf = &sctx->out[4*forth];
 
-	/*
-	 * Convert the "raw" buffer to an unsigned integer.
-	 * (i.e. The last 4 bytes of ret will contain the random
-	 * integer in network byte order after this loop.)
-	 *
-	 * (If BWLNum64 changes from a 32.32 format uint64_t, this will
-	 * need to be modified. It is expecting to set the .32 portion.)
-	 */
-	for(j=0;j<4;j++){
-		ret <<= 8;
-		ret += *buf++;
-	}
+    /*
+     * Convert the "raw" buffer to an unsigned integer.
+     * (i.e. The last 4 bytes of ret will contain the random
+     * integer in network byte order after this loop.)
+     *
+     * (If BWLNum64 changes from a 32.32 format uint64_t, this will
+     * need to be modified. It is expecting to set the .32 portion.)
+     */
+    for(j=0;j<4;j++){
+        ret <<= 8;
+        ret += *buf++;
+    }
 
-	return ret;
+    return ret;
 }
 
 /*
@@ -159,18 +160,18 @@ BWLUnifRand64(
  * multiplied by 2^32 and rounded to the nearest integer.)
  */
 static BWLNum64 Q[] = {
-	0,          /* Placeholder. */
-	0xB17217F8,
-	0xEEF193F7,
-	0xFD271862,
-	0xFF9D6DD0,
-	0xFFF4CFD0,
-	0xFFFEE819,
-	0xFFFFE7FF,
-	0xFFFFFE2B,
-	0xFFFFFFE0,
-	0xFFFFFFFE,
-	0xFFFFFFFF
+    0,          /* Placeholder. */
+    0xB17217F8,
+    0xEEF193F7,
+    0xFD271862,
+    0xFF9D6DD0,
+    0xFFF4CFD0,
+    0xFFFEE819,
+    0xFFFFE7FF,
+    0xFFFFFE2B,
+    0xFFFFFFE0,
+    0xFFFFFFFE,
+    0xFFFFFFFF
 };
 
 #define	BIT31	0x80000000UL
@@ -179,69 +180,69 @@ static BWLNum64 Q[] = {
 
 static BWLNum64 
 BWLRand64Exponent(
-	BWLScheduleContext	sctx
-	)
+        BWLScheduleContext	sctx
+        )
 {
-	uint32_t	i, k, j = 0;
-	BWLNum64	U, V, tmp; 
+    uint32_t	i, k, j = 0;
+    BWLNum64	U, V, tmp; 
 
-	/*
-	 * S1. [Get U and shift.] Generate a (t+1)-bit
-	 */
-	/* Get U and shift */
-	U = BWLUnifRand64(sctx);
+    /*
+     * S1. [Get U and shift.] Generate a (t+1)-bit
+     */
+    /* Get U and shift */
+    U = BWLUnifRand64(sctx);
 
-	/*
-	 * shift until bit 31 is 0 (bits 31-0 are the 32 Low-Order bits
-	 * representing the "fractional" portion of the number.
-	 */
-	while((U & BIT31) && (j < 32)){
-		U <<= 1;
-		j++;
-	}
-	/* remove the '0' itself */
-	U <<= 1;
-	
-	/* Keep only the fractional part. */
-	U = MASK32(U);
-	
+    /*
+     * shift until bit 31 is 0 (bits 31-0 are the 32 Low-Order bits
+     * representing the "fractional" portion of the number.
+     */
+    while((U & BIT31) && (j < 32)){
+        U <<= 1;
+        j++;
+    }
+    /* remove the '0' itself */
+    U <<= 1;
 
-	/*
-	 * S2. Immediate acceptance?
-	 */
-	if (U < LN2){
-		/* j is NOT an BWLNum64 so direct  multiplication of j*LN2
-		 * here is correct. Alternatively we could:
-		 * 	return BWLNum64Add(BWLNum64Mult(
-		 * 				BWLULongToNum64(j),LN2),U);
-		 */
-		return BWLNum64Add((j*LN2),U);
-	}
+    /* Keep only the fractional part. */
+    U = MASK32(U);
 
-	/*
-	 * S3.
-	 */
-	/* Minimize */
-	for(k = 2;k < I2Number(Q); k++){
-		if (U < Q[k]){
-			break;
-		}
-	}
 
-	V = BWLUnifRand64(sctx);
-	for(i = 2;i <= k; i++){
-		tmp = BWLUnifRand64(sctx);
-		if (tmp < V){
-			V = tmp;
-		}
-	}
+    /*
+     * S2. Immediate acceptance?
+     */
+    if (U < LN2){
+        /* j is NOT an BWLNum64 so direct  multiplication of j*LN2
+         * here is correct. Alternatively we could:
+         * 	return BWLNum64Add(BWLNum64Mult(
+         * 				BWLULongToNum64(j),LN2),U);
+         */
+        return BWLNum64Add((j*LN2),U);
+    }
 
-	/*
-	 * S4.
-	 */
-	/* Return (j+V)*ln2 */
-	return BWLNum64Mult(BWLNum64Add(BWLULongToNum64(j),V),
-							LN2);
+    /*
+     * S3.
+     */
+    /* Minimize */
+    for(k = 2;k < I2Number(Q); k++){
+        if (U < Q[k]){
+            break;
+        }
+    }
+
+    V = BWLUnifRand64(sctx);
+    for(i = 2;i <= k; i++){
+        tmp = BWLUnifRand64(sctx);
+        if (tmp < V){
+            V = tmp;
+        }
+    }
+
+    /*
+     * S4.
+     */
+    /* Return (j+V)*ln2 */
+    return BWLNum64Mult(BWLNum64Add(BWLULongToNum64(j),V),
+            LN2);
 }
 
 /*
@@ -260,10 +261,10 @@ BWLRand64Exponent(
  */
 void
 BWLScheduleContextFree(
-	BWLScheduleContext	sctx
-	)
+        BWLScheduleContext	sctx
+        )
 {
-	free(sctx);
+    free(sctx);
 }
 
 /*
@@ -288,34 +289,34 @@ BWLScheduleContextFree(
  */
 BWLScheduleContext
 BWLScheduleContextCreate(
-	BWLContext	ctx,
-	uint8_t	seed[16],
-	uint32_t	mean
-	)
+        BWLContext	ctx,
+        uint8_t	seed[16],
+        uint32_t	mean
+        )
 {
-	BWLScheduleContext	sctx;
+    BWLScheduleContext	sctx;
 
-	sctx = malloc(sizeof(*sctx));
-	if (!sctx){
-		BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"malloc(): %M");
-		return NULL;
-	}
+    sctx = malloc(sizeof(*sctx));
+    if (!sctx){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"malloc(): %M");
+        return NULL;
+    }
 
-	sctx->ctx = ctx;
+    sctx->ctx = ctx;
 
-	/*
-	 * Initialize Key with seed.
-	 * (This is only needed for Exponential random numbers, but just
-	 * do it.)
-	 */
-	bytes2Key(&sctx->key, seed);
+    /*
+     * Initialize Key with seed.
+     * (This is only needed for Exponential random numbers, but just
+     * do it.)
+     */
+    bytes2Key(&sctx->key, seed);
 
-	memset(sctx->out,0,16);
-	memset(sctx->counter,0,16);
+    memset(sctx->out,0,16);
+    memset(sctx->counter,0,16);
 
-	sctx->mean = mean;
+    sctx->mean = mean;
 
-	return(sctx);
+    return(sctx);
 }
 
 /*
@@ -337,27 +338,27 @@ BWLScheduleContextCreate(
  */
 BWLErrSeverity
 BWLScheduleContextReset(
-	BWLScheduleContext	sctx,
-	uint8_t		seed[16],
-	uint32_t		mean
-		)
+        BWLScheduleContext  sctx,
+        uint8_t		    seed[16],
+        uint32_t	    mean
+        )
 {
-	memset(sctx->out,0,16);
-	memset(sctx->counter,0,16);
+    memset(sctx->out,0,16);
+    memset(sctx->counter,0,16);
 
-	if(seed && mean){
+    if(seed && mean){
 
-		/*
-		 * Initialize Key with seed.
-		 * (This is only needed for Exponential random numbers, but just
-		 * do it.)
-		 */
-		bytes2Key(&sctx->key, seed);
-		sctx->mean = mean;
+        /*
+         * Initialize Key with seed.
+         * (This is only needed for Exponential random numbers, but just
+         * do it.)
+         */
+        bytes2Key(&sctx->key, seed);
+        sctx->mean = mean;
 
-	}
+    }
 
-	return BWLErrOK;
+    return BWLErrOK;
 }
 
 /*
@@ -376,9 +377,9 @@ BWLScheduleContextReset(
  */
 BWLNum64
 BWLScheduleContextGenerateNextDelta(
-		BWLScheduleContext	sctx
-		)
+        BWLScheduleContext  sctx
+        )
 {
-	return BWLNum64Mult(BWLRand64Exponent(sctx),
-			BWLULongToNum64(sctx->mean));
+    return BWLNum64Mult(BWLRand64Exponent(sctx),
+            BWLULongToNum64(sctx->mean));
 }

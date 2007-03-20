@@ -2,12 +2,12 @@
  *      $Id$
  */
 /************************************************************************
-*									*
-*			     Copyright (C)  2003			*
-*				Internet2				*
-*			     All Rights Reserved			*
-*									*
-************************************************************************/
+ *									*
+ *			     Copyright (C)  2003			*
+ *				Internet2				*
+ *			     All Rights Reserved			*
+ *									*
+ ************************************************************************/
 /*
  *	File:		bwctldP.h
  *
@@ -33,43 +33,43 @@
  */
 typedef struct {
 
-	I2Boolean	verbose;
-	I2Boolean	help;
+    I2Boolean	    verbose;
+    I2Boolean	    help;
 
-        int             access_prio;
+    int             access_prio;
 
-	char		cwd[MAXPATHLEN];
-	char		*confdir;
-	char		*vardir;
+    char	    cwd[MAXPATHLEN];
+    char	    *confdir;
+    char	    *vardir;
 
-	char		*tester;
-	char		*testercmd;
-	I2numT  	bottleneckcapacity;
-	uint16_t	*testerports;
-	uint16_t	def_port;
-	uint16_t	port_range_len;
-	uint16_t	port_count;
-	char		*datadir;
+    char	    *tester;
+    char	    *testercmd;
+    I2numT  	    bottleneckcapacity;
+    uint16_t	    *testerports;
+    uint16_t	    def_port;
+    uint16_t	    port_range_len;
+    uint16_t	    port_count;
+    char	    *datadir;
 
-        BWLPortRange    peerports;
+    BWLPortRange    peerports;
 
-	char		*authmode;
-	uint32_t	auth_mode;	/* cooked version of authmode */
-	char		*srcnode;
+    char	    *authmode;
+    uint32_t	    auth_mode;	/* cooked version of authmode */
+    char	    *srcnode;
 
-	char		*user;
-	char		*group;
-        I2Boolean       allowRoot;
+    char	    *user;
+    char	    *group;
+    I2Boolean       allowRoot;
 
-	uint32_t	dieby;
-	uint32_t	controltimeout;
+    uint32_t	    dieby;
+    uint32_t	    controltimeout;
 #ifndef	NDEBUG
-	I2Boolean	childwait;
+    I2Boolean	    childwait;
 #endif
-	I2Boolean	daemon;
+    I2Boolean	    daemon;
 
-	double		syncfuzz;
-        I2Boolean       allowUnsync;
+    double	    syncfuzz;
+    I2Boolean       allowUnsync;
 } bwctld_opts;
 
 #endif	/*	_BWCTLDP_H_	*/

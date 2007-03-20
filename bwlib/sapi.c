@@ -33,7 +33,7 @@ static int
 OpenSocket(
         BWLContext  ctx    __attribute__((unused)),
         int         family,
-        I2Addr     addr
+        I2Addr      addr
         )
 {
     struct addrinfo *fai;
@@ -128,11 +128,11 @@ failsock:
 I2Addr
 BWLServerSockCreate(
         BWLContext      ctx,
-        I2Addr         addr,
+        I2Addr          addr,
         BWLErrSeverity  *err_ret
         )
 {
-    int        fd = -1;
+    int fd = -1;
 
     *err_ret = BWLErrOK;
 
@@ -219,21 +219,21 @@ error:
  */
 BWLControl
 BWLControlAccept(
-        BWLContext      ctx,              /* library context              */
-        int             connfd,           /* connected socket             */
-        struct sockaddr *connsaddr,       /* connected socket addr        */
-        socklen_t       connsaddrlen,     /* connected socket addr len    */
-        uint32_t       mode_offered,      /* advertised server mode       */
-        BWLNum64        uptime,           /* uptime for server            */
-	BWLTesterAvailability  avail_testers, /* server available testers */
-        int             *retn_on_intr,    /* if *retn_on_intr return      */
-        BWLErrSeverity  *err_ret          /* err - return                 */
+        BWLContext              ctx,            /* library context          */
+        int                     connfd,         /* connected socket         */
+        struct sockaddr         *connsaddr,     /* connected socket addr    */
+        socklen_t               connsaddrlen,   /* connected socket addr len*/
+        uint32_t                mode_offered,   /* advertised server mode   */
+        BWLNum64                uptime,         /* uptime for server        */
+	    BWLTesterAvailability   avail_testers,  /* server available testers */
+        int                     *retn_on_intr,  /* if *retn_on_intr return  */
+        BWLErrSeverity          *err_ret        /* err - return             */
         )
 {
     BWLControl      cntrl;
-    uint8_t        challenge[16];
-    uint8_t        rawtoken[32];
-    uint8_t        token[32];
+    uint8_t         challenge[16];
+    uint8_t         rawtoken[32];
+    uint8_t         token[32];
     int             rc;
     struct timeval  tvalstart,tvalend;
     int             ival=0;
@@ -365,7 +365,7 @@ BWLControlAccept(
     }
 
     if(cntrl->mode & (BWL_MODE_AUTHENTICATED|BWL_MODE_ENCRYPTED)){
-        uint8_t    binKey[16];
+        uint8_t     binKey[16];
         BWLBoolean  getkey_success;
 
         /* Fetch the encryption key into binKey */
@@ -465,17 +465,17 @@ error:
 
 BWLErrSeverity
 BWLProcessTestRequest(
-        BWLControl    cntrl,
-	BWLTesterAvailability avail_testers,
-        int        *retn_on_intr
+        BWLControl              cntrl,
+	    BWLTesterAvailability   avail_testers,
+        int                     *retn_on_intr
         )
 {
-    BWLTestSession    tsession = cntrl->tests;
-    BWLErrSeverity    err_ret=BWLErrOK;
-    int        rc;
-    BWLAcceptType    acceptval = BWL_CNTRL_FAILURE;
-    int        ival=0;
-    int        *intr = &ival;
+    BWLTestSession  tsession = cntrl->tests;
+    BWLErrSeverity  err_ret=BWLErrOK;
+    int             rc;
+    BWLAcceptType   acceptval = BWL_CNTRL_FAILURE;
+    int             ival=0;
+    int             *intr = &ival;
 
     if(retn_on_intr){
         intr = retn_on_intr;
@@ -588,13 +588,13 @@ err2:
 
 BWLErrSeverity
 BWLProcessTimeRequest(
-        BWLControl    cntrl,
-        int        *retn_on_intr
+        BWLControl  cntrl,
+        int         *retn_on_intr
         )
 {
-    int        rc;
-    int        ival=0;
-    int        *intr = &ival;
+    int             rc;
+    int             ival=0;
+    int             *intr = &ival;
     BWLTimeStamp    tstamp;
 
     if(retn_on_intr){
@@ -615,15 +615,15 @@ BWLProcessTimeRequest(
 
 BWLErrSeverity
 BWLProcessStartSession(
-        BWLControl    cntrl,
-        int        *retn_on_intr
+        BWLControl  cntrl,
+        int         *retn_on_intr
         )
 {
-    int        rc;
-    BWLErrSeverity    err=BWLErrOK;
-    int        ival=0;
-    int        *intr = &ival;
-    uint16_t    dataport = 0;
+    int             rc;
+    BWLErrSeverity  err=BWLErrOK;
+    int             ival=0;
+    int             *intr = &ival;
+    uint16_t        dataport = 0;
 
     if(retn_on_intr){
         intr = retn_on_intr;
@@ -666,13 +666,13 @@ BWLProcessStartSession(
  */
 BWLBoolean
 BWLSessionStatus(
-        BWLControl    cntrl,
-        BWLSID        sid,
-        BWLAcceptType    *aval
+        BWLControl      cntrl,
+        BWLSID          sid,
+        BWLAcceptType   *aval
         )
 {
-    BWLTestSession    tsession;
-    BWLErrSeverity    err;
+    BWLTestSession  tsession;
+    BWLErrSeverity  err;
 
     /*
      * First find the tsession record for this test.
@@ -686,13 +686,13 @@ BWLSessionStatus(
 
 int
 BWLSessionsActive(
-        BWLControl    cntrl,
-        BWLAcceptType    *aval
+        BWLControl      cntrl,
+        BWLAcceptType   *aval
         )
 {
-    BWLTestSession    tsession;
-    BWLAcceptType    laval = 0;
-    BWLErrSeverity    err;
+    BWLTestSession  tsession;
+    BWLAcceptType   laval = 0;
+    BWLErrSeverity  err;
 
     tsession = cntrl->tests;
     if(tsession && _BWLEndpointStatus(tsession,&laval,&err) && (laval < 0))
@@ -706,18 +706,18 @@ BWLSessionsActive(
 
 BWLErrSeverity
 BWLStopSession(
-        BWLControl    cntrl,
-        int        *retn_on_intr,
-        BWLAcceptType    *acceptval_ret    /* in/out    */
+        BWLControl      cntrl,
+        int             *retn_on_intr,
+        BWLAcceptType   *acceptval_ret    /* in/out    */
         )
 {
-    BWLErrSeverity    err,err2=BWLErrOK;
-    BWLRequestType    msgtype;
-    BWLAcceptType    aval=BWL_CNTRL_ACCEPT;
-    BWLAcceptType    *acceptval=&aval;
-    int        ival=0;
-    int        *intr=&ival;
-    FILE        *fp;
+    BWLErrSeverity  err,err2=BWLErrOK;
+    BWLRequestType  msgtype;
+    BWLAcceptType   aval=BWL_CNTRL_ACCEPT;
+    BWLAcceptType   *acceptval=&aval;
+    int             ival=0;
+    int             *intr=&ival;
+    FILE            *fp;
 
     if(!cntrl->tests){
         return BWLErrOK;
@@ -785,26 +785,26 @@ BWLStopSession(
 
 int
 BWLStopSessionWait(
-        BWLControl        cntrl,
+        BWLControl      cntrl,
         BWLNum64        *wake,
-        int            *retn_on_intr,
-        BWLAcceptType        *acceptval_ret,
-        BWLErrSeverity        *err_ret
+        int             *retn_on_intr,
+        BWLAcceptType   *acceptval_ret,
+        BWLErrSeverity  *err_ret
         )
 {
-    struct timeval    currtime;
-    struct timeval    reltime;
-    struct timeval    *waittime = NULL;
-    fd_set        readfds;
-    fd_set        exceptfds;
-    int        rc;
-    int        msgtype;
-    BWLErrSeverity    err2=BWLErrOK;
-    BWLAcceptType    aval;
-    BWLAcceptType    *acceptval=&aval;
-    int        ival=0;
-    int        *intr=&ival;
-    FILE        *fp;
+    struct timeval  currtime;
+    struct timeval  reltime;
+    struct timeval  *waittime = NULL;
+    fd_set          readfds;
+    fd_set          exceptfds;
+    int             rc;
+    int             msgtype;
+    BWLErrSeverity  err2=BWLErrOK;
+    BWLAcceptType   aval;
+    BWLAcceptType   *acceptval=&aval;
+    int             ival=0;
+    int             *intr=&ival;
+    FILE            *fp;
 
     *err_ret = BWLErrOK;
     if(acceptval_ret){

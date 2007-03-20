@@ -176,31 +176,32 @@ BWLNum64Mult(
 
 extern BWLNum64
 BWLULongToNum64(
-        uint32_t    from);
+        uint32_t    from
+        );
 
 
 extern void
 BWLNum64ToTimeval(
-        struct timeval    *to,
-        BWLNum64    from
+        struct timeval  *to,
+        BWLNum64        from
         );
 
 extern void
 BWLTimevalToNum64(
-        BWLNum64    *to,
-        struct timeval    *from
+        BWLNum64        *to,
+        struct timeval  *from
         );
 
 extern void
 BWLNum64ToTimespec(
-        struct timespec    *to,
-        BWLNum64    from
+        struct timespec *to,
+        BWLNum64        from
         );
 
 extern void
 BWLTimespecToNum64(
-        BWLNum64    *to,
-        struct timespec    *from
+        BWLNum64        *to,
+        struct timespec *from
         );
 
 extern double
@@ -307,21 +308,23 @@ typedef struct{
     I2Addr          receiver;
     BWLTimeStamp    req_time;
     BWLNum64        latest_time;
-    uint32_t       duration;
+    uint32_t        duration;
     BWLBoolean      udp;
-    uint8_t        tos;
-    uint32_t       bandwidth;
-    uint32_t       window_size;
-    uint32_t       len_buffer;
-    uint16_t       report_interval;
-    uint8_t        parallel_streams;
+    uint8_t         tos;
+    uint32_t        bandwidth;
+    uint32_t        window_size;
+    uint32_t        len_buffer;
+    uint16_t        report_interval;
+    uint8_t         parallel_streams;
     BWLBoolean      dynamic_window_size;
 } BWLTestSpec;
 
 typedef uint32_t   BWLPacketSizeT;
 
 BWLTesterAvailability
-LookForTesters(BWLContext ctx);
+LookForTesters(
+        BWLContext  ctx
+        );
 
 /*
  * an BWLScheduleContextRec is used to maintain state for the schedule
@@ -333,8 +336,8 @@ typedef struct BWLScheduleContextRec    *BWLScheduleContext;
 BWLScheduleContext
 BWLScheduleContextCreate(
         BWLContext  ctx,
-        uint8_t    seed[16],
-        uint32_t   mean
+        uint8_t     seed[16],
+        uint32_t    mean
         );
 
 void
@@ -345,8 +348,8 @@ BWLScheduleContextFree(
 BWLErrSeverity
 BWLScheduleContextReset(
         BWLScheduleContext  sctx,
-        uint8_t            seed[16],
-        uint32_t           mean
+        uint8_t             seed[16],
+        uint32_t            mean
         );
 
 BWLNum64
@@ -371,7 +374,7 @@ BWLScheduleContextGenerateNextDelta(
  * (Sure would be nice if it were possible to do vararg macros...)
  */
 #define BWLError    I2ErrLocation_(__FILE__,__DATE__,__LINE__);    \
-BWLError_
+    BWLError_
 
 /*
  * Don't call this directly - use the BWLError macro.
@@ -505,18 +508,18 @@ typedef BWLBoolean (*BWLCheckControlPolicyFunc)(
  */
 #define BWLCheckTestPolicy    "BWLCheckTestPolicy"
 typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
-        BWLControl    cntrl,
-        BWLSID        sid,
-        BWLBoolean    local_sender,
-        struct sockaddr    *local_sa_addr,
-        struct sockaddr    *remote_sa_addr,
-        socklen_t    sa_len,
-        BWLTestSpec    *test_spec,
-        BWLNum64    fuzz_time,
-        BWLNum64    *reservation_ret,
-        uint16_t    *port_ret,
-        void        **closure,
-        BWLErrSeverity    *err_ret
+        BWLControl      cntrl,
+        BWLSID          sid,
+        BWLBoolean      local_sender,
+        struct sockaddr *local_sa_addr,
+        struct sockaddr *remote_sa_addr,
+        socklen_t       sa_len,
+        BWLTestSpec     *test_spec,
+        BWLNum64        fuzz_time,
+        BWLNum64        *reservation_ret,
+        uint16_t        *port_ret,
+        void            **closure,
+        BWLErrSeverity  *err_ret
         );
 
 /*
@@ -526,9 +529,9 @@ typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
  */
 #define BWLTestComplete        "BWLTestComplete"
 typedef void (*BWLTestCompleteFunc)(
-        BWLControl    cntrl,
-        void        *closure,
-        BWLAcceptType    aval
+        BWLControl      cntrl,
+        void            *closure,
+        BWLAcceptType   aval
         );
 
 /*
@@ -539,9 +542,9 @@ typedef void (*BWLTestCompleteFunc)(
  */
 #define BWLProcessResults    "BWLProcessResults"
 typedef BWLErrSeverity (*BWLProcessResultsFunc)(
-        BWLControl    cntrl,
-        BWLBoolean    local_sender,
-        BWLTestSpec    *tspec,
+        BWLControl  cntrl,
+        BWLBoolean  local_sender,
+        BWLTestSpec *tspec,
         FILE        *sendfp,
         FILE        *recvfp
         );
@@ -678,14 +681,14 @@ BWLAddrByLocalControl(
  */
 extern BWLControl
 BWLControlOpen(
-        BWLContext    ctx,
-        I2Addr        local_addr,    /* src addr or NULL        */
-        I2Addr        server_addr,    /* server addr or NULL        */
+        BWLContext  ctx,
+        I2Addr      local_addr,    /* src addr or NULL        */
+        I2Addr      server_addr,    /* server addr or NULL        */
         uint32_t    mode_mask,    /* OR of BWLSessionMode vals    */
-        BWLUserID    userid,        /* null if unwanted        */
+        BWLUserID   userid,        /* null if unwanted        */
         BWLNum64    *uptime_ret,    /* server uptime - ret or NULL    */
-	BWLTesterAvailability	*avail_testers,	/* server supported testers */
-        BWLErrSeverity    *err_ret
+        BWLTesterAvailability   *avail_testers,	/* server supported testers */
+        BWLErrSeverity          *err_ret
         );
 
 /*
@@ -699,7 +702,7 @@ BWLControlOpen(
  */
 extern BWLErrSeverity
 BWLControlTimeCheck(
-        BWLControl    cntrl,
+        BWLControl      cntrl,
         BWLTimeStamp    *remote_time
         );
 
@@ -745,17 +748,19 @@ BWLControlClose(
  * Conversely, the test_spec is completely copied, and the caller continues
  * to "own" all memory associated with it after this call.
  *
- * Client
+ * Client:
+ *
  */
+
 extern BWLBoolean
 BWLSessionRequest(
-        BWLControl    control_handle,
-        BWLBoolean    sender,
-        BWLTestSpec    *test_spec,
+        BWLControl      control_handle,
+        BWLBoolean      sender,
+        BWLTestSpec     *test_spec,
         BWLTimeStamp    *avail_time_ret,
-        uint16_t    *recv_port,
-        BWLSID        sid_ret,
-        BWLErrSeverity    *err_ret
+        uint16_t        *recv_port,
+        BWLSID          sid_ret,
+        BWLErrSeverity  *err_ret
         );
 
 /*
@@ -765,7 +770,7 @@ BWLSessionRequest(
  */
 extern BWLErrSeverity
 BWLStartSession(
-        BWLControl    control_handle,
+        BWLControl  control_handle,
         uint16_t    *dataport
         );
 
@@ -829,9 +834,9 @@ BWLStopSessionWait(
  */
 extern BWLBoolean
 BWLSessionStatus(
-        BWLControl    cntrl,
-        BWLSID        sid,    /* SID of test to poll    */
-        BWLAcceptType    *aval    /* out - return accept value    */
+        BWLControl      cntrl,
+        BWLSID          sid,    /* SID of test to poll    */
+        BWLAcceptType   *aval    /* out - return accept value    */
         );
 
 /*
@@ -849,8 +854,8 @@ BWLSessionStatus(
  */
 extern int
 BWLSessionsActive(
-        BWLControl    cntrl,
-        BWLAcceptType    *acceptval    /* rtn */
+        BWLControl      cntrl,
+        BWLAcceptType   *acceptval    /* rtn */
         );
 
 /*
@@ -860,9 +865,9 @@ BWLSessionsActive(
  */
 extern BWLErrSeverity
 BWLStopSession(
-        BWLControl    control_handle,
-        int        *retn_on_intr,
-        BWLAcceptType    *acceptval    /* in/out */
+        BWLControl      control_handle,
+        int             *retn_on_intr,
+        BWLAcceptType   *acceptval    /* in/out */
         );
 
 /*
@@ -874,8 +879,8 @@ BWLStopSession(
  */
 extern BWLErrSeverity
 BWLEndSession(
-        BWLControl    cntrl,
-        int        *retn_on_intr,
+        BWLControl  cntrl,
+        int         *retn_on_intr,
         FILE        *fp
         );
 
@@ -900,20 +905,20 @@ BWLEndSession(
  */
 extern int
 BWLControlFD(
-        BWLControl    control_handle
+        BWLControl  control_handle
         );
 
 extern int
 BWLErrorFD(
-        BWLContext    ctx
+        BWLContext  ctx
         );
 
 extern
 I2Addr
 BWLServerSockCreate(
-        BWLContext    ctx,
-        I2Addr        addr,
-        BWLErrSeverity    *err_ret
+        BWLContext      ctx,
+        I2Addr          addr,
+        BWLErrSeverity  *err_ret
         );
 
 
@@ -942,15 +947,15 @@ BWLServerSockCreate(
  */
 extern BWLControl
 BWLControlAccept(
-        BWLContext    ctx,        /* library context        */
-        int        connfd,        /* conencted socket        */
-        struct sockaddr    *connsaddr,    /* connected socket addr    */
-        socklen_t    connsaddrlen,    /* connected socket addr len    */
-        uint32_t    mode_offered,    /* advertised server mode    */
-        BWLNum64    uptime,        /* uptime report        */
-	BWLTesterAvailability  avail_testers, /* server available testers */
-        int        *retn_on_intr,    /* return on i/o interrupt    */
-        BWLErrSeverity    *err_ret    /* err - return            */
+        BWLContext              ctx,            /* library context          */
+        int                     connfd,         /* conencted socket         */
+        struct sockaddr         *connsaddr,     /* connected socket addr    */
+        socklen_t               connsaddrlen,   /* connected socket addr len*/
+        uint32_t                mode_offered,   /* advertised server mode   */
+        BWLNum64                uptime,         /* uptime report            */
+        BWLTesterAvailability   avail_testers,  /* server available testers */
+        int                     *retn_on_intr,  /* return on i/o interrupt  */
+        BWLErrSeverity          *err_ret        /* err - return             */
         );
 
 typedef enum BWLRequestType{
@@ -970,21 +975,21 @@ BWLReadRequestType(
 
 extern BWLErrSeverity
 BWLProcessTestRequest(
-        BWLControl    cntrl,
-	BWLTesterAvailability avail_testers,
-        int        *retn_on_intr
+        BWLControl              cntrl,
+        BWLTesterAvailability   avail_testers,
+        int                     *retn_on_intr
         );
 
 extern BWLErrSeverity
 BWLProcessTimeRequest(
-        BWLControl    cntrl,
-        int        *retn_on_intr
+        BWLControl  cntrl,
+        int         *retn_on_intr
         );
 
 extern BWLErrSeverity
 BWLProcessStartSession(
-        BWLControl    cntrl,
-        int        *retn_on_intr
+        BWLControl  cntrl,
+        int         *retn_on_intr
         );
 
 extern BWLErrSeverity
@@ -1025,35 +1030,35 @@ BWLTestPacketBandwidth(
 #endif
 #ifndef    tvaladd
 #define tvaladd(a,b)                        \
-do{                                         \
-    (a)->tv_sec += (b)->tv_sec;             \
+    do{                                     \
+        (a)->tv_sec += (b)->tv_sec;         \
         (a)->tv_usec += (b)->tv_usec;       \
         if((a)->tv_usec >= 1000000){        \
             (a)->tv_sec++;                  \
-                (a)->tv_usec -= 1000000;    \
+            (a)->tv_usec -= 1000000;        \
         }                                   \
-} while (0)
+    } while (0)
 #endif
 #ifndef    tvalsub
 #define tvalsub(a,b)                        \
-do{                                         \
-    (a)->tv_sec -= (b)->tv_sec;             \
+    do{                                     \
+        (a)->tv_sec -= (b)->tv_sec;         \
         (a)->tv_usec -= (b)->tv_usec;       \
         if((a)->tv_usec < 0){               \
             (a)->tv_sec--;                  \
-                (a)->tv_usec += 1000000;    \
+            (a)->tv_usec += 1000000;        \
         }                                   \
-} while (0)
+    } while (0)
 #endif
 
 #ifndef    tvalcmp
-#define    tvalcmp(tvp,uvp,cmp)         \
-(((tvp)->tv_sec == (uvp)->tv_sec) ?     \
- ((tvp)->tv_usec cmp (uvp)->tv_usec) :  \
- ((tvp)->tv_sec cmp (uvp)->tv_sec))
+#define    tvalcmp(tvp,uvp,cmp)             \
+    (((tvp)->tv_sec == (uvp)->tv_sec) ?     \
+     ((tvp)->tv_usec cmp (uvp)->tv_usec) :  \
+     ((tvp)->tv_sec cmp (uvp)->tv_sec))
 #endif
 
-    /* Operations on timespecs */
+/* Operations on timespecs */
 #ifndef    timespecclear
 #define timespecclear(tvp)      ((tvp)->tv_sec = (tvp)->tv_nsec = 0)
 #endif
@@ -1070,43 +1075,43 @@ do{                                         \
 #endif
 
 #ifndef    timespecadd
-#define timespecadd(vvp, uvp)                       \
-    do {                                            \
-        (vvp)->tv_sec += (uvp)->tv_sec;             \
-            (vvp)->tv_nsec += (uvp)->tv_nsec;       \
-            if ((vvp)->tv_nsec >= 1000000000){      \
-                (vvp)->tv_sec++;                    \
-                    (vvp)->tv_nsec -= 1000000000;   \
-            }                                       \
+#define timespecadd(vvp, uvp)                   \
+    do {                                        \
+        (vvp)->tv_sec += (uvp)->tv_sec;         \
+        (vvp)->tv_nsec += (uvp)->tv_nsec;       \
+        if ((vvp)->tv_nsec >= 1000000000){      \
+            (vvp)->tv_sec++;                    \
+            (vvp)->tv_nsec -= 1000000000;       \
+        }                                       \
     } while (0)
 #endif
 
 #ifndef timespecsub
 #define timespecsub(vvp, uvp)                   \
-do {                                            \
-    (vvp)->tv_sec -= (uvp)->tv_sec;             \
+    do {                                        \
+        (vvp)->tv_sec -= (uvp)->tv_sec;         \
         (vvp)->tv_nsec -= (uvp)->tv_nsec;       \
         if ((vvp)->tv_nsec < 0) {               \
             (vvp)->tv_sec--;                    \
-                (vvp)->tv_nsec += 1000000000;   \
+            (vvp)->tv_nsec += 1000000000;       \
         }                                       \
-} while (0)
+    } while (0)
 #endif
 
 #ifndef    timespecdiff
 #define    timespecdiff(vvp,uvp)        \
-do {                                    \
-    struct timespec    ts1_,ts2_;       \
+    do {                                \
+        struct timespec    ts1_,ts2_;   \
         if(timespeccmp(vvp,uvp,>)){     \
             ts1_ = *vvp;                \
-                ts2_ = *uvp;            \
+            ts2_ = *uvp;                \
         }else{                          \
             ts1_ = *uvp;                \
-                ts2_ = *vvp;            \
+            ts2_ = *vvp;                \
         }                               \
-    timespecsub(&ts1_,&ts2_);           \
+        timespecsub(&ts1_,&ts2_);       \
         *vvp = ts1_;                    \
-} while(0)
+    } while(0)
 #endif
 
 extern BWLNum64
@@ -1117,7 +1122,7 @@ BWLGetRTTBound(
 extern void
 BWLSetTimeStampError(
         BWLTimeStamp    *tstamp,
-        BWLNum64    err
+        BWLNum64        err
         );
 
 extern BWLNum64
@@ -1127,33 +1132,33 @@ BWLGetTimeStampError(
 
 extern BWLTimeStamp *
 BWLGetTimeStamp(
-        BWLContext    ctx,
+        BWLContext      ctx,
         BWLTimeStamp    *tstamp
         );
 
 extern BWLTimeStamp *
 BWLTimevalToTimeStamp(
         BWLTimeStamp    *tstamp,
-        struct timeval    *tval
+        struct timeval  *tval
         );
 
 extern struct timeval *
 BWLTimeStampToTimeval(
-        struct timeval    *tval,
+        struct timeval  *tval,
         BWLTimeStamp    *tstamp
         );
 
 extern BWLTimeStamp *
 BWLTimespecToTimeStamp(
         BWLTimeStamp    *tstamp,
-        struct timespec    *tval,
-        uint32_t    *errest,    /* usec's */
-        uint32_t    *last_errest    /* usec's */
+        struct timespec *tval,
+        uint32_t        *errest,    /* usec's */
+        uint32_t        *last_errest    /* usec's */
         );
 
 extern struct timespec *
 BWLTimeStampToTimespec(
-        struct timespec    *tval,
+        struct timespec *tval,
         BWLTimeStamp    *tstamp
         );
 

@@ -2,12 +2,12 @@
  *      $Id$
  */
 /************************************************************************
-*									*
-*			     Copyright (C)  2003			*
-*				Internet2				*
-*			     All Rights Reserved			*
-*									*
-************************************************************************/
+ *									*
+ *			     Copyright (C)  2003			*
+ *				Internet2				*
+ *			     All Rights Reserved			*
+ *									*
+ ************************************************************************/
 /*
  *	File:		arithm64.c
  *
@@ -60,44 +60,44 @@
  */
 BWLNum64
 BWLNum64Mult(
-	BWLNum64	x,
-	BWLNum64	y
-	)
+        BWLNum64	x,
+        BWLNum64	y
+        )
 {
-	unsigned long w[4];
-	uint64_t xdec[2];
-	uint64_t ydec[2];
+    unsigned long w[4];
+    uint64_t xdec[2];
+    uint64_t ydec[2];
 
-	int i, j;
-	uint64_t k, t;
-	BWLNum64 ret;
+    int i, j;
+    uint64_t k, t;
+    BWLNum64 ret;
 
-	xdec[0] = MASK32(x);
-	xdec[1] = MASK32(x>>32);
-	ydec[0] = MASK32(y);
-	ydec[1] = MASK32(y>>32);
+    xdec[0] = MASK32(x);
+    xdec[1] = MASK32(x>>32);
+    ydec[0] = MASK32(y);
+    ydec[1] = MASK32(y>>32);
 
-	for (j = 0; j < 4; j++)
-		w[j] = 0; 
+    for (j = 0; j < 4; j++)
+        w[j] = 0; 
 
-	for (j = 0;  j < 2; j++) {
-		k = 0;
-		for (i = 0; ; ) {
-			t = k + (xdec[i]*ydec[j]) + w[i + j];
-			w[i + j] = t%EXP2POW32;
-			k = t/EXP2POW32;
-			if (++i < 2)
-				continue;
-			else {
-				w[j + 2] = k;
-				break;
-			}
-		}
-	}
+    for (j = 0;  j < 2; j++) {
+        k = 0;
+        for (i = 0; ; ) {
+            t = k + (xdec[i]*ydec[j]) + w[i + j];
+            w[i + j] = t%EXP2POW32;
+            k = t/EXP2POW32;
+            if (++i < 2)
+                continue;
+            else {
+                w[j + 2] = k;
+                break;
+            }
+        }
+    }
 
-	ret = w[2];
-	ret <<= 32;
-	return w[1] + ret;
+    ret = w[2];
+    ret <<= 32;
+    return w[1] + ret;
 }
 
 /************************************************************************
@@ -120,10 +120,10 @@ BWLNum64Mult(
  * Returns:	
  * Side Effect:	
  */
-BWLNum64
+    BWLNum64
 BWLULongToNum64(uint32_t a)
 {
-	return ((uint64_t)a << 32);
+    return ((uint64_t)a << 32);
 }
 
 
@@ -148,21 +148,21 @@ BWLULongToNum64(uint32_t a)
  */
 void
 BWLNum64ToTimespec(
-	struct timespec	*to,
-	BWLNum64	from
-	)
+        struct timespec	*to,
+        BWLNum64	from
+        )
 {
-	/*
-	 * MS 32 bits represent seconds
-	 */
-	to->tv_sec = MASK32(from >> 32);
+    /*
+     * MS 32 bits represent seconds
+     */
+    to->tv_sec = MASK32(from >> 32);
 
-	/*
-	 * LS 32 bits represent fractional seconds, normalize them to nsecs:
-	 * frac/2^32 == nano/(10^9), so
-	 * nano = frac * 10^9 / 2^32
-	 */
-	to->tv_nsec = MASK32((MASK32(from)*BILLION) >> 32);
+    /*
+     * LS 32 bits represent fractional seconds, normalize them to nsecs:
+     * frac/2^32 == nano/(10^9), so
+     * nano = frac * 10^9 / 2^32
+     */
+    to->tv_nsec = MASK32((MASK32(from)*BILLION) >> 32);
 }
 
 /*
@@ -187,33 +187,33 @@ BWLNum64ToTimespec(
  */
 void
 BWLTimespecToNum64(
-	BWLNum64	*to,
-	struct timespec	*from
-	)
+        BWLNum64	*to,
+        struct timespec	*from
+        )
 {
-	uint32_t	sec = from->tv_sec;
-	uint32_t	nsec = from->tv_nsec;
+    uint32_t	sec = from->tv_sec;
+    uint32_t	nsec = from->tv_nsec;
 
-	*to = 0;
+    *to = 0;
 
-	/*
-	 * Ensure nsec's is only fractional.
-	 */
-	while(nsec >= BILLION){
-		sec++;
-		nsec -= BILLION;
-	}
+    /*
+     * Ensure nsec's is only fractional.
+     */
+    while(nsec >= BILLION){
+        sec++;
+        nsec -= BILLION;
+    }
 
-	/*
-	 * Place seconds in MS 32 bits.
-	 */
-	*to = (uint64_t)MASK32(sec) << 32;
-	/*
-	 * Normalize nsecs to 32bit fraction, then set that to LS 32 bits.
-	 */
-	*to |= MASK32(((uint64_t)nsec << 32)/BILLION);
+    /*
+     * Place seconds in MS 32 bits.
+     */
+    *to = (uint64_t)MASK32(sec) << 32;
+    /*
+     * Normalize nsecs to 32bit fraction, then set that to LS 32 bits.
+     */
+    *to |= MASK32(((uint64_t)nsec << 32)/BILLION);
 
-	return;
+    return;
 }
 /*
  * Function:	BWLNum64toTimeval
@@ -236,21 +236,21 @@ BWLTimespecToNum64(
  */
 void
 BWLNum64ToTimeval(
-	struct timeval	*to,
-	BWLNum64	from
-	)
+        struct timeval	*to,
+        BWLNum64	from
+        )
 {
-	/*
-	 * MS 32 bits represent seconds
-	 */
-	to->tv_sec = MASK32(from >> 32);
+    /*
+     * MS 32 bits represent seconds
+     */
+    to->tv_sec = MASK32(from >> 32);
 
-	/*
-	 * LS 32 bits represent fractional seconds, normalize them to usecs:
-	 * frac/2^32 == micro/(10^6), so
-	 * nano = frac * 10^6 / 2^32
-	 */
-	to->tv_usec = MASK32((MASK32(from)*MILLION) >> 32);
+    /*
+     * LS 32 bits represent fractional seconds, normalize them to usecs:
+     * frac/2^32 == micro/(10^6), so
+     * nano = frac * 10^6 / 2^32
+     */
+    to->tv_usec = MASK32((MASK32(from)*MILLION) >> 32);
 }
 
 /*
@@ -275,33 +275,33 @@ BWLNum64ToTimeval(
  */
 void
 BWLTimevalToNum64(
-	BWLNum64	*to,
-	struct timeval	*from
-	)
+        BWLNum64	*to,
+        struct timeval	*from
+        )
 {
-	uint32_t	sec = from->tv_sec;
-	uint32_t	usec = from->tv_usec;
+    uint32_t	sec = from->tv_sec;
+    uint32_t	usec = from->tv_usec;
 
-	*to = 0;
+    *to = 0;
 
-	/*
-	 * Ensure usec's is only fractional.
-	 */
-	while(usec >= MILLION){
-		sec++;
-		usec -= MILLION;
-	}
+    /*
+     * Ensure usec's is only fractional.
+     */
+    while(usec >= MILLION){
+        sec++;
+        usec -= MILLION;
+    }
 
-	/*
-	 * Place seconds in MS 32 bits.
-	 */
-	*to = (uint64_t)MASK32(sec) << 32;
-	/*
-	 * Normalize usecs to 32bit fraction, then set that to LS 32 bits.
-	 */
-	*to |= MASK32(((uint64_t)usec << 32)/MILLION);
+    /*
+     * Place seconds in MS 32 bits.
+     */
+    *to = (uint64_t)MASK32(sec) << 32;
+    /*
+     * Normalize usecs to 32bit fraction, then set that to LS 32 bits.
+     */
+    *to |= MASK32(((uint64_t)usec << 32)/MILLION);
 
-	return;
+    return;
 }
 
 /*
@@ -325,10 +325,10 @@ BWLTimevalToNum64(
  */
 double
 BWLNum64ToDouble(
-	BWLNum64	from
-	)
+        BWLNum64	from
+        )
 {
-	return (double)from / EXP2POW32;
+    return (double)from / EXP2POW32;
 }
 
 /*
@@ -347,13 +347,13 @@ BWLNum64ToDouble(
  */
 BWLNum64
 BWLDoubleToNum64(
-	double	from
-	)
+        double	from
+        )
 {
-	if(from < 0){
-		return 0;
-	}
-	return (BWLNum64)(from * EXP2POW32);
+    if(from < 0){
+        return 0;
+    }
+    return (BWLNum64)(from * EXP2POW32);
 }
 
 /*
@@ -371,8 +371,8 @@ BWLDoubleToNum64(
  * Returns:	
  * Side Effect:	
  */
-BWLNum64
+    BWLNum64
 BWLUsecToNum64(uint32_t usec)
 {
-	return ((uint64_t)usec << 32)/MILLION;
+    return ((uint64_t)usec << 32)/MILLION;
 }

@@ -2,12 +2,12 @@
  *      $Id$
  */
 /************************************************************************
-*									*
-*			     Copyright (C)  2003			*
-*				Internet2				*
-*			     All Rights Reserved			*
-*									*
-************************************************************************/
+ *									*
+ *			     Copyright (C)  2003			*
+ *				Internet2				*
+ *			     All Rights Reserved			*
+ *									*
+ ************************************************************************/
 /*
  *	File:		time.c
  *
@@ -68,32 +68,32 @@
  */
 void
 _BWLEncodeTimeStamp(
-	uint8_t	buf[8],
-	BWLTimeStamp	*tstamp
-	)
+        uint8_t	        buf[8],
+        BWLTimeStamp	*tstamp
+        )
 {
-	uint32_t	t32;
+    uint32_t    t32;
 
-	assert(tstamp);
-	assert(buf);
+    assert(tstamp);
+    assert(buf);
 
-	/*
-	 * seconds - Most Significant 32 bits hold the seconds in
-	 * host byte order. Set t32 to this value in network byte order,
-	 * then copy them to bytes 0-4 in buf.
-	 */
-	t32 = htonl((tstamp->tstamp >> 32) & 0xFFFFFFFF);
-	memcpy(&buf[0],&t32,4);
+    /*
+     * seconds - Most Significant 32 bits hold the seconds in
+     * host byte order. Set t32 to this value in network byte order,
+     * then copy them to bytes 0-4 in buf.
+     */
+    t32 = htonl((tstamp->tstamp >> 32) & 0xFFFFFFFF);
+    memcpy(&buf[0],&t32,4);
 
-	/*
-	 * frac seconds - Least significant 32 bits hold the fractional
-	 * seconds in host byte order. Set t32 to this value in network
-	 * byte order, then copy them to bytes 5-8 in buf.
-	 */
-	t32 = htonl(tstamp->tstamp & 0xFFFFFFFF);
-	memcpy(&buf[4],&t32,4);
+    /*
+     * frac seconds - Least significant 32 bits hold the fractional
+     * seconds in host byte order. Set t32 to this value in network
+     * byte order, then copy them to bytes 5-8 in buf.
+     */
+    t32 = htonl(tstamp->tstamp & 0xFFFFFFFF);
+    memcpy(&buf[4],&t32,4);
 
-	return;
+    return;
 }
 
 /*
@@ -115,35 +115,35 @@ _BWLEncodeTimeStamp(
  */
 BWLBoolean
 _BWLEncodeTimeStampErrEstimate(
-	uint8_t        buf[2],
-	BWLTimeStamp    *tstamp
-	)
+        uint8_t         buf[2],
+        BWLTimeStamp    *tstamp
+        )
 {
-	assert(tstamp);
-	assert(buf);
+    assert(tstamp);
+    assert(buf);
 
-	/*
-	 * If multiplier is 0, this is an invalid error estimate.
-	 */
-	if(!tstamp->multiplier){
-		return False;
-	}
+    /*
+     * If multiplier is 0, this is an invalid error estimate.
+     */
+    if(!tstamp->multiplier){
+        return False;
+    }
 
-	/*
-	 * Scale is 6 bit quantity, and first 2 bits MUST be zero here.
-	 */
-	buf[0] = tstamp->scale & 0x3F;
+    /*
+     * Scale is 6 bit quantity, and first 2 bits MUST be zero here.
+     */
+    buf[0] = tstamp->scale & 0x3F;
 
-	/*
-	 * Set the first bit for sync.
-	 */
-	if(tstamp->sync){
-		buf[0] |= 0x80;
-	}
+    /*
+     * Set the first bit for sync.
+     */
+    if(tstamp->sync){
+        buf[0] |= 0x80;
+    }
 
-	buf[1] = tstamp->multiplier;
+    buf[1] = tstamp->multiplier;
 
-	return True;
+    return True;
 }
 
 /*
@@ -166,37 +166,37 @@ _BWLEncodeTimeStampErrEstimate(
  */
 void
 _BWLDecodeTimeStamp(
-	BWLTimeStamp	*tstamp,
-	uint8_t	buf[8]
-	)
+        BWLTimeStamp	*tstamp,
+        uint8_t	        buf[8]
+        )
 {
-	uint32_t	t32;
+    uint32_t	t32;
 
-	assert(tstamp);
-	assert(buf);
+    assert(tstamp);
+    assert(buf);
 
-	/*
-	 * First clear tstamp.
-	 */
-	memset(&tstamp->tstamp,0,8);
+    /*
+     * First clear tstamp.
+     */
+    memset(&tstamp->tstamp,0,8);
 
-	/*
-	 * seconds is first 4 bytes in network byte order.
-	 * copy to a 32 bit int, correct the byte order, then assign
-	 * to the most significant 32 bits of tstamp.
-	 */
-	memcpy(&t32,&buf[0],4);
-	tstamp->tstamp = (BWLNum64)(ntohl(t32)) << 32;
+    /*
+     * seconds is first 4 bytes in network byte order.
+     * copy to a 32 bit int, correct the byte order, then assign
+     * to the most significant 32 bits of tstamp.
+     */
+    memcpy(&t32,&buf[0],4);
+    tstamp->tstamp = (BWLNum64)(ntohl(t32)) << 32;
 
-	/*
-	 * fractional seconds are the next 4 bytes in network byte order.
-	 * copy to a 32 bit int, correct the byte order, then assign to
-	 * the least significant 32 bits of tstamp.
-	 */
-	memcpy(&t32,&buf[4],4);
-	tstamp->tstamp |= (ntohl(t32) & 0xFFFFFFFF);
+    /*
+     * fractional seconds are the next 4 bytes in network byte order.
+     * copy to a 32 bit int, correct the byte order, then assign to
+     * the least significant 32 bits of tstamp.
+     */
+    memcpy(&t32,&buf[4],4);
+    tstamp->tstamp |= (ntohl(t32) & 0xFFFFFFFF);
 
-	return;
+    return;
 }
 
 /*
@@ -220,26 +220,26 @@ _BWLDecodeTimeStamp(
  */
 BWLBoolean
 _BWLDecodeTimeStampErrEstimate(
-	BWLTimeStamp	*tstamp,
-	uint8_t	buf[2]
-	)
+        BWLTimeStamp	*tstamp,
+        uint8_t	        buf[2]
+        )
 {
-	assert(tstamp);
-	assert(buf);
+    assert(tstamp);
+    assert(buf);
 
-	/*
-	 * If multiplier is 0, this is an invalid timestamp. From here, just
-	 * set sync and scale to 0 as well.
-	 */
-	if(!buf[1]){
-		buf[0] = 0;
-	}
+    /*
+     * If multiplier is 0, this is an invalid timestamp. From here, just
+     * set sync and scale to 0 as well.
+     */
+    if(!buf[1]){
+        buf[0] = 0;
+    }
 
-	tstamp->sync = (buf[0] & 0x80)?1:0;
-	tstamp->scale = buf[0] & 0x3F;
-	tstamp->multiplier = buf[1];
+    tstamp->sync = (buf[0] & 0x80)?1:0;
+    tstamp->scale = buf[0] & 0x3F;
+    tstamp->multiplier = buf[1];
 
-	return (tstamp->multiplier != 0);
+    return (tstamp->multiplier != 0);
 }
 
 /*
@@ -265,30 +265,30 @@ _BWLDecodeTimeStampErrEstimate(
  */
 BWLTimeStamp *
 BWLTimevalToTimeStamp(
-	BWLTimeStamp	*tstamp,
-	struct timeval	*tval
-)
+        BWLTimeStamp	*tstamp,
+        struct timeval	*tval
+        )
 {
-	/*
-	 * Ensure valid tstamp, tval - and ensure scale of tv_nsec is valid
-	 */
-	if(!tstamp || !tval)
-		return NULL;
+    /*
+     * Ensure valid tstamp, tval - and ensure scale of tv_nsec is valid
+     */
+    if(!tstamp || !tval)
+        return NULL;
 
-	/*
-	 * Now convert representation.
-	 */
-	BWLTimevalToNum64(&tstamp->tstamp,tval);
+    /*
+     * Now convert representation.
+     */
+    BWLTimevalToNum64(&tstamp->tstamp,tval);
 
-	/*
-	 * Convert "epoch"'s - must do after conversion or there is the risk
-	 * of overflow since time_t is a 32bit signed quantity instead of
-	 * unsigned.
-	 */
-	tstamp->tstamp = BWLNum64Add(tstamp->tstamp,
-				BWLULongToNum64(BWLJAN_1970));
+    /*
+     * Convert "epoch"'s - must do after conversion or there is the risk
+     * of overflow since time_t is a 32bit signed quantity instead of
+     * unsigned.
+     */
+    tstamp->tstamp = BWLNum64Add(tstamp->tstamp,
+            BWLULongToNum64(BWLJAN_1970));
 
-	return tstamp;
+    return tstamp;
 }
 
 /*
@@ -314,23 +314,23 @@ BWLTimevalToTimeStamp(
  */
 struct timeval *
 BWLTimeStampToTimeval(
-	struct timeval	*tval,
-	BWLTimeStamp	*tstamp
-	)
+        struct timeval	*tval,
+        BWLTimeStamp	*tstamp
+        )
 {
-	if(!tval || !tstamp)
-		return NULL;
+    if(!tval || !tstamp)
+        return NULL;
 
-	/*
-	 * Convert "epoch"'s - must do before conversion or there is the risk
-	 * of overflow since time_t is a 32bit signed quantity instead of
-	 * unsigned.
-	 */
-	tstamp->tstamp = BWLNum64Sub(tstamp->tstamp,
-				BWLULongToNum64(BWLJAN_1970));
-	BWLNum64ToTimeval(tval,tstamp->tstamp);
+    /*
+     * Convert "epoch"'s - must do before conversion or there is the risk
+     * of overflow since time_t is a 32bit signed quantity instead of
+     * unsigned.
+     */
+    tstamp->tstamp = BWLNum64Sub(tstamp->tstamp,
+            BWLULongToNum64(BWLJAN_1970));
+    BWLNum64ToTimeval(tval,tstamp->tstamp);
 
-	return tval;
+    return tval;
 }
 
 /*
@@ -348,34 +348,34 @@ BWLTimeStampToTimeval(
  */
 void
 BWLSetTimeStampError(
-	BWLTimeStamp	*tstamp,
-	BWLNum64	val
-		)
+        BWLTimeStamp	*tstamp,
+        BWLNum64	val
+        )
 {
-	BWLNum64	err;
-	/*
-	 * Just in the unlikely event that val is represented
-	 * by a type larger than 64 bits...
-	 * (This ensures that scale will not overflow the
-	 * 6 bits available to it.)
-	 */
-	err = val & (uint64_t)0xFFFFFFFFFFFFFFFFULL;
+    BWLNum64	err;
+    /*
+     * Just in the unlikely event that val is represented
+     * by a type larger than 64 bits...
+     * (This ensures that scale will not overflow the
+     * 6 bits available to it.)
+     */
+    err = val & (uint64_t)0xFFFFFFFFFFFFFFFFULL;
 
-	/*
-	 * Now shift err until it will fit in an 8 bit
-	 * multiplier (after adding one for rounding err: this
-	 * is the reason a value of 0xFF is shifted one last
-	 * time), counting the shifts to set the scale.
-	 */
-	tstamp->scale = 0;
-	while(err >= 0xFF){
-		err >>= 1;
-		tstamp->scale++;
-	}
-	err++;	/* rounding error:represents shifted off bits */
-	tstamp->multiplier = 0xFF & err;
+    /*
+     * Now shift err until it will fit in an 8 bit
+     * multiplier (after adding one for rounding err: this
+     * is the reason a value of 0xFF is shifted one last
+     * time), counting the shifts to set the scale.
+     */
+    tstamp->scale = 0;
+    while(err >= 0xFF){
+        err >>= 1;
+        tstamp->scale++;
+    }
+    err++;	/* rounding error:represents shifted off bits */
+    tstamp->multiplier = 0xFF & err;
 
-	return;
+    return;
 }
 
 /*
@@ -394,33 +394,33 @@ BWLSetTimeStampError(
  */
 BWLNum64
 BWLGetTimeStampError(
-	BWLTimeStamp	*tstamp
-	)
+        BWLTimeStamp	*tstamp
+        )
 {
-	BWLNum64	err;
-	uint8_t	scale;
+    BWLNum64	err;
+    uint8_t	scale;
 
-	if(!tstamp)
-		return 0;
+    if(!tstamp)
+        return 0;
 
-	/*
-	 * Place multiplier in 64bit int large enough to hold full value.
-	 * (Due to the interpretation of BWLNum64 being 32 bits of seconds,
-	 * and 32 bits of "fraction", this effectively divides by 2^32.)
-	 */
-	err = tstamp->multiplier & 0xFF;
+    /*
+     * Place multiplier in 64bit int large enough to hold full value.
+     * (Due to the interpretation of BWLNum64 being 32 bits of seconds,
+     * and 32 bits of "fraction", this effectively divides by 2^32.)
+     */
+    err = tstamp->multiplier & 0xFF;
 
-	/*
-	 * Now shift it based on the "scale".
-	 * (This affects the 2^scale multiplication.)
-	 */
-	scale = tstamp->scale & 0x3F;
-	while(scale>0){
-		err <<= 1;
-		scale--;
-	}
+    /*
+     * Now shift it based on the "scale".
+     * (This affects the 2^scale multiplication.)
+     */
+    scale = tstamp->scale & 0x3F;
+    while(scale>0){
+        err <<= 1;
+        scale--;
+    }
 
-	return err;
+    return err;
 }
 
 /*
@@ -454,51 +454,51 @@ BWLGetTimeStampError(
  */
 BWLTimeStamp *
 BWLTimespecToTimeStamp(
-	BWLTimeStamp	*tstamp,
-	struct timespec	*tval,
-	uint32_t	*errest,	/* usec's */
-	uint32_t	*last_errest
-	)
+        BWLTimeStamp	*tstamp,
+        struct timespec	*tval,
+        uint32_t	*errest,	/* usec's */
+        uint32_t	*last_errest
+        )
 {
-	/*
-	 * Ensure valid tstamp, tval - and ensure scale of tv_nsec is valid
-	 */
-	if(!tstamp || !tval)
-		return NULL;
+    /*
+     * Ensure valid tstamp, tval - and ensure scale of tv_nsec is valid
+     */
+    if(!tstamp || !tval)
+        return NULL;
 
-	/*
-	 * Now convert representation.
-	 */
-	BWLTimespecToNum64(&tstamp->tstamp,tval);
+    /*
+     * Now convert representation.
+     */
+    BWLTimespecToNum64(&tstamp->tstamp,tval);
 
-	/*
-	 * Convert "epoch"'s - must do after conversion or there is the risk
-	 * of overflow since time_t is a 32bit signed quantity instead of
-	 * unsigned.
-	 */
-	tstamp->tstamp = BWLNum64Add(tstamp->tstamp,
-				BWLULongToNum64(BWLJAN_1970));
+    /*
+     * Convert "epoch"'s - must do after conversion or there is the risk
+     * of overflow since time_t is a 32bit signed quantity instead of
+     * unsigned.
+     */
+    tstamp->tstamp = BWLNum64Add(tstamp->tstamp,
+            BWLULongToNum64(BWLJAN_1970));
 
-	/*
-	 * If errest is set, and is non-zero.
-	 */
-	if(errest && *errest){
-		/*
-		 * If last_errest is set, and the error hasn't changed,
-		 * then we don't touch the prec portion assuming it is
-		 * already correct.
-		 */
-		if(!last_errest || (*errest != *last_errest)){
-			BWLSetTimeStampError(tstamp,BWLUsecToNum64(*errest));
-		}
-	}
-	else{
-		tstamp->sync = 0;
-		tstamp->scale = 0;
-		tstamp->multiplier = 0;
-	}
+    /*
+     * If errest is set, and is non-zero.
+     */
+    if(errest && *errest){
+        /*
+         * If last_errest is set, and the error hasn't changed,
+         * then we don't touch the prec portion assuming it is
+         * already correct.
+         */
+        if(!last_errest || (*errest != *last_errest)){
+            BWLSetTimeStampError(tstamp,BWLUsecToNum64(*errest));
+        }
+    }
+    else{
+        tstamp->sync = 0;
+        tstamp->scale = 0;
+        tstamp->multiplier = 0;
+    }
 
-	return tstamp;
+    return tstamp;
 }
 
 /*
@@ -524,23 +524,23 @@ BWLTimespecToTimeStamp(
  */
 struct timespec *
 BWLTimeStampToTimespec(
-	struct timespec	*tval,
-	BWLTimeStamp	*tstamp
-	)
+        struct timespec	*tval,
+        BWLTimeStamp	*tstamp
+        )
 {
-	if(!tval || !tstamp)
-		return NULL;
+    if(!tval || !tstamp)
+        return NULL;
 
-	/*
-	 * Convert "epoch"'s - must do before conversion or there is the risk
-	 * of overflow since time_t is a 32bit signed quantity instead of
-	 * unsigned.
-	 */
-	tstamp->tstamp = BWLNum64Sub(tstamp->tstamp,
-				BWLULongToNum64(BWLJAN_1970));
-	BWLNum64ToTimespec(tval,tstamp->tstamp);
+    /*
+     * Convert "epoch"'s - must do before conversion or there is the risk
+     * of overflow since time_t is a 32bit signed quantity instead of
+     * unsigned.
+     */
+    tstamp->tstamp = BWLNum64Sub(tstamp->tstamp,
+            BWLULongToNum64(BWLJAN_1970));
+    BWLNum64ToTimespec(tval,tstamp->tstamp);
 
-	return tval;
+    return tval;
 }
 
 /*
@@ -579,9 +579,9 @@ BWLTimeStampToTimespec(
  * 				usecs
  */
 int
-_BWLInitNTP(
-	BWLContext	ctx __attribute__((unused))
-	)
+    _BWLInitNTP(
+            BWLContext	ctx __attribute__((unused))
+            )
 {
     /*
      * If this system has the ntp system calls, use them. Otherwise,
@@ -617,16 +617,16 @@ _BWLInitNTP(
 
 static struct timespec *
 _BWLGetTimespec(
-		BWLContext		ctx,
-		struct timespec		*ts,
-		uint32_t		*esterr,
-		int			*sync
-		)
+        BWLContext	ctx,
+        struct timespec	*ts,
+        uint32_t	*esterr,
+        int		*sync
+        )
 {
-    struct timeval      tod;
-    static long	        syncfuzz = 0;
-    static double       *dbptr = NULL;
-    uint32_t            maxerr;
+    struct timeval  tod;
+    static long	    syncfuzz = 0;
+    static double   *dbptr = NULL;
+    uint32_t        maxerr;
 
     /*
      * By default, assume the clock is unsynchronized, but that it
@@ -751,20 +751,20 @@ _BWLGetTimespec(
 
 BWLTimeStamp *
 BWLGetTimeStamp(
-	BWLContext	ctx,
-	BWLTimeStamp	*tstamp
-	       )
+        BWLContext	ctx,
+        BWLTimeStamp	*tstamp
+        )
 {
-	struct timespec		ts;
-	uint32_t		errest;
-	int			sync;
+    struct timespec ts;
+    uint32_t	    errest;
+    int		    sync;
 
-	if(!tstamp)
-		return NULL;
+    if(!tstamp)
+        return NULL;
 
-	if(!_BWLGetTimespec(ctx,&ts,&errest,&sync))
-		return NULL;
+    if(!_BWLGetTimespec(ctx,&ts,&errest,&sync))
+        return NULL;
 
-	/* type conversion */
-	return BWLTimespecToTimeStamp(tstamp,&ts,&errest,NULL);
+    /* type conversion */
+    return BWLTimespecToTimeStamp(tstamp,&ts,&errest,NULL);
 }
