@@ -667,7 +667,7 @@ _BWLGetTimespec(
              * This is reported at level "warning" at initialization.
              */
             BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
-            if(!((BWLBoolean)BWLContextConfigGet(ctx,BWLAllowUnsync))){
+            if( !(BWLContextConfigGetV(ctx,BWLAllowUnsync))){
                 BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                         "allowunsync is not set, failing.");
                 return NULL;
@@ -722,7 +722,7 @@ _BWLGetTimespec(
      * Used to increase tolerance for incomplete NTP configs.
      */
     if(!dbptr){
-        dbptr = (double*)BWLContextConfigGet(ctx,BWLSyncFuzz);
+        dbptr = (double*)BWLContextConfigGetV(ctx,BWLSyncFuzz);
         if(dbptr){
             /*
              * BWLSyncFuzz is specified as a double (sec)

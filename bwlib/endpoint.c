@@ -228,7 +228,7 @@ epssock(
     }
 #endif
 
-    if((portrange = (BWLPortRange)BWLContextConfigGet(tsess->cntrl->ctx,
+    if((portrange = (BWLPortRange)BWLContextConfigGetV(tsess->cntrl->ctx,
                     BWLPeerPortRange))){
         uint32_t   r;
 
@@ -357,7 +357,7 @@ failsock:
     return -1;
 }
 
-#define    _BWLGetSIDAESKEY    "_BWLGetSIDAESKEY"
+#define    _BWLGetSIDAESKEY    "V._BWLGetSIDAESKEY"
 
 static BWLBoolean
 getsidaeskey(
@@ -369,7 +369,7 @@ getsidaeskey(
 {
     uint8_t    *sidbytes;
 
-    if(!(sidbytes = (uint8_t*)BWLContextConfigGet(ctx,_BWLGetSIDAESKEY))){
+    if(!(sidbytes = (uint8_t*)BWLContextConfigGetV(ctx,_BWLGetSIDAESKEY))){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                 "getsidaeskey: _BWLGetSIDAESKEY not set");
         *err_ret = BWLErrFATAL;
@@ -717,7 +717,7 @@ run_tester(
     }
     else if(BWL_TESTER_IPERF == tsess->test_spec.tester){
 	/* Run iperf */
-	char *iperf = (char*)BWLContextConfigGet(ctx,BWLIperfCmd);
+	char *iperf = (char*)BWLContextConfigGetV(ctx,BWLIperfCmd);
 	if(!iperf) iperf = _BWL_IPERF_CMD;
 
 	/*
@@ -817,7 +817,7 @@ run_tester(
     }
     else if(BWL_TESTER_NUTTCP == tsess->test_spec.tester){
 	/* Run nuttcp. We use the client/server mode. */
-	char *nuttcp = (char*)BWLContextConfigGet(ctx,BWLNuttcpCmd);
+	char *nuttcp = (char*)BWLContextConfigGetV(ctx,BWLNuttcpCmd);
 	if(!nuttcp) nuttcp = _BWL_NUTTCP_CMD;
 
 	/* Figure out arguments. */
@@ -1048,7 +1048,7 @@ _BWLEndpointStart(
      * busy loop to wait for debugger attachment
      */
     {
-        int    waitfor = (int)BWLContextConfigGet(ctx,BWLChildWait);
+        void    *waitfor = BWLContextConfigGetV(ctx,BWLChildWait);
 
         /*
          * Syslog will print the PID making it easier to 'attach'
@@ -1070,12 +1070,9 @@ _BWLEndpointStart(
      * Reset the GetAESKey function to use the SID for the AESKey in
      * the Endpoint to Endpoint control connection setup.
      */
-    if(        !BWLContextConfigSet(ctx,BWLGetAESKey,
-                (void*)getaeskey) ||
-            !BWLContextConfigSet(ctx,_BWLGetSIDAESKEY,
-                (void*)tsess->sid) ||
-            !BWLContextConfigSet(ctx,BWLInterruptIO,
-                (void*)&ipf_term)
+    if(        !BWLContextConfigSet(ctx,BWLGetAESKey,(BWLFunc)getaeskey) ||
+            !BWLContextConfigSet(ctx,_BWLGetSIDAESKEY,(void *)tsess->sid) ||
+            !BWLContextConfigSet(ctx,BWLInterruptIO,(void*)&ipf_term)
       ){
         BWLError(ctx,BWLErrFATAL,errno,
                 "Unable to set for Context vars for endpoint: %M");
@@ -1272,7 +1269,7 @@ ACCEPT:
          */
         uint64_t    *bottleneckcapacity;
 
-        if((bottleneckcapacity = (uint64_t*)BWLContextConfigGet(ctx,
+        if((bottleneckcapacity = (uint64_t*)BWLContextConfigGetV(ctx,
                         BWLBottleNeckCapacity))){
             double    dbnc = (double)*bottleneckcapacity;
             double    rtt = BWLNum64ToDouble(

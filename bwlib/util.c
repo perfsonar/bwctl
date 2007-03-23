@@ -139,7 +139,7 @@ LookForTesters(BWLContext ctx)
 #endif
 
     /* Check for iperf */
-    tester = (char*)BWLContextConfigGet(ctx,BWLIperfCmd);
+    tester = (char*)BWLContextConfigGetV(ctx,BWLIperfCmd);
     if(!tester){
 	tester = _BWL_IPERF_CMD;
     }
@@ -203,7 +203,7 @@ LookForTesters(BWLContext ctx)
     /* Check for nuttcp */
     /* We expect 'nuttcp -V' to print to stdout something like
        'nuttcp-5.3.1' */
-    tester = (char*)BWLContextConfigGet(ctx,BWLNuttcpCmd);
+    tester = (char*)BWLContextConfigGetV(ctx,BWLNuttcpCmd);
     if(!tester){
 	tester = _BWL_NUTTCP_CMD;
     }

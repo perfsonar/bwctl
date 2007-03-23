@@ -974,8 +974,7 @@ portdone:
                     "Ignoring invalid BWCTL_BOTTLENECKCAPACITY value: %M");
         }
         else if(bottle &&
-                !BWLContextConfigSet(ctx,BWLBottleNeckCapacity,
-                    (void*)&bottle)){
+                !BWLContextConfigSet(ctx,BWLBottleNeckCapacity,(void*)&bottle)){
             I2ErrLog(eh,
                     "BWLContextconfigSet(BottleNeckCapacity): %M");
             _exit(1);
@@ -1577,7 +1576,7 @@ main(
     }
 
     syncfuzz = app.opt.allowUnsync;
-    if((syncfuzz != 0.0) && (tstr = getenv("BWCTL_SYNCFUZZ"))){
+    if((syncfuzz == 0.0) && (tstr = getenv("BWCTL_SYNCFUZZ"))){
         char    *end=NULL;
 
         if(!(tstr = strdup(tstr))){
@@ -1606,8 +1605,7 @@ main(
     }
 
     if((syncfuzz != 0.0) &&
-                !BWLContextConfigSet(ctx,BWLSyncFuzz,
-                    (void*)&syncfuzz)){
+                !BWLContextConfigSet(ctx,BWLSyncFuzz,(void*)&syncfuzz)){
         I2ErrLog(eh,"BWLContextconfigSet(SyncFuzz): %M");
         _exit(1);
     }

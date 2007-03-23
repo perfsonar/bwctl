@@ -54,159 +54,6 @@ notmuch(
 }
 
 /*
- * Function:	BWLContextCreate
- *
- * Description:	
- * 	This function is used to initialize a "context" for the bwlib
- * 	library. The context is used to define how error reporting
- * 	and other semi-global state should be defined.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-BWLContext
-BWLContextCreate(
-        I2ErrHandle	eh,
-        ...
-        )
-{
-    struct sigaction    act;
-    I2LogImmediateAttr  ia;
-    BWLContext          ctx = calloc(1,sizeof(BWLContextRec));
-    char                *tmpdir;
-    va_list             ap;
-    char                *key;
-
-    if(!ctx){
-        BWLError(eh,
-                BWLErrFATAL,ENOMEM,":calloc(1,%d): %M",
-                sizeof(BWLContextRec));
-        return NULL;
-    }
-
-    if(!eh){
-        ctx->lib_eh = True;
-        ia.line_info = (I2NAME|I2MSG);
-        ia.fp = stderr;
-        ctx->eh = I2ErrOpen("bwlib",I2ErrLogImmediate,&ia,
-                NULL,NULL);
-        if(!ctx->eh){
-            BWLError(NULL,BWLErrFATAL,BWLErrUNKNOWN,
-                    "Cannot init error module");
-            free(ctx);
-            return NULL;
-        }
-    }
-    else{
-        ctx->lib_eh = False;
-        ctx->eh = eh;
-    }
-
-    ctx->access_prio = BWLErrINFO;
-
-    if( !(ctx->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,
-                    NULL,NULL))){
-        BWLContextFree(ctx);
-        return NULL;
-    }
-
-    va_start(ap,eh);
-    while( (key = (char *)va_arg(ap, char *)) != NULL){
-
-        if(!BWLContextConfigSet(ctx,key,va_arg(ap, void *))){
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "Unable to set Context value for %s",key);
-            BWLContextFree(ctx);
-            return NULL;
-        }
-    }
-    va_end(ap);
-
-
-    if( !(ctx->rand_src = I2RandomSourceInit(ctx->eh,I2RAND_DEV,NULL))){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                "Failed to initialize randomness sources");
-        BWLContextFree(ctx);
-        return NULL;
-    }
-
-    if( (tmpdir = getenv("TMPDIR")))
-        strncpy(ctx->tmpdir,tmpdir,PATH_MAX);
-    else
-        strncpy(ctx->tmpdir,_BWL_DEFAULT_TMPDIR,PATH_MAX);
-
-    if(strlen(ctx->tmpdir) + strlen(_BWL_PATH_SEPARATOR) +
-            strlen(_BWL_TMPFILEFMT) > PATH_MAX){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN, "TMPDIR too long");
-        BWLContextFree(ctx);
-        return NULL;
-    }
-
-    /*
-     * Do NOT exit on SIGPIPE. To defeat this in the least intrusive
-     * way only set SIG_IGN if SIGPIPE is currently set to SIG_DFL.
-     * Presumably if someone actually set a SIGPIPE handler, they
-     * knew what they were doing...
-     */
-    sigemptyset(&act.sa_mask);
-    act.sa_handler = SIG_DFL;
-    act.sa_flags = 0;
-    if(sigaction(SIGPIPE,NULL,&act) != 0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
-        BWLContextFree(ctx);
-        return NULL;
-    }
-    if(act.sa_handler == SIG_DFL){
-        act.sa_handler = SIG_IGN;
-        if(sigaction(SIGPIPE,&act,NULL) != 0){
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "sigaction(): %M");
-            BWLContextFree(ctx);
-            return NULL;
-        }
-    }
-
-    /*
-     * This library uses calls to select that are intended to
-     * interrupt select in the case of SIGCHLD, so I must
-     * ensure that the process is getting SIGCHLD events.
-     */
-    memset(&act,0,sizeof(act));
-    sigemptyset(&act.sa_mask);
-    act.sa_handler = SIG_DFL;
-    /* fetch current handler */
-    if(sigaction(SIGCHLD,NULL,&act) != 0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
-        BWLContextFree(ctx);
-        return NULL;
-    }
-    /* If there is no current handler - set a "do nothing" one. */
-    if(act.sa_handler == SIG_DFL){
-        act.sa_handler = notmuch;
-        if(sigaction(SIGCHLD,&act,NULL) != 0){
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "sigaction(): %M");
-            BWLContextFree(ctx);
-            return NULL;
-        }
-    }
-
-    if(_BWLInitNTP(ctx) != 0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                "Unable to initialize clock interface.");
-        BWLContextFree(ctx);
-        return NULL;
-    }
-
-    return ctx;
-}
-
-/*
  * Function:	BWLContextGetErrHandle
  *
  * Description:	
@@ -252,14 +99,20 @@ BWLContextSetAccessLogPriority(
     return;
 }
 
+typedef union _BWLContextHashValue{
+    void        *value;
+    void        (*func)(void);
+    uint32_t    u32;
+} _BWLContextHashValue;
+
 struct _BWLContextHashRecord{
-    char	key[_BWL_CONTEXT_MAX_KEYLEN+1];
-    void	*value;
+    char                    key[_BWL_CONTEXT_MAX_KEYLEN+1];
+    _BWLContextHashValue    val;
 };
 
 struct _BWLFreeHashRecord{
     BWLContext	ctx;
-    I2Table		table;
+    I2Table	table;
 };
 
 static I2Boolean
@@ -407,7 +260,7 @@ _BWLControlAlloc(
     /*
      * Init I/O fields
      */
-    cntrl->retn_on_intr = (int *)BWLContextConfigGet(ctx,BWLInterruptIO);
+    cntrl->retn_on_intr = (int *)BWLContextConfigGetV(ctx,BWLInterruptIO);
 
     /*
      * Init encryption fields
@@ -424,10 +277,10 @@ _BWLControlAlloc(
 }
 
 static BWLBoolean
-ConfigSet(
-        I2Table	    table,
-        const char  *key,
-        void	    *value
+ConfigSetU(
+        I2Table	                table,
+        const char              *key,
+        _BWLContextHashValue    val
         )
 {
     struct _BWLContextHashRecord    *rec,*trec;
@@ -444,7 +297,7 @@ ConfigSet(
 
     /* set key datum */
     strncpy(rec->key,key,_BWL_CONTEXT_MAX_KEYLEN);
-    rec->value = value;
+    rec->val = val;
 
     k.dptr = rec->key;
     k.dsize = strlen(rec->key);
@@ -470,10 +323,33 @@ ConfigSet(
     return False;
 }
 
-static void *
-ConfigGet(
-        I2Table	    table,
-        const char  *key
+static BWLBoolean
+ConfigSetVA(
+        I2Table     table,
+        const char  *key,
+        va_list     ap
+        )
+{
+    _BWLContextHashValue    val;
+
+    if( !strncmp(key,"V.",2)){
+        val.value = (void *)va_arg(ap, void*);
+    }
+    else if( !strncmp(key,"F.",2)){
+        val.func = (BWLFunc)va_arg(ap, BWLFunc);
+    }
+    else if( !strncmp(key,"U32.",4)){
+        val.u32 = (uint32_t)va_arg(ap, uint32_t);
+    }
+
+    return ConfigSetU(table,key,val);
+}
+
+static BWLBoolean
+ConfigGetU(
+        I2Table	                table,
+        const char              *key,
+        _BWLContextHashValue    *val
         )
 {
     struct _BWLContextHashRecord	*rec;
@@ -488,12 +364,76 @@ ConfigGet(
     k.dsize = strlen(kval);
 
     if(!I2HashFetch(table,k,&v)){
-        return NULL;
+        return False;
     }
 
     rec = (struct _BWLContextHashRecord*)v.dptr;
+    *val = rec->val;
 
-    return rec->value;
+    return True;
+}
+
+static void *
+ConfigGetV(
+        I2Table     table,
+        const char  *key
+        )
+{
+    _BWLContextHashValue    val;
+
+    if( strncmp(key,"V.",2)){
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if( !ConfigGetU(table,key,&val)){
+        return NULL;
+    }
+
+    return val.value;
+}
+
+static BWLBoolean
+ConfigGetU32(
+        I2Table     table,
+        const char  *key,
+        uint32_t    *u32
+        )
+{
+    _BWLContextHashValue    val;
+
+    if( strncmp(key,"U32.",4)){
+        errno = EINVAL;
+        return False;
+    }
+
+    if( !ConfigGetU(table,key,&val)){
+        return False;
+    }
+
+    *u32 = val.u32;
+
+    return True;
+}
+
+static BWLFunc
+ConfigGetF(
+        I2Table     table,
+        const char  *key
+        )
+{
+    _BWLContextHashValue    val;
+
+    if( strncmp(key,"F.",2)){
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if( !ConfigGetU(table,key,&val)){
+        return NULL;
+    }
+
+    return val.func;
 }
 
 static BWLBoolean
@@ -520,6 +460,175 @@ ConfigDelete(
 }
 
 /*
+ * Function:	BWLContextCreate
+ *
+ * Description:	
+ * 	This function is used to initialize a "context" for the bwlib
+ * 	library. The context is used to define how error reporting
+ * 	and other semi-global state should be defined.
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ */
+BWLContext
+BWLContextCreate(
+        I2ErrHandle	eh,
+        ...
+        )
+{
+    struct sigaction    act;
+    I2LogImmediateAttr  ia;
+    BWLContext          ctx = calloc(1,sizeof(BWLContextRec));
+    char                *tmpdir;
+    va_list             ap;
+    char                *key;
+
+    if(!ctx){
+        BWLError(eh,
+                BWLErrFATAL,ENOMEM,":calloc(1,%d): %M",
+                sizeof(BWLContextRec));
+        return NULL;
+    }
+
+    if(!eh){
+        ctx->lib_eh = True;
+        ia.line_info = (I2NAME|I2MSG);
+        ia.fp = stderr;
+        ctx->eh = I2ErrOpen("bwlib",I2ErrLogImmediate,&ia,
+                NULL,NULL);
+        if(!ctx->eh){
+            BWLError(NULL,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Cannot init error module");
+            free(ctx);
+            return NULL;
+        }
+    }
+    else{
+        ctx->lib_eh = False;
+        ctx->eh = eh;
+    }
+
+    ctx->access_prio = BWLErrINFO;
+
+    if( !(ctx->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,
+                    NULL,NULL))){
+        BWLContextFree(ctx);
+        return NULL;
+    }
+
+    va_start(ap,eh);
+    while( (key = (char *)va_arg(ap, char *)) != NULL){
+        _BWLContextHashValue    val;
+
+        if( !strncmp(key,"V.",2)){
+            val.value = (void *)va_arg(ap, void*);
+        }
+        else if( !strncmp(key,"F.",2)){
+            val.func = (BWLFunc)va_arg(ap, BWLFunc);
+        }
+        else if( !strncmp(key,"U32.",4)){
+            val.u32 = (uint32_t)va_arg(ap, uint32_t);
+        }
+        else{
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unknown \"type\" for Context key %s",key);
+            BWLContextFree(ctx);
+            return NULL;
+        }
+
+        if( !ConfigSetU(ctx->table,key,val)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to set Context value for %s",key);
+            BWLContextFree(ctx);
+            return NULL;
+        }
+    }
+    va_end(ap);
+
+    if( !(ctx->rand_src = I2RandomSourceInit(ctx->eh,I2RAND_DEV,NULL))){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "Failed to initialize randomness sources");
+        BWLContextFree(ctx);
+        return NULL;
+    }
+
+    if( (tmpdir = getenv("TMPDIR")))
+        strncpy(ctx->tmpdir,tmpdir,PATH_MAX);
+    else
+        strncpy(ctx->tmpdir,_BWL_DEFAULT_TMPDIR,PATH_MAX);
+
+    if(strlen(ctx->tmpdir) + strlen(_BWL_PATH_SEPARATOR) +
+            strlen(_BWL_TMPFILEFMT) > PATH_MAX){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN, "TMPDIR too long");
+        BWLContextFree(ctx);
+        return NULL;
+    }
+
+    /*
+     * Do NOT exit on SIGPIPE. To defeat this in the least intrusive
+     * way only set SIG_IGN if SIGPIPE is currently set to SIG_DFL.
+     * Presumably if someone actually set a SIGPIPE handler, they
+     * knew what they were doing...
+     */
+    sigemptyset(&act.sa_mask);
+    act.sa_handler = SIG_DFL;
+    act.sa_flags = 0;
+    if(sigaction(SIGPIPE,NULL,&act) != 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
+        BWLContextFree(ctx);
+        return NULL;
+    }
+    if(act.sa_handler == SIG_DFL){
+        act.sa_handler = SIG_IGN;
+        if(sigaction(SIGPIPE,&act,NULL) != 0){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "sigaction(): %M");
+            BWLContextFree(ctx);
+            return NULL;
+        }
+    }
+
+    /*
+     * This library uses calls to select that are intended to
+     * interrupt select in the case of SIGCHLD, so I must
+     * ensure that the process is getting SIGCHLD events.
+     */
+    memset(&act,0,sizeof(act));
+    sigemptyset(&act.sa_mask);
+    act.sa_handler = SIG_DFL;
+    /* fetch current handler */
+    if(sigaction(SIGCHLD,NULL,&act) != 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
+        BWLContextFree(ctx);
+        return NULL;
+    }
+    /* If there is no current handler - set a "do nothing" one. */
+    if(act.sa_handler == SIG_DFL){
+        act.sa_handler = notmuch;
+        if(sigaction(SIGCHLD,&act,NULL) != 0){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "sigaction(): %M");
+            BWLContextFree(ctx);
+            return NULL;
+        }
+    }
+
+    if(_BWLInitNTP(ctx) != 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "Unable to initialize clock interface.");
+        BWLContextFree(ctx);
+        return NULL;
+    }
+
+    return ctx;
+}
+
+/*
  * Function:	BWLContextSet
  *
  * Description:	
@@ -536,23 +645,53 @@ BWLBoolean
 BWLContextConfigSet(
         BWLContext  ctx,
         const char  *key,
-        void	    *value
+        ...
         )
 {
+    BWLBoolean  ret;
+    va_list     ap;
+
     assert(ctx);
 
-    return ConfigSet(ctx->table,key,value);
+    va_start(ap,key);
+    ret = ConfigSetVA(ctx->table,key,ap);
+    va_end(ap);
+
+    return ret;
 }
 
 void *
-BWLContextConfigGet(
+BWLContextConfigGetV(
         BWLContext  ctx,
         const char  *key
         )
 {
     assert(ctx);
 
-    return ConfigGet(ctx->table,key);
+    return ConfigGetV(ctx->table,key);
+}
+
+BWLFunc
+BWLContextConfigGetF(
+        BWLContext  ctx,
+        const char  *key
+        )
+{
+    assert(ctx);
+
+    return ConfigGetF(ctx->table,key);
+}
+
+BWLBoolean
+BWLContextConfigGetU32(
+        BWLContext  ctx,
+        const char  *key,
+        uint32_t    *u32
+        )
+{
+    assert(ctx);
+
+    return ConfigGetU32(ctx->table,key,u32);
 }
 
 BWLBoolean
@@ -583,23 +722,53 @@ BWLBoolean
 BWLControlConfigSet(
         BWLControl  cntrl,
         const char  *key,
-        void	    *value
+        ...
         )
 {
+    BWLBoolean  ret;
+    va_list     ap;
+
     assert(cntrl);
 
-    return ConfigSet(cntrl->table,key,value);
+    va_start(ap,key);
+    ret = ConfigSetVA(cntrl->table,key,ap);
+    va_end(ap);
+
+    return ret;
 }
 
 void *
-BWLControlConfigGet(
+BWLControlConfigGetV(
         BWLControl  cntrl,
         const char  *key
         )
 {
     assert(cntrl);
 
-    return ConfigGet(cntrl->table,key);
+    return ConfigGetV(cntrl->table,key);
+}
+
+BWLFunc
+BWLControlConfigGetF(
+        BWLControl  cntrl,
+        const char  *key
+        )
+{
+    assert(cntrl);
+
+    return ConfigGetF(cntrl->table,key);
+}
+
+BWLBoolean
+BWLControlConfigGetU32(
+        BWLControl  cntrl,
+        const char  *key,
+        uint32_t    *u32
+        )
+{
+    assert(cntrl);
+
+    return ConfigGetU32(cntrl->table,key,u32);
 }
 
 BWLBoolean
@@ -633,7 +802,7 @@ _BWLCallGetAESKey(
 
     *err_ret = BWLErrOK;
 
-    func = (BWLGetAESKeyFunc)BWLContextConfigGet(ctx,BWLGetAESKey);
+    func = (BWLGetAESKeyFunc)BWLContextConfigGetF(ctx,BWLGetAESKey);
 
     /*
      * Default action is no encryption support.
@@ -667,7 +836,7 @@ _BWLCallCheckControlPolicy(
 
     *err_ret = BWLErrOK;
 
-    func = (BWLCheckControlPolicyFunc)BWLContextConfigGet(cntrl->ctx,
+    func = (BWLCheckControlPolicyFunc)BWLContextConfigGetF(cntrl->ctx,
             BWLCheckControlPolicy);
 
     /*
@@ -703,7 +872,7 @@ _BWLCallCheckTestPolicy(
 
     *err_ret = BWLErrOK;
 
-    func = (BWLCheckTestPolicyFunc)BWLContextConfigGet(cntrl->ctx,
+    func = (BWLCheckTestPolicyFunc)BWLContextConfigGetF(cntrl->ctx,
             BWLCheckTestPolicy);
     /*
      * Default action is to fail since the function needs to
@@ -746,7 +915,7 @@ _BWLCallTestComplete(
 {
     BWLTestCompleteFunc	func;
 
-    func = (BWLTestCompleteFunc)BWLContextConfigGet(tsession->cntrl->ctx,
+    func = (BWLTestCompleteFunc)BWLContextConfigGetF(tsession->cntrl->ctx,
             BWLTestComplete);
     /*
      * Default action is nothing...
@@ -774,7 +943,7 @@ _BWLCallProcessResults(
 {
     BWLProcessResultsFunc	func;
 
-    func = (BWLProcessResultsFunc)BWLContextConfigGet(tsession->cntrl->ctx,
+    func = (BWLProcessResultsFunc)BWLContextConfigGetF(tsession->cntrl->ctx,
             BWLProcessResults);
     /*
      * Default action is to do nothing...

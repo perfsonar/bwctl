@@ -399,7 +399,14 @@ BWLError_(
  * calling the BWLContextConfigSet function with the following keys and
  * types. (The key is a string - the type indicates what type of data
  * will be stored/retrieved using that key.
+ * The first couple of char's of the name indicate what integral type
+ * needs to be used to set the value.
  */
+
+/* Used to define a 'generic' function type to use for setting/getting
+ * functions below.
+ */
+typedef void (*BWLFunc)(void);
 
 /*
  * This type is used to hold a pointer to an integer pointer. That pointer
@@ -409,7 +416,7 @@ BWLError_(
  * ignore the interrupt and restart the i/o.
  * (this can be used to ignore some signals and return on others.)
  */
-#define BWLInterruptIO        "BWLInterruptIO"
+#define BWLInterruptIO        "U32.BWLInterruptIO"
 
 /*
  * This context variable is used to hold a pointer to a port-range record. This
@@ -417,7 +424,7 @@ BWLError_(
  * server connections. (The connection used to verify clocks and share
  * test results.)
  */
-#define BWLPeerPortRange    "BWLPeerPortRange"
+#define BWLPeerPortRange    "V.BWLPeerPortRange"
 typedef struct BWLPortRangeRec{
     uint16_t   low;
     uint16_t   high;
@@ -427,14 +434,14 @@ typedef struct BWLPortRangeRec{
  * This types are used to hold the path to the iperf/thrulay executables.
  * (char *)
  */
-#define    BWLIperfCmd           "BWLIperfCmd"
-#define    BWLNuttcpCmd          "BWLNuttcpCmd"
+#define    BWLIperfCmd           "V.BWLIperfCmd"
+#define    BWLNuttcpCmd          "V.BWLNuttcpCmd"
 
 /*
  * Which tester tool was selected ("iperf", "thrulay", etc.).
  * (char *)
  */
-#define    BWLTester          "BWLTester"
+#define    BWLTester          "V.BWLTester"
 
 /*
  * This type is used to hold a pointer to an unsigned-64 bit int that
@@ -442,7 +449,7 @@ typedef struct BWLPortRangeRec{
  * a rtt estimate to dynamically size the send/recv window sizes.
  * (uint64_t)
  */
-#define BWLBottleNeckCapacity    "BWLBottleNeckCapacity"
+#define BWLBottleNeckCapacity    "V.BWLBottleNeckCapacity"
 
 /*
  * This type is used to define the function that retrieves the shared
@@ -455,7 +462,7 @@ typedef struct BWLPortRangeRec{
  * If an application doesn't set this, Encrypted and Authenticated
  * mode will be disabled.
  */    
-#define    BWLGetAESKey        "BWLGetAESKey"
+#define    BWLGetAESKey        "F.BWLGetAESKey"
 typedef BWLBoolean  (*BWLGetAESKeyFunc)(
         BWLContext      ctx,
         const BWLUserID userid,
@@ -473,7 +480,7 @@ typedef BWLBoolean  (*BWLGetAESKeyFunc)(
  *
  * If an application doesn't set this, all connections will be allowed.
  */
-#define BWLCheckControlPolicy    "BWLCheckControlPolicy"
+#define BWLCheckControlPolicy    "F.BWLCheckControlPolicy"
 typedef BWLBoolean (*BWLCheckControlPolicyFunc)(
         BWLControl    cntrl,
         BWLSessionMode    mode_req,
@@ -506,7 +513,7 @@ typedef BWLBoolean (*BWLCheckControlPolicyFunc)(
  * writing (a receiver context) and not being opened for reading (a fetch
  * context).
  */
-#define BWLCheckTestPolicy    "BWLCheckTestPolicy"
+#define BWLCheckTestPolicy    "F.BWLCheckTestPolicy"
 typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
         BWLControl      cntrl,
         BWLSID          sid,
@@ -527,7 +534,7 @@ typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
  * to free resources that were allocated on behalf of the test including
  * memory associated with the "closure" pointer itself if necessary.
  */
-#define BWLTestComplete        "BWLTestComplete"
+#define BWLTestComplete        "F.BWLTestComplete"
 typedef void (*BWLTestCompleteFunc)(
         BWLControl      cntrl,
         void            *closure,
@@ -540,7 +547,7 @@ typedef void (*BWLTestCompleteFunc)(
  * (The function should handle the case where the FILE*'s are null. This
  * simply means that test results are unavailable.)
  */
-#define BWLProcessResults    "BWLProcessResults"
+#define BWLProcessResults    "F.BWLProcessResults"
 typedef BWLErrSeverity (*BWLProcessResultsFunc)(
         BWLControl  cntrl,
         BWLBoolean  local_sender,
@@ -553,7 +560,7 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
  * This value is used to increase the tolerance of bwctld to deal
  * with incorrectly configured ntpd processes. Specified as a (*double).
  */
-#define BWLSyncFuzz    "BWLSyncFuzz"
+#define BWLSyncFuzz    "F.BWLSyncFuzz"
 
 /*
  * This value is used to indicate if NTP synchronization is required
@@ -561,19 +568,19 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
  * can attempt to continue without determining if the current clock
  * is really synchronized.
  */
-#define BWLAllowUnsync  "BWLAllowUnsync"
+#define BWLAllowUnsync  "V.BWLAllowUnsync"
 
 #ifndef    NDEBUG
 /*
- * This integer type is used to aid in child-debugging. If BWLChildWait is
- * set and non-zero forked off endpoints will go into a busy-wait loop to
+ * This void* type is used to aid in child-debugging. If BWLChildWait is
+ * non-null forked off endpoints will go into a busy-wait loop to
  * allow a debugger to attach to the process. (i.e. they will be hung until
  * attached and the loop variable modified with the debugger. This should
  * not strictly be needed, but the gdb on many of the test plateforms I
  * used did not implement the follow-fork-mode option.) This was a quick
  * fix. (This will not be used if bwlib is compiled with -DNDEBUG.)
  */
-#define    BWLChildWait    "BWLChildWait"
+#define    BWLChildWait    "V.BWLChildWait"
 #endif
 
 extern BWLContext
@@ -602,13 +609,26 @@ extern BWLBoolean
 BWLContextConfigSet(
         BWLContext  ctx,
         const char  *key,
-        void        *value
+        ...
         );
 
 extern void*
-BWLContextConfigGet(
-        BWLContext    ctx,
-        const char    *key
+BWLContextConfigGetV(
+        BWLContext  ctx,
+        const char  *key
+        );
+
+extern BWLFunc
+BWLContextConfigGetF(
+        BWLContext  ctx,
+        const char  *key
+        );
+
+extern BWLBoolean
+BWLContextConfigGetU32(
+        BWLContext  ctx,
+        const char  *key,
+        uint32_t    *u32
         );
 
 extern BWLBoolean
@@ -626,13 +646,26 @@ extern BWLBoolean
 BWLControlConfigSet(
         BWLControl    cntrl,
         const char    *key,
-        void        *value
+        ...
         );
 
 extern void*
-BWLControlConfigGet(
+BWLControlConfigGetV(
         BWLControl    cntrl,
-        const char    *key
+        const char  *key
+        );
+
+extern BWLFunc
+BWLControlConfigGetF(
+        BWLControl    cntrl,
+        const char  *key
+        );
+
+extern BWLBoolean
+BWLControlConfigGetU32(
+        BWLControl    cntrl,
+        const char  *key,
+        uint32_t    *u32
         );
 
 extern BWLBoolean

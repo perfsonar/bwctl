@@ -885,10 +885,10 @@ ACCEPT:
     /* Child */
     else{
         struct itimerval    itval;
-        BWLRequestType        msgtype=BWLReqInvalid;
+        BWLRequestType      msgtype=BWLReqInvalid;
 
 #ifndef    NDEBUG
-        int        childwait;
+        void                *childwait;
 
         if((childwait = opts.childwait)){
             BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
@@ -900,12 +900,12 @@ ACCEPT:
              * set BWLChildWait if you want to attach
              * to them... (by resetting childwait back to non-zero)
              */
-            if(childwait && !BWLContextConfigSet(policy->ctx,
-                        BWLChildWait,(void*)childwait)){
+            if(childwait &&
+                    !BWLContextConfigSet(policy->ctx,BWLChildWait,
+                        (void*)childwait)){
                 BWLError(policy->ctx,BWLErrWARNING,
                         BWLErrUNKNOWN,
-                        "BWLContextConfigSet(): "
-                        "Unable to set BWLChildWait?!");
+                        "BWLContextConfigSet(): Unable to set BWLChildWait?!");
             }
         }
 #endif
@@ -1643,7 +1643,8 @@ main(int argc, char *argv[])
                 break;
 #ifndef NDEBUG
             case 'w':
-                opts.childwait = True;
+                /* just non-null */
+                opts.childwait = (void*)!NULL;
                 break;
 #endif
             case 'h':
@@ -1712,15 +1713,13 @@ main(int argc, char *argv[])
     }
 
     if((opts.syncfuzz != 0.0) &&
-            !BWLContextConfigSet(ctx,BWLSyncFuzz,
-                (void*)&opts.syncfuzz)){
+            !BWLContextConfigSet(ctx,BWLSyncFuzz,(void*)&opts.syncfuzz)){
         I2ErrLog(errhand,"Unable to set SyncFuzz.");
         exit(1);
     }
 
     if((opts.peerports) &&
-            !BWLContextConfigSet(ctx,BWLPeerPortRange,
-                (void*)opts.peerports)){
+            !BWLContextConfigSet(ctx,BWLPeerPortRange,(void*)opts.peerports)){
         I2ErrLog(errhand,"Unable to set PeerPorts.");
         exit(1);
     }

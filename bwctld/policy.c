@@ -995,16 +995,16 @@ BADLINE:
                 (void*)bottleneckcapacity)){
         return NULL;
     }
-    if(!BWLContextConfigSet(ctx,BWLGetAESKey,(void*)getaeskey)){
+    if(!BWLContextConfigSet(ctx,BWLGetAESKey,(BWLFunc)getaeskey)){
         return NULL;
     }
-    if(!BWLContextConfigSet(ctx,BWLCheckControlPolicy,(void*)checkcontrolfunc)){
+    if(!BWLContextConfigSet(ctx,BWLCheckControlPolicy,(BWLFunc)checkcontrolfunc)){
         return NULL;
     }
-    if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,(void*)checktestfunc)){
+    if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,(BWLFunc)checktestfunc)){
         return NULL;
     }
-    if(!BWLContextConfigSet(ctx,BWLTestComplete,(void*)testcompletefunc)){
+    if(!BWLContextConfigSet(ctx,BWLTestComplete,(BWLFunc)testcompletefunc)){
         return NULL;
     }
 
@@ -1043,7 +1043,7 @@ BWLDGetAESKey(
 
     *err_ret = BWLErrOK;
 
-    if(!(policy = (BWLDPolicy)BWLContextConfigGet(ctx,BWLDPOLICY))){
+    if(!(policy = (BWLDPolicy)BWLContextConfigGetV(ctx,BWLDPOLICY))){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                 "BWLDGetAESKey: BWLDPOLICY not set");
         *err_ret = BWLErrFATAL;
@@ -2075,7 +2075,7 @@ BWLDCheckControlPolicy(
 
     ctx = BWLGetContext(cntrl);
 
-    if(!(policy = (BWLDPolicy)BWLContextConfigGet(ctx,BWLDPOLICY))){
+    if(!(policy = (BWLDPolicy)BWLContextConfigGetV(ctx,BWLDPOLICY))){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                 "BWLDCheckControlPolicy: BWLDPOLICY not set");
         *err_ret = BWLErrFATAL;
@@ -2188,7 +2188,7 @@ BWLDCheckTestPolicy(
     /*
      * Fetch the "user class" for this connection.
      */
-    if(!(node = (BWLDPolicyNode)BWLControlConfigGet(cntrl,
+    if(!(node = (BWLDPolicyNode)BWLControlConfigGetV(cntrl,
                     BWLDPOLICY_NODE))){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                 "BWLDCheckTestPolicy: BWLDPOLICY_NODE not set");
