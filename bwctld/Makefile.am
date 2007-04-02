@@ -21,9 +21,9 @@
 # possible solution to conf dir location
 AM_CFLAGS = $(BWL_PREFIX_CFLAGS)
 
-INCLUDES	= $(BWLINCS) $(I2UTILINCS)
+INCLUDES	= $(BWLINCS)
 
 bin_PROGRAMS	= bwctld
 bwctld_SOURCES	= bwctldP.h bwctld.c policy.h policy.c 
-bwctld_LDADD	= $(BWLLIBS) $(I2UTILLIBS) $(MALLOCDEBUGLIBS)
-bwctld_DEPENDENCIES = $(BWLLIBDEPS) $(I2UTILLIBDEPS)
+bwctld_LDADD	= $(BWLLIBS) $(MALLOCDEBUGLIBS)
+bwctld_DEPENDENCIES = $(BWLLIBDEPS)

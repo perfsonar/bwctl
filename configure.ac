@@ -68,8 +68,8 @@ AC_SUBST(MALLOCDEBUGLIBS)
 # install the library.
 #
 AC_ARG_WITH(I2util,
-            AC_HELP_STRING([--with-I2util=<dir>],
-                           [defaults to using installed I2util, use <dir> to indicate path to build tree ]),
+            AC_HELP_STRING([--with-I2util=<path>],
+                           [defaults to using installed I2util, use <path> to indicate path to build tree ]),
                            with_I2util=$withval, with_I2util=yes)
 
 if test -n "$with_I2util" -a "$with_I2util" != "yes" -a -d "$with_I2util"; then 
@@ -78,8 +78,8 @@ if test -n "$with_I2util" -a "$with_I2util" != "yes" -a -d "$with_I2util"; then
 	CFLAGS="$CFLAGS -I$with_I2util"
 fi
 
-AC_CHECK_LIB([I2util], [I2AddrByNode], , AC_MSG_ERROR([couldn't find I2util]))
-AC_CHECK_HEADERS([I2util/conf.h])
+AC_SEARCH_LIBS(I2AddrByNode,I2util, ,AC_MSG_ERROR([Couldn't find I2util]))
+AC_CHECK_HEADERS([I2util/util.h I2util/conf.h], ,AC_MSG_ERROR([Couldn't find I2util header files]), [AC_INCLUDES_DEFAULT])
 
 #
 # Configure option to specify where to look for libthrulay if not installed.
@@ -89,13 +89,14 @@ AC_ARG_WITH([thrulay],
 				[libthrulay path; defaults to system installation]),
 				with_thrulay=$withval)
 
-if test -n "$with_thrulay" -a "$with_thrulay" != "yes"; then 
+if test -n "$with_thrulay" -a "$with_thrulay" != "yes" -a -d "$with_thrulay"; then 
 	# Path given for libthrulay
-	LDFLAGS="$LDFLAGS -L$with_thrulay"
+	LDFLAGS="$LDFLAGS -L$with_thrulay/thrulay"
 	CFLAGS="$CFLAGS -I$with_thrulay"
 fi
-AC_CHECK_LIB([thrulay], [main])
-AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h])
+AC_SEARCH_LIBS(thrulay_client_init,thrulay)
+#AC_CHECK_LIB([thrulay], [main])
+AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_WARN([Couldn't fine thrulay headers: configuring for no thrulay support]), [AC_INCLUDES_DEFAULT])
 
 
 BWLINCS='-I${top_srcdir}'
