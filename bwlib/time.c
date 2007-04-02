@@ -39,6 +39,7 @@
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  */
+#include <stdlib.h>
 #include <signal.h>
 #include <string.h>
 #include <assert.h>
@@ -48,6 +49,9 @@
 #ifdef  HAVE_SYS_TIMEX_H
 #include <sys/timex.h>
 #endif
+
+static struct timeval   timeoffset;
+static int              sign_timeoffset = 0;
 
 /*
  * Function:	_BWLEncodeTimeStamp
@@ -583,6 +587,8 @@ int
             BWLContext	ctx __attribute__((unused))
             )
 {
+    char    *toffstr=NULL;
+
     /*
      * If this system has the ntp system calls, use them. Otherwise,
      * assume the clock is not synchronized.
@@ -599,7 +605,8 @@ int
         }
 
         if(ntp_conf.status & STA_UNSYNC){
-            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "NTP: Status UNSYNC (clock offset problems likely)");
         }
 
 #ifdef	STA_NANO
@@ -610,7 +617,49 @@ int
         }
 #endif	/*  STA_NANO */
     }
+#else
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "NTP: Status UNSYNC (clock offset problems likely)");
 #endif  /* HAVE_SYS_TIMEX_H */
+
+    if( !(toffstr = getenv("BWCTL_DEBUG_TIMEOFFSET"))){
+        timeoffset.tv_sec = 0;
+        timeoffset.tv_usec = 0;
+    }
+    else{
+        double  td;
+        char    *estr=NULL;
+
+        td = strtod(toffstr,&estr);
+        if((toffstr == estr) || (errno == ERANGE)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Invalid BWCTL_DEBUG_TIMEOFFSET env var: %s",toffstr);
+            return 1;
+        }
+
+        if(td == 0.0){
+            sign_timeoffset = 0;
+        }
+        else{
+            if(td > 0.0){
+                sign_timeoffset = 1;
+            }
+            else{
+                sign_timeoffset = -1;
+                td = -td;
+            }
+
+            timeoffset.tv_sec = trunc(td);
+            td -= timeoffset.tv_sec;
+            td *= 1000000;
+            timeoffset.tv_usec = trunc(td);
+
+            BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
+                    "BWCTL_DEBUG_TIMEOFFSET: sec=%c%lu, usec=%lu",
+                    (sign_timeoffset > 0)?'+':'-',
+                    timeoffset.tv_sec,timeoffset.tv_usec);
+        }
+    }
 
     return 0;
 }
