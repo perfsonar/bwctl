@@ -258,10 +258,8 @@ _BWLClientConnect(
 
         saddr6 = (struct sockaddr_in6*)ai->ai_addr;
         if(IN6_IS_ADDR_LOOPBACK(&saddr6->sin6_addr)){
-            errno = EADDRNOTAVAIL;
-            BWLError(cntrl->ctx,BWLErrFATAL,errno,
-                    "Loopback is not a valid test address");
-            goto error;
+            BWLError(cntrl->ctx,BWLErrWARNING,errno,
+                    "Loopback is probably not a valid test address (can't schedule both a receiver and a sender at one time)");
         }
 
         if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
@@ -280,10 +278,8 @@ _BWLClientConnect(
 
         saddr4 = (struct sockaddr_in*)ai->ai_addr;
         if(saddr4->sin_addr.s_addr == INADDR_LOOPBACK){
-            errno = EADDRNOTAVAIL;
-            BWLError(cntrl->ctx,BWLErrFATAL,errno,
-                    "Loopback is not a valid test address");
-            goto error;
+            BWLError(cntrl->ctx,BWLErrWARNING,errno,
+                    "Loopback is probably not a valid test address (can't schedule both a receiver and a sender at one time)");
         }
 
         if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)

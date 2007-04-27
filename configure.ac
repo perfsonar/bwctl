@@ -76,6 +76,7 @@ if test -n "$with_I2util" -a "$with_I2util" != "yes" -a -d "$with_I2util"; then
 	# Path given for libthrulay
 	LDFLAGS="$LDFLAGS -L$with_I2util/I2util"
 	CFLAGS="$CFLAGS -I$with_I2util"
+        BWLLIBDEPS="$BWLLIBDEPS $with_I2util/I2util/libI2util.a"
 fi
 
 AC_SEARCH_LIBS(I2AddrByNode,I2util, ,AC_MSG_ERROR([Couldn't find I2util]))
@@ -91,8 +92,9 @@ AC_ARG_WITH([thrulay],
 
 if test -n "$with_thrulay" -a "$with_thrulay" != "yes" -a -d "$with_thrulay"; then 
 	# Path given for libthrulay
-	LDFLAGS="$LDFLAGS -L$with_thrulay/thrulay"
 	CFLAGS="$CFLAGS -I$with_thrulay"
+	LDFLAGS="$LDFLAGS -L$with_thrulay/thrulay"
+        BWLLIBDEPS="$BWLLIBDEPS $with_thrulay/thrulay/libthrulay.la"
 fi
 AC_SEARCH_LIBS(thrulay_client_init,thrulay)
 #AC_CHECK_LIB([thrulay], [main])
@@ -104,11 +106,8 @@ BWLINCS='-I${top_srcdir}'
 BWL_dir='${top_srcdir}/bwlib'
 BWLLDFLAGS="-L$BWL_dir"
 BWLLIBS="$BWLLDFLAGS -lbwlib"
-BWLLIBDEPS="$BWL_dir/libbwlib.a"
+BWLLIBDEPS="$BWLLIBDEPS $BWL_dir/libbwlib.a"
 
-AC_SUBST(I2UTILINCS)
-AC_SUBST(I2UTILLIBS)
-AC_SUBST(I2UTILLIBDEPS)
 AC_SUBST(BWLINCS)
 AC_SUBST(BWLLIBS)
 AC_SUBST(BWLLIBDEPS)
