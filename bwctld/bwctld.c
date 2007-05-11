@@ -64,6 +64,13 @@ int optreset;
 #endif
 
 static void
+version(){
+    fprintf(stderr, "\nVersion: %s\n\n", PACKAGE_VERSION);
+    return;
+}
+
+
+static void
 usage(
         const char *progname,
         const char *msg    __attribute__((unused))
@@ -87,13 +94,14 @@ usage(
             "      -U/-G options only used if run as root\n"
             "   -U user           Run as user \"user\" :-uid also valid\n"
             "   -v                verbose output\n"
+            "   -V                version\n"
 #ifndef    NDEBUG
             "   -w                Debugging: busy-wait children after fork to allow attachment\n"
             "   -Z                Debugging: Run in foreground\n"
 #endif
             "\n"
            );
-    fprintf(stderr, "\nVersion: %s\n\n", PACKAGE_VERSION);
+    version();
     return;
 }
 
@@ -1494,11 +1502,14 @@ main(int argc, char *argv[])
     struct sigaction    setact;
     sigset_t            sigs;
 
+#define OPTBASESTRING "hvVc:d:fR:a:S:e:ZU:G:"
 #ifndef NDEBUG
-    char                *optstring = "hvc:d:fR:a:S:e:ZU:G:w";
-#else    
-    char                *optstring = "hvc:d:fR:a:S:e:ZU:G:";
+#define OPTSTRING   OPTBASESTRING "w"
+#else
+#define OPTSTRING   OPTBASESTRING
 #endif
+
+    char                *optstring = OPTSTRING;
 
     /*
      * Start an error loggin session for reporting errors to the
@@ -1647,6 +1658,10 @@ main(int argc, char *argv[])
                 opts.childwait = (void*)!NULL;
                 break;
 #endif
+            case 'V':
+                version();
+                exit(0);
+                /* UNREACHED */
             case 'h':
             case '?':
             default:

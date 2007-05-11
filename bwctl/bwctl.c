@@ -149,6 +149,14 @@ print_output_args(
 }
 
 static void
+version()
+{
+    fprintf(stderr,"\nVersion: %s\n",PACKAGE_VERSION);
+
+    return;
+}
+
+static void
 usage(
         const char  *progname,
         const char  *msg
@@ -165,7 +173,7 @@ usage(
     fprintf(stderr, "\n");
     print_output_args();
 
-    fprintf(stderr,"\nVersion: %s\n",PACKAGE_VERSION);
+    version();
 
     return;
 }
@@ -1420,21 +1428,21 @@ main(
                 /* handled in prior getopt call... */
                 break;
             case 'V':
-                app.opt.version = True;
-                fprintf(stderr,"Version: $Revision$\n");
+                version();
                 exit(0);
+                /* NOTREACHED */
 
                 /* TEST OPTIONS */
-	case 'T':
+            case 'T':
                 if (0 == strncasecmp(optarg,"iperf",6)) { 
                     app.opt.tester = BWL_TESTER_IPERF;
-		} else if (0 == strncasecmp(optarg,"thrulay",8)) {
+                } else if (0 == strncasecmp(optarg,"thrulay",8)) {
                     app.opt.tester = BWL_TESTER_THRULAY;
-		} else if (0 == strncasecmp(optarg,"nuttcp",7)) {
+                } else if (0 == strncasecmp(optarg,"nuttcp",7)) {
                     app.opt.tester = BWL_TESTER_NUTTCP;
-		} else {
+                } else {
                     usage(progname, "Invalid tester tool. "
-			  "'iperf', 'nuttcp' or 'thrulay' expected");
+                            "'iperf', 'nuttcp' or 'thrulay' expected");
                     exit(1);
                 }
                 break;
