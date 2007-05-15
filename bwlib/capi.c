@@ -248,7 +248,6 @@ _BWLClientConnect(
      * to create a socket of that type, and binding(if wanted).
      * Also check policy for allowed connection before calling
      * connect.
-     * (Binding will call the policy function internally.)
      */
 #ifdef	AF_INET6
     for(ai=fai;ai;ai=ai->ai_next){

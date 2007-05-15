@@ -980,8 +980,8 @@ _BWLEndpointStart(
     ep->child = fork();
 
     if(ep->child < 0){
-        int    serr = errno;
         /* fork error */
+        int    serr = errno;
         (void)sigprocmask(SIG_SETMASK,&osigs,NULL);
         BWLError(ctx,BWLErrFATAL,serr,"fork(): %M");
         EndpointFree(ep);
@@ -1497,7 +1497,7 @@ end:
                  * report that this endpoint data is suspect since it
                  * had to be killed by the parent process.
                  */
-                if(fwrite("BWCTL_WARNING: tester killed: timslot irregularity",
+                if(fwrite("BWCTL_WARNING: tester killed: timeslot irregularity",
                             sizeof(char),50,tsess->localfp) != 50){
                     BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                             "Error writing warning to tester data results");

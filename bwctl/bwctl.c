@@ -1687,8 +1687,7 @@ main(
     if(app.opt.printfiles){
         strcpy(lockpath,dirpath);
         strcat(lockpath,BWLOCK);
-        lockfd = open(lockpath,O_RDWR|O_CREAT,
-                S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+        lockfd = open(lockpath,O_RDWR|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
         if(lockfd < 0){
             I2ErrLog(eh,"open(%s): %M",lockpath);
             exit(1);
@@ -1719,11 +1718,11 @@ main(
      */
     /* skip req_time/latest_time - set per/test */
     if(app.opt.tester){
-	first.tspec.tester = second.tspec.tester = app.opt.tester;
+        first.tspec.tester = second.tspec.tester = app.opt.tester;
     }
     else{
-	/* Default to thrulay */
-	first.tspec.tester = second.tspec.tester = BWL_TESTER_THRULAY;
+        /* Default to thrulay */
+        first.tspec.tester = second.tspec.tester = BWL_TESTER_THRULAY;
     }
     first.tspec.duration = app.opt.timeDuration;
     first.tspec.udp = app.opt.udpTest;
@@ -1794,8 +1793,7 @@ main(
         }
 
         wake.tstamp = BWLNum64Add(wake.tstamp,
-                BWLDoubleToNum64((double)app.opt.seriesInterval*
-                    r/0xffffffff));
+                BWLDoubleToNum64((double)app.opt.seriesInterval*r/0xffffffff));
     }
     base = wake;
 
@@ -1846,13 +1844,11 @@ AGAIN:
                         tspec.tv_sec);
             }
 
-            if((nanosleep(&tspec,NULL) == 0) ||
-                    (errno == EINTR)){
+            if((nanosleep(&tspec,NULL) == 0) || (errno == EINTR)){
                 goto AGAIN;
             }
 
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "nanosleep(): %M");
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"nanosleep(): %M");
             exit_val = 1;
             goto finish;
         }

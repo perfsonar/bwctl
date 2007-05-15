@@ -391,6 +391,13 @@ _BWLReadServerOK(
         )
 {
     uint8_t *buf = (uint8_t*)cntrl->msg;
+    int	    intr = 0;
+    int	    *retn_on_intr = &intr;
+
+    if(cntrl->retn_on_intr){
+        retn_on_intr = cntrl->retn_on_intr;
+    }
+
 
     if(!_BWLStateIsSetup(cntrl)){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -398,7 +405,7 @@ _BWLReadServerOK(
         return BWLErrFATAL;
     }
 
-    if(I2Readn(cntrl->sockfd,buf,32) != 32){
+    if(I2Readni(cntrl->sockfd,buf,32,retn_on_intr) != 32){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "Read failed:(%s)",strerror(errno));
         cntrl->state = _BWLStateInvalid;
