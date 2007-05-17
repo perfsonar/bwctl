@@ -139,14 +139,14 @@ struct limdesc{
 };
 
 static struct limdesc	limkeys[] = {
-    {BWLDLimParent,		"parent",		LIMNOT,		0},
-    {BWLDLimBandwidth,	"bandwidth",		LIMFIXEDINT,	0},
-    {BWLDLimPending,	"pending",		LIMINT,		0},
-    {BWLDLimEventHorizon,	"event_horizon",	LIMFIXEDINT,	0},
-    {BWLDLimDuration,	"duration",		LIMFIXEDINT,	0},
-    {BWLDLimAllowOpenMode,	"allow_open_mode",	LIMBOOL,	1},
-    {BWLDLimAllowTCP,	"allow_tcp",		LIMBOOL,	1},
-    {BWLDLimAllowUDP,	"allow_udp",		LIMBOOL,	0}
+    {BWLDLimParent,         "parent",		LIMNOT,         0},
+    {BWLDLimBandwidth,      "bandwidth",	LIMFIXEDINT,    0},
+    {BWLDLimPending,        "pending",		LIMINT,	        0},
+    {BWLDLimEventHorizon,   "event_horizon",	LIMFIXEDINT,    0},
+    {BWLDLimDuration,	    "duration",		LIMFIXEDINT,    0},
+    {BWLDLimAllowOpenMode,  "allow_open_mode",	LIMBOOL,        1},
+    {BWLDLimAllowTCP,	    "allow_tcp",	LIMBOOL,        1},
+    {BWLDLimAllowUDP,	    "allow_udp",	LIMBOOL,        0}
 };
 
 static BWLDLimitT

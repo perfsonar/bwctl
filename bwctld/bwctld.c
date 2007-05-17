@@ -1254,9 +1254,10 @@ LoadConfig(
             uint32_t    tlng;
 
             /* Only process ports for the selected tool */
-            if(!strncasecmp(key,"iperfport",10) || 
-                    !strncasecmp(key,"iperf_port",11) &&
-                    strncasecmp(opts.tester,"iperf",6) ||
+            if(
+                    ((!strncasecmp(key,"iperfport",10) ||
+                    !strncasecmp(key,"iperf_port",11)) &&
+                    strncasecmp(opts.tester,"iperf",6)) ||
                     (!strncasecmp(key,"thrulay_port",13) && 
                      strncasecmp(opts.tester,"thrulay",8))){
                 continue;
@@ -1524,7 +1525,11 @@ main(int argc, char *argv[])
     syslogattr.logopt = LOG_PID;
     syslogattr.facility = LOG_DAEMON;
     syslogattr.priority = LOG_ERR;
-    syslogattr.line_info = I2MSG;
+    syslogattr.line_info = (I2MSG);
+
+#ifndef NDEBUG
+    syslogattr.line_info |= (I2LINE | I2FILE);
+#endif
 
     /* Set up options defaults */
     memset(&opts,0,sizeof(opts));

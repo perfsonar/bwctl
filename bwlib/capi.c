@@ -356,6 +356,14 @@ BWLControlOpen(
     if(_BWLClientConnect(cntrl,local_addr,server_addr,err_ret) != 0)
         goto error;
 
+    if(!cntrl->local_addr){
+        if( !(cntrl->local_addr = I2AddrByLocalSockFD(
+                        BWLContextErrHandle(cntrl->ctx),
+                        cntrl->sockfd,False))){
+            goto error;
+        }
+    }
+
     /*
      * Read the server greating.
      */

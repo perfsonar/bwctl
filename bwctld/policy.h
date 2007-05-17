@@ -42,7 +42,7 @@
  * type: (owp_policy_data*) - defined in access.h
  * location: Context Config
  */
-#define BWLDPOLICY	"BWLDPOLICY"
+#define BWLDPOLICY	"V.BWLDPOLICY"
 
 /*
  * Holds the identifying "node" from the policy tree that contains the
@@ -51,7 +51,7 @@
  * type: (owp_tree_node_ptr) - defined in access.h
  * location: Control Config
  */
-#define BWLDPOLICY_NODE	"BWLDPOLICY_NODE"
+#define BWLDPOLICY_NODE	"V.BWLDPOLICY_NODE"
 
 /*
  * Types used by policy functions

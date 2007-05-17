@@ -341,6 +341,9 @@ ConfigSetVA(
     else if( !strncmp(key,"U32.",4)){
         val.u32 = (uint32_t)va_arg(ap, uint32_t);
     }
+    else{
+        return False;
+    }
 
     return ConfigSetU(table,key,val);
 }
