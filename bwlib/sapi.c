@@ -255,8 +255,10 @@ BWLControlAccept(
     *err_ret = BWLErrOK;
     mode_offered &= BWL_MODE_ALLMODES;
 
-    if ( !(cntrl = _BWLControlAlloc(ctx,err_ret)))
+    if( !(cntrl = _BWLControlAlloc(ctx,err_ret))){
+        BWLError(ctx,BWLErrFATAL,errno,"_BWLControlAlloc(): %M");
         goto error;
+    }
 
     cntrl->sockfd = connfd;
     cntrl->server = True;
@@ -269,14 +271,25 @@ BWLControlAccept(
      */
     if(!connsaddr || !connsaddrlen){
         if(!(cntrl->remote_addr = I2AddrBySockFD(ctx,connfd,True))){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to determine socket peername: %M");
+            *err_ret = BWLErrFATAL;
             goto error;
         }
     }
     else{
         if( !(cntrl->remote_addr = I2AddrBySAddr(
                         BWLContextErrHandle(ctx),
-                        connsaddr,connsaddrlen,SOCK_STREAM,0)) ||
-                !I2AddrSetFD(cntrl->remote_addr,connfd,True)){
+                        connsaddr,connsaddrlen,SOCK_STREAM,0))){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to determine socket peername: %M");
+            *err_ret = BWLErrFATAL;
+            goto error;
+        }
+        if( !I2AddrSetFD(cntrl->remote_addr,connfd,True)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to set socket fd: %M");
+            *err_ret = BWLErrFATAL;
             goto error;
         }
     }
@@ -286,6 +299,8 @@ BWLControlAccept(
      */
     if( !(cntrl->local_addr = I2AddrByLocalSockFD(
                     BWLContextErrHandle(ctx),connfd,False))){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to determine socketname: %M");
         *err_ret = BWLErrFATAL;
         goto error;
     }
@@ -294,6 +309,8 @@ BWLControlAccept(
             !I2AddrServName(cntrl->remote_addr,remoteserv,&remoteservlen) ||
             !I2AddrNodeName(cntrl->local_addr,localnode,&localnodelen) ||
             !I2AddrServName(cntrl->local_addr,localserv,&localservlen)){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to set service names: %M");
         goto error;
     }
 

@@ -124,8 +124,8 @@ failed:
 BWLTesterAvailability
 LookForTesters(BWLContext ctx)
 {
-    const uint8_t command_size = 80;
-    char command[command_size];
+    char command[80];
+    const uint8_t command_size = I2Number(command);
     char *tester;
     FILE *command_pipe;
     pid_t pid;
@@ -162,19 +162,19 @@ LookForTesters(BWLContext ctx)
 	dup2(fdpipe[1],2);
 	close(fdpipe[0]);
 	close(fdpipe[1]);
-	execlp(tester,tester,"-v",0);
+	execlp(tester,tester,"-v",NULL);
 	BWLError(ctx,BWLErrFATAL,errno,"execlp(%s): %M",tester);
 	exit(EXIT_FAILURE);
     }
     else{
-	rc = waitpid(pid,&status,0);
+	while(((rc = waitpid(pid,&status,0)) == -1) && errno == EINTR);
 	if(rc && WIFEXITED(status)){
 	    if(1 == WEXITSTATUS(status)){
 		/* We expect 'iperf -v' to print to stderr something like
 		   'iperf version 2.0.2 (03 May 2005) pthreads' */
 		char *pattern = "iperf version "; /* Expected begin. of stderr */
-		const uint8_t buf_size = 80;
-		char buf[buf_size];
+		char buf[80];
+		const uint8_t buf_size = I2Number(buf);
 		
 		close(fdpipe[1]);
 		rc = read(fdpipe[0],buf,buf_size);
@@ -213,8 +213,8 @@ LookForTesters(BWLContext ctx)
     if(NULL != command_pipe){
 	/* Check output */
 	char *pattern = "nuttcp-";        /* Expected beginning of output */
-	const uint8_t buf_size = 80;
-	char buf[buf_size];
+	char buf[80];
+	const uint8_t buf_size = I2Number(buf);
 
 	fgets(buf,buf_size,command_pipe);
 	if(0 == strncmp(buf,pattern,strlen(pattern))){

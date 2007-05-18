@@ -909,15 +909,23 @@ portdone:
 
     /* parent */
     if(pid > 0){
-        BWLControl    cntrl;
+        BWLControl  cntrl;
+        I2Addr      servaddr;
 
         while((close(new_pipe[1]) < 0) && (errno == EINTR));
 
-        cntrl = BWLControlOpen(ctx,NULL,
-                I2AddrBySockFD(eh,new_pipe[0],True),
+        if(!(servaddr = I2AddrBySockFD(eh,new_pipe[0],True))){
+            I2ErrLog(eh,"Failed to create local-server address: %M");
+            return NULL;
+        }
+
+        cntrl = BWLControlOpen(ctx,NULL,servaddr,
                 BWL_MODE_OPEN,NULL,NULL,NULL,&err);
 
-        if(!cntrl) return NULL;
+        if(!cntrl){
+            I2ErrLog(eh,"Failed to connect to local-server: %M");
+            return NULL;
+        }
 
         fake_fd = new_pipe[0];
         fake_pid = pid;
@@ -926,6 +934,7 @@ portdone:
 
     /* Now implement child "server" */
     if(ip_exit){
+        I2ErrLog(eh,"Child exiting from signal");
         _exit(0);
     }
 
@@ -1027,7 +1036,7 @@ portdone:
         }
     }
 
-    if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,(void*)CheckTestPolicy)){
+    if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,CheckTestPolicy)){
         I2ErrLog(eh,"BWLContextConfigSet(\"CheckTestPolicy\")");
         _exit(1);
     }
@@ -1057,6 +1066,7 @@ portdone:
     cntrl = BWLControlAccept(ctx,new_pipe[1],NULL,0,BWL_MODE_OPEN,
             currtime.tstamp,avail_testers,&ip_exit,&err);
     if(!cntrl){
+        I2ErrLog(eh,"BWLControlAccept() failed");
         _exit(err);
     }
 
@@ -1948,6 +1958,8 @@ AGAIN:
                             "Unable to contact a local bwctld: Spawning local tester controller");
 
 		            second.avail_testers = LookForTesters(ctx);
+                    /* LookForTesters exec's, so reset signal indicators */
+                    ip_intr=0; ip_chld=0;
                     if(!(second.cntrl =
                                 SpawnLocalServer(ctx,second.avail_testers))){
                         I2ErrLog(eh,
