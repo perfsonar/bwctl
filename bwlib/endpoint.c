@@ -556,7 +556,6 @@ run_tester(
     BWLTestSession      tsess = ep->tsess;
     BWLContext          ctx = tsess->cntrl->ctx;
     int                 outfd = fileno(ep->tsess->localfp);
-    BWLTimeStamp        currtime;
     int                 a = 0;
     char                recvhost[MAXHOSTNAMELEN];
     char                sendhost[MAXHOSTNAMELEN];

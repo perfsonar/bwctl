@@ -1009,7 +1009,6 @@ BWLReadRequestType(
 extern BWLErrSeverity
 BWLProcessTestRequest(
         BWLControl              cntrl,
-        BWLTesterAvailability   avail_testers,
         int                     *retn_on_intr
         );
 

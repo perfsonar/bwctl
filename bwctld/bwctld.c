@@ -1003,7 +1003,7 @@ ACCEPT:
             switch (msgtype){
 
                 case BWLReqTest:
-                    rc = BWLProcessTestRequest(cntrl,avail_testers,&ipfd_intr);
+                    rc = BWLProcessTestRequest(cntrl,&ipfd_intr);
                     break;
 
                 case BWLReqTime:

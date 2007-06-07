@@ -1102,7 +1102,7 @@ portdone:
             int    wstate;
 
             case BWLReqTest:
-            rc = BWLProcessTestRequest(cntrl,avail_testers,&ip_exit);
+            rc = BWLProcessTestRequest(cntrl,&ip_exit);
             break;
 
             case BWLReqTime:

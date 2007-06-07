@@ -837,7 +837,7 @@ _BWLWriteTestRequest(
     struct sockaddr *rsaddr;
     uint8_t	    version;
     uint32_t	    message_len;
-    uint32_t	    blocks;
+    int	            blocks;
     BWLBoolean	    tester_negotiation;
 
     /*
@@ -1042,7 +1042,7 @@ _BWLReadTestRequest(
     uint16_t                recv_port;
     BWLBoolean              conf_sender;
     BWLBoolean              conf_receiver;
-    uint32_t                blocks=_BWL_TEST_REQUEST_BLK_LEN; /* 8 */
+    int                     blocks=_BWL_TEST_REQUEST_BLK_LEN; /* 8 */
     uint32_t                padding_pos;
     BWLBoolean	            tester_negotiation;
 

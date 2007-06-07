@@ -43,6 +43,7 @@
 #include <signal.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <bwlib/bwlib.h>
