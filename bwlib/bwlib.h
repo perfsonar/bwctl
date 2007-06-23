@@ -47,7 +47,7 @@
 #endif
 
 
-#if    !HAVE_MALLOC || !HAVE_MEMSET
+#if    !HAVE_MEMSET
 #error    Missing needed memory functions!
 #endif
 #endif    /* HAVE_CONFIG_H */

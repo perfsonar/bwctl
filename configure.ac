@@ -27,9 +27,13 @@
 #
 #	Options:
 # Process this file with autoconf to produce a configure script.
+PACKAGE=bwctl
+VERSION="1.3rc"
+
 AC_INIT(bwctl, 1.3rc, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
 AM_INIT_AUTOMAKE(bwctl, 1.3rc, [no-define])
+
 AC_CONFIG_SRCDIR(bwlib/context.c)
 AM_CONFIG_HEADER(bwlib/config.h)
 
@@ -73,13 +77,13 @@ AC_ARG_WITH(I2util,
                            with_I2util=$withval, with_I2util=yes)
 
 if test -n "$with_I2util" -a "$with_I2util" != "yes" -a -d "$with_I2util"; then 
-	# Path given for libthrulay
+	# Path given for libI2util
 	LDFLAGS="$LDFLAGS -L$with_I2util/I2util"
 	CFLAGS="$CFLAGS -I$with_I2util"
         BWLLIBDEPS="$BWLLIBDEPS $with_I2util/I2util/libI2util.a"
 fi
 
-AC_SEARCH_LIBS(I2AddrByNode,I2util, ,AC_MSG_ERROR([Couldn't find I2util]))
+AC_SEARCH_LIBS([I2AddrByNode],I2util, ,AC_MSG_ERROR([Couldn't find I2util]))
 AC_CHECK_HEADERS([I2util/util.h I2util/conf.h], ,AC_MSG_ERROR([Couldn't find I2util header files]), [AC_INCLUDES_DEFAULT])
 
 #
@@ -90,15 +94,28 @@ AC_ARG_WITH([thrulay],
 				[libthrulay path; defaults to system installation]),
 				with_thrulay=$withval)
 
-if test -n "$with_thrulay" -a "$with_thrulay" != "yes" -a -d "$with_thrulay"; then 
-	# Path given for libthrulay
-	CFLAGS="$CFLAGS -I$with_thrulay"
-	LDFLAGS="$LDFLAGS -L$with_thrulay/thrulay"
-        BWLLIBDEPS="$BWLLIBDEPS $with_thrulay/thrulay/libthrulay.la"
+if test "$with_thrulay" != "no"; then
+    if test -n "$with_thrulay" -a "$with_thrulay" != "yes" -a -d "$with_thrulay"; then 
+        # Path given for libthrulay
+        LDFLAGS="$LDFLAGS -L$with_thrulay/thrulay/.libs"
+        CFLAGS="$CFLAGS -I$with_thrulay"
+        BWLLIBDEPS="$BWLLIBDEPS $with_thrulay/thrulay/.libs/libthrulay.a"
+    fi
+    AC_SEARCH_LIBS([thrulay_client_init],thrulay, ,[
+                    if test "$with_thrulay" = ""; then
+                        AC_MSG_WARN([Couldn't find libthrulay])
+                    else
+                        AC_MSG_ERROR([Couldn't find libthrulay])
+                    fi
+                ])
+    AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,[
+            if test "$with_thrulay" = ""; then
+                AC_MSG_WARN([Couldn't fine thrulay headers: configuring for no thrulay support])
+            else
+                AC_MSG_ERROR([Couldn't fine thrulay headers])
+            fi
+            ], [AC_INCLUDES_DEFAULT])
 fi
-AC_SEARCH_LIBS(thrulay_client_init,thrulay)
-#AC_CHECK_LIB([thrulay], [main])
-AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_WARN([Couldn't fine thrulay headers: configuring for no thrulay support]), [AC_INCLUDES_DEFAULT])
 
 
 BWLINCS='-I${top_srcdir}'
@@ -116,7 +133,8 @@ AC_SUBST(TOP_BUILD_DIRS)
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_RANLIB
+AC_PROG_LIBTOOL
+#AC_PROG_RANLIB
 AC_PROG_LN_S
 
 # possible solution to config location
@@ -126,9 +144,9 @@ AC_DEFINE(AUTOCONF_SYSCONFDIR,/etc,"name of sysconfdir under prefix")
 AC_SUBST(BWL_PREFIX_CFLAGS)
 
 # Checks for libraries.
-AC_CHECK_LIB([socket], [main])
-AC_CHECK_LIB([nsl], [main])
-AC_CHECK_LIB([rt], [main])
+AC_SEARCH_LIBS(getaddrinfo, [socket nsl])
+AC_SEARCH_LIBS(gethostbyname, nsl)
+AC_SEARCH_LIBS(nanosleep, rt)
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -143,7 +161,6 @@ AC_CHECK_MEMBERS([struct sockaddr.sa_len], , ,
 	#include <sys/socket.h>])
 
 # Checks for library functions.
-AC_FUNC_MALLOC
 AC_CHECK_FUNCS([memset socket getaddrinfo mergesort])
 
 # Checks for variable/function declarations.
