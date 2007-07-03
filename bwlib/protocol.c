@@ -928,6 +928,7 @@ _BWLWriteTestRequest(
      * values in network byte order.)
      */
     switch(version){
+        /* type punning - socket api, leaving as is for now. */
         struct sockaddr_in  *saddr4;
 #ifdef	AF_INET6
         struct sockaddr_in6 *saddr6;
@@ -1183,6 +1184,7 @@ _BWLReadTestRequest(
             }
             addrlen = sizeof(struct sockaddr_in6);
 
+            /* type punning - socket api, leaving for now */
             /* sender address and port */
             saddr6 = (struct sockaddr_in6*)&sendaddr_rec;
             saddr6->sin6_family = AF_INET6;
@@ -1208,6 +1210,7 @@ _BWLReadTestRequest(
             }
             addrlen = sizeof(struct sockaddr_in);
 
+            /* type punning - socket api, leaving for now */
             /* sender address and port  */
             saddr4 = (struct sockaddr_in*)&sendaddr_rec;
             saddr4->sin_family = AF_INET;

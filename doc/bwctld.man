@@ -1,3 +1,4 @@
+'"t
 ." The first line of this file must contain the '"[e][r][t][v] line
 ." to tell man to run the appropriate filter "t" for table.
 ."
@@ -228,6 +229,15 @@ bwctld.conf
 bwctld.limits
 .br
 bwctld.keys
+.SH ENVIRONMENT VARIABLES
+\fBBWCTL\fR uses environment variables for some debugging options.
+.TS
+lb lb
+_ _
+lb li .
+BWCTL Environment Variable	Description
+BWCTL_DEBUG_TIMEOFFSET	Offset time by this amount (seconds)
+.TE
 .SH SEE ALSO
 There are more details on configuring the \fBbwctld\fR daemon in the
 bwctld.conf(5) manual page. Details on configuring the policy

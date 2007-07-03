@@ -235,9 +235,9 @@ BWLControlAccept(
     uint8_t         rawtoken[32];
     uint8_t         token[32];
     int             rc;
-    struct timeval  tvalstart,tvalend;
     int             ival=0;
     int             *intr = &ival;
+    BWLTimeStamp    timestart,timeend;
     char            remotenode[NI_MAXHOST],remoteserv[NI_MAXSERV];
     size_t          remotenodelen = sizeof(remotenode);
     size_t          remoteservlen = sizeof(remoteserv);
@@ -327,8 +327,8 @@ BWLControlAccept(
         goto error;
     }
 
-    if(gettimeofday(&tvalstart,NULL)!=0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday():%M");
+    if(!BWLGetTimeStamp(ctx,&timestart)){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"BWLGetTimeStamp(): %M");
         *err_ret = BWLErrFATAL;
         goto error;
     }
@@ -354,13 +354,12 @@ BWLControlAccept(
         *err_ret = (BWLErrSeverity)rc;
         goto error;
     }
-    if(gettimeofday(&tvalend,NULL)!=0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday():%M");
+    if(!BWLGetTimeStamp(ctx,&timeend)){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"BWLGetTimeStamp(): %M");
         *err_ret = BWLErrFATAL;
         goto error;
     }
-    tvalsub(&tvalend,&tvalstart);
-    BWLTimevalToNum64(&cntrl->rtt_bound,&tvalend);
+    cntrl->rtt_bound = BWLNum64Sub(timeend.tstamp,timestart.tstamp);
 
     /* insure that exactly one mode is chosen */
     if(    (cntrl->mode != BWL_MODE_OPEN) &&
@@ -808,7 +807,6 @@ BWLStopSessionWait(
         BWLErrSeverity  *err_ret
         )
 {
-    struct timeval  currtime;
     struct timeval  reltime;
     struct timeval  *waittime = NULL;
     fd_set          readfds;
@@ -850,28 +848,18 @@ BWLStopSessionWait(
 
 AGAIN:
     if(wake){
-        BWLTimeStamp    wakestamp;
+        BWLTimeStamp    currstamp;
+        BWLNum64        wakenum;
 
-        /*
-         * convert abs wake time to timeval
-         */
-        wakestamp.tstamp = *wake;
-        BWLTimeStampToTimeval(&reltime,&wakestamp);
-
-        /*
-         * get current time.
-         */
-        if(gettimeofday(&currtime,NULL) != 0){
+        if(!BWLGetTimeStamp(cntrl->ctx,&currstamp)){
             BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "gettimeofday():%M");
+                    "BWLGetTimeStamp(): %M");
             return -1;
         }
 
-        /*
-         * compute relative wake time from current time and abs wake.
-         */
-        if(tvalcmp(&currtime,&reltime,<)){
-            tvalsub(&reltime,&currtime);
+        if(BWLNum64Cmp(currstamp.tstamp,*wake) < 0){
+            wakenum = BWLNum64Sub(*wake,currstamp.tstamp);
+            BWLNum64ToTimeval(&reltime,wakenum);
         }
         else{
             tvalclear(&reltime);

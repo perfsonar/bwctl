@@ -251,12 +251,13 @@ _BWLClientConnect(
      */
 #ifdef	AF_INET6
     for(ai=fai;ai;ai=ai->ai_next){
-        struct sockaddr_in6 *saddr6;
+        struct sockaddr_in6 srec;
 
         if(ai->ai_family != AF_INET6) continue;
 
-        saddr6 = (struct sockaddr_in6*)ai->ai_addr;
-        if(IN6_IS_ADDR_LOOPBACK(&saddr6->sin6_addr)){
+        /* avoid type punning by using memcpy instead of casting ai_addr */
+        memcpy(&srec,ai->ai_addr,sizeof(srec));
+        if(IN6_IS_ADDR_LOOPBACK(&srec.sin6_addr)){
             BWLError(cntrl->ctx,BWLErrWARNING,errno,
                     "Loopback is probably not a valid test address (can't schedule both a receiver and a sender at one time)");
         }
@@ -271,12 +272,13 @@ _BWLClientConnect(
      * Now try IPv4 addresses.
      */
     for(ai=fai;ai;ai=ai->ai_next){
-        struct sockaddr_in *saddr4;
+        struct sockaddr_in saddr4;
 
         if(ai->ai_family != AF_INET) continue;
 
-        saddr4 = (struct sockaddr_in*)ai->ai_addr;
-        if(saddr4->sin_addr.s_addr == INADDR_LOOPBACK){
+        /* avoid type punning by using memcpy instead of casting ai_addr */
+        memcpy(&saddr4,ai->ai_addr,sizeof(saddr4));
+        if(saddr4.sin_addr.s_addr == INADDR_LOOPBACK){
             BWLError(cntrl->ctx,BWLErrWARNING,errno,
                     "Loopback is probably not a valid test address (can't schedule both a receiver and a sender at one time)");
         }
@@ -328,7 +330,7 @@ BWLControlOpen(
     uint8_t	    token[32];
     uint8_t	    *key=NULL;
     BWLAcceptType   acceptval;
-    struct timeval  tvalstart,tvalend;
+    BWLTimeStamp    timestart,timeend;
     BWLNum64	    uptime;
 
     *err_ret = BWLErrOK;
@@ -495,7 +497,7 @@ gotmode:
      * Get current time before sending client greeting - used
      * for very rough estimate of RTT. (upper bound)
      */
-    if(gettimeofday(&tvalstart,NULL)!=0)
+    if(!BWLGetTimeStamp(ctx,&timestart))
         goto error;
 
     /*
@@ -519,10 +521,10 @@ gotmode:
      * Get current time after response from server and set the RTT
      * in the "rtt_bound" field of cntrl.
      */
-    if(gettimeofday(&tvalend,NULL)!=0)
+    if(!BWLGetTimeStamp(ctx,&timeend))
         goto error;
-    tvalsub(&tvalend,&tvalstart);
-    BWLTimevalToNum64(&cntrl->rtt_bound,&tvalend);
+
+    cntrl->rtt_bound = BWLNum64Sub(timeend.tstamp,timestart.tstamp);
 
     if((rc=_BWLReadServerUptime(cntrl,&uptime)) < BWLErrOK){
         *err_ret = (BWLErrSeverity)rc;

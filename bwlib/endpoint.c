@@ -256,6 +256,7 @@ epssock(
         memset(&sbuff,0,sizeof(sbuff));
         memcpy(&sbuff,lsaddr,lsaddrlen);
 
+        /* type-punning!!! */
         /* Specify port number to use */
         switch(lsaddr->sa_family){
             struct sockaddr_in  *s4;
@@ -329,18 +330,18 @@ bind_success:
         }
 
         switch(saddr->sa_family){
-            struct sockaddr_in    *saddr4;
+            struct sockaddr_in  saddr4;
 #ifdef    AF_INET6
-            struct sockaddr_in6    *saddr6;
+            struct sockaddr_in6 saddr6;
 
             case AF_INET6:
-            saddr6 = (struct sockaddr_in6 *)saddr;
-            *dataport = ntohs(saddr6->sin6_port);
+            memcpy(&saddr6,saddr,sizeof(saddr6));
+            *dataport = ntohs(saddr6.sin6_port);
             break;
 #endif
             case AF_INET:
-            saddr4 = (struct sockaddr_in *)saddr;
-            *dataport = ntohs(saddr4->sin_port);
+            memcpy(&saddr4,saddr,sizeof(saddr4));
+            *dataport = ntohs(saddr4.sin_port);
             break;
             default:
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,

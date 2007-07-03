@@ -449,6 +449,7 @@ BWCTL_BOTTLENECKCAPACITY	bottleneckcapacity
 BWCTL_SYNCFUZZ	syncfuzz
 BWCTL_CONTROLTIMEOUT	controltimeout
 BWCTL_PEERPORTS	peerports
+BWCTL_DEBUG_TIMEOFFSET	Offset time by this amount (seconds)
 .TE
 .PP
 See the bwctld.conf(5) man page for details on these options.
