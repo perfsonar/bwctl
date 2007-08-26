@@ -144,6 +144,8 @@ LookForTesters(BWLContext ctx)
 	tester = _BWL_IPERF_CMD;
     }
 
+    //XXX
+#if NOT
     /* iperf is quite weird as for exit codes and output. */
     /* 'iperf -v' and 'iperf -h exit 1! */
     /* The output of 'iperf -v' and 'iperf -h' and so on goes to stderr
@@ -168,38 +170,54 @@ LookForTesters(BWLContext ctx)
     }
     else{
 	while(((rc = waitpid(pid,&status,0)) == -1) && errno == EINTR);
-	if(rc && WIFEXITED(status)){
-	    if(1 == WEXITSTATUS(status)){
-		/* We expect 'iperf -v' to print to stderr something like
-		   'iperf version 2.0.2 (03 May 2005) pthreads' */
-		char *pattern = "iperf version "; /* Expected begin. of stderr */
-		char buf[80];
-		const uint8_t buf_size = I2Number(buf);
-		
-		close(fdpipe[1]);
-		rc = read(fdpipe[0],buf,buf_size);
-		close(fdpipe[0]);
-		if(0 == strncmp(buf,pattern,strlen(pattern))){
-		    /* iperf found! */
-		    result |= BWL_TESTER_IPERF;
-		}
-		else{
-		    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-			 "iperf was found but its ouput looks strange");
-		}
-	    }
-	    else{
-		BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-			 "iperf not found on this system");
-	    }
-	}
+	if(rc){
+            if(WIFEXITED(status)){
+                /*
+                 * iperf exits with a value of 1 for -v, go figure.
+                 */
+                if(WEXITSTATUS(status) == 1){
+                    /* We expect 'iperf -v' to print to stderr something like
+                       'iperf version 2.0.2 (03 May 2005) pthreads' */
+                    char *pattern = "iperf version "; /* Expected begin. of stderr */
+                    char buf[80];
+                    const uint8_t buf_size = I2Number(buf);
+
+                    close(fdpipe[1]);
+                    rc = read(fdpipe[0],buf,buf_size);
+                    close(fdpipe[0]);
+                    if(0 == strncmp(buf,pattern,strlen(pattern))){
+                        /* iperf found! */
+                        result |= BWL_TESTER_IPERF;
+                    }
+                    else{
+                        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                                "iperf was found but its ouput looks strange");
+                    }
+                }
+                else{
+                    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                            "iperf exited with status %d",WEXITSTATUS(status));
+                }
+            }
+            else{
+                if(WIFSIGNALED(status)){
+                    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                            "iperf exited due to signal=%d",WTERMSIG(status));
+                }
+	        BWLError(ctx,BWLErrWARNING,errno,"iperf unusable",rc);
+            }
+        }
 	else{
-	    BWLError(ctx,BWLErrWARNING,errno,
-		     "while checking for iperf, waitpid(): %M");
+	    BWLError(ctx,BWLErrWARNING,errno,"waitpid(), rc = %d: %M",rc);
 	    exit(BWL_CNTRL_FAILURE);
 	}
     }
+#else
+    result |= BWL_TESTER_IPERF;
+#endif
 
+    //XXX
+#if NOT
     /* Check for nuttcp */
     /* We expect 'nuttcp -V' to print to stdout something like
        'nuttcp-5.3.1' */
@@ -232,5 +250,6 @@ LookForTesters(BWLContext ctx)
     }
     pclose(command_pipe);
 
+#endif
     return result;
 }

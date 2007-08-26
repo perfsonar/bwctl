@@ -38,6 +38,7 @@
 static int ipf_term;
 static int ipf_chld;
 static int ipf_intr;
+static int ipf_alrm;
 
 /*
  * Function:    EndpointAlloc
@@ -395,11 +396,17 @@ sig_catch(
         case SIGTERM:
         case SIGINT:
         case SIGHUP:
-        case SIGALRM:
             ipf_term++;
+            break;
+        case SIGALRM:
+            ipf_alrm++;
             break;
         case SIGCHLD:
             ipf_chld++;
+            /*
+             * return - don't want sigchld to interrupt I/O
+             */
+            return;
             break;
         default:
             BWLError(NULL,BWLErrFATAL,BWLErrUNKNOWN,
@@ -540,7 +547,8 @@ prepare_and_wait_for_test(
     fprintf(nstdout,"\n");
 
     BWLGetTimeStamp(ctx,&currtime);
-    fprintf(nstdout,"bwctl: start_exec: %f",BWLNum64ToDouble(currtime.tstamp));
+    fprintf(nstdout,"bwctl: start_exec: %f\n",
+            BWLNum64ToDouble(currtime.tstamp));
     fflush(nstdout);
 }
 
@@ -1019,7 +1027,7 @@ _BWLEndpointStart(
     /*
      * Set sig handlers
      */
-    ipf_term = ipf_intr = ipf_chld = 0;
+    ipf_alrm = ipf_term = ipf_intr = ipf_chld = 0;
     memset(&act,0,sizeof(act));
     act.sa_handler = sig_catch;
     sigemptyset(&act.sa_mask);
@@ -1072,7 +1080,7 @@ _BWLEndpointStart(
      */
     if(        !BWLContextConfigSet(ctx,BWLGetAESKey,(BWLFunc)getaeskey) ||
             !BWLContextConfigSet(ctx,_BWLGetSIDAESKEY,(void *)tsess->sid) ||
-            !BWLContextConfigSet(ctx,BWLInterruptIO,(void*)&ipf_term)
+            !BWLContextConfigSet(ctx,BWLInterruptIO,(void*)&ipf_intr)
       ){
         BWLError(ctx,BWLErrFATAL,errno,
                 "Unable to set for Context vars for endpoint: %M");
@@ -1192,7 +1200,7 @@ ACCEPT:
         ep->rcntrl = BWLControlAccept(ctx,connfd,
                 (struct sockaddr *)&sbuff,sbuff_len,
                 mode,tsess->avail_testers,currtime.tstamp,
-                &ipf_term,err_ret);
+                &ipf_intr,err_ret);
     }
     else{
         /*
@@ -1249,7 +1257,7 @@ ACCEPT:
         goto end;
     }
 
-    if(ipf_term)
+    if(ipf_term || ipf_alrm)
         goto end;
 
     /*
@@ -1327,17 +1335,19 @@ ACCEPT:
         goto end;
     }
 
-    if(ipf_term)
+    if(ipf_term){
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,"Catching SIGTERM...");
         goto end;
+    }
 
     if(tsess->conf_receiver){
-        if(BWLReadRequestType(ep->rcntrl,&ipf_term) != BWLReqTime){
+        if(BWLReadRequestType(ep->rcntrl,&ipf_intr) != BWLReqTime){
             BWLError(ctx,BWLErrFATAL,errno,
                     "Invalid message from peer");
             goto end;
         }
 
-        if(BWLProcessTimeRequest(ep->rcntrl,&ipf_term) != BWLErrOK){
+        if(BWLProcessTimeRequest(ep->rcntrl,&ipf_intr) != BWLErrOK){
             BWLError(ctx,BWLErrFATAL,errno,
                     "Unable to process time request for peer");
             goto end;
@@ -1390,7 +1400,7 @@ ACCEPT:
      */
     ep->rcntrl->tests = tsess;
     tsess->cntrl = ep->rcntrl;
-    tsess->closure = NULL;
+    tsess->closure i NULL;
     ep->rcntrl->state |= _BWLStateTest;
 
     FD_ZERO(&readfds);
@@ -1398,13 +1408,41 @@ ACCEPT:
     exceptfds = readfds;
     do_read=do_write=1;
 
+    /*
+     * XXX
+     * Wait for something to do:
+     *  Peer message - remote stopping test
+     *  Child exit - local side complete (or failed)
+     *  Timer expire - test hung?
+     *  TERM signal - parent killing this.
+     */
 select:
     rc = select(ep->rcntrl->sockfd+1,&readfds,NULL,&exceptfds,NULL);
 
     /*
+     * go back into select if misc intrrupt we don't care about
+     */
+    if(!rc && !ipf_intr) goto select;
+
+    /*
+     * Get current time
+     */
+    BWLGetTimeStamp(ctx,&currtime);
+
+    /*
+     * reset itimer
+     */
+    memset(&itval,0,sizeof(itval));
+    if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+        BWLError(ctx,BWLErrFATAL,errno,"setitimer(): %M");
+    }
+
+    if(ipf_term) goto end;
+
+    /*
      * Is socket readable?
      */
-    if(!ipf_term && (rc > 0)){
+    if(rc > 0){
         /*
          * Handle unexpected error condition - goto is C's exception
          * handler.
@@ -1418,7 +1456,7 @@ select:
         }
 
         do_read=0;
-        msgtype = BWLReadRequestType(ep->rcntrl,&ipf_term);
+        msgtype = BWLReadRequestType(ep->rcntrl,&ipf_intr);
         switch(msgtype){
 
             /* socket closed */
@@ -1432,6 +1470,7 @@ select:
 
                 /* stop session message */
             case 3:
+                /* notice, only interrupt the i/o if TERM signal recevieved */
                 *err_ret = _BWLReadStopSession(ep->rcntrl,
                         &ipf_term,&aval,tsess->remotefp);
                 if((*err_ret == BWLErrOK) &&
@@ -1445,8 +1484,11 @@ select:
                      * message, we are done, otherwise
                      * wait in select for child to finish.
                      */
-                    if(ipf_chld)
+                    if(ipf_term){
+                        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                                "TERM caught while reading StopSession");
                         goto end;
+                    }
                     goto select;
                 }
                 break;
@@ -1462,14 +1504,6 @@ select:
     }
 
 end:
-    /*
-     * reset itimer
-     */
-    memset(&itval,0,sizeof(itval));
-    if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
-        BWLError(ctx,BWLErrFATAL,errno,"setitimer(): %M");
-    }
-
     if(!ep->child){
         /*
          * Never even got to the point of forking off iperf
@@ -1492,12 +1526,13 @@ end:
             if(!ipf_chld){
                 /* child was still alive - had to kill off child process! */
                 BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
-                        "Killing tester child, pid=%d",ep->child);
+                        "Killing tester child, pid=%d,acceptval=%d",
+                        ep->child,ep->acceptval);
                 /*
                  * report that this endpoint data is suspect since it
                  * had to be killed by the parent process.
                  */
-                if(fwrite("BWCTL_WARNING: tester killed: timeslot irregularity",
+                if(fwrite("bwctl: tester killed: timeslot irregularity",
                             sizeof(char),50,tsess->localfp) != 50){
                     BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                             "Error writing warning to tester data results");
@@ -1511,6 +1546,9 @@ end:
                     ep->child);
             exit(BWL_CNTRL_FAILURE);
         }
+        /*
+         * call Status again, but this time wait for the process to end.
+         */
         ep->wopts &= ~WNOHANG;
         if(!_BWLEndpointStatus(tsess,&ep->acceptval,err_ret)){
             exit(BWL_CNTRL_FAILURE);
@@ -1526,10 +1564,11 @@ child_done:
 
     if(do_write){
         BWLGetTimeStamp(ctx,&currtime);
-        fprintf(tsess->localfp,"bwctl: stop_exec: %f",BWLNum64ToDouble(currtime.tstamp));
+        fprintf(tsess->localfp,"bwctl: stop_exec: %f\n",
+                BWLNum64ToDouble(currtime.tstamp));
         fflush(tsess->localfp);
 
-        *err_ret = _BWLWriteStopSession(ep->rcntrl,&ipf_term,
+        *err_ret = _BWLWriteStopSession(ep->rcntrl,&ipf_intr,
                 ep->acceptval,tsess->localfp);
         if(*err_ret != BWLErrOK){
             do_read = 0;
@@ -1537,7 +1576,7 @@ child_done:
     }
 
     if(do_read && !ipf_term){
-        msgtype = BWLReadRequestType(ep->rcntrl,&ipf_term);
+        msgtype = BWLReadRequestType(ep->rcntrl,&ipf_intr);
         switch(msgtype){
             /* peer socket closed*/
             case 0:
@@ -1549,7 +1588,7 @@ child_done:
                 /* stop session message received */
             case 3:
                 (void)_BWLReadStopSession(ep->rcntrl,
-                                          &ipf_term,&aval,tsess->remotefp);
+                                          &ipf_intr,&aval,tsess->remotefp);
                 break;
 
                 /* invalid message received */
