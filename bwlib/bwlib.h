@@ -416,7 +416,7 @@ typedef void (*BWLFunc)(void);
  * ignore the interrupt and restart the i/o.
  * (this can be used to ignore some signals and return on others.)
  */
-#define BWLInterruptIO        "U32.BWLInterruptIO"
+#define BWLInterruptIO        "V.BWLInterruptIO"
 
 /*
  * This context variable is used to hold a pointer to a port-range record. This

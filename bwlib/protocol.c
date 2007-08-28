@@ -265,8 +265,8 @@ _BWLReadClientGreeting(
     return BWLErrOK;
 }
 
-static BWLAcceptType
-GetAcceptType(
+BWLAcceptType
+_BWLGetAcceptType(
         BWLControl  cntrl,
         uint8_t	    val
         )
@@ -282,7 +282,7 @@ GetAcceptType(
             return BWL_CNTRL_UNSUPPORTED;
         default:
             BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-                    "GetAcceptType:Invalid val %u",val);
+                    "_BWLGetAcceptType:Invalid val %u",val);
             return BWL_CNTRL_INVALID;
     }
 }
@@ -412,7 +412,7 @@ _BWLReadServerOK(
         return BWLErrFATAL;
     }
 
-    *acceptval = GetAcceptType(cntrl,buf[15]);
+    *acceptval = _BWLGetAcceptType(cntrl,buf[15]);
     if(*acceptval == BWL_CNTRL_INVALID){
         cntrl->state = _BWLStateInvalid;
         return BWLErrFATAL;
@@ -1406,7 +1406,7 @@ _BWLReadTestAccept(
         return BWLErrFATAL;
     }
 
-    *acceptval = GetAcceptType(cntrl,buf[0]);
+    *acceptval = _BWLGetAcceptType(cntrl,buf[0]);
     if(*acceptval == BWL_CNTRL_INVALID){
         cntrl->state = _BWLStateInvalid;
         return BWLErrFATAL;
@@ -1648,7 +1648,7 @@ _BWLReadStartAck(
         cntrl->state = _BWLStateInvalid;
         return BWLErrFATAL;
     }
-    *acceptval = GetAcceptType(cntrl,buf[0]);
+    *acceptval = _BWLGetAcceptType(cntrl,buf[0]);
     if(*acceptval == BWL_CNTRL_INVALID){
         cntrl->state = _BWLStateInvalid;
         return BWLErrFATAL;
@@ -1838,7 +1838,7 @@ _BWLReadStopSession(
                 "_BWLReadStopSession: Invalid zero padding");
         return _BWLFailControlSession(cntrl,BWLErrFATAL);
     }
-    aval = GetAcceptType(cntrl,buf[1]);
+    aval = _BWLGetAcceptType(cntrl,buf[1]);
     if(acceptval)
         *acceptval = aval;
 

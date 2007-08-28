@@ -214,6 +214,7 @@ typedef struct BWLEndpointRec{
     BWLAcceptType   acceptval;
     pid_t           child;
     int             wopts;
+    uint8_t         exit_status;
     BWLBoolean      dont_kill;
 } BWLEndpointRec, *BWLEndpoint;
 
@@ -241,6 +242,11 @@ struct BWLTestSessionRec{
 /*
  * Private api.c prototypes
  */
+extern BWLAcceptType
+_BWLGetAcceptType(
+        BWLControl  cntrl,
+        uint8_t     val
+        );
 
 extern BWLTestSession
 _BWLTestSessionAlloc(
