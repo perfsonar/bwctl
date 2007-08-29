@@ -148,6 +148,8 @@ AC_SEARCH_LIBS(getaddrinfo, [socket nsl])
 AC_SEARCH_LIBS(gethostbyname, nsl)
 AC_SEARCH_LIBS(nanosleep, rt)
 
+AC_SEARCH_LIBS(trunc, m)
+
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([errno.h netdb.h stdlib.h sys/param.h sys/socket.h sys/time.h sys/timex.h])
