@@ -1410,6 +1410,8 @@ ACCEPT:
 
     /* Earliest time test should complete */
     currtime2.tstamp = BWLNum64Sub(tsess->reserve_time,tsess->fuzz);
+    currtime2.tstamp = BWLNum64Add(currtime2.tstamp,
+            BWLULongToNum64(tsess->test_spec.duration));
 
     /*
      * Wait for something to do:
@@ -1421,12 +1423,6 @@ ACCEPT:
     while(!rc && !ipf_intr && !ipf_chld){
         rc = select(ep->rcntrl->sockfd+1,&readfds,NULL,&exceptfds,NULL);
     }
-
-    /*
-     * Is tester dead before it is killed?
-     */
-    dead_child = ipf_chld;
-
     /*
      * Get current time
      */
@@ -1441,10 +1437,18 @@ ACCEPT:
     }
 
     /*
+     * Is tester dead before it is killed?
+     */
+    dead_child = ipf_chld;
+
+    /*
      * send a graceful kill to the child (If already dead, errno will be ESRCH)
      */
-    if(ep->child){
-        if((kill(ep->child,SIGTERM) != 0) && (errno != ESRCH)){
+    if(!ipf_chld && ep->child){
+        if(kill(ep->child,SIGTERM) == 0){
+            ep->killed = True;
+        }
+        else if(errno != ESRCH){
             /* kill failed */
             BWLError(ctx,BWLErrFATAL,errno,
                     "PeerAgent: kill(): Unable to gracefully kill test endpoint, pid=%d: %M",
@@ -1477,8 +1481,9 @@ ACCEPT:
      * Get child exit status
      *
      */
-    if(!_BWLEndpointStatus(tsess,&ep->acceptval,err_ret) ||
-            (*err_ret != BWLErrOK)){
+    if(!_BWLEndpointStatus(tsess,&ep->acceptval,err_ret)){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "PeerAgent: _BWLEndpointStatus failed");
         exit(BWL_CNTRL_FAILURE);
     }
 
@@ -1486,7 +1491,7 @@ ACCEPT:
      * If acceptval < 0, then test process is still running. Pull-out the
      * big gun (SIGKILL).
      */
-    if(ep->acceptval < 0){
+    if(ep->child && (ep->acceptval < 0)){
         if((kill(ep->child,SIGKILL) != 0) && (errno != ESRCH)){
             /* kill failed */
             BWLError(ctx,BWLErrFATAL,errno,
@@ -1500,35 +1505,10 @@ ACCEPT:
          */
         ep->wopts &= ~WNOHANG;
         if(!_BWLEndpointStatus(tsess,&ep->acceptval,err_ret)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "PeerAgent: _BWLEndpointStatus failed");
             exit(BWL_CNTRL_FAILURE);
         }
-    }
-
-    /*
-     * Prepare data to send to peer
-     */
-    if(ep->acceptval != BWL_CNTRL_ACCEPT){
-        ep->acceptval = BWL_CNTRL_FAILURE;
-        tsess->localfp = NULL;
-    }
-    else{
-        /*
-         * Print 'final' data of local tester
-         */
-        fprintf(tsess->localfp,"bwctl: stop_exec: %f\n",
-                BWLNum64ToDouble(currtime.tstamp));
-        fflush(tsess->localfp);
-    }
-
-    /*
-     * Write StopSession to peer to send test results from this side.
-     */
-    *err_ret = _BWLWriteStopSession(ep->rcntrl,&ipf_intr,ep->acceptval,
-            tsess->localfp);
-    if(*err_ret != BWLErrOK){
-        BWLError(ctx,BWLErrFATAL,errno,
-                "PeerAgent: Unable to send StopSession to peer");
-        goto end;
     }
 
     /*
@@ -1539,20 +1519,42 @@ ACCEPT:
         /*
          * Child exited early
          */
-        if(dead_child){
+        if(dead_child && ep->exit_status){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "PeerAgent: Tester exited before expected with status=%d",
+                    "PeerAgent: Local tester exited before expected with status=%d",
+                    ep->exit_status);
+            fprintf(tsess->localfp,
+                    "bwctl: tool exited before expected with status=%d\n",
                     ep->exit_status);
         }
 
         /*
          * Peer stopped test early
          */
-        if(rc){
+        if(rc > 0){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                     "PeerAgent: Peer cancelled test before expected");
         }
 
+    }
+
+    /*
+     * Prepare data to send to peer
+     * Print 'final' data of local tester
+     */
+    fprintf(tsess->localfp,"bwctl: stop_exec: %f\n",
+            BWLNum64ToDouble(currtime.tstamp));
+    fflush(tsess->localfp);
+
+    /*
+     * Write StopSession to peer to send test results from this side.
+     */
+    *err_ret = _BWLWriteStopSession(ep->rcntrl,&ipf_intr,ep->acceptval,
+            tsess->localfp);
+    if(*err_ret != BWLErrOK){
+        BWLError(ctx,BWLErrFATAL,errno,
+                "PeerAgent: Unable to send StopSession to peer");
+        goto end;
     }
 
     /*
@@ -1587,16 +1589,6 @@ ACCEPT:
             case 3:
                 *err_ret = _BWLReadStopSession(ep->rcntrl,&ipf_intr,&aval,
                         tsess->remotefp);
-                if((*err_ret != BWLErrOK) || (aval != BWL_CNTRL_ACCEPT)){
-                    if(ipf_term){
-                        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                                "PeerAgent: TERM caught while reading StopSession");
-                    }
-                    else{
-                        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                                "PeerAgent: _BWLReadStopSession(): %M");
-                    }
-                }
                 break;
 
                 /* anything else */
@@ -1656,8 +1648,19 @@ AGAIN:
                 ep->acceptval = (ep->exit_status)?
                     BWL_CNTRL_FAILURE : BWL_CNTRL_ACCEPT;
             }
-            else if(!WIFSTOPPED(childstatus)){
-                ep->acceptval = BWL_CNTRL_FAILURE;
+            else if(WIFSIGNALED(childstatus)){
+                if(ep->killed){
+                    ep->acceptval = BWL_CNTRL_REJECT;
+                    ep->exit_status = 0;
+                }
+                else{
+                    BWLError(ep->cntrl->ctx,BWLErrWARNING,errno,
+                            "_BWLEndpointStatus: Child #%d exited from signal #%d",
+                            ep->child,WTERMSIG(childstatus));
+                    ep->acceptval = BWL_CNTRL_FAILURE;
+                    /* signal number for exit value */
+                    ep->exit_status = WTERMSIG(childstatus);
+                }
                 *err_ret = BWLErrWARNING;
             }
         }
@@ -1695,8 +1698,12 @@ _BWLEndpointStop(
     /*
      * If child already exited, kill will come back with ESRCH
      */
-    if(!ep->dont_kill && (kill(ep->child,SIGTERM) != 0) && (errno != ESRCH))
-        goto error;
+    if(!ep->dont_kill){
+        if((kill(ep->child,SIGTERM) != 0) && (errno != ESRCH)){
+            goto error;
+        }
+        ep->killed = True;
+    }
 
     /*
      * Remove the WNOHANG bit. We need to wait until the exit status

@@ -216,6 +216,7 @@ typedef struct BWLEndpointRec{
     int             wopts;
     uint8_t         exit_status;
     BWLBoolean      dont_kill;
+    BWLBoolean      killed;
 } BWLEndpointRec, *BWLEndpoint;
 
 struct BWLTestSessionRec{
