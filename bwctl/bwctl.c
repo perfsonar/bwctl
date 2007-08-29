@@ -94,7 +94,7 @@ print_test_args(
     fprintf(stderr,
             "            [Test Args]\n\n"
 	    "  -T tool        select iperf, nuttcp or thrulay (default)\n"
-            "  -a             allow running with unsynchronized clock\n"
+            "  -a offset      allow unsynchronized clock - good within offset (seconds)\n"
             "  -i interval    report interval (seconds)\n"
             "  -l len         length of read/write buffers (bytes)\n"
             "  -u             UDP test\n"
