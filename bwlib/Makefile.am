@@ -25,7 +25,7 @@ libbwlib_a_SOURCES	= api.c capi.c sapi.c context.c error.c bwlibP.h \
 			protocol.c io.c endpoint.c time.c arithm64.c \
 			rijndael-alg-fst.c rijndael-alg-fst.h \
 			rijndael-api-fst.c rijndael-api-fst.h \
-			util.c schedule.c
+			util.c schedule.c drivers.h tools.c iperf.c
 
 EXTRA_DIST		= bwlib.h
 

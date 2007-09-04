@@ -75,34 +75,11 @@ BWLContextErrHandle(
     return ctx->eh;
 }
 
-/*
- * Function:    BWLContextSetAccessLogPriority
- *
- * Description:    
- *
- * In Args:    
- *
- * Out Args:    
- *
- * Scope:    
- * Returns:    
- * Side Effect:    
- */
-void
-BWLContextSetAccessLogPriority(
-        BWLContext  ctx,
-        int         prio
-        )
-{
-    ctx->access_prio = prio;
-
-    return;
-}
-
 typedef union _BWLContextHashValue{
     void        *value;
     void        (*func)(void);
     uint32_t    u32;
+    int32_t     i32;
 } _BWLContextHashValue;
 
 struct _BWLContextHashRecord{
@@ -341,6 +318,9 @@ ConfigSetVA(
     else if( !strncmp(key,"U32.",4)){
         val.u32 = (uint32_t)va_arg(ap, uint32_t);
     }
+    else if( !strncmp(key,"I32.",4)){
+        val.i32 = (int32_t)va_arg(ap, int32_t);
+    }
     else{
         return False;
     }
@@ -536,6 +516,9 @@ BWLContextCreate(
         }
         else if( !strncmp(key,"U32.",4)){
             val.u32 = (uint32_t)va_arg(ap, uint32_t);
+        }
+        else if( !strncmp(key,"I32.",4)){
+            val.i32 = (int32_t)va_arg(ap, int32_t);
         }
         else{
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,

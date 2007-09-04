@@ -84,7 +84,7 @@ typedef struct{
     BWLNum64	            waketime;
     BWLBoolean	            send;
     BWLTestSpec             tspec;
-    BWLTesterAvailability   avail_testers;
+    BWLToolAvailability   avail_tools;
 } ipsess_trec, *ipsess_t;
 
 /*
@@ -129,7 +129,7 @@ typedef	struct {
         I2Boolean	version;	/* -V */
         I2Boolean	verbose;	/* -v */
         I2Boolean	quiet;		/* -q */
-        uint32_t	tester;   	/* -T iperf/nuttcp/thrulay */
+        uint32_t	tool;   	/* -T iperf/nuttcp/thrulay */
 
         uint32_t	reportInterval;	/* -i (seconds) */
         uint32_t	lenBuffer;	/* -l (bytes)	*/

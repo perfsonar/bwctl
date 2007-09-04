@@ -154,7 +154,7 @@ struct BWLControlRec{
     BWLBoolean              server;    /* this record represents server */
     int                     state;    /* current state of connection */
     BWLSessionMode          mode;
-    BWLTesterNegotiationVersion tester_negotiation_version;
+    BWLToolNegotiationVersion tool_negotiation_version;
 
     /*
      * Very rough upper bound estimate of
@@ -230,7 +230,7 @@ struct BWLTestSessionRec{
     BWLBoolean      conf_sender;
     BWLBoolean      conf_receiver;
     BWLTestSpec     test_spec;
-    BWLTesterAvailability avail_testers;
+    BWLToolAvailability avail_tools;
 
     FILE            *localfp;
     FILE            *remotefp;
@@ -399,7 +399,7 @@ _BWLWriteServerOK(
 	BWLControl      	cntrl,
 	BWLAcceptType   	code,
 	BWLNum64        	uptime,
-	BWLTesterAvailability	avail_testers,
+	BWLToolAvailability	avail_tools,
 	int		*retn_on_intr
         );
 
@@ -407,7 +407,7 @@ extern BWLErrSeverity
 _BWLReadServerOK(
 	BWLControl	        cntrl,
 	BWLAcceptType	        *acceptval,	/* ret	*/
-	BWLTesterAvailability	*avail  	/* ret	*/
+	BWLToolAvailability	*avail  	/* ret	*/
         );
 
 extern BWLErrSeverity

@@ -821,8 +821,8 @@ BWLDPolicyInstall(
         BWLContext	ctx,
         char		*datadir,
         char		*confdir,
-        char		*tester,
-        char		*testercmd,
+        char		*tool,
+        char		*toolcmd,
         uint64_t	*bottleneckcapacity,
         int		*retn_on_intr,
         char		**lbuf,
@@ -974,17 +974,17 @@ BADLINE:
         return NULL;
     }
 
-    if(tester && !strncasecmp(tester,"iperf",6)){
+    if(tool && !strncasecmp(tool,"iperf",6)){
         if(!BWLContextConfigSet(ctx,BWLTester,"iperf")){
             return NULL;
         }
-        if(testercmd && 
-                !BWLContextConfigSet(ctx,BWLIperfCmd,(void*)testercmd)){
+        if(toolcmd && 
+                !BWLContextConfigSet(ctx,BWLIperfCmd,(void*)toolcmd)){
             return NULL;
         }
     }
     else{
-        /* Any value of the tester key different to iperf is
+        /* Any value of the tool key different to iperf is
            considered 'thrulay' */
         if(!BWLContextConfigSet(ctx,BWLTester,"thrulay")){
             return NULL;
@@ -2168,7 +2168,7 @@ BWLDCheckTestPolicy(
     BWLDTestInfo	tinfo;
     BWLDMesgT	ret;
     BWLDLimRec	lim;
-    BWLTesterAvailability allowed_testers;
+    BWLToolAvailability allowed_tools;
 
     *err_ret = BWLErrOK;
 
@@ -2216,16 +2216,29 @@ BWLDCheckTestPolicy(
     /* duration */
     lim.limit = BWLDLimDuration;
     lim.value = tspec->duration;
-    if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim))
+    if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
+        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+                "BWLDCheckTestPolicy: Clock synchronization not sufficient");
         goto done;
+    }
 
     /*
-     * Make sure the requested tester is allowed.
+     * time synchronization
+     * Make sure clocks are synchronized to within 10% of session duration
      */
-    /* TODO: really check this if the `tester' key or something
+    if(fuzz_time > (tspec->duration / 10)){
+        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+                "BWLDCheckTestPolicy: Clock synchronization not sufficient");
+        goto done;
+    }
+
+    /*
+     * Make sure the requested tool is allowed.
+     */
+    /* TODO: really check this if the `tool' key or something
        similar if finally kept. */
-    allowed_testers = 0xffffffff;
-    if(!(tspec->tester & allowed_testers))
+    allowed_tools = 0xffffffff;
+    if(!(tspec->tool & allowed_tools))
         goto done;
 
     /*
@@ -2234,18 +2247,27 @@ BWLDCheckTestPolicy(
     if(tspec->udp){
         lim.limit = BWLDLimAllowUDP;
         lim.value = True;
-        if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim))
+        if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
+            BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+                    "BWLDCheckTestPolicy: UDP test not allowed");
             goto done;
+        }
         lim.limit = BWLDLimBandwidth;
         lim.value = tspec->bandwidth;
-        if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim))
+        if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
+            BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+                    "BWLDCheckTestPolicy: UDP bandwidth requst exceeds limits");
             goto done;
+        }
     }
     else{
         lim.limit = BWLDLimAllowTCP;
         lim.value = True;
-        if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim))
+        if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
+            BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+                    "BWLDCheckTestPolicy: TCP test not allowed");
             goto done;
+        }
     }
 
     /*
@@ -2255,6 +2277,8 @@ BWLDCheckTestPolicy(
     tinfo->res[0].value = 1;
     if((ret = BWLDQuery(node->policy,BWLDMESGREQUEST,tinfo->res[0]))
             != BWLDMESGOK){
+        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+                "BWLDCheckTestPolicy: Too many outstanding reservations for group");
         goto done;
     }
 
@@ -2269,6 +2293,8 @@ reservation:
                     BWLGetRTTBound(cntrl),
                     reservation_ret,port_ret))
             != BWLDMESGOK){
+        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+                "BWLDCheckTestPolicy: No reservation time available");
         goto done;
     }
     *closure = tinfo;

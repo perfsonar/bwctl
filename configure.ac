@@ -115,6 +115,21 @@ if test "$with_thrulay" != "no"; then
                 AC_MSG_ERROR([Couldn't fine thrulay headers])
             fi
             ], [AC_INCLUDES_DEFAULT])
+    AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throuphput tool])
+fi
+
+AC_ARG_ENABLE(IPERF,
+              AC_HELP_STRING([--enable-IPERF], [- IPERF throughput tool]),
+              [tool_ok=$enableval], [tool_ok=yes])
+if test "$tool_ok" = "yes"; then
+    AC_DEFINE(TOOL_IPERF, 1, [IPERF throuphput tool])
+fi
+
+AC_ARG_ENABLE(NUTTCP,
+              AC_HELP_STRING([--enable-NUTTCP], [- NUTTCP throughput tool]),
+              [tool_ok=$enableval], [tool_ok=yes])
+if test "$tool_ok" = "yes"; then
+    AC_DEFINE(TOOL_NUTTCP, 1, [NUTTCP throuphput tool])
 fi
 
 

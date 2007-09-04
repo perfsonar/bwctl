@@ -258,8 +258,6 @@ typedef enum {
  * Valid values for "accept" - this will be added to for the purpose of
  * enumerating the reasons for rejecting a session, or early termination
  * of a test session.
- *
- * TODO:Get the additional "accept" values added to the spec.
  */
 typedef enum{
     BWL_CNTRL_INVALID=-1,
@@ -269,17 +267,18 @@ typedef enum{
     BWL_CNTRL_UNSUPPORTED=0x4
 } BWLAcceptType;
 
-/* Supported testers. */
+/* Supported tools. The values*/
 typedef enum{
-    BWL_TESTER_THRULAY=0x1,
-    BWL_TESTER_IPERF=0x2,
-    BWL_TESTER_NUTTCP=0x4
-} BWLTester;
+    BWL_TOOL_UNDEFINED=0,
+    BWL_TOOL_THRULAY=0x1,
+    BWL_TOOL_IPERF=0x2,
+    BWL_TOOL_NUTTCP=0x4
+} BWLToolType;
 
 typedef uint32_t   BWLBoolean;
 typedef uint8_t    BWLSID[16];
 typedef uint8_t    BWLSequence[4];
-typedef uint32_t   BWLTesterAvailability;
+typedef uint32_t   BWLToolAvailability;
 
 /*
  * technically the username in the client greeting message can have uint8_t
@@ -300,10 +299,10 @@ typedef uint8_t    BWLKey[16];
 #define BWL_MODE_ALLMODES           (BWL_MODE_DOCIPHER|BWL_MODE_OPEN)
 
 typedef uint32_t    BWLSessionMode;
-typedef uint32_t    BWLTesterNegotiationVersion;
+typedef uint32_t    BWLToolNegotiationVersion;
 
 typedef struct{
-    BWLTester       tester;
+    BWLToolType     tool;
     I2Addr          sender;
     I2Addr          receiver;
     BWLTimeStamp    req_time;
@@ -321,7 +320,7 @@ typedef struct{
 
 typedef uint32_t   BWLPacketSizeT;
 
-BWLTesterAvailability
+BWLToolAvailability
 LookForTesters(
         BWLContext  ctx
         );
@@ -570,6 +569,12 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
  */
 #define BWLAllowUnsync  "V.BWLAllowUnsync"
 
+/*
+ * This value is used to indicate the priority to report 'access'
+ * logging. (This is useful for isolating in syslog configurations.)
+ */
+#define BWLAccessPriority  "I32.BWLAccessPriority"
+
 #ifndef    NDEBUG
 /*
  * This void* type is used to aid in child-debugging. If BWLChildWait is
@@ -597,12 +602,6 @@ BWLContextFree(
 extern I2ErrHandle
 BWLContextErrHandle(
         BWLContext  ctx
-        );
-
-extern void
-BWLContextSetAccessLogPriority(
-        BWLContext  ctx,
-        int         prio
         );
 
 extern BWLBoolean
@@ -714,14 +713,14 @@ BWLAddrByLocalControl(
  */
 extern BWLControl
 BWLControlOpen(
-        BWLContext  ctx,
-        I2Addr      local_addr,    /* src addr or NULL        */
-        I2Addr      server_addr,    /* server addr or NULL        */
-        uint32_t    mode_mask,    /* OR of BWLSessionMode vals    */
-        BWLUserID   userid,        /* null if unwanted        */
-        BWLNum64    *uptime_ret,    /* server uptime - ret or NULL    */
-        BWLTesterAvailability   *avail_testers,	/* server supported testers */
-        BWLErrSeverity          *err_ret
+        BWLContext          ctx,
+        I2Addr              local_addr,     /* src addr or NULL             */
+        I2Addr              server_addr,    /* server addr or NULL          */
+        uint32_t            mode_mask,      /* OR of BWLSessionMode vals    */
+        BWLUserID           userid,         /* null if unwanted             */
+        BWLNum64            *uptime_ret,    /* server uptime - ret or NULL  */
+        BWLToolAvailability *avail_tools,   /* server supported tool      */
+        BWLErrSeverity      *err_ret
         );
 
 /*
@@ -980,15 +979,15 @@ BWLServerSockCreate(
  */
 extern BWLControl
 BWLControlAccept(
-        BWLContext              ctx,            /* library context          */
-        int                     connfd,         /* conencted socket         */
-        struct sockaddr         *connsaddr,     /* connected socket addr    */
-        socklen_t               connsaddrlen,   /* connected socket addr len*/
-        uint32_t                mode_offered,   /* advertised server mode   */
-        BWLNum64                uptime,         /* uptime report            */
-        BWLTesterAvailability   avail_testers,  /* server available testers */
-        int                     *retn_on_intr,  /* return on i/o interrupt  */
-        BWLErrSeverity          *err_ret        /* err - return             */
+        BWLContext          ctx,            /* library context              */
+        int                 connfd,         /* conencted socket             */
+        struct sockaddr     *connsaddr,     /* connected socket addr        */
+        socklen_t           connsaddrlen,   /* connected socket addr len    */
+        uint32_t            mode_offered,   /* advertised server mode       */
+        BWLNum64            uptime,         /* uptime report                */
+        BWLToolAvailability avail_tools,  /* server available tools     */
+        int                 *retn_on_intr,  /* return on i/o interrupt      */
+        BWLErrSeverity      *err_ret        /* err - return                 */
         );
 
 typedef enum BWLRequestType{

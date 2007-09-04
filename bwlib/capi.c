@@ -311,14 +311,14 @@ error:
  */
 BWLControl
 BWLControlOpen(
-        BWLContext	ctx,		/* control context	*/
-        I2Addr		local_addr,	/* local addr or null	*/
-        I2Addr		server_addr,	/* server addr		*/
-        uint32_t	mode_req_mask,	/* requested modes	*/
-        BWLUserID	userid,		/* userid or NULL	*/
-        BWLNum64	*uptime_ret,	/* server uptime - ret	*/
-        BWLTesterAvailability	*avail_testers,	/* server supported testers */
-        BWLErrSeverity	*err_ret	/* err - return		*/
+        BWLContext	    ctx,	    /* control context	        */
+        I2Addr		    local_addr,	    /* local addr or null	*/
+        I2Addr		    server_addr,    /* server addr		*/
+        uint32_t	    mode_req_mask,  /* requested modes	        */
+        BWLUserID	    userid,	    /* userid or NULL	        */
+        BWLNum64	    *uptime_ret,    /* server uptime - ret	*/
+        BWLToolAvailability *avail_testers, /* server supported testers */
+        BWLErrSeverity	    *err_ret	    /* err - return		*/
         )
 {
     int		    rc;

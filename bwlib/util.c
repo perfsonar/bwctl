@@ -121,27 +121,27 @@ failed:
     return False;
 }
 
-BWLTesterAvailability
+BWLToolAvailability
 LookForTesters(BWLContext ctx)
 {
     char command[80];
     const uint8_t command_size = I2Number(command);
-    char *tester;
+    char *tool;
     FILE *command_pipe;
     pid_t pid;
     int rc, status;
     int fdpipe[2];
-    BWLTesterAvailability result = 0x00000000;
+    BWLToolAvailability result = 0x00000000;
 
     /* Check for thrulay (libthrulay availability) */
 #if defined(HAVE_LIBTHRULAY) && defined(HAVE_THRULAY_SERVER_H) && defined(HAVE_THRULAY_CLIENT_H)
-    result |= BWL_TESTER_THRULAY;
+    result |= BWL_TOOL_THRULAY;
 #endif
 
     /* Check for iperf */
-    tester = (char*)BWLContextConfigGetV(ctx,BWLIperfCmd);
-    if(!tester){
-	tester = _BWL_IPERF_CMD;
+    tool = (char*)BWLContextConfigGetV(ctx,BWLIperfCmd);
+    if(!tool){
+	tool = _BWL_IPERF_CMD;
     }
 
     //XXX
@@ -164,8 +164,8 @@ LookForTesters(BWLContext ctx)
 	dup2(fdpipe[1],2);
 	close(fdpipe[0]);
 	close(fdpipe[1]);
-	execlp(tester,tester,"-v",NULL);
-	BWLError(ctx,BWLErrFATAL,errno,"execlp(%s): %M",tester);
+	execlp(tool,tool,"-v",NULL);
+	BWLError(ctx,BWLErrFATAL,errno,"execlp(%s): %M",tool);
 	exit(EXIT_FAILURE);
     }
     else{
@@ -187,7 +187,7 @@ LookForTesters(BWLContext ctx)
                     close(fdpipe[0]);
                     if(0 == strncmp(buf,pattern,strlen(pattern))){
                         /* iperf found! */
-                        result |= BWL_TESTER_IPERF;
+                        result |= BWL_TOOL_IPERF;
                     }
                     else{
                         BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
@@ -213,7 +213,7 @@ LookForTesters(BWLContext ctx)
 	}
     }
 #else
-    result |= BWL_TESTER_IPERF;
+    result |= BWL_TOOL_IPERF;
 #endif
 
     //XXX
@@ -221,12 +221,12 @@ LookForTesters(BWLContext ctx)
     /* Check for nuttcp */
     /* We expect 'nuttcp -V' to print to stdout something like
        'nuttcp-5.3.1' */
-    tester = (char*)BWLContextConfigGetV(ctx,BWLNuttcpCmd);
-    if(!tester){
-	tester = _BWL_NUTTCP_CMD;
+    tool = (char*)BWLContextConfigGetV(ctx,BWLNuttcpCmd);
+    if(!tool){
+	tool = _BWL_NUTTCP_CMD;
     }
     /* Run 'nuttcp -V' */
-    snprintf(command,command_size,"%s -V",tester);
+    snprintf(command,command_size,"%s -V",tool);
     command_pipe = popen(command,"r");
     if(NULL != command_pipe){
 	/* Check output */
@@ -237,7 +237,7 @@ LookForTesters(BWLContext ctx)
 	fgets(buf,buf_size,command_pipe);
 	if(0 == strncmp(buf,pattern,strlen(pattern))){
 	    /* nuttcp found! */
-	    result |= BWL_TESTER_NUTTCP;
+	    result |= BWL_TOOL_NUTTCP;
 	}
 	else {
 	    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,

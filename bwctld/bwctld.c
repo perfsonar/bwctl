@@ -812,7 +812,7 @@ NewConnection(
         I2Addr     listenaddr,
         int         *maxfd,
         fd_set      *readfds,
-	BWLTesterAvailability avail_testers
+	BWLToolAvailability avail_testers
         )
 {
     int                     connfd;
@@ -1140,7 +1140,7 @@ FindMaxFD(
 }
 
 static void
-LoadConfig(
+LoadErrConfig(
         char    **lbuf,
         size_t  *lbuf_max
         )
@@ -1180,18 +1180,96 @@ LoadConfig(
         return;
     }
 
-    while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max))
-            > 0){
+    while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max)) > 0){
 
-	/* Tester selection (thrulay/iperf/nuttcp) */
-	if(!strncasecmp(key,"tester",7)){
-	    if(!(opts.tester = strdup(val))){
+        /* syslog facility */
+        if(!strncasecmp(key,"facility",9)){
+            int fac = I2ErrLogSyslogFacility(val);
+            if(fac == -1){
+                fprintf(stderr,
+                        "Invalid -e: Syslog facility \"%s\" unknown\n",
+                        val);
+                rc = -rc;
+                break;
+            }
+            syslogattr.facility = fac;
+        }
+        else if(!strncasecmp(key,"priority",9)){
+            int prio = I2ErrLogSyslogPriority(val);
+            if(prio == -1){
+                fprintf(stderr,
+                        "Invalid syslog priority \"%s\" unknown\n",
+                        val);
+                rc = -rc;
+                break;
+            }
+            syslogattr.priority = prio;
+        }
+        /* fall-through: unrecognized syntax ignored here */
+    }
+
+    if(rc < 0){
+        fprintf(stderr,"%s:%d Problem parsing config file\n",
+                conf_file,-rc);
+        exit(1);
+    }
+
+    return;
+}
+
+static void
+LoadConfig(
+    BWLContext  ctx,
+    char        **lbuf,
+    size_t      *lbuf_max
+        )
+{
+    FILE    *conf;
+    char    conf_file[MAXPATHLEN+1];
+    char    keybuf[MAXPATHLEN],valbuf[MAXPATHLEN];
+    char    *key = keybuf;
+    char    *val = valbuf;
+    int     rc=0;
+
+    conf_file[0] = '\0';
+
+    rc = strlen(BWCTLD_CONF_FILE);
+    if(rc > MAXPATHLEN){
+        fprintf(stderr,"strlen(BWCTLD_CONF_FILE) > MAXPATHLEN\n");
+        exit(1);
+    }
+    if(opts.confdir){
+        rc += strlen(opts.confdir) + strlen(BWL_PATH_SEPARATOR);
+        if(rc > MAXPATHLEN){
+            fprintf(stderr,"Path to %s > MAXPATHLEN\n",
+                    BWCTLD_CONF_FILE);
+            exit(1);
+        }
+        strcpy(conf_file, opts.confdir);
+        strcat(conf_file, BWL_PATH_SEPARATOR);
+    }
+    strcat(conf_file, BWCTLD_CONF_FILE);
+
+    if(!(conf = fopen(conf_file, "r"))){
+        if(opts.confdir){
+            fprintf(stderr,"Unable to open %s: %s\n",conf_file,
+                    strerror(errno));
+            exit(1);
+        }
+        return;
+    }
+
+    while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max)) > 0){
+
+        /* Tool selection (thrulay/iperf/nuttcp) */
+        if(!strncasecmp(key,"tester",7)){
+            if(!(opts.tester = strdup(val))){
                 fprintf(stderr,"strdup(): %s\n",
                         strerror(errno));
                 rc=-rc;
                 break;
-	    }
-	}
+            }
+        }
         /* syslog facility */
         else if(!strncasecmp(key,"facility",9)){
             int fac = I2ErrLogSyslogFacility(val);
@@ -1238,7 +1316,7 @@ LoadConfig(
         else if(!strncasecmp(key,"iperfcmd",9) ||
                 !strncasecmp(key,"iperf_cmd",10)){
             if(!strncasecmp(opts.tester,"iperf",6) && 
-	       !(opts.testercmd = strdup(val))) {
+                    !(opts.testercmd = strdup(val))) {
                 fprintf(stderr,"strdup(): %s\n",
                         strerror(errno));
                 rc=-rc;
@@ -1256,8 +1334,8 @@ LoadConfig(
             /* Only process ports for the selected tool */
             if(
                     ((!strncasecmp(key,"iperfport",10) ||
-                    !strncasecmp(key,"iperf_port",11)) &&
-                    strncasecmp(opts.tester,"iperf",6)) ||
+                      !strncasecmp(key,"iperf_port",11)) &&
+                     strncasecmp(opts.tester,"iperf",6)) ||
                     (!strncasecmp(key,"thrulay_port",13) && 
                      strncasecmp(opts.tester,"thrulay",8))){
                 continue;
@@ -1483,8 +1561,8 @@ main(int argc, char *argv[])
     int                 maxfd;    /* max fd in readfds */
     BWLContext          ctx;
     BWLDPolicy          policy;
-    I2Addr             listenaddr = NULL;
-    BWLTesterAvailability avail_testers = 0xffffffff;
+    I2Addr              listenaddr = NULL;
+    BWLToolAvailability avail_testers = 0xffffffff;
     int                 listenfd;
     int                 rc;
     I2Datum             data;
@@ -1563,13 +1641,13 @@ main(int argc, char *argv[])
     opterr = optreset = optind = 1;
 
     /*
-     * Load Config file.
+     * Load Config file options for error reporting.
      * lbuf/lbuf_max keep track of a dynamically grown "line" buffer.
      * (It is grown using realloc.)
      * This will be used throughout all the config file reading and
      * should be free'd once all config files have been read.
      */
-    LoadConfig(&lbuf,&lbuf_max);
+    LoadErrConfig(&lbuf,&lbuf_max);
 
     /*
      * Read cmdline options that effect syslog so the rest of cmdline
@@ -1607,6 +1685,36 @@ main(int argc, char *argv[])
     errhand = I2ErrOpen(progname, I2ErrLogSyslog, &syslogattr, NULL, NULL);
     if(! errhand) {
         fprintf(stderr, "%s : Couldn't init error module\n", progname);
+        exit(1);
+    }
+
+    /*
+     * Initialize the context. (Set the error handler to the app defined
+     * one.)
+     */
+    if(!(ctx = BWLContextCreate(errhand,
+                    BWLAllowUnsync,&opts.allowUnsync,
+                    NULL))){
+        exit(1);
+    }
+
+    /*
+     * Load all config file options.
+     * This one will exit with a syntax error for things it does not
+     * understand. It takes the context as an arg so the context can
+     * be queried for tool specific option parsing.
+     */
+    LoadConfig(ctx,&lbuf,&lbuf_max);
+
+    /*
+     * Add Context var for setting access log priority.
+     * It seems silly to have this extra function for this.
+     * (Perhaps I've been doing too much java lately...)
+     */
+    if((opts.access_prio != -1) &&
+            !BWLContextConfigSet(ctx,
+                BWLAccessPriority,(void*)opts.access_prio)){
+        I2ErrLog(errhand,"Unable to set AccessPriority.");
         exit(1);
     }
 
@@ -1711,25 +1819,6 @@ main(int argc, char *argv[])
     if ((pid_fp = fdopen(pid_fd, "wr")) == NULL) {
         I2ErrLog(errhand, "fdopen(): %M");
         exit(1);
-    }
-
-    /*
-     * Initialize the context. (Set the error handler to the app defined
-     * one.)
-     */
-    if(!(ctx = BWLContextCreate(errhand,
-                    BWLAllowUnsync,&opts.allowUnsync,
-                    NULL))){
-        exit(1);
-    }
-
-    /*
-     * TODO: Add Context var for setting access log priority.
-     * It seems silly to have this extra function for this.
-     * (Perhaps I've been doing too much java lately...)
-     */
-    if(opts.access_prio != -1){
-        BWLContextSetAccessLogPriority(ctx,opts.access_prio);
     }
 
     if((opts.syncfuzz != 0.0) &&

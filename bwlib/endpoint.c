@@ -550,6 +550,8 @@ prepare_and_wait_for_test(
     fprintf(nstdout,"bwctl: start_exec: %f\n",
             BWLNum64ToDouble(currtime.tstamp));
     fflush(nstdout);
+
+    return;
 }
 
 /*
@@ -579,7 +581,7 @@ run_tester(
 	exit(BWL_CNTRL_FAILURE);
     }
 
-    if(BWL_TESTER_THRULAY == tsess->test_spec.tester){
+    if(BWL_TOOL_THRULAY == tsess->test_spec.tool){
 #if defined(HAVE_LIBTHRULAY) && defined(HAVE_THRULAY_SERVER_H) && defined(HAVE_THRULAY_CLIENT_H)
 	int rc;
 	if(tsess->conf_receiver){
@@ -719,11 +721,11 @@ run_tester(
 #else
 	BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"A thrulay test was requested, "
 		 "but libthrulay is not available. Something must have gone "
-		 "wrong with the tester negotiation.");
+		 "wrong with the tool negotiation.");
 	exit(BWL_CNTRL_FAILURE);
 #endif
     }
-    else if(BWL_TESTER_IPERF == tsess->test_spec.tester){
+    else if(BWL_TOOL_IPERF == tsess->test_spec.tool){
 	/* Run iperf */
 	char *iperf = (char*)BWLContextConfigGetV(ctx,BWLIperfCmd);
 	if(!iperf) iperf = _BWL_IPERF_CMD;
@@ -823,7 +825,7 @@ run_tester(
 	exit(BWL_CNTRL_FAILURE);
     
     }
-    else if(BWL_TESTER_NUTTCP == tsess->test_spec.tester){
+    else if(BWL_TOOL_NUTTCP == tsess->test_spec.tool){
 	/* Run nuttcp. We use the client/server mode. */
 	char *nuttcp = (char*)BWLContextConfigGetV(ctx,BWLNuttcpCmd);
 	if(!nuttcp) nuttcp = _BWL_NUTTCP_CMD;
@@ -917,7 +919,7 @@ run_tester(
     }
     else{
 	BWLError(ctx,BWLErrFATAL,errno,"Unknown tester tool: %x",
-		 tsess->test_spec.tester);
+		 tsess->test_spec.tool);
 	exit(BWL_CNTRL_UNSUPPORTED);
     }
 }
@@ -971,7 +973,9 @@ _BWLEndpointStart(
      * sigprocmask to block signals before the fork. Then
      * install new sig handlers in the child before unblocking
      * them. In the parent, just unblock them. (The sigprocmask
-     * is needed to stop the possible race condition.)
+     * is needed to stop the possible race condition of the parent registered
+     * sig hanglers being called in the child process before the child ones
+     * are registered.)
      */
     sigemptyset(&sigs);
     sigaddset(&sigs,SIGTERM);
@@ -1200,7 +1204,7 @@ ACCEPT:
 
         ep->rcntrl = BWLControlAccept(ctx,connfd,
                 (struct sockaddr *)&sbuff,sbuff_len,
-                mode,tsess->avail_testers,currtime.tstamp,
+                mode,tsess->avail_tools,currtime.tstamp,
                 &ipf_intr,err_ret);
     }
     else{
@@ -1243,7 +1247,7 @@ ACCEPT:
         }
 
         ep->rcntrl = BWLControlOpen(ctx,local,remote,mode,
-                "endpoint",NULL,&tsess->avail_testers,err_ret);
+                "endpoint",NULL,&tsess->avail_tools,err_ret);
     }
 
     if(!ep->rcntrl){
@@ -1521,7 +1525,7 @@ ACCEPT:
          */
         if(dead_child && ep->exit_status){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "PeerAgent: Local tester exited before expected with status=%d",
+                    "PeerAgent: Local tool exited before expected with status=%d",
                     ep->exit_status);
             fprintf(tsess->localfp,
                     "bwctl: tool exited before expected with status=%d\n",
@@ -1540,7 +1544,7 @@ ACCEPT:
 
     /*
      * Prepare data to send to peer
-     * Print 'final' data of local tester
+     * Print 'final' data of local tool
      */
     fprintf(tsess->localfp,"bwctl: stop_exec: %f\n",
             BWLNum64ToDouble(currtime.tstamp));

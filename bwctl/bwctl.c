@@ -727,10 +727,10 @@ next_start(
     return inc;
 }
 
-static uint16_t *tester_port_range = NULL;
-static uint16_t tester_port_range_len = 0;
-static uint16_t tester_port_default = 5001;
-static uint16_t tester_port_count = 0;
+static uint16_t *tool_port_range = NULL;
+static uint16_t tool_port_range_len = 0;
+static uint16_t tool_port_default = 5001;
+static uint16_t tool_port_count = 0;
 
 static BWLBoolean
 CheckTestPolicy(
@@ -790,8 +790,8 @@ CheckTestPolicy(
     *reservation_ret = BWLNum64Add(start,fuzz_time);
 
     if(!*port_ret){
-        *port_ret = tester_port_range[
-            tester_port_count++ % tester_port_range_len];
+        *port_ret = tool_port_range[
+            tool_port_count++ % tool_port_range_len];
     }
 
     return True;
@@ -800,15 +800,15 @@ CheckTestPolicy(
 static BWLControl
 SpawnLocalServer(
         BWLContext    ctx,
-	BWLTesterAvailability avail_testers
+	BWLToolAvailability avail_tools
         )
 {
     int                 new_pipe[2];
     pid_t               pid;
     BWLErrSeverity      err = BWLErrOK;
-    uint32_t           controltimeout = 7200;
+    uint32_t            controltimeout = 7200;
     BWLTimeStamp        currtime;
-    I2numT           bottle;
+    I2numT              bottle;
     char                *tstr;
     struct itimerval    itval;
     BWLControl          cntrl;
@@ -818,7 +818,7 @@ SpawnLocalServer(
     /*
      * Set up port info for iperf/thrulay tests.
      */
-    if(!tester_port_range){
+    if(!tool_port_range){
         if((tstr = getenv("BWCTL_IPERFPORTRANGE"))){
             char        *hpstr;
             char        *end=NULL;
@@ -869,29 +869,29 @@ SpawnLocalServer(
                 goto portdone;
             }
 
-            tester_port_range_len = hport-lport+1;
-            if(!(tester_port_range = calloc(sizeof(uint16_t),
-                            tester_port_range_len))){
+            tool_port_range_len = hport-lport+1;
+            if(!(tool_port_range = calloc(sizeof(uint16_t),
+                            tool_port_range_len))){
                 I2ErrLog(eh,"calloc(%d,%d): %M",
                         sizeof(uint16_t),
-                        tester_port_range_len);
+                        tool_port_range_len);
                 exit(1);
             }
 
-            for(tlng=0;tlng<tester_port_range_len;tlng++){
-                tester_port_range[tlng] = tlng + lport;
+            for(tlng=0;tlng<tool_port_range_len;tlng++){
+                tool_port_range[tlng] = tlng + lport;
             }
 
 portdone:
-            if(!tester_port_range){
+            if(!tool_port_range){
                 I2ErrLog(eh,
                         "Invalid BWCTL_IPERFPORTRANGE env variable");
                 exit(1);
             }
         }
         else{
-            tester_port_range = &tester_port_default;
-            tester_port_range_len = 1;
+            tool_port_range = &tool_port_default;
+            tool_port_range_len = 1;
         }
     }
 
@@ -960,7 +960,10 @@ portdone:
      * Make access log stuff be quiet in child server if !verbose.
      */
     if(!app.opt.verbose){
-        BWLContextSetAccessLogPriority(ctx,BWLErrOK);
+        if(!BWLContextConfigSet(ctx,BWLAccessPriority,BWLErrOK)){
+            I2ErrLog(eh,"BWLContextconfigSet(BWLAccessPriority,BWLErrOK): %M");
+            _exit(1);
+        }
     }
 
     if(getenv("BWCTL_CHILDWAIT")){
@@ -1064,7 +1067,7 @@ portdone:
      * Accept connection and send server greeting.
      */
     cntrl = BWLControlAccept(ctx,new_pipe[1],NULL,0,BWL_MODE_OPEN,
-            currtime.tstamp,avail_testers,&ip_exit,&err);
+            currtime.tstamp,avail_tools,&ip_exit,&err);
     if(!cntrl){
         I2ErrLog(eh,"BWLControlAccept() failed");
         _exit(err);
@@ -1444,14 +1447,18 @@ main(
 
                 /* TEST OPTIONS */
             case 'T':
+                /* XXX: Get from extensible jump-table for
+                 * known tools.
+                 * Also make -help option print out known tools.
+                 */
                 if (0 == strncasecmp(optarg,"iperf",6)) { 
-                    app.opt.tester = BWL_TESTER_IPERF;
+                    app.opt.tool = BWL_TOOL_IPERF;
                 } else if (0 == strncasecmp(optarg,"thrulay",8)) {
-                    app.opt.tester = BWL_TESTER_THRULAY;
+                    app.opt.tool = BWL_TOOL_THRULAY;
                 } else if (0 == strncasecmp(optarg,"nuttcp",7)) {
-                    app.opt.tester = BWL_TESTER_NUTTCP;
+                    app.opt.tool = BWL_TOOL_NUTTCP;
                 } else {
-                    usage(progname, "Invalid tester tool. "
+                    usage(progname, "Invalid tool tool. "
                             "'iperf', 'nuttcp' or 'thrulay' expected");
                     exit(1);
                 }
@@ -1727,12 +1734,12 @@ main(
      * Initialize session records
      */
     /* skip req_time/latest_time - set per/test */
-    if(app.opt.tester){
-        first.tspec.tester = second.tspec.tester = app.opt.tester;
+    if(app.opt.tool){
+        first.tspec.tool = second.tspec.tool = app.opt.tool;
     }
     else{
         /* Default to thrulay */
-        first.tspec.tester = second.tspec.tester = BWL_TESTER_THRULAY;
+        first.tspec.tool = second.tspec.tool = BWL_TOOL_THRULAY;
     }
     first.tspec.duration = app.opt.timeDuration;
     first.tspec.udp = app.opt.udpTest;
@@ -1819,7 +1826,7 @@ main(
         FILE            *recvfp = NULL;
         FILE            *sendfp = NULL;
         struct timespec tspec;
-	BWLTesterAvailability common_testers;
+	BWLToolAvailability common_tools;
 
 AGAIN:
         if(sig_check()){
@@ -1876,7 +1883,7 @@ AGAIN:
                      current_auth->auth_mode:BWL_MODE_OPEN),
                     ((current_auth)?
                      current_auth->identity:NULL),
-                    NULL,&first.avail_testers,&err_ret);
+                    NULL,&first.avail_tools,&err_ret);
             if(sig_check()){
                 exit_val = 1;
                 goto finish;
@@ -1916,7 +1923,7 @@ AGAIN:
              * If second host not specified, attempt to
              * contact localhost server. If can, then
              * use it. If not, and if "client_test"
-             * option is set, then fork of a client tester.
+             * option is set, then fork of a client tool.
              */
             current_auth = ((second.auth)?second.auth:app.def_auth);
             fake_daemon = False;
@@ -1933,7 +1940,7 @@ AGAIN:
                          BWL_MODE_OPEN),
                         ((current_auth)?
                          current_auth->identity:NULL),
-                        NULL,&second.avail_testers,&err_ret);
+                        NULL,&second.avail_tools,&err_ret);
             }else{
                 /*
                  * Try "localhost" server.
@@ -1949,21 +1956,21 @@ AGAIN:
                 second.cntrl = BWLControlOpen(ctx,NULL,laddr,
                         ((current_auth)?current_auth->auth_mode:BWL_MODE_OPEN),
                         ((current_auth)?current_auth->identity:NULL),
-                        NULL,&second.avail_testers,&err_ret);
+                        NULL,&second.avail_tools,&err_ret);
                 if(!second.cntrl && (errno==ECONNREFUSED)){
                     /*
                      * No local daemon - spawn something.
                      */
                     I2ErrLog(eh,
-                            "Unable to contact a local bwctld: Spawning local tester controller");
+                            "Unable to contact a local bwctld: Spawning local tool controller");
 
-		            second.avail_testers = LookForTesters(ctx);
+		            second.avail_tools = LookForTesters(ctx);
                     /* LookForTesters exec's, so reset signal indicators */
                     ip_intr=0; ip_chld=0;
                     if(!(second.cntrl =
-                                SpawnLocalServer(ctx,second.avail_testers))){
+                                SpawnLocalServer(ctx,second.avail_tools))){
                         I2ErrLog(eh,
-                                "Unable to spawn local tester controller");
+                                "Unable to spawn local tool controller");
                     }
                     fake_daemon = True;
                 }
@@ -2017,22 +2024,22 @@ AGAIN:
             goto finish;
         }
 
-	/* Check if the requested tester is available at both servers. */
-	common_testers = first.avail_testers & second.avail_testers;
-	if (!(first.tspec.tester & common_testers)){
-            I2ErrLog(eh,"Requested tester (%x) not supported by both servers "
+	/* Check if the requested tool is available at both servers. */
+	common_tools = first.avail_tools & second.avail_tools;
+	if (!(first.tspec.tool & common_tools)){
+            I2ErrLog(eh,"Requested tool (%x) not supported by both servers "
 		     "(%x %x).",
-		     first.tspec.tester,
-		     first.avail_testers,second.avail_testers);
+		     first.tspec.tool,
+		     first.avail_tools,second.avail_tools);
 	    /* Try to fall-back to iperf. */
 	    /* We assume those servers that say they do not support any
-	       tester are old versions and should support iperf. */
-	    if((!first.avail_testers || 
-	       (first.avail_testers & BWL_TESTER_IPERF)) &&
-	       (!second.avail_testers ||
-	       (second.avail_testers & BWL_TESTER_IPERF))) {
+	       tool are old versions and should support iperf. */
+	    if((!first.avail_tools || 
+	       (first.avail_tools & BWL_TOOL_IPERF)) &&
+	       (!second.avail_tools ||
+	       (second.avail_tools & BWL_TOOL_IPERF))) {
 		I2ErrLog(eh,"Falling-back to iperf.");
-		first.tspec.tester = second.tspec.tester = BWL_TESTER_IPERF;
+		first.tspec.tool = second.tspec.tool = BWL_TOOL_IPERF;
 	    }
 	    else{
 		I2ErrLog(eh,"Falling-back to iperf was not possible.");

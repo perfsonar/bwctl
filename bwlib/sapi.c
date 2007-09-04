@@ -219,15 +219,15 @@ error:
  */
 BWLControl
 BWLControlAccept(
-        BWLContext              ctx,            /* library context          */
-        int                     connfd,         /* connected socket         */
-        struct sockaddr         *connsaddr,     /* connected socket addr    */
-        socklen_t               connsaddrlen,   /* connected socket addr len*/
-        uint32_t                mode_offered,   /* advertised server mode   */
-        BWLNum64                uptime,         /* uptime for server        */
-	    BWLTesterAvailability   avail_testers,  /* server available testers */
-        int                     *retn_on_intr,  /* if *retn_on_intr return  */
-        BWLErrSeverity          *err_ret        /* err - return             */
+        BWLContext          ctx,            /* library context              */
+        int                 connfd,         /* connected socket             */
+        struct sockaddr     *connsaddr,     /* connected socket addr        */
+        socklen_t           connsaddrlen,   /* connected socket addr len    */
+        uint32_t            mode_offered,   /* advertised server mode       */
+        BWLNum64            uptime,         /* uptime for server            */
+	    BWLToolAvailability avail_testers,  /* server available testers     */
+        int                 *retn_on_intr,  /* if *retn_on_intr return      */
+        BWLErrSeverity      *err_ret        /* err - return                 */
         )
 {
     BWLControl      cntrl;
