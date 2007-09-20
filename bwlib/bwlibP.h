@@ -117,9 +117,16 @@
 #define _BWL_TMPFILEFMT     "iperfc.XXXXXX"
 #define _BWL_MAX_IPERFARGS  (36)
 
+
 /*
  * Data structures
  */
+typedef struct BWLToolRec{
+    BWLToolType         id; /* what bits define this tool in the protocol? */
+    BWLToolDefinition   tool;
+} BWLToolRec, *BWLTool;
+
+
 typedef struct BWLContextRec BWLContextRec;
 typedef struct BWLControlRec BWLControlRec;
 
@@ -134,6 +141,8 @@ struct BWLContextRec{
     I2RandomSource  rand_src;
     char            tmpdir[PATH_MAX+1];
     BWLControlRec   *cntrl_list;
+    uint32_t        tool_list_size;
+    BWLToolRec      *tool_list;
 };
 
 typedef struct BWLTestSessionRec BWLTestSessionRec, *BWLTestSession;
@@ -580,6 +589,12 @@ _BWLCallCloseFile(
         BWLAcceptType   aval
         );
 
+/* tools.c */
+
+extern BWLBoolean
+BWLToolInitialize(
+        BWLContext  ctx
+        );
 
 /* endpoint.c */
 

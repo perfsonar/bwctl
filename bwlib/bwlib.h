@@ -326,7 +326,7 @@ LookForTesters(
         );
 
 /*
- * an BWLScheduleContextRec is used to maintain state for the schedule
+ * The BWLScheduleContextRec is used to maintain state for the schedule
  * generator. Multiple contexts can be allocated to maintain multiple
  * "streams" of schedules.
  */
@@ -1051,6 +1051,56 @@ BWLTestPacketBandwidth(
         );
 
 /*
+ * tools.c abstraction
+ *
+ * These types are used to define the functionality for a given 'tool'
+ */
+
+typedef struct BWLToolDefinitionRec
+BWLToolDefinitionRec, *BWLToolDefinition;
+
+/*
+ * This function is used to parse config file options specific to the tool.
+ * The 'context' hash is expected to hold the values from the config file.
+ */
+typedef int  (*BWLToolParseArgFunc)(
+        BWLContext                  ctx,
+        struct BWLToolDefinitionRec *tool,
+        const char                  *key,
+        const char                  *val
+        );
+
+/*
+ * Structure to hold complete 'tool' description
+ */
+
+#define BWL_MAX_TOOLNAME    PATH_MAX
+
+struct BWLToolDefinitionRec{
+    char                name[BWL_MAX_TOOLNAME];
+    BWLToolParseArgFunc parse;
+};
+
+extern int
+BWLToolGenericParse(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        const char          *key,
+        const char          *val
+        );
+
+/*
+ * Client functions to 'invoke' tool functionality
+ */
+
+extern BWLBoolean
+BWLToolParseArg(
+        BWLContext  ctx,
+        const char  *key,
+        const char  *val
+        );
+
+/*
  * time.c conversion functions.
  */
 
@@ -1198,11 +1248,10 @@ BWLTimeStampToTimespec(
  * that are needed by the spawned daemon of bwctl as well as the real
  * bwctld daemon.
  */
-I2Boolean
+extern I2Boolean
 BWLParsePorts(
-        char            *pspec,
+        const char      *pspec,
         BWLPortRange    prange_mem,
-        BWLPortRange    *prange_ret,
         I2ErrHandle     ehand,
         FILE            *fout
         );

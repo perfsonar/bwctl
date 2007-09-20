@@ -473,8 +473,7 @@ BWLContextCreate(
 
     if(!ctx){
         BWLError(eh,
-                BWLErrFATAL,ENOMEM,":calloc(1,%d): %M",
-                sizeof(BWLContextRec));
+                BWLErrFATAL,ENOMEM,":calloc(1,%d): %M",sizeof(BWLContextRec));
         return NULL;
     }
 
@@ -482,11 +481,9 @@ BWLContextCreate(
         ctx->lib_eh = True;
         ia.line_info = (I2NAME|I2MSG);
         ia.fp = stderr;
-        ctx->eh = I2ErrOpen("bwlib",I2ErrLogImmediate,&ia,
-                NULL,NULL);
+        ctx->eh = I2ErrOpen("bwlib",I2ErrLogImmediate,&ia,NULL,NULL);
         if(!ctx->eh){
-            BWLError(NULL,BWLErrFATAL,BWLErrUNKNOWN,
-                    "Cannot init error module");
+            BWLError(NULL,BWLErrFATAL,BWLErrUNKNOWN,"Cannot init error module");
             free(ctx);
             return NULL;
         }
@@ -498,8 +495,13 @@ BWLContextCreate(
 
     ctx->access_prio = BWLErrINFO;
 
-    if( !(ctx->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,
-                    NULL,NULL))){
+    if(!BWLToolInitialize(ctx)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Cannot init tools module");
+            free(ctx);
+            return NULL;
+    }
+
+    if( !(ctx->table = I2HashInit(ctx->eh,_BWL_CONTEXT_TABLE_SIZE,NULL,NULL))){
         BWLContextFree(ctx);
         return NULL;
     }

@@ -1230,18 +1230,19 @@ LoadConfig(
     char    *key = keybuf;
     char    *val = valbuf;
     int     rc=0;
+    int     tc;
 
     conf_file[0] = '\0';
 
     rc = strlen(BWCTLD_CONF_FILE);
     if(rc > MAXPATHLEN){
-        fprintf(stderr,"strlen(BWCTLD_CONF_FILE) > MAXPATHLEN\n");
+        I2ErrLog(errhand,"strlen(BWCTLD_CONF_FILE) > MAXPATHLEN");
         exit(1);
     }
     if(opts.confdir){
         rc += strlen(opts.confdir) + strlen(BWL_PATH_SEPARATOR);
         if(rc > MAXPATHLEN){
-            fprintf(stderr,"Path to %s > MAXPATHLEN\n",
+            I2ErrLog(errhand,"Path to %s > MAXPATHLEN",
                     BWCTLD_CONF_FILE);
             exit(1);
         }
@@ -1252,8 +1253,7 @@ LoadConfig(
 
     if(!(conf = fopen(conf_file, "r"))){
         if(opts.confdir){
-            fprintf(stderr,"Unable to open %s: %s\n",conf_file,
-                    strerror(errno));
+            I2ErrLog(errhand,"Unable to open %s: %M",conf_file);
             exit(1);
         }
         return;
@@ -1261,21 +1261,12 @@ LoadConfig(
 
     while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max)) > 0){
 
-        /* Tool selection (thrulay/iperf/nuttcp) */
-        if(!strncasecmp(key,"tester",7)){
-            if(!(opts.tester = strdup(val))){
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-            }
-        }
         /* syslog facility */
-        else if(!strncasecmp(key,"facility",9)){
+        if(!strncasecmp(key,"facility",9)){
             int fac = I2ErrLogSyslogFacility(val);
             if(fac == -1){
-                fprintf(stderr,
-                        "Invalid -e: Syslog facility \"%s\" unknown\n",
+                I2ErrLog(errhand,
+                        "Invalid -e: Syslog facility \"%s\" unknown",
                         val);
                 rc = -rc;
                 break;
@@ -1285,8 +1276,8 @@ LoadConfig(
         else if(!strncasecmp(key,"priority",9)){
             int prio = I2ErrLogSyslogPriority(val);
             if(prio == -1){
-                fprintf(stderr,
-                        "Invalid syslog priority \"%s\" unknown\n",
+                I2ErrLog(errhand,
+                        "Invalid syslog priority \"%s\" unknown",
                         val);
                 rc = -rc;
                 break;
@@ -1301,9 +1292,9 @@ LoadConfig(
                 !strncasecmp(key,"access_priority",16)){
             opts.access_prio = I2ErrLogSyslogPriority(val);
             if(opts.access_prio == -1){
-                fprintf(stderr,
+                I2ErrLog(errhand,
                         "Invalid syslog priority for access_priority: "
-                        "\"%s\" unknown\n",
+                        "\"%s\" unknown",
                         val);
                 rc = -rc;
                 break;
@@ -1317,122 +1308,40 @@ LoadConfig(
                 !strncasecmp(key,"iperf_cmd",10)){
             if(!strncasecmp(opts.tester,"iperf",6) && 
                     !(opts.testercmd = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
-            }
-        }
-        else if(!strncasecmp(key,"iperfport",10) ||
-                !strncasecmp(key,"iperf_port",11) ||
-                !strncasecmp(key,"thrulay_port",13)){
-            char        *hpstr = NULL;
-            uint16_t    lport,hport;
-            char        *end=NULL;
-            uint32_t    tlng;
-
-            /* Only process ports for the selected tool */
-            if(
-                    ((!strncasecmp(key,"iperfport",10) ||
-                      !strncasecmp(key,"iperf_port",11)) &&
-                     strncasecmp(opts.tester,"iperf",6)) ||
-                    (!strncasecmp(key,"thrulay_port",13) && 
-                     strncasecmp(opts.tester,"thrulay",8))){
-                continue;
-            }
-
-            if( (hpstr = strchr(val,'-'))){
-                *hpstr++ = '\0';
-            }
-            errno = 0;
-            tlng = strtoul(val,&end,10);
-            if((end == val) || (errno == ERANGE)){
-                fprintf(stderr,"strtoul(): %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-            }
-            lport = (uint16_t)tlng;
-            if(lport != tlng){
-                rc=-rc;
-                break;
-            }
-
-            if(hpstr){
-                errno = 0;
-                tlng = strtoul(hpstr,&end,10);
-                if((end == hpstr) || (errno == ERANGE)){
-                    fprintf(stderr,"strtoul(): %s\n",
-                            strerror(errno));
-                    rc=-rc;
-                    break;
-                }
-                hport = (uint16_t)tlng;
-                if(hport != tlng){
-                    rc=-rc;
-                    break;
-                }
-            }
-            else{
-                hport = lport;
-            }
-
-            if(hport < lport){
-                char *tester;
-                if(!strncasecmp(key,"thrulay_port",13))
-                    tester = "thrulay";
-                else if(!strncasecmp(key,"iperf_port",11))
-                    tester = "iperf";
-                else
-                    tester = "nuttcp";
-                fprintf(stderr,
-                        "%s_port: invalid range specified",tester);
-                rc=-rc;
-                break;
-            }
-
-            opts.port_range_len = hport-lport+1;
-            if(!(opts.testerports = calloc(sizeof(uint16_t),
-                            opts.port_range_len))){
-                fprintf(stderr,"calloc(): %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-            }
-
-            for(tlng=0;tlng<opts.port_range_len;tlng++){
-                opts.testerports[tlng] = tlng + lport;
             }
         }
         else if(!strncasecmp(key,"peerports",10) ||
                 !strncasecmp(key,"peer_ports",11)){
-            if(!BWLParsePorts(val,&peerports,&opts.peerports,NULL,stderr)){
-                fprintf(stderr,"Invalid peer_ports range specified.");
+            if(!BWLParsePorts(val,&peerports,NULL,stderr)){
+                I2ErrLog(errhand,"Invalid peer_ports range specified.");
                 rc=-rc;
                 break;
+            }
+            else{
+                opts.peerports = &peerports;
             }
         }
         else if(!strncasecmp(key,"datadir",8) ||
                 !strncasecmp(key,"data_dir",9)){
             if(!(opts.datadir = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
         }
         else if(!strncasecmp(key,"user",5)){
             if(!(opts.user = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
         }
         else if(!strncasecmp(key,"group",6)){
             if(!(opts.group = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
@@ -1443,8 +1352,7 @@ LoadConfig(
         else if(!strncasecmp(key,"authmode",9) ||
                 !strncasecmp(key,"auth_mode",10)){
             if(!(opts.authmode = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
@@ -1452,8 +1360,7 @@ LoadConfig(
         else if(!strncasecmp(key,"srcnode",8) ||
                 !strncasecmp(key,"src_node",9)){
             if(!(opts.srcnode = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
@@ -1461,8 +1368,7 @@ LoadConfig(
         else if(!strncasecmp(key,"vardir",7) ||
                 !strncasecmp(key,"var_dir",8)){
             if(!(opts.vardir = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
@@ -1475,8 +1381,7 @@ LoadConfig(
             errno = 0;
             tlng = strtoul(val,&end,10);
             if((end == val) || (errno == ERANGE)){
-                fprintf(stderr,"strtoul(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strtoul(): %M");
                 rc=-rc;
                 break;
             }
@@ -1490,8 +1395,7 @@ LoadConfig(
             errno = 0;
             tlng = strtoul(val,&end,10);
             if((end == val) || (errno == ERANGE)){
-                fprintf(stderr,"strtoul(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strtoul(): %M");
                 rc=-rc;
                 break;
             }
@@ -1501,8 +1405,7 @@ LoadConfig(
                 !strncasecmp(key,"bottleneck_capacity",20)){
             I2numT    bneck;
             if(I2StrToNum(&bneck,val)){
-                fprintf(stderr,"Invalid value: %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"Invalid value: %M");
                 rc=-rc;
                 break;
             }
@@ -1516,14 +1419,12 @@ LoadConfig(
             errno = 0;
             tdbl = strtod(val,&end);
             if((end == val) || (errno == ERANGE)){
-                fprintf(stderr,"strtod(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strtod(): %M");
                 rc=-rc;
                 break;
             }
             if(tdbl < 0.0){
-                fprintf(stderr,"Invalid value sync_fuzz: %f\n",
-                        tdbl);
+                I2ErrLog(errhand,"Invalid value sync_fuzz: %f", tdbl);
                 rc=-rc;
                 break;
             }
@@ -1533,16 +1434,21 @@ LoadConfig(
                 !strncasecmp(key,"allow_unsync",13)){
             opts.allowUnsync = True;
         }
+        else if( (tc = BWLToolParseArg(ctx,key,val))){
+            if(tc < 0){
+                rc = -rc;
+                break;
+            }
+        }
         else{
-            fprintf(stderr,"Unknown key=%s\n",key);
+            I2ErrLog(errhand,"Unknown key=%s",key);
             rc = -rc;
             break;
         }
     }
 
     if(rc < 0){
-        fprintf(stderr,"%s:%d Problem parsing config file\n",
-                conf_file,-rc);
+        I2ErrLog(errhand,"%s:%d Problem parsing config file",conf_file,-rc);
         exit(1);
     }
 

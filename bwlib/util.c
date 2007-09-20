@@ -43,19 +43,23 @@
  */
 I2Boolean
 BWLParsePorts(
-        char            *pspec,
+        const char      *pspec,
         BWLPortRange    prange,
-        BWLPortRange    *prange_ret,
         I2ErrHandle     ehand,
         FILE            *fout
         )
 {
+    char    chmem[BWL_MAX_TOOLNAME];
     char    *tstr,*endptr;
     long    tint;
 
-    if(!pspec) return False;
+    if(!pspec || (strlen(pspec) >= sizeof(chmem))){
+        I2ErrLogP(ehand,EINVAL,"Invalid port-range: \"%s\"",pspec);
+        return False;
+    }
+    strcpy(chmem,pspec);
 
-    tstr = pspec;
+    tstr = chmem;
     endptr = NULL;
 
     while(isspace((int)*tstr)) tstr++;
@@ -102,11 +106,6 @@ done:
      */
     if(!prange->high && !prange->low)
         return True;
-
-    /*
-     * Set.
-     */
-    *prange_ret = prange;
 
     return True;
 

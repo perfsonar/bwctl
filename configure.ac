@@ -101,21 +101,27 @@ if test "$with_thrulay" != "no"; then
         CFLAGS="$CFLAGS -I$with_thrulay"
         BWLLIBDEPS="$BWLLIBDEPS $with_thrulay/thrulay/.libs/libthrulay.a"
     fi
-    AC_SEARCH_LIBS([thrulay_client_init],thrulay, ,[
-                    if test "$with_thrulay" = ""; then
-                        AC_MSG_WARN([Couldn't find libthrulay])
-                    else
-                        AC_MSG_ERROR([Couldn't find libthrulay])
-                    fi
-                ])
-    AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,[
-            if test "$with_thrulay" = ""; then
-                AC_MSG_WARN([Couldn't fine thrulay headers: configuring for no thrulay support])
-            else
-                AC_MSG_ERROR([Couldn't fine thrulay headers])
-            fi
-            ], [AC_INCLUDES_DEFAULT])
-    AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throuphput tool])
+    AC_SEARCH_LIBS([thrulay_client_init],thrulay,
+            # if lib found
+            AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h],
+                        #if header found
+                        AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throuphput tool]),
+                        #if header not found
+                        [
+                            if test "$with_thrulay" = ""; then
+                                AC_MSG_WARN([Couldn't fine thrulay headers: configuring for no thrulay support])
+                            else
+                                AC_MSG_ERROR([Couldn't fine thrulay headers])
+                            fi
+                        ], [AC_INCLUDES_DEFAULT]),
+            #if lib not found
+            [
+                if test "$with_thrulay" = ""; then
+                    AC_MSG_WARN([Couldn't find libthrulay])
+                else
+                    AC_MSG_ERROR([Couldn't find libthrulay])
+                fi
+            ])
 fi
 
 AC_ARG_ENABLE(IPERF,

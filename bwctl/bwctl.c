@@ -1023,17 +1023,15 @@ portdone:
     }
 
     if((tstr = getenv("BWCTL_PEERPORTS"))){
-        BWLPortRange    peerports=NULL;
-
         if(!(tstr = strdup(tstr))){
             I2ErrLog(eh,"strdup(): %M");
             _exit(1);
         }
-        if(!BWLParsePorts(tstr,&peerports_mem,&peerports,eh,NULL)){
+        if(!BWLParsePorts(tstr,&peerports_mem,eh,NULL)){
             I2ErrLog(eh,"Ignoring invalid BWCTL_PEERPORTS value");
         }
-        else if(peerports && !BWLContextConfigSet(ctx,BWLPeerPortRange,
-                    (void*)peerports)){
+        else if(!BWLContextConfigSet(ctx,BWLPeerPortRange,
+                    (void*)&peerports_mem)){
             I2ErrLog(eh,"BWLContextConfigSet(PeerPortRange): %M");
             _exit(1);
         }

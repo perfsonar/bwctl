@@ -23,9 +23,9 @@
  *    This file encapsulates the functionality required to run an
  *    iperf throughput tool in bwctl.
  */
-#include <bwlib/drivers.h>
+#include <bwlib/bwlibP.h>
 
-BWLToolDefinitionRec    BWLToolIperfRec = {
-    "iperf"             /* name */
+BWLToolDefinitionRec    BWLToolIperf = {
+    "iperf",                /* name */
+    BWLToolGenericParse,    /* parse */
 };
-BWLToolDefinition   BWLToolIperf = &BWLToolIperfRec;
