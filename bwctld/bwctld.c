@@ -1229,7 +1229,7 @@ LoadConfig(
     char    keybuf[MAXPATHLEN],valbuf[MAXPATHLEN];
     char    *key = keybuf;
     char    *val = valbuf;
-    int     rc=0;
+    int     rc;
     int     tc;
 
     conf_file[0] = '\0';
@@ -1259,6 +1259,7 @@ LoadConfig(
         return;
     }
 
+    rc=0;
     while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max)) > 0){
 
         /* syslog facility */
@@ -1303,15 +1304,6 @@ LoadConfig(
         else if(!strncasecmp(key,"loglocation",12)  ||
                 !strncasecmp(key,"log_location",13)){
             syslogattr.line_info |= I2FILE|I2LINE;
-        }
-        else if(!strncasecmp(key,"iperfcmd",9) ||
-                !strncasecmp(key,"iperf_cmd",10)){
-            if(!strncasecmp(opts.tester,"iperf",6) && 
-                    !(opts.testercmd = strdup(val))) {
-                I2ErrLog(errhand,"strdup(): %M");
-                rc=-rc;
-                break;
-            }
         }
         else if(!strncasecmp(key,"peerports",10) ||
                 !strncasecmp(key,"peer_ports",11)){

@@ -165,6 +165,24 @@ BWLToolParseArg(
  * Returns:    
  * Side Effect:    
  */
+static int
+save_val(
+        BWLContext  ctx,
+        const char  *key,
+        const void  *val
+        )
+{
+    char        optname[BWL_MAX_TOOLNAME + 12];
+
+    strcpy(optname,"V.");
+    strncat(optname,key,sizeof(optname));
+
+    if(BWLContextConfigSet(ctx,optname,val)){
+        return 1;
+    }
+
+    return -1;
+}
 int
 BWLToolGenericParse(
         BWLContext          ctx,
@@ -173,59 +191,50 @@ BWLToolGenericParse(
         const char          *val
         )
 {
-    char        optname[BWL_MAX_TOOLNAME + 10];
+    char        confkey[BWL_MAX_TOOLNAME + 10];
     uint32_t    len;
 
-    strcpy(optname,"V.");
-    strncat(optname,tool->name,sizeof(optname));
-    len = strlen(optname);
+    strncpy(confkey,tool->name,sizeof(confkey));
+    len = strlen(confkey);
 
-    strncpy(&optname[len],"_cmd",sizeof(optname)-len);
-    if(!strncasecmp(key,optname,strlen(optname))){
-        if(BWLContextConfigSet(ctx,optname,val)){
-            return 1;
-        }
-        else{
-            return -1;
-        }
+    /*
+     * Check each configuration file 'key' that this tool supports, and
+     * see if LoadConfig is currently loading one of these.
+     */
+
+    strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
+    if(!strncasecmp(key,confkey,strlen(confkey))){
+        return save_val(ctx,key,val);
     }
 
-    strncpy(&optname[len],"server_cmd",sizeof(optname)-len);
-    if(!strncasecmp(key,optname,strlen(optname))){
-        if(BWLContextConfigSet(ctx,optname,val)){
-            return 1;
-        }
-        else{
-            return -1;
-        }
+    strncpy(&confkey[len],"_server_cmd",sizeof(confkey)-len);
+    if(!strncasecmp(key,confkey,strlen(confkey))){
+        return save_val(ctx,key,val);
     }
 
-    strncpy(&optname[len],"_ports",sizeof(optname)-len);
-    if(!strncasecmp(key,optname,strlen(optname))){
+    strncpy(&confkey[len],"_ports",sizeof(confkey)-len);
+    if(!strncasecmp(key,confkey,strlen(confkey))){
         BWLPortRangeRec portrange;
         BWLPortRange    ports;
 
         if(!BWLParsePorts(val,&portrange,BWLContextErrHandle(ctx),NULL)){
             BWLError(ctx,BWLErrFATAL,errno,
-                        "BWLToolGenericParse: %s: \'%s\' - invalid port range",
-                        optname,val);
+                    "BWLToolGenericParse: %s: \'%s\' - invalid port range",
+                    confkey,val);
             return -1;
         }
 
         if( !(ports = calloc(sizeof(BWLPortRangeRec),1))){
             BWLError(ctx,BWLErrFATAL,errno,
-                        "BWLToolGenericParse: calloc(): %M");
+                    "BWLToolGenericParse: calloc(): %M");
             return -1;
         }
         *ports = portrange;
 
-        if(BWLContextConfigSet(ctx,optname,ports)){
-            return 1;
-        }
-        else{
-            return -1;
-        }
+        return save_val(ctx,key,ports);
     }
+
+    /* key not handled */
 
     return 0;
 }

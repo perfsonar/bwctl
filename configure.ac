@@ -104,8 +104,11 @@ if test "$with_thrulay" != "no"; then
     AC_SEARCH_LIBS([thrulay_client_init],thrulay,
             # if lib found
             AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h],
+                        [
                         #if header found
-                        AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throuphput tool]),
+                        AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throuphput tool])
+                        do_thrulay=true
+                        ],
                         #if header not found
                         [
                             if test "$with_thrulay" = ""; then
@@ -123,20 +126,25 @@ if test "$with_thrulay" != "no"; then
                 fi
             ])
 fi
+AM_CONDITIONAL(TOOL_THRULAY, test x$do_thrulay = xtrue)
 
 AC_ARG_ENABLE(IPERF,
               AC_HELP_STRING([--enable-IPERF], [- IPERF throughput tool]),
               [tool_ok=$enableval], [tool_ok=yes])
 if test "$tool_ok" = "yes"; then
     AC_DEFINE(TOOL_IPERF, 1, [IPERF throuphput tool])
+    do_iperf=true
 fi
+AM_CONDITIONAL(TOOL_IPERF, test x$do_iperf = xtrue)
 
 AC_ARG_ENABLE(NUTTCP,
               AC_HELP_STRING([--enable-NUTTCP], [- NUTTCP throughput tool]),
               [tool_ok=$enableval], [tool_ok=yes])
 if test "$tool_ok" = "yes"; then
     AC_DEFINE(TOOL_NUTTCP, 1, [NUTTCP throuphput tool])
+    do_nuttcp=true
 fi
+AM_CONDITIONAL(TOOL_NUTTCP, test x$do_nuttcp = xtrue)
 
 
 BWLINCS='-I${top_srcdir}'
