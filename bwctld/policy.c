@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <assert.h>
+#include <math.h>
 
 #include <bwlib/bwlib.h>
 #include "policy.h"
@@ -146,7 +147,8 @@ static struct limdesc	limkeys[] = {
     {BWLDLimDuration,	    "duration",		LIMFIXEDINT,    0},
     {BWLDLimAllowOpenMode,  "allow_open_mode",	LIMBOOL,        1},
     {BWLDLimAllowTCP,	    "allow_tcp",	LIMBOOL,        1},
-    {BWLDLimAllowUDP,	    "allow_udp",	LIMBOOL,        0}
+    {BWLDLimAllowUDP,	    "allow_udp",	LIMBOOL,        0},
+    {BWLDLimMaxTimeError,   "max_time_error",	LIMFIXEDINT,    0}
 };
 
 static BWLDLimitT
@@ -270,7 +272,20 @@ parselimitline(
         while(!isspace((int)*line) && (*line != '\0')){
             line++;
         }
-        *line = '\0';
+        /*
+         * Look for bogus trailing stuff...
+         */
+        if(*line != '\0'){
+            *line++ = '\0';
+            while(isspace((int)*line)){
+                line++;
+            }
+            if(*line != '\0'){
+                BWLError(policy->ctx,BWLErrFATAL,BWLErrINVALID,
+                        "\"%s\" value can not contain white-space.",limname);
+                return 1;
+            }
+        }
 
         if(!strncasecmp(limname,"parent",7)){
             if(!policy->root){
@@ -758,7 +773,7 @@ parselimits(
      * Add a "default" class if none was specified.
      */
     if((rc == 0) && !policy->root){
-        char	defline[] = "default with";
+        char	defline[] = "default with duration=30, max_time_error=10";
 
         BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
                 "WARNING: No limits specified.");
@@ -1248,7 +1263,7 @@ IntegerResourceDemand(
     }
 
     /*
-     * If there is not limit record, then the default must be 0 or the
+     * If there is no limit record, then the default must be 0 or the
      * logic breaks.
      */
     assert(!GetDefLimit(lim.limit));
@@ -2218,17 +2233,20 @@ BWLDCheckTestPolicy(
     lim.value = tspec->duration;
     if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
         BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
-                "BWLDCheckTestPolicy: Clock synchronization not sufficient");
+                "BWLDCheckTestPolicy: Requested test duration denied");
         goto done;
     }
 
     /*
      * time synchronization
-     * Make sure clocks are synchronized to within 10% of session duration
+     * Make sure clocks are synchronized to within max_time_error
      */
-    if(fuzz_time > (tspec->duration / 10)){
+    lim.limit = BWLDLimMaxTimeError;
+    lim.value = (uint32_t)ceil(BWLNum64ToDouble(fuzz_time));
+    if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
         BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
-                "BWLDCheckTestPolicy: Clock synchronization not sufficient");
+                "BWLDCheckTestPolicy: Clock synchronization not sufficient: %f",
+                BWLNum64ToDouble(fuzz_time));
         goto done;
     }
 

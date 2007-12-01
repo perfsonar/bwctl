@@ -112,6 +112,7 @@ typedef struct BWLDLimRec{
 #define	BWLDLimAllowOpenMode	5
 #define	BWLDLimAllowTCP		6
 #define	BWLDLimAllowUDP		7
+#define	BWLDLimMaxTimeError	8
 
 struct BWLDPolicyNodeRec{
     BWLDPolicy	    policy;
