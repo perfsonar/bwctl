@@ -1424,9 +1424,10 @@ ACCEPT:
      *  Timer expire - test hung?
      *  TERM signal - parent killing this.
      */
-    while(!rc && !ipf_intr && !ipf_chld){
+    while(!rc && !ipf_intr){
         rc = select(ep->rcntrl->sockfd+1,&readfds,NULL,&exceptfds,NULL);
     }
+
     /*
      * Get current time
      */
@@ -1447,6 +1448,10 @@ ACCEPT:
 
     /*
      * send a graceful kill to the child (If already dead, errno will be ESRCH)
+     *
+     * XXX:possible race condition (sender side finishies first, it sends
+     * the StopSessions message, and it could be received and acted upon
+     * before the receiver iperf process finishes)
      */
     if(!ipf_chld && ep->child){
         if(kill(ep->child,SIGTERM) == 0){
@@ -1565,8 +1570,12 @@ ACCEPT:
      * Is socket readable? Select again. If it was readable before, this
      * is a no-op. If not, this will wait until the peer StopSession
      * message comes.
+     *
+     * XXX: Need a timeout here?
      */
-    while(!rc && !ipf_intr){
+    /* if earlier selected ended due to intr, reset rc to 0 so select called */
+    if(rc < 0) rc=0;
+    while(!rc && !ipf_term){
         rc = select(ep->rcntrl->sockfd+1,&readfds,NULL,&exceptfds,NULL);
     }
     if(ipf_term){
