@@ -727,11 +727,17 @@ next_start(
     return inc;
 }
 
+/*
+ * XXX: Get tool port-range stuff in a common way for bwctld/bwctl-spawn
+ */
 static uint16_t *tool_port_range = NULL;
 static uint16_t tool_port_range_len = 0;
 static uint16_t tool_port_default = 5001;
 static uint16_t tool_port_count = 0;
 
+/*
+ * XXX: Common CheckTestPolicy between bwctld/bwctl possible?
+ */
 static BWLBoolean
 CheckTestPolicy(
         BWLControl      cntrl,
@@ -1027,7 +1033,7 @@ portdone:
             I2ErrLog(eh,"strdup(): %M");
             _exit(1);
         }
-        if(!BWLParsePorts(tstr,&peerports_mem,eh,NULL)){
+        if(!BWLPortsParse(ctx,tstr,&peerports_mem)){
             I2ErrLog(eh,"Ignoring invalid BWCTL_PEERPORTS value");
         }
         else if(!BWLContextConfigSet(ctx,BWLPeerPortRange,

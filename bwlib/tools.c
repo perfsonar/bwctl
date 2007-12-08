@@ -119,7 +119,7 @@ BWLToolInitialize(
     return True;
 }
 
-BWLBoolean
+int
 BWLToolParseArg(
         BWLContext  ctx,
         const char  *key,
@@ -217,7 +217,7 @@ BWLToolGenericParse(
         BWLPortRangeRec portrange;
         BWLPortRange    ports;
 
-        if(!BWLParsePorts(val,&portrange,BWLContextErrHandle(ctx),NULL)){
+        if(!BWLPortsParse(ctx,val,&portrange)){
             BWLError(ctx,BWLErrFATAL,errno,
                     "BWLToolGenericParse: %s: \'%s\' - invalid port range",
                     confkey,val);

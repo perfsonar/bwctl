@@ -498,6 +498,8 @@ BWLProcessTestRequest(
 
     /*
      * Read the TestRequest and allocate tsession to hold the information.
+     * (during schedule negotiation, only the timestamps from the
+     * subsequent requests are used.)
      */
     if((rc = _BWLReadTestRequest(cntrl,intr,&tsession,&acceptval)) !=
             BWLErrOK){
@@ -539,13 +541,19 @@ BWLProcessTestRequest(
             goto error;
         }
     }
-    /*
-     * If this "new" session is a receiver session, create a SID for it.
-     */
-    else if(tsession->conf_receiver && (_BWLCreateSID(tsession) != 0)){
-        err_ret = BWLErrWARNING;
-        acceptval = BWL_CNTRL_FAILURE;
-        goto error;
+    else{
+        /*
+         * If this "new" session is a receiver session, create a SID for it.
+         */
+        if(tsession->conf_receiver && (_BWLCreateSID(tsession) != 0)){
+            err_ret = BWLErrWARNING;
+            acceptval = BWL_CNTRL_FAILURE;
+            goto error;
+        }
+
+        /*
+         * XXX: Check tool availability and pick 'port' here
+         */
     }
 
     /*

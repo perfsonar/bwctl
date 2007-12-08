@@ -419,14 +419,14 @@ typedef void (*BWLFunc)(void);
 
 /*
  * This context variable is used to hold a pointer to a port-range record. This
- * record is used to indicate what port ranges should be used for peer
- * server connections. (The connection used to verify clocks and share
- * test results.)
+ * record is used to indicate what port ranges should be used for port
+ * selections.
  */
 #define BWLPeerPortRange    "V.BWLPeerPortRange"
 typedef struct BWLPortRangeRec{
-    uint16_t   low;
-    uint16_t   high;
+    uint16_t    i;      /* current port */
+    uint16_t    low;
+    uint16_t    high;
 } BWLPortRangeRec, *BWLPortRange;
 
 /*
@@ -1093,7 +1093,12 @@ BWLToolGenericParse(
  * Client functions to 'invoke' tool functionality
  */
 
-extern BWLBoolean
+/*
+ * return vals: -1 (key recognized, val invalid)
+ *              1 (key recognized, val used)
+ *              0 (key not recognized)
+ */
+extern int
 BWLToolParseArg(
         BWLContext  ctx,
         const char  *key,
@@ -1249,11 +1254,23 @@ BWLTimeStampToTimespec(
  * bwctld daemon.
  */
 extern I2Boolean
-BWLParsePorts(
+BWLPortsParse(
+        BWLContext      ctx,
         const char      *pspec,
-        BWLPortRange    prange_mem,
-        I2ErrHandle     ehand,
-        FILE            *fout
+        BWLPortRange    prange_mem
         );
+
+/*
+ * Return the next port in the cycle
+ */
+extern uint16_t
+BWLPortsNext(
+        BWLPortRange    prange
+        );
+
+/*
+ * How long is the range?
+ */
+#define BWLPortsRange(prange)   (prange->high - prange->low)
 
 #endif    /* OWAMP_H */

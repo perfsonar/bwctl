@@ -1307,8 +1307,7 @@ LoadConfig(
         }
         else if(!strncasecmp(key,"peerports",10) ||
                 !strncasecmp(key,"peer_ports",11)){
-            if(!BWLParsePorts(val,&peerports,NULL,stderr)){
-                I2ErrLog(errhand,"Invalid peer_ports range specified.");
+            if(!BWLPortsParse(ctx,val,&peerports)){
                 rc=-rc;
                 break;
             }
@@ -1748,15 +1747,15 @@ main(int argc, char *argv[])
     avail_testers = LookForTesters(ctx);
 
     if(!opts.testerports){
-	if(opts.tester && (!strncasecmp(opts.tester,"iperf",6) 
-			   || !strncasecmp(opts.tester,"nuttcp",7))){
-	    /* iperf and nuttcp */
-	    opts.def_port = 5001;
-	} 
-	else{
-	    /* thrulay */
-	    opts.def_port = 5003;
-	}
+        if(opts.tester && (!strncasecmp(opts.tester,"iperf",6) 
+                    || !strncasecmp(opts.tester,"nuttcp",7))){
+            /* iperf and nuttcp */
+            opts.def_port = 5001;
+        } 
+        else{
+            /* thrulay */
+            opts.def_port = 5003;
+        }
         opts.testerports = &opts.def_port;
         opts.port_range_len = 1;
     }

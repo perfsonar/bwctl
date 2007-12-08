@@ -194,7 +194,6 @@ epssock(
     size_t                  nodebufflen = sizeof(nodebuff);
     uint16_t                port;
     uint16_t                p;
-    uint16_t                range;
     BWLPortRange            portrange=NULL;
     int                     saveerr=0;
 
@@ -231,23 +230,7 @@ epssock(
 
     if((portrange = (BWLPortRange)BWLContextConfigGetV(tsess->cntrl->ctx,
                     BWLPeerPortRange))){
-        uint32_t   r;
-
-        /*
-         * Get a random 32bit num to  aid in selecting first port
-         * to try.
-         */
-        if(I2RandomBytes(tsess->cntrl->ctx->rand_src,(uint8_t*)&r,4) != 0)
-            goto failsock;
-
-        if(portrange->high <= portrange->low){
-            BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-                    "Invalid port range specified");
-            goto failsock;
-        }
-
-        range = portrange->high - portrange->low;
-        p = port = portrange->low + ((double)r / 0xffffffff * range);
+        p = port = BWLPortsNext(portrange);
     }
     else{
         p = port = 0;
@@ -287,17 +270,13 @@ epssock(
          * If it failed, and we are not using a "range" then break out of
          * loop and report failure. (Or if the error is not EADDRINUSE.)
          */
-        if(!portrange || (errno != EADDRINUSE))
+        if(!portrange || !BWLPortsRange(portrange) || (errno != EADDRINUSE))
             goto bind_fail;
 
         /*
          * compute next port to try.
          */
-        if(range){
-            p -= portrange->low;
-            p = (p + 1) % range;
-            p += portrange->low;
-        }
+        p = BWLPortsNext(portrange);
     } while(p != port);
 
     saveerr = errno;

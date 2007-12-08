@@ -284,9 +284,9 @@ length of read/write buffers (bytes).
 8 KB TCP, 1470 bytes UDP.
 .RE
 .TP
-\fB\-P\fR \fInThreads\fR
-Generates an error message. The \fB\-P\fR option of \fBIperf\fR is not
-currently supported by \fBbwctl\fR.
+\fB\-P\fR \fInStreams\fR
+Number of concurrent streams for the test. See the \fB\-P\fR option
+of \fBIperf\fR for details.
 .TP
 \fB\-S\fR \fITOS\fR
 Set the TOS (See RFC 1349) byte in packets.

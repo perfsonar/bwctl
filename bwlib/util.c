@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include <errno.h>
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <bwlib/bwlib.h>
@@ -29,7 +30,7 @@
 #include "bwlibP.h"
 
 /*
- * Function:    BWLParsePorts
+ * Function:    BWLPortsParse
  *
  * Description:    
  *
@@ -42,19 +43,19 @@
  * Side Effect:    
  */
 I2Boolean
-BWLParsePorts(
+BWLPortsParse(
+        BWLContext      ctx,
         const char      *pspec,
-        BWLPortRange    prange,
-        I2ErrHandle     ehand,
-        FILE            *fout
+        BWLPortRange    prange
         )
 {
-    char    chmem[BWL_MAX_TOOLNAME];
-    char    *tstr,*endptr;
-    long    tint;
+    char        chmem[BWL_MAX_TOOLNAME];
+    char        *tstr,*endptr;
+    long        tint;
+    uint16_t    range;
 
     if(!pspec || (strlen(pspec) >= sizeof(chmem))){
-        I2ErrLogP(ehand,EINVAL,"Invalid port-range: \"%s\"",pspec);
+	BWLError(ctx,BWLErrFATAL,EINVAL,"Invalid port-range: \"%s\"",pspec);
         return False;
     }
     strcpy(chmem,pspec);
@@ -102,22 +103,48 @@ BWLParsePorts(
 
 done:
     /*
-     * If ephemeral is specified, shortcut by not setting.
+     * Initialize current port
      */
-    if(!prange->high && !prange->low)
-        return True;
+    prange->i = prange->low;
+    if( range = BWLPortsRange(prange)){
+        uint32_t    r;
+
+        /*
+         * Get a random 32bit num to aid in selecting first port.
+         * (Silently fail - it is not that big of a deal if the
+         * first port is selected.)
+         */
+        if(I2RandomBytes(ctx->rand_src,(uint8_t*)&r,4) == 0){
+            prange->i = prange->low + ((double)r / 0xffffffff * range);
+        }
+    }
 
     return True;
 
 failed:
-    if(ehand){
-        I2ErrLogP(ehand,EINVAL,"Invalid port-range: \"%s\"",pspec);
-    }
-    else if(fout){
-        fprintf(fout,"Invalid port-range: \"%s\"",pspec);
-    }
+    BWLError(ctx,BWLErrFATAL,EINVAL,"Invalid port-range: \"%s\"",pspec);
 
     return False;
+}
+
+uint16_t
+BWLPortsNext(
+        BWLPortRange   prange
+        )
+{
+    uint16_t    i,p;
+
+    assert(prange);
+
+    /* save i to return */
+    i = prange->i;
+
+    /* compute next i */
+    prange->i -= prange->low;
+    prange->i = (prange->i + 1) % BWLPortsRange(prange);
+    prange->i += prange->low;
+
+    return i;
 }
 
 BWLToolAvailability

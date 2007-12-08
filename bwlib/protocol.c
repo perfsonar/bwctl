@@ -814,6 +814,8 @@ _BWLReadTimeResponse(
  *     124|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
+ *        Recv Port only valid if Conf-Receiver is set
+ *
  *	  Dynamic is a bit mask.
  *	  BWL_DYNAMIC_WINSIZE = 0x1
  *	  If this bit is set, the "Window Size" parameter is only used if
@@ -823,6 +825,9 @@ _BWLReadTimeResponse(
  *        bytes is written only when the mode byte previously returned
  *        by the server indicates that the current tool negotiation
  *        version is supported (BWL_MODE_TESTER_NEGOTIATION_VERSION).
+ *
+ *        nParallel is also only used if server protocol version is >=
+ *        BWL_MODE_TESTER_NEGOTIATION_VERSION
  */
 BWLErrSeverity
 _BWLWriteTestRequest(
@@ -977,11 +982,17 @@ _BWLWriteTestRequest(
         buf[93] = tspec->tos;
     }
 
-    buf[94] = tspec->parallel_streams;
 
     if(tool_negotiation){
+        buf[94] = tspec->parallel_streams;
         *(uint32_t*)&buf[96] = htonl(tspec->tool);
     }
+    else if(tspec->parallel_streams){
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support -P option");
+        return BWLErrFATAL;
+    }
+
     /*
      * Now - send the request! 112(+4) octets == 7(+1) blocks.
      */
@@ -1263,9 +1274,9 @@ _BWLReadTestRequest(
         tspec.dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
         tspec.tos = buf[93];
 
-        tspec.parallel_streams = buf[94];
 
         if(tool_negotiation){
+            tspec.parallel_streams = buf[94];
             tspec.tool = ntohl(*(uint32_t*)&buf[96]);
         }
 
