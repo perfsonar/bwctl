@@ -30,6 +30,57 @@
 #include "bwlibP.h"
 
 /*
+ * Function:    BWLPortsSetI
+ *
+ * Description:    
+ *              Initialize port-range so the 'next port' function starts
+ *              with the given 'i' port. If i is 0, this function initializes
+ *              the port-range with a random port (or failing that, uses
+ *              the lowest value in the port-range).
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+void
+BWLPortsSetI(
+        BWLContext      ctx,
+        BWLPortRange    prange,
+        uint16_t        i
+        )
+{
+    uint16_t    range;
+
+    /*
+     * Initialize current port
+     */
+    if((i != 0) && (i > prange->low) && (i < prange->high)){
+        prange->i = i;
+    }
+    else{
+        prange->i = prange->low;
+        if( (range = BWLPortsRange(prange))){
+            uint32_t    r;
+
+            /*
+             * Get a random 32bit num to aid in selecting first port.
+             * (Silently fail - it is not that big of a deal if the
+             * first port is selected.)
+             */
+            if(I2RandomBytes(ctx->rand_src,(uint8_t*)&r,4) == 0){
+                prange->i = prange->low + ((double)r / 0xffffffff * range);
+            }
+        }
+    }
+
+    return;
+}
+
+/*
  * Function:    BWLPortsParse
  *
  * Description:    
@@ -52,7 +103,6 @@ BWLPortsParse(
     char        chmem[BWL_MAX_TOOLNAME];
     char        *tstr,*endptr;
     long        tint;
-    uint16_t    range;
 
     if(!pspec || (strlen(pspec) >= sizeof(chmem))){
 	BWLError(ctx,BWLErrFATAL,EINVAL,"Invalid port-range: \"%s\"",pspec);
@@ -102,23 +152,7 @@ BWLPortsParse(
     }
 
 done:
-    /*
-     * Initialize current port
-     */
-    prange->i = prange->low;
-    if( range = BWLPortsRange(prange)){
-        uint32_t    r;
-
-        /*
-         * Get a random 32bit num to aid in selecting first port.
-         * (Silently fail - it is not that big of a deal if the
-         * first port is selected.)
-         */
-        if(I2RandomBytes(ctx->rand_src,(uint8_t*)&r,4) == 0){
-            prange->i = prange->low + ((double)r / 0xffffffff * range);
-        }
-    }
-
+    BWLPortsSetI(ctx,prange,0);
     return True;
 
 failed:
@@ -132,7 +166,7 @@ BWLPortsNext(
         BWLPortRange   prange
         )
 {
-    uint16_t    i,p;
+    uint16_t    i;
 
     assert(prange);
 

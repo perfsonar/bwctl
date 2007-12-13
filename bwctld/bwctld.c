@@ -142,13 +142,15 @@ signal_catch(
 
 typedef struct ReservationRec ReservationRec, *Reservation;
 struct ReservationRec{
+    BWLToolType tool;
     BWLSID      sid;
     BWLNum64    restime;
     BWLNum64    start;    /* fuzz applied */
     BWLNum64    end;    /* fuzz applied */
     BWLNum64    fuzz;
-    uint32_t   duration;
-    uint16_t   port;
+    uint32_t    duration;
+    uint16_t    toolport;
+    uint16_t    peerport;
     Reservation next;
 };
 
@@ -165,10 +167,13 @@ static Reservation
 AllocReservation(
         ChldState   cstate,
         BWLSID      sid,
-        uint16_t   *port
+        BWLToolType tool_id,
+        uint16_t    *toolport,
+        uint16_t    *peerport
         )
 {
-    Reservation res;
+    BWLErrSeverity  err = BWLErrOK;
+    Reservation     res;
 
     if(cstate->res){
         BWLError(cstate->policy->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -184,15 +189,28 @@ AllocReservation(
     memcpy(res->sid,sid,sizeof(sid));
 
     /*
-     * Get next port in range
-     * Could add randomness... For now just step through.
+     * Invoke 'tool' one-time initialization phase
+     * Sets *toolport
+     *
+     * Done here so there is daemon-wide state for the 'last' port allocated.
      */
-    if(!*port){
-        res->port = opts.testerports[
-            opts.port_count++ % opts.port_range_len];
+    if( BWLErrOK !=
+            (err = BWLToolInitTest(cstate->policy->ctx,tool_id,toolport))){
+        BWLError(cstate->policy->ctx,err,BWLErrINVALID,
+                "AllocReservation: Tool initialization failed");
+        return NULL;
+    }
+    res->toolport = *toolport;
+
+    /*
+     * Set *peerport
+     * Done here so there is daemon-wide state for the 'last' port allocated.
+     */
+    if(opts.peerports){
+        res->peerport = *peerport = BWLPortsNext(opts.peerports);
     }
     else{
-        res->port = *port;
+        res->peerport = *peerport = 0;
     }
 
     cstate->res = res;
@@ -262,10 +280,12 @@ ChldReservationDemand(
         BWLNum64    rtime,
         BWLNum64    ftime,
         BWLNum64    ltime,
-        uint32_t   duration,
+        uint32_t    duration,
         BWLNum64    rtttime,
         BWLNum64    *restime,
-        uint16_t   *port,
+        uint16_t    *toolport,
+        uint16_t    *peerport,
+        BWLToolType tool_id,
         int         *err)
 {
     BWLContext      ctx = cstate->policy->ctx;
@@ -289,9 +309,10 @@ ChldReservationDemand(
          */
         if(!ResRemove(cstate->res))
             return False;
-        cstate->res->port = *port;
+        cstate->res->toolport = *toolport;
+        cstate->res->peerport = *peerport;
     }
-    else if(!AllocReservation(cstate,sid,port)){
+    else if(!AllocReservation(cstate,sid,tool_id,toolport,peerport)){
         /*
          * Alloc failed.
          */
@@ -451,7 +472,8 @@ next_slot:
     *rptr = res;
 
     *restime = res->restime;
-    *port = res->port;
+    *toolport = res->toolport;
+    *peerport = res->peerport;
 
     return True;
 
@@ -653,8 +675,10 @@ CheckFD(
 
         BWLSID          sid;
         BWLNum64        rtime,ftime,ltime,restime,rtttime;
-        uint32_t       duration;
-        uint16_t       port;
+        uint32_t        duration;
+        uint16_t        toolport;
+        uint16_t        peerport;
+        BWLToolType     tool_id;
         BWLAcceptType   aval;
 
         switch(BWLDReadReqType(cstate->fd,&ipfd_exit,&err)){
@@ -685,7 +709,7 @@ CheckFD(
                             &ipfd_exit,sid,
                             &rtime,&ftime,&ltime,
                             &duration,&rtttime,
-                            &port,&err)){
+                            &toolport,&peerport,&tool_id,&err)){
                     goto done;
                 }
 
@@ -695,7 +719,7 @@ CheckFD(
                 if(ChldReservationDemand(cstate,
                             sid,rtime,ftime,ltime,
                             duration,rtttime,
-                            &restime,&port,&err)){
+                            &restime,&toolport,&peerport,tool_id,&err)){
                     resp = BWLDMESGOK;
                 }
                 else if(err){
@@ -709,7 +733,7 @@ CheckFD(
                  * Send response
                  */
                 err = BWLDSendReservationResponse(cstate->fd,
-                        &ipfd_exit,resp,restime,port);
+                        &ipfd_exit,resp,restime,toolport,peerport);
                 break;
             case BWLDMESGCOMPLETE:
 
@@ -1734,8 +1758,6 @@ main(int argc, char *argv[])
      * Install policy for "ctx" - and return policy record.
      */
     if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
-                    opts.tester,
-                    opts.testercmd,
                     &opts.bottleneckcapacity,
                     &ipfd_exit,
                     &lbuf,&lbuf_max))){
@@ -1746,19 +1768,19 @@ main(int argc, char *argv[])
     /* Check which testers are available */
     avail_testers = LookForTesters(ctx);
 
-    if(!opts.testerports){
-        if(opts.tester && (!strncasecmp(opts.tester,"iperf",6) 
-                    || !strncasecmp(opts.tester,"nuttcp",7))){
-            /* iperf and nuttcp */
-            opts.def_port = 5001;
-        } 
-        else{
-            /* thrulay */
-            opts.def_port = 5003;
-        }
-        opts.testerports = &opts.def_port;
-        opts.port_range_len = 1;
-    }
+//    if(!opts.testerports){
+//        if(opts.tester && (!strncasecmp(opts.tester,"iperf",6) 
+//                    || !strncasecmp(opts.tester,"nuttcp",7))){
+//            /* iperf and nuttcp */
+//            opts.def_port = 5001;
+//        } 
+//        else{
+//            /* thrulay */
+//            opts.def_port = 5003;
+//        }
+//        opts.testerports = &opts.def_port;
+//        opts.port_range_len = 1;
+//    }
 
     /*
      * Done with the line buffer. (reset to 0 for consistancy.)

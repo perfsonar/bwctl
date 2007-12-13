@@ -27,5 +27,7 @@
 
 BWLToolDefinitionRec    BWLToolIperf = {
     "iperf",                /* name */
+    5001,                   /* def_port */
     BWLToolGenericParse,    /* parse */
+    BWLToolGenericInitTest /* init_test */
 };

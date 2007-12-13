@@ -317,7 +317,7 @@ BWLControlOpen(
         uint32_t	    mode_req_mask,  /* requested modes	        */
         BWLUserID	    userid,	    /* userid or NULL	        */
         BWLNum64	    *uptime_ret,    /* server uptime - ret	*/
-        BWLToolAvailability *avail_testers, /* server supported testers */
+        BWLToolAvailability *tools_ret,     /* server supported tools   */
         BWLErrSeverity	    *err_ret	    /* err - return		*/
         )
 {
@@ -504,8 +504,7 @@ gotmode:
      * Write the client greeting, and see if the Server agree's to it.
      */
     if( ((rc=_BWLWriteClientGreeting(cntrl,token)) < BWLErrOK) ||
-            ((rc=_BWLReadServerOK(cntrl,&acceptval,
-                                  avail_testers)) < BWLErrOK)){
+            ((rc=_BWLReadServerOK(cntrl,&acceptval,tools_ret)) < BWLErrOK)){
         *err_ret = (BWLErrSeverity)rc;
         goto error;
     }
@@ -667,7 +666,7 @@ BWLSessionRequest(
         BWLBoolean	send,
         BWLTestSpec	*test_spec,
         BWLTimeStamp	*avail_time_ret,
-        uint16_t	*recv_port,
+        uint16_t	*tool_port,
         BWLSID		sid,
         BWLErrSeverity	*err_ret
         )
@@ -821,12 +820,12 @@ foundaddr:
          * later calls.
          */
         if( !(tsession = _BWLTestSessionAlloc(cntrl,send,sender,
-                        receiver,*recv_port,test_spec)))
+                        receiver,*tool_port,test_spec)))
             goto error;
     }
 
     if(tsession->conf_receiver){
-        *recv_port = 0;
+        *tool_port = 0;
     }
     else{
         memcpy(tsession->sid,sid,sizeof(BWLSID));
@@ -844,7 +843,7 @@ foundaddr:
         goto error;
     }
 
-    *recv_port = tsession->recv_port;
+    *tool_port = tsession->tool_port;
 
     /*
      * Server accepted our request, and we were able to initialize this

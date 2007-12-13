@@ -49,6 +49,8 @@
 
 static BWLToolDefinitionRec BWLToolNone = {
     "",
+    0,
+    NULL,
     NULL
 };
 
@@ -136,6 +138,28 @@ BWLToolParseArg(
         /* return success or failure, if recognized */
         if(err){
             return err;
+        }
+    }
+
+    /*
+     * Arg not found
+     */
+    return False;
+}
+
+BWLErrSeverity
+BWLToolInitTest(
+        BWLContext  ctx,
+        BWLToolType tool,
+        uint16_t    *toolport
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(ctx->tool_list[i].id == tool){
+            return ctx->tool_list[i].tool->init_test(ctx,ctx->tool_list[i].tool,
+                    toolport);
         }
     }
 
@@ -237,4 +261,43 @@ BWLToolGenericParse(
     /* key not handled */
 
     return 0;
+}
+
+/*
+ * Function:    BWLToolGenericInitTest
+ *
+ * Description:    
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+BWLErrSeverity
+BWLToolGenericInitTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        uint16_t            *toolport
+        )
+{
+    char            optname[BWL_MAX_TOOLNAME + 12];
+    uint32_t        len;
+    BWLPortRange    prange=NULL;
+
+    strcpy(optname,"V.");
+    strncpy(&optname[2],tool->name,sizeof(optname)-2);
+    len = strlen(optname);
+    strncpy(&optname[len],"_ports",sizeof(optname)-len);
+
+    if( (prange = (BWLPortRange)BWLContextConfigGetV(ctx,optname))){
+        *toolport = BWLPortsNext(prange);
+    }
+    else{
+        *toolport = tool->def_port;
+    }
+
+    return BWLErrOK;
 }

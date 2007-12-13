@@ -1968,6 +1968,10 @@ AGAIN:
                     I2ErrLog(eh,
                             "Unable to contact a local bwctld: Spawning local tool controller");
 
+                    /*
+                     * XXX: LookForTesters should be moved into
+                     * either ctx create or control open!
+                     */
 		            second.avail_tools = LookForTesters(ctx);
                     /* LookForTesters exec's, so reset signal indicators */
                     ip_intr=0; ip_chld=0;

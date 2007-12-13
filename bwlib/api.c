@@ -237,7 +237,7 @@ _BWLTestSessionAlloc(
         BWLBoolean  send,
         I2Addr      sender,
         I2Addr      receiver,
-        uint16_t   recv_port,
+        uint16_t    tool_port,
         BWLTestSpec *test_spec
         )
 {
@@ -275,11 +275,11 @@ _BWLTestSessionAlloc(
 
     if(send){
         test->conf_sender = True;
-        test->recv_port = recv_port;
+        test->tool_port = tool_port;
     }
     else{
         test->conf_receiver = True;
-        test->recv_port = 0;
+        test->tool_port = 0;
     }
 
     return test;

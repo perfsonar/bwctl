@@ -926,7 +926,7 @@ _BWLWriteTestRequest(
                 "Invalid req_time time errest");
         return BWLErrFATAL;
     }
-    *(uint16_t*)&buf[26] = htons(tsession->recv_port);
+    *(uint16_t*)&buf[26] = htons(tsession->tool_port);
 
     /*
      * Now set addr values. (sockaddr vars will already have
@@ -1051,7 +1051,7 @@ _BWLReadTestRequest(
     BWLTestSession          tsession;
     int                     ival=0;
     int                     *intr=&ival;
-    uint16_t                recv_port;
+    uint16_t                tool_port;
     BWLBoolean              conf_sender;
     BWLBoolean              conf_receiver;
     int                     blocks=_BWL_TEST_REQUEST_BLK_LEN; /* 8 */
@@ -1119,7 +1119,7 @@ _BWLReadTestRequest(
     }
     _BWLDecodeTimeStamp(&tstamp,&buf[16]);
     tspec.latest_time = tstamp.tstamp;
-    recv_port = ntohs(*(uint16_t*)&buf[26]);
+    tool_port = ntohs(*(uint16_t*)&buf[26]);
 
     /*
      * copy sid (will be ignored if this is an initial receive request)
@@ -1136,7 +1136,7 @@ _BWLReadTestRequest(
         tsession->test_spec.req_time = tspec.req_time;
         tsession->test_spec.latest_time = tspec.latest_time;
         if(!tsession->conf_receiver){
-            tsession->recv_port = recv_port;
+            tsession->tool_port = tool_port;
         }
     }
     else{
@@ -1177,7 +1177,7 @@ _BWLReadTestRequest(
         }
 
         if(conf_receiver){
-            recv_port = 0;
+            tool_port = 0;
         }
 
         switch(ipvn){
@@ -1284,7 +1284,7 @@ _BWLReadTestRequest(
          * Allocate a record for this test.
          */
         if( !(tsession = _BWLTestSessionAlloc(cntrl,conf_sender,
-                        SendAddr,RecvAddr,recv_port,&tspec))){
+                        SendAddr,RecvAddr,tool_port,&tspec))){
             err_ret = BWLErrWARNING;
             *accept_ret = BWL_CNTRL_FAILURE;
             goto error;
@@ -1365,7 +1365,7 @@ _BWLWriteTestAccept(
 
     buf[0] = acceptval & 0xff;
     if(tsession->conf_receiver){
-        *(uint16_t *)&buf[2] = htons(tsession->recv_port);
+        *(uint16_t *)&buf[2] = htons(tsession->tool_port);
     }
     memcpy(&buf[4],tsession->sid,16);
     tstamp.tstamp = tsession->reserve_time;
@@ -1424,7 +1424,7 @@ _BWLReadTestAccept(
     }
 
     if(tsession->conf_receiver){
-        tsession->recv_port = ntohs(*(uint16_t*)&buf[2]);
+        tsession->tool_port = ntohs(*(uint16_t*)&buf[2]);
         memcpy(tsession->sid,&buf[4],16);
     }
 
@@ -1445,7 +1445,7 @@ _BWLReadTestAccept(
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|      2        |    Unused     |            DataPort           |
+ *	00|      2        |    Unused     |            PeerPort           |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	04|                      Unused (12 octets)                       |
  *	08|                                                               |
@@ -1461,7 +1461,7 @@ _BWLReadTestAccept(
 BWLErrSeverity
 _BWLWriteStartSession(
         BWLControl  cntrl,
-        uint16_t    dataport
+        uint16_t    peerport
         )
 {
     uint8_t *buf = (uint8_t*)cntrl->msg;
@@ -1478,10 +1478,10 @@ _BWLWriteStartSession(
 
     buf[0] = 2;	/* start-session identifier	*/
     /*
-     * If conf_sender, than need to "set" the dataport.
+     * If conf_sender, than need to "set" the peerport.
      */
     if(cntrl->tests->conf_sender){
-        *(uint16_t*)&buf[2] = htons(dataport);
+        *(uint16_t*)&buf[2] = htons(peerport);
     }
 
     if(_BWLSendBlocks(cntrl,buf,2) != 2){
@@ -1497,7 +1497,7 @@ _BWLWriteStartSession(
 BWLErrSeverity
 _BWLReadStartSession(
         BWLControl  cntrl,
-        uint16_t    *dataport,
+        uint16_t    *peerport,
         int	    *retn_on_intr
         )
 {
@@ -1543,7 +1543,7 @@ _BWLReadStartSession(
     }
 
     if(cntrl->tests->conf_sender){
-        *dataport = ntohs(*(uint16_t*)&buf[2]);
+        *peerport = ntohs(*(uint16_t*)&buf[2]);
     }
     /*
      * The control connection is now ready to send the response.
@@ -1564,7 +1564,7 @@ _BWLReadStartSession(
  * 	   0                   1                   2                   3
  * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|     Accept    |    Unused     |            DataPort           |
+ *	00|     Accept    |    Unused     |            PeerPort           |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	04|                      Unused (12 octets)                       |
  *	08|                                                               |
@@ -1581,7 +1581,7 @@ BWLErrSeverity
 _BWLWriteStartAck(
         BWLControl	cntrl,
         int		*retn_on_intr,
-        uint16_t	dataport,
+        uint16_t	peerport,
         BWLAcceptType	acceptval
         )
 {
@@ -1599,7 +1599,7 @@ _BWLWriteStartAck(
     buf[0] = acceptval & 0xff;
 
     if(cntrl->tests->conf_receiver){
-        *(uint16_t*)&buf[2] = htons(dataport);
+        *(uint16_t*)&buf[2] = htons(peerport);
     }
 
     n = _BWLSendBlocksIntr(cntrl,buf,_BWL_CONTROL_ACK_BLK_LEN,retn_on_intr);
@@ -1631,7 +1631,7 @@ _BWLWriteStartAck(
 BWLErrSeverity
 _BWLReadStartAck(
         BWLControl	cntrl,
-        uint16_t	*dataport,
+        uint16_t	*peerport,
         BWLAcceptType	*acceptval
         )
 {
@@ -1666,7 +1666,7 @@ _BWLReadStartAck(
     }
 
     if(cntrl->tests->conf_receiver){
-        *dataport = ntohs(*(uint16_t*)&buf[2]);
+        *peerport = ntohs(*(uint16_t*)&buf[2]);
     }
 
     /*

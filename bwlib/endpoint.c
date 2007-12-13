@@ -180,7 +180,7 @@ tfile(
 static int
 epssock(
         BWLTestSession  tsess,
-        uint16_t       *dataport
+        uint16_t       *peerport
        )
 {
     int                     fd;
@@ -230,6 +230,7 @@ epssock(
 
     if((portrange = (BWLPortRange)BWLContextConfigGetV(tsess->cntrl->ctx,
                     BWLPeerPortRange))){
+        BWLPortsSetI(tsess->cntrl->ctx,portrange,tsess->peer_port);
         p = port = BWLPortsNext(portrange);
     }
     else{
@@ -297,7 +298,7 @@ bind_success:
     }
 
     if(p!=0){
-        *dataport = p;
+        *peerport = p;
     }
     else{
         /*
@@ -316,12 +317,12 @@ bind_success:
 
             case AF_INET6:
             memcpy(&saddr6,saddr,sizeof(saddr6));
-            *dataport = ntohs(saddr6.sin6_port);
+            *peerport = ntohs(saddr6.sin6_port);
             break;
 #endif
             case AF_INET:
             memcpy(&saddr4,saddr,sizeof(saddr4));
-            *dataport = ntohs(saddr4.sin_port);
+            *peerport = ntohs(saddr4.sin_port);
             break;
             default:
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -579,7 +580,7 @@ run_tester(
 	    }
 
 	    /* -p server port */
-	    port = tsess->recv_port;
+	    port = tsess->tool_port;
 
 	    /* -w window size in bytes */
 	    if(tsess->test_spec.window_size){
@@ -661,7 +662,7 @@ run_tester(
 	    }
 
 	    /* -p server port */
-	    thrulay_opt.port = tsess->recv_port;
+	    thrulay_opt.port = tsess->tool_port;
 
 	    /* Rate, if UDP test */
 	    if(tsess->test_spec.udp){
@@ -746,7 +747,7 @@ run_tester(
 	ipargs[a++] = "-m";
 
 	ipargs[a++] = "-p";
-	ipargs[a++] = uint32dup(ctx,tsess->recv_port);
+	ipargs[a++] = uint32dup(ctx,tsess->tool_port);
 
 	if(tsess->test_spec.udp){
 	    ipargs[a++] = "-u";
@@ -834,7 +835,7 @@ run_tester(
 	}
 
 	ipargs[a++] = "-p";
-	ipargs[a++] = uint32dup(ctx,tsess->recv_port);
+	ipargs[a++] = uint32dup(ctx,tsess->tool_port);
 
 	if(tsess->test_spec.udp){
 	    ipargs[a++] = "-u";
@@ -906,7 +907,7 @@ run_tester(
 BWLBoolean
 _BWLEndpointStart(
         BWLTestSession  tsess,
-        uint16_t       *dataport,
+        uint16_t       *peerport,
         BWLErrSeverity  *err_ret
         )
 {
@@ -942,7 +943,7 @@ _BWLEndpointStart(
     }
 
     if(tsess->conf_receiver){
-        if((ep->ssockfd = epssock(tsess,dataport)) < 0){
+        if((ep->ssockfd = epssock(tsess,peerport)) < 0){
             EndpointFree(ep);
             return False;
         }
@@ -1183,7 +1184,7 @@ ACCEPT:
 
         ep->rcntrl = BWLControlAccept(ctx,connfd,
                 (struct sockaddr *)&sbuff,sbuff_len,
-                mode,tsess->avail_tools,currtime.tstamp,
+                mode,tsess->test_spec.tool,currtime.tstamp,
                 &ipf_intr,err_ret);
     }
     else{
@@ -1213,7 +1214,7 @@ ACCEPT:
                                        I2AddrSocktype(tsess->test_spec.receiver),
                                        I2AddrProtocol(tsess->test_spec.receiver)
                                       ))){
-            if(!(I2AddrSetPort(remote,*dataport))){
+            if(!(I2AddrSetPort(remote,*peerport))){
                 I2AddrFree(remote);
                 remote = NULL;
             }
@@ -1226,7 +1227,7 @@ ACCEPT:
         }
 
         ep->rcntrl = BWLControlOpen(ctx,local,remote,mode,
-                "endpoint",NULL,&tsess->avail_tools,err_ret);
+                "endpoint",NULL,&tsess->test_spec.tool,err_ret);
     }
 
     if(!ep->rcntrl){

@@ -133,10 +133,10 @@ parsekeys(
  */
 enum limtype{LIMINT,LIMBOOL,LIMFIXEDINT,LIMNOT};
 struct limdesc{
-    BWLDMesgT	limit;
-    char		*lname;
-    enum limtype	ltype;
-    BWLDLimitT	def_value;
+    BWLDMesgT	    limit;
+    char	    *lname;
+    enum limtype    ltype;
+    BWLDLimitT	    def_value;
 };
 
 static struct limdesc	limkeys[] = {
@@ -836,8 +836,6 @@ BWLDPolicyInstall(
         BWLContext	ctx,
         char		*datadir,
         char		*confdir,
-        char		*tool,
-        char		*toolcmd,
         uint64_t	*bottleneckcapacity,
         int		*retn_on_intr,
         char		**lbuf,
@@ -856,10 +854,8 @@ BWLDPolicyInstall(
      * type-mismatch warnings.
      */
     BWLGetAESKeyFunc		getaeskey = BWLDGetAESKey;
-    BWLCheckControlPolicyFunc	checkcontrolfunc =
-        BWLDCheckControlPolicy;
-    BWLCheckTestPolicyFunc		checktestfunc =
-        BWLDCheckTestPolicy;
+    BWLCheckControlPolicyFunc	checkcontrolfunc = BWLDCheckControlPolicy;
+    BWLCheckTestPolicyFunc      checktestfunc = BWLDCheckTestPolicy;
     BWLTestCompleteFunc		testcompletefunc = BWLDTestComplete;
 
 
@@ -989,22 +985,22 @@ BADLINE:
         return NULL;
     }
 
-    if(tool && !strncasecmp(tool,"iperf",6)){
-        if(!BWLContextConfigSet(ctx,BWLTester,"iperf")){
-            return NULL;
-        }
-        if(toolcmd && 
-                !BWLContextConfigSet(ctx,BWLIperfCmd,(void*)toolcmd)){
-            return NULL;
-        }
-    }
-    else{
-        /* Any value of the tool key different to iperf is
-           considered 'thrulay' */
-        if(!BWLContextConfigSet(ctx,BWLTester,"thrulay")){
-            return NULL;
-        }
-    }
+//    if(tool && !strncasecmp(tool,"iperf",6)){
+//        if(!BWLContextConfigSet(ctx,BWLTester,"iperf")){
+//            return NULL;
+//        }
+//        if(toolcmd && 
+//                !BWLContextConfigSet(ctx,BWLIperfCmd,(void*)toolcmd)){
+//            return NULL;
+//        }
+//    }
+//    else{
+//        /* Any value of the tool key different to iperf is
+//           considered 'thrulay' */
+//        if(!BWLContextConfigSet(ctx,BWLTester,"thrulay")){
+//            return NULL;
+//        }
+//    }
     if(bottleneckcapacity && *bottleneckcapacity &&
             !BWLContextConfigSet(ctx,BWLBottleNeckCapacity,
                 (void*)bottleneckcapacity)){
@@ -1560,13 +1556,13 @@ BWLDReadClass(
         int		*err
         )
 {
-    ssize_t		i;
-    const BWLDMesgT	mark=BWLDMESGMARK;
-    const BWLDMesgT	mclass=BWLDMESGCLASS;
-    uint8_t	buf[BWLDMAXCLASSLEN+1 + sizeof(BWLDMesgT)*3];
-    I2Datum		key,val;
-    int		fail_on_intr=1;
-    int		*intr = &fail_on_intr;
+    ssize_t	    i;
+    const BWLDMesgT mark=BWLDMESGMARK;
+    const BWLDMesgT mclass=BWLDMESGCLASS;
+    uint8_t	    buf[BWLDMAXCLASSLEN+1 + sizeof(BWLDMesgT)*3];
+    I2Datum	    key,val;
+    int		    fail_on_intr=1;
+    int		    *intr = &fail_on_intr;
 
     if(retn_on_intr)
         intr = retn_on_intr;
@@ -1637,7 +1633,7 @@ BWLDSendClass(
 {
     uint8_t	buf[BWLDMAXCLASSLEN+1 + sizeof(BWLDMesgT)*3];
     BWLDMesgT	mesg;
-    ssize_t		len;
+    ssize_t	len;
     int		fail_on_intr=1;
     int		*intr = &fail_on_intr;
 
@@ -1796,13 +1792,16 @@ BWLDReadReservationQuery(
         uint32_t	*duration,
         BWLNum64	*rtt_time,
         uint16_t	*recv_port,
+        uint16_t	*peer_port,
+        uint32_t        *tool_id,
         int		*err
         )
 {
-    ssize_t		i;
-    BWLDMesgT	buf[15];
-    int		fail_on_intr=1;
-    int		*intr = &fail_on_intr;
+    BWLDMesgT   mark;
+    ssize_t     i;
+    char        buf[64];
+    int	        fail_on_intr=1;
+    int	        *intr = &fail_on_intr;
 
     if(retn_on_intr)
         intr = retn_on_intr;
@@ -1812,19 +1811,22 @@ BWLDReadReservationQuery(
     /*
      * Read message header
      */
-    if((i = I2Readni(fd,&buf[0],60,intr)) != 60)
+    if((i = I2Readni(fd,&buf[0],64,intr)) != 64)
         return False;
 
-    if(buf[14] != BWLDMESGMARK)
+    memcpy(&mark,&buf[60],4);
+    if(mark != BWLDMESGMARK)
         return False;
 
     memcpy(sid,&buf[0],16);
-    memcpy(req_time,&buf[4],8);
-    memcpy(fuzz_time,&buf[6],8);
-    memcpy(last_time,&buf[8],8);
-    memcpy(duration,&buf[10],4);
-    memcpy(rtt_time,&buf[11],8);
-    memcpy(recv_port,&buf[13],2);
+    memcpy(req_time,&buf[16],8);
+    memcpy(fuzz_time,&buf[24],8);
+    memcpy(last_time,&buf[32],8);
+    memcpy(duration,&buf[40],4);
+    memcpy(rtt_time,&buf[44],8);
+    memcpy(recv_port,&buf[52],2);
+    memcpy(peer_port,&buf[54],2);
+    memcpy(tool_id,&buf[56],4);
 
     *err = 0;
 
@@ -1853,21 +1855,29 @@ BWLDSendReservationResponse(
         int		*retn_on_intr,
         BWLDMesgT	mesg,
         BWLNum64	reservation,
-        uint16_t	port
+        uint16_t	toolport,
+        uint16_t        peerport
         )
 {
-    BWLDMesgT	buf[6];
+    BWLDMesgT   mark = BWLDMESGMARK;
+    char	buf[24];
     int		fail_on_intr=1;
     int		*intr = &fail_on_intr;
 
     if(retn_on_intr)
         intr = retn_on_intr;
 
-    buf[0] = buf[5] = BWLDMESGMARK;
-    buf[1] = mesg;
+    /* message mark */
+    memcpy(&buf[0],&mark,4);
+    memcpy(&buf[20],&mark,4);
 
-    memcpy(&buf[2],&reservation,8);
-    memcpy(&buf[4],&port,2);
+    /* message type */
+    memcpy(&buf[4],&mesg,4);
+
+    /* real data */
+    memcpy(&buf[8],&reservation,8);
+    memcpy(&buf[16],&toolport,2);
+    memcpy(&buf[18],&peerport,2);
 
     if(I2Writeni(fd,&buf[0],24,intr) != 24){
         return 1;
@@ -1881,11 +1891,13 @@ BWLDReadReservationResponse(
         int		fd,
         int		*retn_on_intr,
         BWLNum64	*reservation_ret,
-        uint16_t	*port_ret
+        uint16_t	*tool_port_ret,
+        uint16_t	*peer_port_ret
         )
 {
-    ssize_t		i;
-    BWLDMesgT	buf[6];
+    ssize_t	i;
+    BWLDMesgT	mesg = BWLDMESGMARK;
+    char	buf[24];
     int		fail_on_intr=1;
     int		*intr = &fail_on_intr;
 
@@ -1898,13 +1910,16 @@ BWLDReadReservationResponse(
     if((i = I2Readni(fd,&buf[0],24,intr)) != 24)
         return False;
 
-    if((buf[0] != BWLDMESGMARK) || (buf[5] != BWLDMESGMARK))
+    if(memcmp(&buf[0],&mesg,4) || memcmp(&buf[20],&mesg,4)){
         return False;
+    }
 
-    memcpy(reservation_ret,&buf[2],8);
-    memcpy(port_ret,&buf[4],2);
+    memcpy(&mesg,&buf[4],4);
+    memcpy(reservation_ret,&buf[8],8);
+    memcpy(tool_port_ret,&buf[16],2);
+    memcpy(peer_port_ret,&buf[18],2);
 
-    return buf[1];
+    return mesg;
 }
 
 static BWLDMesgT
@@ -1917,34 +1932,42 @@ BWLDReservationQuery(
         uint32_t	duration,
         BWLNum64	rtt_time,
         BWLNum64	*reservation_ret,
-        uint16_t	*port
+        uint16_t	*toolport,
+        uint16_t        *peerport,
+        uint32_t        tool
         )
 {
-    BWLDMesgT	buf[17];
+    BWLDMesgT   val;
+    char	buf[72];
     int		fail_on_intr=1;
     int		*intr = &fail_on_intr;
 
     if(policy->retn_on_intr)
         intr = policy->retn_on_intr;
 
-    buf[0] = buf[16] = BWLDMESGMARK;
-    buf[1] = BWLDMESGRESERVATION;
-    memcpy(&buf[2],sid,16);
-    memcpy(&buf[6],&req_time,8);
-    memcpy(&buf[8],&fuzz_time,8);
-    memcpy(&buf[10],&last_time,8);
-    memcpy(&buf[12],&duration,4);
-    memcpy(&buf[13],&rtt_time,8);
-    memcpy(&buf[15],port,2);
+    val = BWLDMESGMARK;
+    memcpy(&buf[0],&val,4);
+    memcpy(&buf[68],&val,4);
+    val = BWLDMESGRESERVATION;
+    memcpy(&buf[4],&val,4);
+    memcpy(&buf[8],sid,16);
+    memcpy(&buf[24],&req_time,8);
+    memcpy(&buf[32],&fuzz_time,8);
+    memcpy(&buf[40],&last_time,8);
+    memcpy(&buf[48],&duration,4);
+    memcpy(&buf[52],&rtt_time,8);
+    memcpy(&buf[60],toolport,2);
+    memcpy(&buf[62],peerport,2);
+    memcpy(&buf[64],&tool,4);
 
-    if(I2Writeni(policy->fd,buf,68,intr) != 68){
+    if(I2Writeni(policy->fd,buf,72,intr) != 72){
         BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "BWLDQuery: Unable to contact parent");
         return BWLDMESGINVALID;
     }
 
     return BWLDReadReservationResponse(policy->fd,intr,reservation_ret,
-            port);
+            toolport,peerport);
 }
 
 /*
@@ -2173,16 +2196,17 @@ BWLDCheckTestPolicy(
         BWLTestSpec	*tspec,
         BWLNum64	fuzz_time,
         BWLNum64	*reservation_ret,
-        uint16_t	*port_ret,
+        uint16_t	*tool_port_ret,
+        uint16_t	*peer_port_ret,
         void		**closure,
         BWLErrSeverity	*err_ret
         )
 {
-    BWLContext	ctx = BWLGetContext(cntrl);
+    BWLContext	        ctx = BWLGetContext(cntrl);
     BWLDPolicyNode	node;
     BWLDTestInfo	tinfo;
-    BWLDMesgT	ret;
-    BWLDLimRec	lim;
+    BWLDMesgT	        ret;
+    BWLDLimRec	        lim;
     BWLToolAvailability allowed_tools;
 
     *err_ret = BWLErrOK;
@@ -2221,7 +2245,7 @@ BWLDCheckTestPolicy(
     tinfo->node = node;
     memcpy(tinfo->sid,sid,sizeof(sid));
 
-    /* VAlIDATE THE REQUEST! */
+    /* VALIDATE THE REQUEST! */
 
     /*
      * First check fixed limits that don't need to be communicated
@@ -2309,7 +2333,7 @@ reservation:
                     tspec->req_time.tstamp,fuzz_time,
                     tspec->latest_time,tspec->duration,
                     BWLGetRTTBound(cntrl),
-                    reservation_ret,port_ret))
+                    reservation_ret,tool_port_ret,peer_port_ret,tspec->tool))
             != BWLDMESGOK){
         BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: No reservation time available");

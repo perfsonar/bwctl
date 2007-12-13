@@ -229,24 +229,24 @@ typedef struct BWLEndpointRec{
 } BWLEndpointRec, *BWLEndpoint;
 
 struct BWLTestSessionRec{
-    BWLControl      cntrl;
-    BWLSID          sid;
-    BWLTimeStamp    localtime;
-    BWLNum64        reserve_time;
-    BWLNum64        fuzz;
-    uint16_t        recv_port;
+    BWLControl          cntrl;
+    BWLSID              sid;
+    BWLTimeStamp        localtime;
+    BWLNum64            reserve_time;
+    BWLNum64            fuzz;
+    uint16_t            tool_port;
+    uint16_t            peer_port;  /* indicates 'starting' port to try */
 
-    BWLBoolean      conf_sender;
-    BWLBoolean      conf_receiver;
-    BWLTestSpec     test_spec;
-    BWLToolAvailability avail_tools;
+    BWLBoolean          conf_sender;
+    BWLBoolean          conf_receiver;
+    BWLTestSpec         test_spec;
 
-    FILE            *localfp;
-    FILE            *remotefp;
+    FILE                *localfp;
+    FILE                *remotefp;
 
-    void            *closure; /* per/test app data */
+    void                *closure; /* per/test app data */
 
-    BWLEndpoint     endpoint;
+    BWLEndpoint         endpoint;
 };
 
 /*

@@ -553,6 +553,8 @@ BWLProcessTestRequest(
 
         /*
          * XXX: Check tool availability and pick 'port' here
+         * Use bitmask from LookForTesters, and combine with
+         * requested to determine if test can be done.
          */
     }
 
@@ -646,21 +648,21 @@ BWLProcessStartSession(
     BWLErrSeverity  err=BWLErrOK;
     int             ival=0;
     int             *intr = &ival;
-    uint16_t        dataport = 0;
+    uint16_t        peerport = 0;
 
     if(retn_on_intr){
         intr = retn_on_intr;
     }
 
-    if( (rc = _BWLReadStartSession(cntrl,&dataport,intr)) < BWLErrOK)
+    if( (rc = _BWLReadStartSession(cntrl,&peerport,intr)) < BWLErrOK)
         return _BWLFailControlSession(cntrl,rc);
 
-    if(!_BWLEndpointStart(cntrl->tests,&dataport,&err)){
+    if(!_BWLEndpointStart(cntrl->tests,&peerport,&err)){
         (void)_BWLWriteStartAck(cntrl,intr,0,BWL_CNTRL_FAILURE);
         return _BWLFailControlSession(cntrl,err);
     }
 
-    if( (rc = _BWLWriteStartAck(cntrl,intr,dataport,BWL_CNTRL_ACCEPT))
+    if( (rc = _BWLWriteStartAck(cntrl,intr,peerport,BWL_CNTRL_ACCEPT))
             < BWLErrOK)
         return _BWLFailControlSession(cntrl,rc);
 

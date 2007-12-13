@@ -282,9 +282,11 @@ typedef union BWLDPidUnion{
 *	52|                           RTT TIME                            |
 *	56|                                                               |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-*	60|           Recv Port             |                             |
+*	60|           Recv Port           |           Peer Port           |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-*	64|                          BWLDMESGMARK                         |
+*	64|                            Tool_id                            |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	68|                          BWLDMESGMARK                         |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 *
 * Parent responses to the reservation request are of the format:
@@ -299,7 +301,7 @@ typedef union BWLDPidUnion{
 *	08|                        Request Time                           |
 *	12|                                                               |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-*	16|           Recv Port             |                             |
+*	16|           Recv Port             |          Peer Port          |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 *	20|                          BWLDMESGMARK                         |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -352,7 +354,9 @@ BWLDReadReservationQuery(
         BWLNum64	*last_time,
         uint32_t	*duration,
         BWLNum64	*rtt_time,
-        uint16_t	*port,
+        uint16_t	*toolport,
+        uint16_t	*peerport,
+        BWLToolType     *tool_id,
         int		*err
         );
 
@@ -378,7 +382,8 @@ BWLDSendReservationResponse(
         int		*retn_on_intr,
         BWLDMesgT	mesg,
         BWLNum64	reservation,
-        uint16_t	port
+        uint16_t	toolport,
+        uint16_t	peerport
         );
 
 /*
@@ -450,7 +455,8 @@ BWLDCheckTestPolicy(
         BWLTestSpec	*tspec,
         BWLNum64	fuzz_time,
         BWLNum64	*reservation_ret,
-        uint16_t	*port_ret,
+        uint16_t	*tool_port_ret,
+        uint16_t	*peer_port_ret,
         void		**closure,
         BWLErrSeverity	*err_ret
         );
@@ -467,8 +473,6 @@ BWLDPolicyInstall(
         BWLContext	ctx,
         char		*datadir,	/* root dir for datafiles	*/
         char		*confdir,	/* conf dir for policy		*/
-        char		*tester,	/* iperf/thrulay        	*/
-        char		*testercmd,	/* iperf/thrulay exec path	*/
         uint64_t	*bottleneckcapacity,
         int		*retn_on_intr,
         char		**lbuf,

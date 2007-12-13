@@ -523,7 +523,8 @@ typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
         BWLTestSpec     *test_spec,
         BWLNum64        fuzz_time,
         BWLNum64        *reservation_ret,
-        uint16_t        *port_ret,
+        uint16_t        *tool_port_ret,
+        uint16_t        *peer_port_ret,
         void            **closure,
         BWLErrSeverity  *err_ret
         );
@@ -790,7 +791,7 @@ BWLSessionRequest(
         BWLBoolean      sender,
         BWLTestSpec     *test_spec,
         BWLTimeStamp    *avail_time_ret,
-        uint16_t        *recv_port,
+        uint16_t        *tool_port,
         BWLSID          sid_ret,
         BWLErrSeverity  *err_ret
         );
@@ -1065,9 +1066,23 @@ BWLToolDefinitionRec, *BWLToolDefinition;
  */
 typedef int  (*BWLToolParseArgFunc)(
         BWLContext                  ctx,
-        struct BWLToolDefinitionRec *tool,
+        BWLToolDefinition           tool,
         const char                  *key,
         const char                  *val
+        );
+
+/*
+ * This function is used to initialize a test at the resource-broker
+ * portion of the daemon. It is called once for each new 'test session' -
+ * but it is called in the global portion of the daemon, not from the
+ * child 'handlers' so it should not do 'real' resource allocations.
+ * This is for simple sanity checking and for deciding what 'port'
+ * should be used since that needs to be 'global' state.
+ */
+typedef BWLErrSeverity  (*BWLToolInitTestFunc)(
+        BWLContext                  ctx,
+        struct BWLToolDefinitionRec *tool,
+        uint16_t                    *toolport
         );
 
 /*
@@ -1078,7 +1093,9 @@ typedef int  (*BWLToolParseArgFunc)(
 
 struct BWLToolDefinitionRec{
     char                name[BWL_MAX_TOOLNAME];
+    uint16_t            def_port;
     BWLToolParseArgFunc parse;
+    BWLToolInitTestFunc init_test;
 };
 
 extern int
@@ -1087,6 +1104,13 @@ BWLToolGenericParse(
         BWLToolDefinition   tool,
         const char          *key,
         const char          *val
+        );
+
+extern BWLErrSeverity
+BWLToolGenericInitTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        uint16_t            *toolport
         );
 
 /*
@@ -1103,6 +1127,13 @@ BWLToolParseArg(
         BWLContext  ctx,
         const char  *key,
         const char  *val
+        );
+
+extern BWLErrSeverity
+BWLToolInitTest(
+        BWLContext  ctx,
+        BWLToolType tool_id,
+        uint16_t    *toolport
         );
 
 /*
@@ -1266,6 +1297,20 @@ BWLPortsParse(
 extern uint16_t
 BWLPortsNext(
         BWLPortRange    prange
+        );
+
+/*
+ * Set the next port - useful when initializing the state to start with
+ * a specific 'i' in the range.
+ * (No errors - if 'i' is not in the range, this function uses a random
+ * number generator to determone what to use, and if that fails starts
+ * with the beginning of the range.)
+ */
+extern void
+BWLPortsSetI(
+        BWLContext      ctx,
+        BWLPortRange    prange,
+        u_int16_t       i
         );
 
 /*
