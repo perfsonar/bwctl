@@ -561,6 +561,9 @@ run_tester(
 	exit(BWL_CNTRL_FAILURE);
     }
 
+    BWLError(tsess->cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
+            "run_tester: tester = %lu",tsess->test_spec.tool);
+
     if(BWL_TOOL_THRULAY == tsess->test_spec.tool){
 #if defined(HAVE_LIBTHRULAY) && defined(HAVE_THRULAY_SERVER_H) && defined(HAVE_THRULAY_CLIENT_H)
 	int rc;
@@ -1192,10 +1195,11 @@ ACCEPT:
          * Copy remote address, with modified port number
          * and other fields for contacting remote host.
          */
-        I2Addr          local;
-        I2Addr          remote;
-        struct sockaddr *saddr;
-        socklen_t       saddrlen;
+        I2Addr              local;
+        I2Addr              remote;
+        struct sockaddr     *saddr;
+        socklen_t           saddrlen;
+        BWLToolAvailability tavail = 0;
 
         if( (saddr = I2AddrSAddr(tsess->test_spec.sender,&saddrlen)) &&
                 (local = I2AddrBySAddr(BWLContextErrHandle(ctx),
@@ -1226,8 +1230,8 @@ ACCEPT:
             goto end;
         }
 
-        ep->rcntrl = BWLControlOpen(ctx,local,remote,mode,
-                "endpoint",NULL,&tsess->test_spec.tool,err_ret);
+        ep->rcntrl = BWLControlOpen(ctx,local,remote,mode,"endpoint",NULL,
+                &tavail,err_ret);
     }
 
     if(!ep->rcntrl){

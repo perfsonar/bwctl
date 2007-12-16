@@ -2032,29 +2032,31 @@ AGAIN:
             goto finish;
         }
 
-	/* Check if the requested tool is available at both servers. */
-	common_tools = first.avail_tools & second.avail_tools;
-	if (!(first.tspec.tool & common_tools)){
+        /* XXX: Pick tool! */
+
+        /* Check if the requested tool is available at both servers. */
+        common_tools = first.avail_tools & second.avail_tools;
+        if (!(first.tspec.tool & common_tools)){
             I2ErrLog(eh,"Requested tool (%x) not supported by both servers "
-		     "(%x %x).",
-		     first.tspec.tool,
-		     first.avail_tools,second.avail_tools);
-	    /* Try to fall-back to iperf. */
-	    /* We assume those servers that say they do not support any
-	       tool are old versions and should support iperf. */
-	    if((!first.avail_tools || 
-	       (first.avail_tools & BWL_TOOL_IPERF)) &&
-	       (!second.avail_tools ||
-	       (second.avail_tools & BWL_TOOL_IPERF))) {
-		I2ErrLog(eh,"Falling-back to iperf.");
-		first.tspec.tool = second.tspec.tool = BWL_TOOL_IPERF;
-	    }
-	    else{
-		I2ErrLog(eh,"Falling-back to iperf was not possible.");
-		exit_val = 1;
-		goto finish;
-	    }
-	}
+                    "(%x %x).",
+                    first.tspec.tool,
+                    first.avail_tools,second.avail_tools);
+            /* Try to fall-back to iperf. */
+            /* We assume those servers that say they do not support any
+               tool are old versions and should support iperf. */
+            if((!first.avail_tools || 
+                        (first.avail_tools & BWL_TOOL_IPERF)) &&
+                    (!second.avail_tools ||
+                     (second.avail_tools & BWL_TOOL_IPERF))) {
+                I2ErrLog(eh,"Falling-back to iperf.");
+                first.tspec.tool = second.tspec.tool = BWL_TOOL_IPERF;
+            }
+            else{
+                I2ErrLog(eh,"Falling-back to iperf was not possible.");
+                exit_val = 1;
+                goto finish;
+            }
+        }
 
         /*
          * Query first time error and update round-trip bound.
