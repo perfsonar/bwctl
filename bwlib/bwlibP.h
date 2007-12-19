@@ -134,15 +134,16 @@ typedef struct BWLControlRec BWLControlRec;
 #define _BWL_CONTEXT_MAX_KEYLEN    64
 
 struct BWLContextRec{
-    BWLBoolean      lib_eh;
-    I2ErrHandle     eh;
-    int             access_prio;
-    I2Table         table;
-    I2RandomSource  rand_src;
-    char            tmpdir[PATH_MAX+1];
-    BWLControlRec   *cntrl_list;
-    uint32_t        tool_list_size;
-    BWLToolRec      *tool_list;
+    BWLBoolean          lib_eh;
+    I2ErrHandle         eh;
+    int                 access_prio;
+    I2Table             table;
+    I2RandomSource      rand_src;
+    char                tmpdir[PATH_MAX+1];
+    BWLControlRec       *cntrl_list;
+    uint32_t            tool_list_size;
+    BWLToolRec          *tool_list;
+    BWLToolAvailability tool_avail;
 };
 
 typedef struct BWLTestSessionRec BWLTestSessionRec, *BWLTestSession;
@@ -593,6 +594,11 @@ _BWLCallCloseFile(
 
 extern BWLBoolean
 BWLToolInitialize(
+        BWLContext  ctx
+        );
+
+extern BWLBoolean
+BWLToolLookForTesters(
         BWLContext  ctx
         );
 

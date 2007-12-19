@@ -25,9 +25,32 @@
  */
 #include <bwlib/bwlibP.h>
 
+/*
+ * Function:    IperfAvailable
+ * 
+ * Description:
+ *
+ * In Args:
+ * Out Args:
+ * Scope:
+ *
+ * Returns:
+ *
+ * Side Effect:
+ *
+ */
+static BWLBoolean
+IperfAvailable(
+        BWLContext          ctx,
+        BWLToolDefinition   tool
+        )
+{
+    return False;
+}
 BWLToolDefinitionRec    BWLToolIperf = {
     "iperf",                /* name */
     5001,                   /* def_port */
     BWLToolGenericParse,    /* parse */
+    IperfAvailable,         /* tool_avail */
     BWLToolGenericInitTest /* init_test */
 };

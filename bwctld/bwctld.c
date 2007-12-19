@@ -835,8 +835,7 @@ NewConnection(
         BWLDPolicy  policy,
         I2Addr     listenaddr,
         int         *maxfd,
-        fd_set      *readfds,
-	BWLToolAvailability avail_testers
+        fd_set      *readfds
         )
 {
     int                     connfd;
@@ -993,7 +992,7 @@ ACCEPT:
         }
         cntrl = BWLControlAccept(policy->ctx,connfd,
                 (struct sockaddr *)&sbuff,sbufflen,
-                mode,uptime,avail_testers,&ipfd_intr,&out);
+                mode,uptime,&ipfd_intr,&out);
         /*
          * session not accepted.
          */
@@ -1483,7 +1482,6 @@ main(int argc, char *argv[])
     BWLContext          ctx;
     BWLDPolicy          policy;
     I2Addr              listenaddr = NULL;
-    BWLToolAvailability avail_testers = 0xffffffff;
     int                 listenfd;
     int                 rc;
     I2Datum             data;
@@ -1765,22 +1763,10 @@ main(int argc, char *argv[])
         exit(1);
     };
 
-    /* Check which testers are available */
-    avail_testers = LookForTesters(ctx);
-
-//    if(!opts.testerports){
-//        if(opts.tester && (!strncasecmp(opts.tester,"iperf",6) 
-//                    || !strncasecmp(opts.tester,"nuttcp",7))){
-//            /* iperf and nuttcp */
-//            opts.def_port = 5001;
-//        } 
-//        else{
-//            /* thrulay */
-//            opts.def_port = 5003;
-//        }
-//        opts.testerports = &opts.def_port;
-//        opts.port_range_len = 1;
-//    }
+    if( !BWLContextFinalize(ctx)){
+        I2ErrLog(errhand, "BWLContextFinalize failed.");
+        exit(1);
+    }
 
     /*
      * Done with the line buffer. (reset to 0 for consistancy.)
@@ -2123,7 +2109,7 @@ main(int argc, char *argv[])
             continue;
 
         if(FD_ISSET(listenfd, &ready)){ /* new connection */
-            NewConnection(policy,listenaddr,&maxfd,&readfds,avail_testers);
+            NewConnection(policy,listenaddr,&maxfd,&readfds);
         }
         else{
             CleanPipes(&ready,&maxfd,&readfds,nfound);

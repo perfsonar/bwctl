@@ -225,7 +225,6 @@ BWLControlAccept(
         socklen_t           connsaddrlen,   /* connected socket addr len    */
         uint32_t            mode_offered,   /* advertised server mode       */
         BWLNum64            uptime,         /* uptime for server            */
-	    BWLToolAvailability avail_testers,  /* server available testers     */
         int                 *retn_on_intr,  /* if *retn_on_intr return      */
         BWLErrSeverity      *err_ret        /* err - return                 */
         )
@@ -254,6 +253,13 @@ BWLControlAccept(
 
     *err_ret = BWLErrOK;
     mode_offered &= BWL_MODE_ALLMODES;
+
+    if(!ctx->tool_avail){
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                "BWLControlAccept: Context has not been finalized");
+        *err_ret = BWLErrFATAL;
+        return NULL;
+    }
 
     if( !(cntrl = _BWLControlAlloc(ctx,err_ret))){
         BWLError(ctx,BWLErrFATAL,errno,"_BWLControlAlloc(): %M");
@@ -461,8 +467,7 @@ BWLControlAccept(
      * Made it through the gauntlet - accept the control session!
      */
     if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_ACCEPT,uptime,
-				avail_testers,intr)) <
-            BWLErrOK){
+				ctx->tool_avail,intr)) < BWLErrOK){
         *err_ret = (BWLErrSeverity)rc;
         goto error;
     }

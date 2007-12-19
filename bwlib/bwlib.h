@@ -595,6 +595,11 @@ BWLContextCreate(
         ...
         );
 
+BWLBoolean
+BWLContextFinalize(
+        BWLContext  ctx
+        );
+
 extern void
 BWLContextFree(
         BWLContext    ctx
@@ -986,7 +991,6 @@ BWLControlAccept(
         socklen_t           connsaddrlen,   /* connected socket addr len    */
         uint32_t            mode_offered,   /* advertised server mode       */
         BWLNum64            uptime,         /* uptime report                */
-        BWLToolAvailability avail_tools,  /* server available tools     */
         int                 *retn_on_intr,  /* return on i/o interrupt      */
         BWLErrSeverity      *err_ret        /* err - return                 */
         );
@@ -1072,6 +1076,18 @@ typedef int  (*BWLToolParseArgFunc)(
         );
 
 /*
+ * This function is used to initialize a tool.
+ *
+ * Minimally, it should determine if the tool is available. If there
+ * is any one-time initialization that should happen for all test instances
+ * that tool might run, it can do those here as well.
+ */
+typedef BWLBoolean  (*BWLToolAvailableFunc)(
+        BWLContext          ctx,
+        BWLToolDefinition   tool
+        );
+
+/*
  * This function is used to initialize a test at the resource-broker
  * portion of the daemon. It is called once for each new 'test session' -
  * but it is called in the global portion of the daemon, not from the
@@ -1080,9 +1096,9 @@ typedef int  (*BWLToolParseArgFunc)(
  * should be used since that needs to be 'global' state.
  */
 typedef BWLErrSeverity  (*BWLToolInitTestFunc)(
-        BWLContext                  ctx,
-        struct BWLToolDefinitionRec *tool,
-        uint16_t                    *toolport
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        uint16_t            *toolport
         );
 
 /*
@@ -1092,10 +1108,11 @@ typedef BWLErrSeverity  (*BWLToolInitTestFunc)(
 #define BWL_MAX_TOOLNAME    PATH_MAX
 
 struct BWLToolDefinitionRec{
-    char                name[BWL_MAX_TOOLNAME];
-    uint16_t            def_port;
-    BWLToolParseArgFunc parse;
-    BWLToolInitTestFunc init_test;
+    char                    name[BWL_MAX_TOOLNAME];
+    uint16_t                def_port;
+    BWLToolParseArgFunc     parse;
+    BWLToolAvailableFunc    tool_avail;
+    BWLToolInitTestFunc     init_test;
 };
 
 extern int

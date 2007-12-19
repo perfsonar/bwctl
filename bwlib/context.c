@@ -616,8 +616,20 @@ BWLContextCreate(
     return ctx;
 }
 
+BWLBoolean
+BWLContextFinalize(
+        BWLContext  ctx
+        )
+{
+    if( BWLToolLookForTesters(ctx) != BWLErrOK){
+        return False;
+    }
+
+    return True;
+}
+
 /*
- * Function:	BWLContextSet
+ * Function:	BWLContextConfigSet
  *
  * Description:	
  *
@@ -694,7 +706,7 @@ BWLContextConfigDelete(
 }
 
 /*
- * Function:	BWLControlSet
+ * Function:	BWLControlConfigSet
  *
  * Description:	
  *

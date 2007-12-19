@@ -1187,7 +1187,7 @@ ACCEPT:
 
         ep->rcntrl = BWLControlAccept(ctx,connfd,
                 (struct sockaddr *)&sbuff,sbuff_len,
-                mode,tsess->test_spec.tool,currtime.tstamp,
+                mode,currtime.tstamp,
                 &ipf_intr,err_ret);
     }
     else{

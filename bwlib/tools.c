@@ -46,10 +46,12 @@
  *    and hopefully extensible configuration.
  */
 #include <bwlib/bwlibP.h>
+#include <assert.h>
 
 static BWLToolDefinitionRec BWLToolNone = {
     "",
     0,
+    NULL,
     NULL,
     NULL
 };
@@ -166,7 +168,36 @@ BWLToolInitTest(
     /*
      * Arg not found
      */
-    return False;
+    return BWLErrFATAL;
+}
+
+BWLErrSeverity
+BWLToolLookForTesters(
+        BWLContext  ctx
+        )
+{
+    uint32_t    i;
+
+    assert(!ctx->tool_avail);
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(ctx->tool_list[i].tool->tool_avail(ctx,ctx->tool_list[i].tool)){
+            ctx->tool_avail |= ctx->tool_list[i].id;
+        }
+        else{
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "Unable to initialize tool: \"%s\"",
+                    ctx->tool_list[i].tool->name);
+        }
+    }
+
+    if(!ctx->tool_avail){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Unable to initialize *ANY* throughput tools");
+        return BWLErrFATAL;
+    }
+
+    return BWLErrOK;
 }
 
 /*

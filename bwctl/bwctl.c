@@ -805,8 +805,7 @@ CheckTestPolicy(
 
 static BWLControl
 SpawnLocalServer(
-        BWLContext    ctx,
-	BWLToolAvailability avail_tools
+        BWLContext    ctx
         )
 {
     int                 new_pipe[2];
@@ -1048,6 +1047,10 @@ portdone:
         _exit(1);
     }
 
+    if( !BWLContextFinalize(ctx)){
+        I2ErrLog(eh,"BWLContextFinalize failed.");
+        _exit(1);
+    }
 
     /*
      * Initialize interval timer
@@ -1071,7 +1074,7 @@ portdone:
      * Accept connection and send server greeting.
      */
     cntrl = BWLControlAccept(ctx,new_pipe[1],NULL,0,BWL_MODE_OPEN,
-            currtime.tstamp,avail_tools,&ip_exit,&err);
+            currtime.tstamp,&ip_exit,&err);
     if(!cntrl){
         I2ErrLog(eh,"BWLControlAccept() failed");
         _exit(err);
@@ -1968,15 +1971,10 @@ AGAIN:
                     I2ErrLog(eh,
                             "Unable to contact a local bwctld: Spawning local tool controller");
 
-                    /*
-                     * XXX: LookForTesters should be moved into
-                     * either ctx create or control open!
-                     */
-		            second.avail_tools = LookForTesters(ctx);
                     /* LookForTesters exec's, so reset signal indicators */
                     ip_intr=0; ip_chld=0;
                     if(!(second.cntrl =
-                                SpawnLocalServer(ctx,second.avail_tools))){
+                                SpawnLocalServer(ctx))){
                         I2ErrLog(eh,
                                 "Unable to spawn local tool controller");
                     }
