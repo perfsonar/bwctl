@@ -45,13 +45,18 @@ IperfAvailable(
         BWLToolDefinition   tool
         )
 {
-    char        confkey[BWL_MAX_TOOLNAME + 10];
-    uint32_t    len;
-    char        *cmd;
-    int         fdpipe[2];
-    pid_t       pid;
-    int         status;
-    int         rc;
+    char            confkey[BWL_MAX_TOOLNAME + 10];
+    int             len;
+    char            *cmd;
+    int             fdpipe[2];
+    pid_t           pid;
+    int             status;
+    int             rc;
+                    /* We expect 'iperf -v' to print to stderr something like
+                    'iperf version 2.0.2 (03 May 2005) pthreads' */
+    char            *pattern = "iperf version "; /* Expected begin of stderr */
+    char            buf[PATH_MAX];
+    const uint32_t  buf_size = I2Number(buf);
 
     /*
      * Build conf-key name that is used to store the tool cmd
@@ -100,8 +105,10 @@ IperfAvailable(
         close(fdpipe[1]);
 
         execlp(cmd,cmd,"-v",NULL);
-        BWLError(ctx,BWLErrFATAL,errno,"IperfAvailable():execlp(%s): %M",cmd);
-        exit(BWL_CNTRL_FAILURE);
+        buf[buf_size-1] = '\0';
+        snprintf(buf,buf_size-1,"IperfAvailable(): exec(%s)",cmd);
+        perror(buf);
+        exit(1);
     }
 
     /*
@@ -121,6 +128,7 @@ IperfAvailable(
      * to watch for data on both stdout and stderr.
      */
 
+    close(fdpipe[1]);
     while(((rc = waitpid(pid,&status,0)) == -1) && errno == EINTR);
     if(rc < 0){
         BWLError(ctx,BWLErrFATAL,errno,
@@ -142,18 +150,21 @@ IperfAvailable(
     }
 
     /*
-     * iperf exits with a value of 1 for -v, go figure.
+     * Read any output from the child
      */
-    if(WEXITSTATUS(status) == 1){
-        /* We expect 'iperf -v' to print to stderr something like
-           'iperf version 2.0.2 (03 May 2005) pthreads' */
-        char *pattern = "iperf version "; /* Expected begin. of stderr */
-        char buf[80];
-        const uint8_t buf_size = I2Number(buf);
+    buf[0] = '\0';
+    if( (rc = read(fdpipe[0],buf,buf_size-1)) > 0){
+        /* unsure the string is nul terminated */
+        for(len=buf_size;len>rc;len--){
+            buf[len-1] = '\0';
+        }
+    }
+    close(fdpipe[0]);
 
-        close(fdpipe[1]);
-        rc = read(fdpipe[0],buf,buf_size);
-        close(fdpipe[0]);
+    /*
+     * Hopefully future versions of iperf will exit with 0 for -v...
+     */
+    if((WEXITSTATUS(status) == 0) || (WEXITSTATUS(status) == 1)){
         if(0 == strncmp(buf,pattern,strlen(pattern))){
             /* iperf found! */
             return True;
@@ -161,8 +172,8 @@ IperfAvailable(
     }
 
     BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-            "IperfAvailable(): iperf returns unexpected output: exit status %d",
-            WEXITSTATUS(status));
+            "IperfAvailable(): iperf invalid: exit status %d: output:\n%s",
+            WEXITSTATUS(status),buf);
 
     return False;
 }
