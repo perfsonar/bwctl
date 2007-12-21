@@ -320,11 +320,6 @@ typedef struct{
 
 typedef uint32_t   BWLPacketSizeT;
 
-BWLToolAvailability
-LookForTesters(
-        BWLContext  ctx
-        );
-
 /*
  * The BWLScheduleContextRec is used to maintain state for the schedule
  * generator. Multiple contexts can be allocated to maintain multiple
@@ -1109,6 +1104,8 @@ typedef BWLErrSeverity  (*BWLToolInitTestFunc)(
 
 struct BWLToolDefinitionRec{
     char                    name[BWL_MAX_TOOLNAME];
+    char                    *def_cmd;
+    char                    *def_server_cmd;
     uint16_t                def_port;
     BWLToolParseArgFunc     parse;
     BWLToolAvailableFunc    tool_avail;

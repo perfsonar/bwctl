@@ -50,6 +50,8 @@
 
 static BWLToolDefinitionRec BWLToolNone = {
     "",
+    NULL,
+    NULL,
     0,
     NULL,
     NULL,
