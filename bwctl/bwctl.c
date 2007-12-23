@@ -91,9 +91,17 @@ static void
 print_test_args(
         )
 {
+    uint32_t    i,n;
+
     fprintf(stderr,
-            "            [Test Args]\n\n"
-	    "  -T tool        select iperf, nuttcp or thrulay (default)\n"
+            "            [Test Args]\n\n");
+    fprintf(stderr,
+	        "  -T tool        tool one of:\n");
+    for(i=0,n = BWLToolGetNumTools(ctx);i<n;i++){
+        fprintf(stderr,
+                "       %s\n",BWLToolGetNameByIndex(ctx,i));
+    }
+    fprintf(stderr,
             "  -a offset      allow unsynchronized clock - good within offset (seconds)\n"
             "  -i interval    report interval (seconds)\n"
             "  -l len         length of read/write buffers (bytes)\n"
@@ -114,7 +122,7 @@ print_test_args(
             "  -s sendhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 sendhost will run thrulay/nuttcp/iperf client \n"
             "            AUTHMETHODS: (See -A argument)\n"
-            "             [MUST SPECIFY AT LEAST ONE OF -c/-s]"
+            "             [MUST SPECIFY AT LEAST ONE OF -c/-s]\n"
            );
 }
 
@@ -1329,6 +1337,17 @@ main(
                 I2ErrLogSyslogPriorityName(syslogattr.priority));
     }
 
+    /*
+     * Initialize library with configuration functions.
+     */
+    if( !(ctx = BWLContextCreate(eh,
+                    BWLInterruptIO, &ip_intr,
+                    BWLGetAESKey,   getclientkey,
+                    NULL))){
+        I2ErrLog(eh, "Unable to initialize BWL library.");
+        exit(1);
+    }
+
     while ((ch = getopt(argc, argv, optstring)) != -1)
         switch (ch) {
             /* Connection options. */
@@ -1458,15 +1477,11 @@ main(
                  * known tools.
                  * Also make -help option print out known tools.
                  */
-                if (0 == strncasecmp(optarg,"iperf",6)) { 
-                    app.opt.tool = BWL_TOOL_IPERF;
-                } else if (0 == strncasecmp(optarg,"thrulay",8)) {
-                    app.opt.tool = BWL_TOOL_THRULAY;
-                } else if (0 == strncasecmp(optarg,"nuttcp",7)) {
-                    app.opt.tool = BWL_TOOL_NUTTCP;
-                } else {
-                    usage(progname, "Invalid tool tool. "
-                            "'iperf', 'nuttcp' or 'thrulay' expected");
+                if( (app.opt.tool = BWLToolGetID(ctx,optarg)) ==
+                        BWL_TOOL_UNDEFINED){
+                    char    buf[BWL_MAX_TOOLNAME + 20];
+                    snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",optarg);
+                    usage(progname,buf);
                     exit(1);
                 }
                 break;
@@ -1625,21 +1640,17 @@ main(
     }
 
     /*
-     * Initialize library with configuration functions.
+     * Set configurable constants for library
      */
-    if( !(ctx = BWLContextCreate(eh,
-                    BWLAllowUnsync, (app.opt.allowUnsync != 0.0),
-                    BWLInterruptIO, &ip_intr,
-                    BWLGetAESKey,   getclientkey,
-                    NULL))){
-        I2ErrLog(eh, "Unable to initialize BWL library.");
+    if( !BWLContextConfigSet(ctx,BWLAllowUnsync,(app.opt.allowUnsync != 0.0))){
+        I2ErrLog(eh,"BWLContextconfigSet(AllowUnsync): %M");
         exit(1);
     }
 
     if((syncfuzz != 0.0) &&
                 !BWLContextConfigSet(ctx,BWLSyncFuzz,(void*)&syncfuzz)){
         I2ErrLog(eh,"BWLContextconfigSet(SyncFuzz): %M");
-        _exit(1);
+        exit(1);
     }
 
 

@@ -41,7 +41,7 @@
  *    Much of the functionality to run multiple tools was initially
  *    developed by Federico Montesino Pauzols as part of a thrulay Google
  *    Summer of Code project mentored by Jeff W. Boote. That effort put
- *    all of this functionality in-line within the existant structure. This
+ *    this functionality in-line within the existant structure. This
  *    file is an effort to refactor that functionality into a more modular,
  *    and hopefully extensible configuration.
  */
@@ -123,6 +123,43 @@ BWLToolInitialize(
     }
 
     return True;
+}
+
+BWLToolType
+BWLToolGetID(
+        BWLContext  ctx,
+        const char  *name
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if( (strncasecmp(ctx->tool_list[i].tool->name,name,
+                        strlen(ctx->tool_list[i].tool->name)+1) == 0)){
+            return ctx->tool_list[i].id;
+        }
+    }
+
+    return BWL_TOOL_UNDEFINED;
+}
+
+uint32_t
+BWLToolGetNumTools(
+        BWLContext  ctx
+        )
+{
+    return ctx->tool_list_size;
+}
+
+const char *
+BWLToolGetNameByIndex(
+        BWLContext ctx,
+        uint32_t    i
+        )
+{
+    assert(i < ctx->tool_list_size);
+
+    return ctx->tool_list[i].tool->name;
 }
 
 int

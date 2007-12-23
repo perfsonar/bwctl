@@ -1131,6 +1131,23 @@ BWLToolGenericInitTest(
  * Client functions to 'invoke' tool functionality
  */
 
+extern BWLToolType
+BWLToolGetID(
+        BWLContext  ctx,
+        const char  *name
+        );
+
+extern uint32_t
+BWLToolGetNumTools(
+        BWLContext  ctx
+        );
+
+extern const char *
+BWLToolGetNameByIndex(
+        BWLContext  ctx,
+        uint32_t    i
+        );
+
 /*
  * return vals: -1 (key recognized, val invalid)
  *              1 (key recognized, val used)
