@@ -1056,76 +1056,10 @@ BWLTestPacketBandwidth(
  * These types are used to define the functionality for a given 'tool'
  */
 
-typedef struct BWLToolDefinitionRec
-BWLToolDefinitionRec, *BWLToolDefinition;
-
-/*
- * This function is used to parse config file options specific to the tool.
- * The 'context' hash is expected to hold the values from the config file.
- */
-typedef int  (*BWLToolParseArgFunc)(
-        BWLContext                  ctx,
-        BWLToolDefinition           tool,
-        const char                  *key,
-        const char                  *val
-        );
-
-/*
- * This function is used to initialize a tool.
- *
- * Minimally, it should determine if the tool is available. If there
- * is any one-time initialization that should happen for all test instances
- * that tool might run, it can do those here as well.
- */
-typedef BWLBoolean  (*BWLToolAvailableFunc)(
-        BWLContext          ctx,
-        BWLToolDefinition   tool
-        );
-
-/*
- * This function is used to initialize a test at the resource-broker
- * portion of the daemon. It is called once for each new 'test session' -
- * but it is called in the global portion of the daemon, not from the
- * child 'handlers' so it should not do 'real' resource allocations.
- * This is for simple sanity checking and for deciding what 'port'
- * should be used since that needs to be 'global' state.
- */
-typedef BWLErrSeverity  (*BWLToolInitTestFunc)(
-        BWLContext          ctx,
-        BWLToolDefinition   tool,
-        uint16_t            *toolport
-        );
-
-/*
- * Structure to hold complete 'tool' description
- */
-
 #define BWL_MAX_TOOLNAME    PATH_MAX
 
-struct BWLToolDefinitionRec{
-    char                    name[BWL_MAX_TOOLNAME];
-    char                    *def_cmd;
-    char                    *def_server_cmd;
-    uint16_t                def_port;
-    BWLToolParseArgFunc     parse;
-    BWLToolAvailableFunc    tool_avail;
-    BWLToolInitTestFunc     init_test;
-};
-
-extern int
-BWLToolGenericParse(
-        BWLContext          ctx,
-        BWLToolDefinition   tool,
-        const char          *key,
-        const char          *val
-        );
-
-extern BWLErrSeverity
-BWLToolGenericInitTest(
-        BWLContext          ctx,
-        BWLToolDefinition   tool,
-        uint16_t            *toolport
-        );
+typedef struct BWLToolDefinitionRec
+BWLToolDefinitionRec, *BWLToolDefinition;
 
 /*
  * Client functions to 'invoke' tool functionality

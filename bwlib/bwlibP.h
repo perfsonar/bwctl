@@ -117,14 +117,112 @@
 #define _BWL_TMPFILEFMT     "iperfc.XXXXXX"
 #define _BWL_MAX_IPERFARGS  (36)
 
+typedef struct BWLTestSessionRec BWLTestSessionRec, *BWLTestSession;
 
 /*
- * Data structures
+ * Tool Data structures. The ToolRec is used to keep track of the actual
+ * tools compiled into the given binary.
  */
 typedef struct BWLToolRec{
     BWLToolType         id; /* what bits define this tool in the protocol? */
     BWLToolDefinition   tool;
 } BWLToolRec, *BWLTool;
+
+/*
+ * This function is used to parse config file options specific to the tool.
+ * The 'context' hash is expected to hold the values from the config file.
+ */
+typedef int  (*BWLToolParseArgFunc)(
+        BWLContext                  ctx,
+        BWLToolDefinition           tool,
+        const char                  *key,
+        const char                  *val
+        );
+
+/*
+ * This function is used to initialize a tool.
+ *
+ * Minimally, it should determine if the tool is available. If there
+ * is any one-time initialization that should happen for all test instances
+ * that tool might run, it can do those here as well.
+ */
+typedef BWLBoolean  (*BWLToolAvailableFunc)(
+        BWLContext          ctx,
+        BWLToolDefinition   tool
+        );
+
+/*
+ * This function is used to initialize a test at the resource-broker
+ * portion of the daemon. It is called once for each new 'test session' -
+ * but it is called in the global portion of the daemon, not from the
+ * child 'handlers' so it should not do 'real' resource allocations.
+ * This is for simple sanity checking and for deciding what 'port'
+ * should be used since that needs to be 'global' state.
+ */
+typedef BWLErrSeverity  (*BWLToolInitTestFunc)(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        uint16_t            *toolport
+        );
+
+/*
+ * This function is used to do any test initialization needed before
+ * running. This is done so the 'run' function can do as little as
+ * possible when it is run. (Basically just the exec in the iperf
+ * case.) Returns a 'closure' pointer that if NULL indicates failure.
+ * If non-NULL, this 'closure' is passed on to the 'run' function.
+ */
+typedef void * (*BWLToolPreRunTestFunc)(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        BWLTestSession      tsess
+        );
+
+/*
+ * This function is used to actually run the test. In the iperf case,
+ * this is just the exec.
+ */
+typedef BWLBoolean  (*BWLToolRunTestFunc)(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        BWLTestSession      tsess,
+        void                *closure
+        );
+
+/*
+ * Structure to hold complete 'tool' description
+ */
+
+/*
+ * This structure is used to actually define the 'Tool' abstraction
+ */
+struct BWLToolDefinitionRec{
+    char                    name[BWL_MAX_TOOLNAME];
+    char                    *def_cmd;
+    char                    *def_server_cmd;
+    uint16_t                def_port;
+    BWLToolParseArgFunc     parse;
+    BWLToolAvailableFunc    tool_avail;
+    BWLToolInitTestFunc     init_test;
+    BWLToolPreRunTestFunc   pre_run;
+    BWLToolRunTestFunc      run;
+};
+
+extern int
+BWLToolGenericParse(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        const char          *key,
+        const char          *val
+        );
+
+extern BWLErrSeverity
+BWLToolGenericInitTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        uint16_t            *toolport
+        );
+
 
 
 typedef struct BWLContextRec BWLContextRec;
@@ -146,7 +244,6 @@ struct BWLContextRec{
     BWLToolAvailability tool_avail;
 };
 
-typedef struct BWLTestSessionRec BWLTestSessionRec, *BWLTestSession;
 struct BWLControlRec{
     /*
      * Application configuration information.

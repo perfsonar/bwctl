@@ -177,6 +177,21 @@ tfile(
     return fp;
 }
 
+/*
+ * Function:    epssock
+ *
+ * Description:    
+ *              Open a server socket for the endpoint process.
+ *              Used for Peer communication.
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
 static int
 epssock(
         BWLTestSession  tsess,
@@ -1324,7 +1339,8 @@ ACCEPT:
     }
 
     if(ipf_term){
-        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,"PeerAgent: Catching SIGTERM...");
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                "PeerAgent: Catching SIGTERM...");
         goto end;
     }
 

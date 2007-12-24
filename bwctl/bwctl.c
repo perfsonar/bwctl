@@ -96,12 +96,12 @@ print_test_args(
     fprintf(stderr,
             "            [Test Args]\n\n");
     fprintf(stderr,
-	        "  -T tool        tool one of:\n");
+	        "  -T tool        tool one of:\n\n");
     for(i=0,n = BWLToolGetNumTools(ctx);i<n;i++){
         fprintf(stderr,
-                "       %s\n",BWLToolGetNameByIndex(ctx,i));
+                "                 %s\n",BWLToolGetNameByIndex(ctx,i));
     }
-    fprintf(stderr,
+    fprintf(stderr,"\n"
             "  -a offset      allow unsynchronized clock - good within offset (seconds)\n"
             "  -i interval    report interval (seconds)\n"
             "  -l len         length of read/write buffers (bytes)\n"

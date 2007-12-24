@@ -178,12 +178,42 @@ IperfAvailable(
     return False;
 }
 
+/*
+ * Function:    IperfPreRunTest
+ *
+ * Description:    
+ *              Does all 'prep' work for running an iperf test.
+ *
+ *              Returns a 'closure' pointer. NULL indicates
+ *              failure.
+ *              This 'closure' pointer is passed on to the IperfRunTest.
+ *
+ *              (closure pointer is just the arg list for the exec)
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+static void *
+IperfPreRunTest(
+        BWLContext      ctx,
+        BWLToolDefinition   tool,
+        BWLTestSession      tsess
+        )
+{
+}
+
 BWLToolDefinitionRec    BWLToolIperf = {
-    "iperf",                /* name */
-    "iperf",                /* def_cmd */
-    NULL,                   /* def_server_cmd */
-    5001,                   /* def_port */
-    BWLToolGenericParse,    /* parse */
-    IperfAvailable,         /* tool_avail */
-    BWLToolGenericInitTest /* init_test */
+    "iperf",                /* name             */
+    "iperf",                /* def_cmd          */
+    NULL,                   /* def_server_cmd   */
+    5001,                   /* def_port         */
+    BWLToolGenericParse,    /* parse            */
+    IperfAvailable,         /* tool_avail       */
+    BWLToolGenericInitTest, /* init_test        */
+    IperfPreRunTest,        /* pre_run          */
+    NULL                    /* run              */
 };
