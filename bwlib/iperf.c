@@ -197,13 +197,193 @@ IperfAvailable(
  * Returns:    
  * Side Effect:    
  */
+/* This IperfArgs can be a static because it is only used from within a
+ * forked process. If bwctl ever goes to threads, this will need to be
+ * made thread-local memory.
+ */
+static char *IperfArgs[_BWL_MAX_TOOLARGS*2];
 static void *
 IperfPreRunTest(
-        BWLContext      ctx,
-        BWLToolDefinition   tool,
+        BWLContext          ctx,
         BWLTestSession      tsess
         )
 {
+    char            confkey[BWL_MAX_TOOLNAME + 10];
+    int             len;
+    char            *cmd;
+    int             a = 0;
+    char            recvhost[MAXHOSTNAMELEN];
+    char            sendhost[MAXHOSTNAMELEN];
+    size_t          hlen;
+    struct sockaddr *rsaddr;
+    socklen_t       rsaddrlen;
+
+    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen))){
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
+                "IperfPreRunTest: Invalid receiver I2Addr");
+        return NULL;
+    }
+
+    hlen = sizeof(recvhost);
+    I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+    if(!hlen){
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
+                "IperfPreRunTest: Invalid receiver I2Addr");
+        return NULL;
+    }
+
+    hlen = sizeof(sendhost);
+    I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+    if(!hlen){
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
+                "IperfPreRunTest: Invalid sender I2Addr");
+        return NULL;
+    }
+
+    /*
+     * Build conf-key name that is used to store the tool cmd
+     */
+    strncpy(confkey,tsess->tool->name,sizeof(confkey));
+    len = strlen(confkey);
+    strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
+
+    /* Run iperf */
+    cmd = (char*)BWLContextConfigGetV(ctx,confkey);
+    if(!cmd) cmd = tsess->tool->def_cmd;
+
+    /*
+     * First figure out the args for iperf
+     */
+    IperfArgs[a++] = cmd;
+
+    if(tsess->conf_receiver){
+        IperfArgs[a++] = "-B";
+        IperfArgs[a++] = recvhost;
+
+        if(tsess->test_spec.parallel_streams > 0){
+            IperfArgs[a++] = "-P";
+            if( !(IperfArgs[a++] =
+                        BWLUInt32Dup(ctx,tsess->test_spec.parallel_streams))){
+                return NULL;
+            }
+        }
+        IperfArgs[a++] = "-s";
+    }
+    else{
+        IperfArgs[a++] = "-c";
+        IperfArgs[a++] = recvhost;
+        IperfArgs[a++] = "-B";
+        IperfArgs[a++] = sendhost;
+        if(tsess->test_spec.tos){
+            IperfArgs[a++] = "-S";
+            if( !(IperfArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos))){
+                return NULL;
+            }
+        }
+    }
+
+    IperfArgs[a++] = "-f";
+    IperfArgs[a++] = "b";
+
+    if(tsess->test_spec.len_buffer){
+        IperfArgs[a++] = "-l";
+        if( !(IperfArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.len_buffer))){
+            return NULL;
+        }
+    }
+
+    IperfArgs[a++] = "-m";
+
+    IperfArgs[a++] = "-p";
+    if( !(IperfArgs[a++] = BWLUInt32Dup(ctx,tsess->tool_port))){
+        return NULL;
+    }
+
+    if(tsess->test_spec.udp){
+        IperfArgs[a++] = "-u";
+        if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
+            IperfArgs[a++] = "-b";
+            if( !(IperfArgs[a++] =
+                        BWLUInt32Dup(ctx,tsess->test_spec.bandwidth))){
+                return NULL;
+            }
+        }
+    }
+
+    if(tsess->test_spec.window_size){
+        IperfArgs[a++] = "-w";
+        if( !(IperfArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.window_size))){
+            return NULL;
+        }
+    }
+
+    IperfArgs[a++] = "-t";
+    if( !(IperfArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.duration))){
+        return NULL;
+    }
+
+    if(tsess->test_spec.report_interval){
+        IperfArgs[a++] = "-i";
+        if( !(IperfArgs[a++] =
+                    BWLUInt32Dup(ctx,tsess->test_spec.report_interval))){
+            return NULL;
+        }
+    }
+
+    switch(rsaddr->sa_family){
+#ifdef    AF_INET6
+        case AF_INET6:
+            IperfArgs[a++] = "-V";
+            break;
+#endif
+        case AF_INET:
+        default:
+            break;
+    }
+
+    IperfArgs[a++] = NULL;
+
+    /*
+     * Report what will be run in the output file
+     */
+    fprintf(tsess->localfp,"bwctl: exec_line:");
+    for(len=0;IperfArgs[len];len++){
+        fprintf(tsess->localfp," %s",IperfArgs[len]);
+    }
+    fprintf(tsess->localfp,"\n");
+
+    return (void *)IperfArgs;
+}
+
+/*
+ * Function:    IperfRunTest
+ *
+ * Description:    
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+static BWLBoolean
+IperfRunTest(
+        BWLContext          ctx,
+        BWLTestSession      tsess __attribute__((unused)),
+        void                *closure
+        )
+{
+    char    **ipargs = (char **)closure;
+
+    /*
+     * Now run iperf!
+     */
+    execvp(ipargs[0],ipargs);
+
+    BWLError(ctx,BWLErrFATAL,errno,"execvp(%s): %M",ipargs[0]);
+    exit(BWL_CNTRL_FAILURE);
 }
 
 BWLToolDefinitionRec    BWLToolIperf = {
@@ -211,9 +391,9 @@ BWLToolDefinitionRec    BWLToolIperf = {
     "iperf",                /* def_cmd          */
     NULL,                   /* def_server_cmd   */
     5001,                   /* def_port         */
-    BWLToolGenericParse,    /* parse            */
+    _BWLToolGenericParse,    /* parse            */
     IperfAvailable,         /* tool_avail       */
-    BWLToolGenericInitTest, /* init_test        */
+    _BWLToolGenericInitTest, /* init_test        */
     IperfPreRunTest,        /* pre_run          */
-    NULL                    /* run              */
+    IperfRunTest            /* run              */
 };

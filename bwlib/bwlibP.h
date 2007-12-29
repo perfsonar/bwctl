@@ -110,18 +110,17 @@
  */
 #define _BWL_DEFAULT_TMPDIR "/tmp"
 #define _BWL_DEV_NULL       "/dev/null"
-#define _BWL_IPERF_CMD      "iperf"
-#define _BWL_NUTTCP_CMD     "nuttcp"
 #define _BWL_ERR_MAXSTRING  (1024)
 #define _BWL_PATH_SEPARATOR "/"
-#define _BWL_TMPFILEFMT     "iperfc.XXXXXX"
-#define _BWL_MAX_IPERFARGS  (36)
+#define _BWL_TMPFILEFMT     "bwctl-tmp.XXXXXX"
+#define _BWL_MAX_TOOLARGS  (36)
 
 typedef struct BWLTestSessionRec BWLTestSessionRec, *BWLTestSession;
 
 /*
  * Tool Data structures. The ToolRec is used to keep track of the actual
- * tools compiled into the given binary.
+ * tools compiled into the given binary. (An array of these is allocated
+ * as part of the BWLContext.
  */
 typedef struct BWLToolRec{
     BWLToolType         id; /* what bits define this tool in the protocol? */
@@ -174,7 +173,6 @@ typedef BWLErrSeverity  (*BWLToolInitTestFunc)(
  */
 typedef void * (*BWLToolPreRunTestFunc)(
         BWLContext          ctx,
-        BWLToolDefinition   tool,
         BWLTestSession      tsess
         );
 
@@ -184,7 +182,6 @@ typedef void * (*BWLToolPreRunTestFunc)(
  */
 typedef BWLBoolean  (*BWLToolRunTestFunc)(
         BWLContext          ctx,
-        BWLToolDefinition   tool,
         BWLTestSession      tsess,
         void                *closure
         );
@@ -207,22 +204,6 @@ struct BWLToolDefinitionRec{
     BWLToolPreRunTestFunc   pre_run;
     BWLToolRunTestFunc      run;
 };
-
-extern int
-BWLToolGenericParse(
-        BWLContext          ctx,
-        BWLToolDefinition   tool,
-        const char          *key,
-        const char          *val
-        );
-
-extern BWLErrSeverity
-BWLToolGenericInitTest(
-        BWLContext          ctx,
-        BWLToolDefinition   tool,
-        uint16_t            *toolport
-        );
-
 
 
 typedef struct BWLContextRec BWLContextRec;
@@ -332,6 +313,7 @@ struct BWLTestSessionRec{
     BWLTimeStamp        localtime;
     BWLNum64            reserve_time;
     BWLNum64            fuzz;
+    BWLToolDefinition   tool;
     uint16_t            tool_port;
     uint16_t            peer_port;  /* indicates 'starting' port to try */
 
@@ -454,14 +436,14 @@ _BWLMakeKey(
         );
 
 extern int
-BWLEncryptToken(
+_BWLEncryptToken(
         uint8_t    *binKey,
         uint8_t    *token_in,
         uint8_t    *token_out
         );
 
 extern int
-BWLDecryptToken(
+_BWLDecryptToken(
         uint8_t    *binKey,
         uint8_t    *token_in,
         uint8_t    *token_out
@@ -690,14 +672,49 @@ _BWLCallCloseFile(
 /* tools.c */
 
 extern BWLBoolean
-BWLToolInitialize(
+_BWLToolInitialize(
         BWLContext  ctx
         );
 
 extern BWLBoolean
-BWLToolLookForTesters(
+_BWLToolLookForTesters(
         BWLContext  ctx
         );
+
+extern BWLToolDefinition
+_BWLToolGetDefinition(
+        BWLContext  ctx,
+        BWLToolType id
+        );
+
+extern void *
+_BWLToolPreRunTest(
+        BWLContext      ctx,
+        BWLTestSession  tsess
+        );
+
+extern void
+_BWLToolRunTest(
+        BWLContext      ctx,
+        BWLTestSession  tsess,
+        void            *closure
+        );
+
+extern int
+_BWLToolGenericParse(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        const char          *key,
+        const char          *val
+        );
+
+extern BWLErrSeverity
+_BWLToolGenericInitTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        uint16_t            *toolport
+        );
+
 
 /* endpoint.c */
 

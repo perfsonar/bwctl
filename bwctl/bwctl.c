@@ -821,12 +821,10 @@ SpawnLocalServer(
     BWLErrSeverity      err = BWLErrOK;
     uint32_t            controltimeout = 7200;
     BWLTimeStamp        currtime;
-    I2numT              bottle;
     char                *tstr;
     struct itimerval    itval;
     BWLControl          cntrl;
     BWLRequestType      msgtype;
-    BWLPortRangeRec     peerports_mem;
 
     /*
      * Set up port info for iperf/thrulay tests.
@@ -952,6 +950,8 @@ portdone:
     }
 
     /*
+     * XXX: Replace all of this with a ~/.bwctldconf file.
+     *
      * Environment Vars that effect server:
      *  BWCTL_IPERFPORTRANGE        (above)
      *  BWCTL_CHILDWAIT             (debugging)
@@ -985,6 +985,7 @@ portdone:
         while(wait);
     }
 
+#if NOT
     if((tstr = getenv("BWCTL_IPERFCMD"))){
         if(!(tstr = strdup(tstr))){
             I2ErrLog(eh,"strdup(): %M");
@@ -1049,6 +1050,7 @@ portdone:
             _exit(1);
         }
     }
+#endif
 
     if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,CheckTestPolicy)){
         I2ErrLog(eh,"BWLContextConfigSet(\"CheckTestPolicy\")");
@@ -1477,7 +1479,7 @@ main(
                  * known tools.
                  * Also make -help option print out known tools.
                  */
-                if( (app.opt.tool = BWLToolGetID(ctx,optarg)) ==
+                if( (app.opt.tool_id = BWLToolGetID(ctx,optarg)) ==
                         BWL_TOOL_UNDEFINED){
                     char    buf[BWL_MAX_TOOLNAME + 20];
                     snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",optarg);
@@ -1752,12 +1754,12 @@ main(
      * Initialize session records
      */
     /* skip req_time/latest_time - set per/test */
-    if(app.opt.tool){
-        first.tspec.tool = second.tspec.tool = app.opt.tool;
+    if(app.opt.tool_id){
+        first.tspec.tool_id = second.tspec.tool_id = app.opt.tool_id;
     }
     else{
         /* Default to thrulay */
-        first.tspec.tool = second.tspec.tool = BWL_TOOL_THRULAY;
+        first.tspec.tool_id = second.tspec.tool_id = BWL_TOOL_THRULAY;
     }
     first.tspec.duration = app.opt.timeDuration;
     first.tspec.udp = app.opt.udpTest;
@@ -2045,10 +2047,10 @@ AGAIN:
 
         /* Check if the requested tool is available at both servers. */
         common_tools = first.avail_tools & second.avail_tools;
-        if (!(first.tspec.tool & common_tools)){
+        if (!(first.tspec.tool_id & common_tools)){
             I2ErrLog(eh,"Requested tool (%x) not supported by both servers "
                     "(%x %x).",
-                    first.tspec.tool,
+                    first.tspec.tool_id,
                     first.avail_tools,second.avail_tools);
             /* Try to fall-back to iperf. */
             /* We assume those servers that say they do not support any
@@ -2058,7 +2060,7 @@ AGAIN:
                     (!second.avail_tools ||
                      (second.avail_tools & BWL_TOOL_IPERF))) {
                 I2ErrLog(eh,"Falling-back to iperf.");
-                first.tspec.tool = second.tspec.tool = BWL_TOOL_IPERF;
+                first.tspec.tool_id = second.tspec.tool_id = BWL_TOOL_IPERF;
             }
             else{
                 I2ErrLog(eh,"Falling-back to iperf was not possible.");

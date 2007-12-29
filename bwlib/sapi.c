@@ -403,7 +403,7 @@ BWLControlAccept(
             goto error;
         }
 
-        if (BWLDecryptToken(binKey,rawtoken,token) < 0){
+        if (_BWLDecryptToken(binKey,rawtoken,token) < 0){
             BWLError(cntrl->ctx,BWLErrFATAL,
                     BWLErrUNKNOWN,
                     "Encryption state problem?!?!");
@@ -502,7 +502,7 @@ BWLProcessTestRequest(
     }
 
     /*
-     * Read the TestRequest and allocate tsession to hold the information.
+     * Read the TestRequest and use tsession to hold the information.
      * (during schedule negotiation, only the timestamps from the
      * subsequent requests are used.)
      */
@@ -557,10 +557,15 @@ BWLProcessTestRequest(
         }
 
         /*
-         * XXX: Check tool availability and pick 'port' here
-         * Use bitmask from LookForTesters, and combine with
-         * requested to determine if test can be done.
+         * Get definition record for selected tool
+         * (This will fail if an unsupported tool is requested.)
          */
+        if( !(tsession->tool = _BWLToolGetDefinition(cntrl->ctx,
+                        tsession->test_spec.tool_id))){
+            err_ret = BWLErrWARNING;
+            acceptval = BWL_CNTRL_UNSUPPORTED;
+            goto error;
+        }
     }
 
     /*

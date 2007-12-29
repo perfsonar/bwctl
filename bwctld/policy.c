@@ -985,22 +985,6 @@ BADLINE:
         return NULL;
     }
 
-//    if(tool && !strncasecmp(tool,"iperf",6)){
-//        if(!BWLContextConfigSet(ctx,BWLTester,"iperf")){
-//            return NULL;
-//        }
-//        if(toolcmd && 
-//                !BWLContextConfigSet(ctx,BWLIperfCmd,(void*)toolcmd)){
-//            return NULL;
-//        }
-//    }
-//    else{
-//        /* Any value of the tool key different to iperf is
-//           considered 'thrulay' */
-//        if(!BWLContextConfigSet(ctx,BWLTester,"thrulay")){
-//            return NULL;
-//        }
-//    }
     if(bottleneckcapacity && *bottleneckcapacity &&
             !BWLContextConfigSet(ctx,BWLBottleNeckCapacity,
                 (void*)bottleneckcapacity)){
@@ -2280,7 +2264,7 @@ BWLDCheckTestPolicy(
     /* TODO: really check this if the `tool' key or something
        similar if finally kept. */
     allowed_tools = 0xffffffff;
-    if(!(tspec->tool & allowed_tools))
+    if(!(tspec->tool_id & allowed_tools))
         goto done;
 
     /*
@@ -2333,7 +2317,7 @@ reservation:
                     tspec->req_time.tstamp,fuzz_time,
                     tspec->latest_time,tspec->duration,
                     BWLGetRTTBound(cntrl),
-                    reservation_ret,tool_port_ret,peer_port_ret,tspec->tool))
+                    reservation_ret,tool_port_ret,peer_port_ret,tspec->tool_id))
             != BWLDMESGOK){
         BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: No reservation time available");

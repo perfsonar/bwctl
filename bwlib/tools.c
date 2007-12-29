@@ -82,11 +82,12 @@ extern BWLToolDefinitionRec BWLToolThrulay;
 BWLToolRec tool_list[] = {
     {BWL_TOOL_THRULAY, &BWLToolThrulay},
     {BWL_TOOL_NUTTCP, &BWLToolNuttcp},
-    {BWL_TOOL_IPERF, &BWLToolIperf}
+    {BWL_TOOL_IPERF, &BWLToolIperf},
+    {BWL_TOOL_UNDEFINED, &BWLToolNone}
 };
 
 BWLBoolean
-BWLToolInitialize(
+_BWLToolInitialize(
         BWLContext  ctx
         )
 {
@@ -193,14 +194,14 @@ BWLToolParseArg(
 BWLErrSeverity
 BWLToolInitTest(
         BWLContext  ctx,
-        BWLToolType tool,
+        BWLToolType id,
         uint16_t    *toolport
         )
 {
     uint32_t    i;
 
     for(i=0;i<ctx->tool_list_size;i++){
-        if(ctx->tool_list[i].id == tool){
+        if(ctx->tool_list[i].id == id){
             return ctx->tool_list[i].tool->init_test(ctx,ctx->tool_list[i].tool,
                     toolport);
         }
@@ -213,7 +214,7 @@ BWLToolInitTest(
 }
 
 BWLErrSeverity
-BWLToolLookForTesters(
+_BWLToolLookForTesters(
         BWLContext  ctx
         )
 {
@@ -242,7 +243,84 @@ BWLToolLookForTesters(
 }
 
 /*
- * Function:    BWLToolGenericParse
+ * Function:    _BWLToolGetDefinition
+ *
+ * Description:    
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+BWLToolDefinition
+_BWLToolGetDefinition(
+        BWLContext  ctx,
+        BWLToolType id)
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(ctx->tool_list[i].id == id){
+            return ctx->tool_list[i].tool;
+        }
+    }
+
+    /*
+     * Arg not found
+     */
+    return NULL;
+}
+
+/*
+ * Function:    _BWLToolPreRunTest
+ *
+ * Description:    
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+void *
+_BWLToolPreRunTest(
+        BWLContext      ctx,
+        BWLTestSession  tsess
+        )
+{
+    return tsess->tool->pre_run(ctx,tsess);
+}
+
+/*
+ * Function:    _BWLToolRunTest
+ *
+ * Description:    
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+void
+_BWLToolRunTest(
+        BWLContext      ctx,
+        BWLTestSession  tsess,
+        void            *closure
+        )
+{
+    tsess->tool->run(ctx,tsess,closure);
+}
+
+/*
+ * Function:    _BWLToolGenericParse
  *
  * Description:    
  *      This function will handle:
@@ -280,7 +358,7 @@ save_val(
     return -1;
 }
 int
-BWLToolGenericParse(
+_BWLToolGenericParse(
         BWLContext          ctx,
         BWLToolDefinition   tool,
         const char          *key,
@@ -336,7 +414,7 @@ BWLToolGenericParse(
 }
 
 /*
- * Function:    BWLToolGenericInitTest
+ * Function:    _BWLToolGenericInitTest
  *
  * Description:    
  *
@@ -349,7 +427,7 @@ BWLToolGenericParse(
  * Side Effect:    
  */
 BWLErrSeverity
-BWLToolGenericInitTest(
+_BWLToolGenericInitTest(
         BWLContext          ctx,
         BWLToolDefinition   tool,
         uint16_t            *toolport

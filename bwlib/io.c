@@ -176,7 +176,7 @@ _BWLMakeKey(
 #define TOKEN_BITS_LEN (2*16*8)
 
 int
-BWLEncryptToken(
+_BWLEncryptToken(
 	unsigned char   *binKey,
 	unsigned char	*token_in,
 	unsigned char	*token_out
@@ -198,7 +198,7 @@ BWLEncryptToken(
 }
 
 int
-BWLDecryptToken(
+_BWLDecryptToken(
 	unsigned char	*binKey,
 	unsigned char	*token_in,
 	unsigned char	*token_out

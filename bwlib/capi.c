@@ -483,7 +483,7 @@ gotmode:
         /*
          * Encrypt the token as specified by Section 4.1
          */
-        if(BWLEncryptToken(key,buf,token) != 0)
+        if(_BWLEncryptToken(key,buf,token) != 0)
             goto error;
 
         /*

@@ -76,15 +76,15 @@ typedef struct {
 } aeskey_auth_rec, *aeskey_auth;
 
 typedef struct{
-    char		    *host;
-    aeskey_auth	            auth;
-    BWLControl	            cntrl;
-    int		            sockfd;
-    BWLNum64	            rttbound;
-    BWLNum64	            waketime;
-    BWLBoolean	            send;
-    BWLTestSpec             tspec;
-    BWLToolAvailability   avail_tools;
+    char		*host;
+    aeskey_auth	        auth;
+    BWLControl	        cntrl;
+    int		        sockfd;
+    BWLNum64	        rttbound;
+    BWLNum64	        waketime;
+    BWLBoolean	        send;
+    BWLTestSpec         tspec;
+    BWLToolAvailability avail_tools;
 } ipsess_trec, *ipsess_t;
 
 /*
@@ -129,7 +129,7 @@ typedef	struct {
         I2Boolean	version;	/* -V */
         I2Boolean	verbose;	/* -v */
         I2Boolean	quiet;		/* -q */
-        uint32_t	tool;   	/* -T iperf/nuttcp/thrulay */
+        uint32_t	tool_id;   	/* -T iperf/nuttcp/thrulay */
 
         uint32_t	reportInterval;	/* -i (seconds) */
         uint32_t	lenBuffer;	/* -l (bytes)	*/

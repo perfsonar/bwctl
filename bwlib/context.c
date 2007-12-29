@@ -495,7 +495,7 @@ BWLContextCreate(
 
     ctx->access_prio = BWLErrINFO;
 
-    if(!BWLToolInitialize(ctx)){
+    if(!_BWLToolInitialize(ctx)){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Cannot init tools module");
             free(ctx);
             return NULL;
@@ -621,7 +621,7 @@ BWLContextFinalize(
         BWLContext  ctx
         )
 {
-    if( BWLToolLookForTesters(ctx) != BWLErrOK){
+    if( _BWLToolLookForTesters(ctx) != BWLErrOK){
         return False;
     }
 

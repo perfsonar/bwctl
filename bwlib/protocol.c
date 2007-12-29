@@ -985,7 +985,7 @@ _BWLWriteTestRequest(
 
     if(tool_negotiation){
         buf[94] = tspec->parallel_streams;
-        *(uint32_t*)&buf[96] = htonl(tspec->tool);
+        *(uint32_t*)&buf[96] = htonl(tspec->tool_id);
     }
     else if(tspec->parallel_streams){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
@@ -1277,7 +1277,17 @@ _BWLReadTestRequest(
 
         if(tool_negotiation){
             tspec.parallel_streams = buf[94];
-            tspec.tool = ntohl(*(uint32_t*)&buf[96]);
+            tspec.tool_id = ntohl(*(uint32_t*)&buf[96]);
+
+            /* Ensure only one bit is set in the tool selection bit-mask */
+            if(tspec.tool_id & (tspec.tool_id - 1)){
+                BWLError(cntrl->ctx,BWLErrWARNING,BWLErrINVALID,
+                        "_BWLReadTestRequest: Multiple tools requested (%d)",
+                        tspec.tool_id);
+                err_ret = BWLErrWARNING;
+                *accept_ret = BWL_CNTRL_FAILURE;
+                goto error;
+            }
         }
 
         /*
@@ -1530,7 +1540,7 @@ _BWLReadStartSession(
 
     if(memcmp(cntrl->zero,&buf[16],16)){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-                "_BWLReadTestRequest: Invalid zero padding");
+                "_BWLReadStartSession: Invalid zero padding");
         cntrl->state = _BWLStateInvalid;
         return BWLErrFATAL;
     }

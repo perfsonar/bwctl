@@ -37,4 +37,8 @@ if TOOL_IPERF
 TOOL_SOURCES		+= iperf.c
 endif
 
+if TOOL_NUTTCP
+TOOL_SOURCES		+= nuttcp.c
+endif
+
 EXTRA_DIST		= bwlib.h

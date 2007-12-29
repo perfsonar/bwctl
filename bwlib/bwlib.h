@@ -302,7 +302,7 @@ typedef uint32_t    BWLSessionMode;
 typedef uint32_t    BWLToolNegotiationVersion;
 
 typedef struct{
-    BWLToolType     tool;
+    BWLToolType     tool_id;
     I2Addr          sender;
     I2Addr          receiver;
     BWLTimeStamp    req_time;
@@ -423,19 +423,6 @@ typedef struct BWLPortRangeRec{
     uint16_t    low;
     uint16_t    high;
 } BWLPortRangeRec, *BWLPortRange;
-
-/*
- * This types are used to hold the path to the iperf/thrulay executables.
- * (char *)
- */
-#define    BWLIperfCmd           "V.BWLIperfCmd"
-#define    BWLNuttcpCmd          "V.BWLNuttcpCmd"
-
-/*
- * Which tester tool was selected ("iperf", "thrulay", etc.).
- * (char *)
- */
-#define    BWLTester          "V.BWLTester"
 
 /*
  * This type is used to hold a pointer to an unsigned-64 bit int that
@@ -1282,5 +1269,11 @@ BWLPortsSetI(
  * How long is the range?
  */
 #define BWLPortsRange(prange)   (prange->high - prange->low)
+
+extern char *
+BWLUInt32Dup(
+        BWLContext  ctx,
+        uint32_t    n
+        );
 
 #endif    /* OWAMP_H */

@@ -414,46 +414,30 @@ sig_catch(
     return;
 }
 
-static char *
-uint32dup(
-        BWLContext    ctx,
-        uint32_t    n
+/*
+ * This function redirects stdout to the tmpfile that was created
+ * to hold the result, and then waits until it should fire off
+ * the test - and then exec's.
+ */
+static void
+run_tool(
+        BWLEndpoint    ep
         )
 {
-    char    nbuf[100];
-    int     len;
-    char    *ret;
-
-    nbuf[sizeof(nbuf)-1] = '\0';
-    len = snprintf(nbuf,sizeof(nbuf)-1,"%llu",(unsigned long long)n);
-    if((len < 0) || ((unsigned)len >= sizeof(nbuf))){
-        BWLError(ctx,BWLErrFATAL,errno,"snprintf(): %M");
-        exit(BWL_CNTRL_FAILURE);
-    }
-
-    if((ret = strdup(nbuf)))
-        return ret;
-
-    BWLError(ctx,BWLErrFATAL,errno,"strdup(): %M");
-    exit(BWL_CNTRL_FAILURE);
-}
-
-static void
-prepare_and_wait_for_test(
-			BWLContext    ctx, 
-			BWLTestSession   tsess,
-			int    outfd,
-			char    *ipargs[]
-			)
-{
-    int                 a = 0;
+    BWLTestSession      tsess = ep->tsess;
+    BWLContext          ctx = tsess->cntrl->ctx;
     int                 nullfd;
+    int                 outfd = fileno(tsess->localfp);
     struct sigaction    act;
     BWLTimeStamp        currtime;
     BWLNum64            reltime;
     struct timespec     ts_sleep;
     struct timespec     ts_remain;
-    FILE                *nstdout;
+    void                *closure;
+
+
+    BWLError(tsess->cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
+            "run_tool: tester = %lu",tsess->test_spec.tool_id);
 
     /*
      * Open /dev/null to dup to stdin before the exec.
@@ -463,6 +447,9 @@ prepare_and_wait_for_test(
 	exit(BWL_CNTRL_FAILURE);
     }
 
+    /*
+     * Dup std in/out/err so exec'd tools see a normal environment
+     */
     if(        (dup2(nullfd,STDIN_FILENO) < 0) ||
 	       (dup2(outfd,STDOUT_FILENO) < 0) ||
 	       (dup2(outfd,STDERR_FILENO) < 0)){
@@ -470,14 +457,20 @@ prepare_and_wait_for_test(
 	exit(BWL_CNTRL_FAILURE);
     }
 
-    if(!(nstdout = fdopen(STDOUT_FILENO,"a"))){
+    /*
+     * Update the tsess local file fp to use the dup'd fd
+     */
+    if(!(tsess->localfp = fdopen(STDOUT_FILENO,"a"))){
 	BWLError(ctx,BWLErrFATAL,errno,"fdopen(STDOUT): %M");
 	exit(BWL_CNTRL_FAILURE);
     }
 
     /*
      * Reset ignored signals to default
-     * (exec will reset set signals to default)
+     *
+     * (exec will reset set signals to default, but leaves ignored signals
+     * as is - this is confusing for some tools. i.e. some tools depend
+     * on getting sigpipe.)
      */
     memset(&act,0,sizeof(act));
     act.sa_handler = SIG_DFL;
@@ -486,6 +479,17 @@ prepare_and_wait_for_test(
 	   (sigaction(SIGALRM,&act,NULL) != 0)){
 	BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
 	exit(BWL_CNTRL_FAILURE);
+    }
+
+    /*
+     * Tool specific test preparation:
+     * Also should put a comment in the output file indicating the 'args'
+     * that were actually run.)
+     */
+    if( !(closure = _BWLToolPreRunTest(ctx,tsess))){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "run_tool: Unable to prepare test");
+        exit(BWL_CNTRL_FAILURE);
     }
 
     /*
@@ -500,7 +504,7 @@ prepare_and_wait_for_test(
 
     if(BWLNum64Cmp(tsess->reserve_time,currtime.tstamp) < 0){
 	BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-		 "run_tester(): Too LATE!");
+		 "run_tool(): Too LATE!");
 	exit(BWL_CNTRL_FAILURE);
     }
 
@@ -532,394 +536,15 @@ prepare_and_wait_for_test(
     }
 
     /*
-     * Now run iperf!
+     * Report 'when' this was actually started
      */
-    fprintf(nstdout,"bwctl: exec_line: ");
-
-    for(a=0;ipargs[a];a++){
-	fprintf(nstdout," %s",ipargs[a]);
-    }
-    fprintf(nstdout,"\n");
-
     BWLGetTimeStamp(ctx,&currtime);
-    fprintf(nstdout,"bwctl: start_exec: %f\n",
+    fprintf(tsess->localfp,"bwctl: start_tool: %f\n",
             BWLNum64ToDouble(currtime.tstamp));
-    fflush(nstdout);
+    fflush(tsess->localfp);
 
-    return;
-}
-
-/*
- * This function redirects stdout to the tmpfile that was created
- * to hold the result, and then waits until it should fire off
- * the test - and then exec's.
- */
-static void
-run_tester(
-        BWLEndpoint    ep
-        )
-{
-    BWLTestSession      tsess = ep->tsess;
-    BWLContext          ctx = tsess->cntrl->ctx;
-    int                 outfd = fileno(ep->tsess->localfp);
-    int                 a = 0;
-    char                recvhost[MAXHOSTNAMELEN];
-    char                sendhost[MAXHOSTNAMELEN];
-    size_t              hlen = sizeof(recvhost);
-    char                *ipargs[_BWL_MAX_IPERFARGS*2];
-    struct sockaddr     *rsaddr;
-    socklen_t           rsaddrlen;
-
-    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen))){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "run_tester: Invalid receiver I2Addr");
-	exit(BWL_CNTRL_FAILURE);
-    }
-
-    BWLError(tsess->cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
-            "run_tester: tester = %lu",tsess->test_spec.tool);
-
-    if(BWL_TOOL_THRULAY == tsess->test_spec.tool){
-#if defined(HAVE_LIBTHRULAY) && defined(HAVE_THRULAY_SERVER_H) && defined(HAVE_THRULAY_CLIENT_H)
-	int rc;
-	if(tsess->conf_receiver){
-	    /* Run thrulay server through its API */
-	    int port, window, num_streams;
-
-	    I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
-	    if(!hlen){
-		exit(BWL_CNTRL_FAILURE);
-	    }
-
-	    hlen = sizeof(sendhost);
-	    I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
-	    if(!hlen){
-		exit(BWL_CNTRL_FAILURE);
-	    }
-
-	    /* -p server port */
-	    port = tsess->tool_port;
-
-	    /* -w window size in bytes */
-	    if(tsess->test_spec.window_size){
-		window = tsess->test_spec.window_size;
-	    }
-	    else{
-		window = THRULAY_DEFAULT_WINDOW;
-	    }
-
-	    /* -m parallel test streams */
-	    if(tsess->test_spec.parallel_streams > 0){
-		num_streams = tsess->test_spec.parallel_streams;
-	    }
-	    else{
-		num_streams = 1;
-	    }
-
-	    /* Log through stderr and verbose reports. */
-	    rc = thrulay_server_init(LOGTYPE_STDERR,1);
-	    if (rc < 0)
-		BWLError(ctx,BWLErrFATAL,errno,"Initializing thrulay server: "
-			 "%s", thrulay_server_strerror(rc));
-
-	    prepare_and_wait_for_test(ctx,tsess,outfd,ipargs);
-
-	    /*
-	     * Now run thrulay server!
-	     */
-	    rc = thrulay_server_listen(port,window);
-	    if (rc < 0)
-		BWLError(ctx,BWLErrFATAL,errno,"Thrulay server listen: %s", 
-			 thrulay_server_strerror(rc));
-	    rc = thrulay_server_start(num_streams, NULL);
-	    if (rc < 0)
-		BWLError(ctx,BWLErrFATAL,errno,"Thrulay server: %s", 
-			 thrulay_server_strerror(rc));
-	    exit(0);
-	}
-	else{
-	    /* Run thrulay client through its API */
-	    thrulay_opt_t thrulay_opt;
-
-	    /* Give default values to the test spec struct */
-	    thrulay_client_options_init(&thrulay_opt);
-	    /* But disable output. */
-	    thrulay_opt.reporting_verbosity = -1;
-
-	    hlen = sizeof(sendhost);
-	    I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
-	    if(!hlen){
-		exit(BWL_CNTRL_FAILURE);
-	    }
-
-	    /* server to send test data to */
-	    I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
-	    if(!hlen){
-		exit(BWL_CNTRL_FAILURE);
-	    }
-
-	    thrulay_opt.server_name = recvhost;
-
-	    /* -t test duration in seconds */
-	    thrulay_opt.test_duration = tsess->test_spec.duration;
-
-	    /* -i reporting interval in seconds */
-	    if(tsess->test_spec.report_interval){
-		thrulay_opt.reporting_interval = 
-		    tsess->test_spec.report_interval;
-	    }
-
-	    /* -w window size in bytes */
-	    if(tsess->test_spec.window_size){
-		thrulay_opt.window = tsess->test_spec.window_size;
-	    }
-
-	    /* -l block size */
-	    if(tsess->test_spec.len_buffer){
-		thrulay_opt.block_size = tsess->test_spec.len_buffer;
-	    }
-
-	    /* -p server port */
-	    thrulay_opt.port = tsess->tool_port;
-
-	    /* Rate, if UDP test */
-	    if(tsess->test_spec.udp){
-		thrulay_opt.rate = tsess->test_spec.bandwidth;
-	    }
-
-	    /* -m parallel test streams */
-	    if(tsess->test_spec.parallel_streams > 0){
-		thrulay_opt.num_streams = tsess->test_spec.parallel_streams;
-	    }
-
-	    /* -b (busy wait in UDP test) and -D (DSCP value for TOS
-                byte): not used for the moment. */
-	    /* Multicast options not used too. */
-	    rc = thrulay_client_init(thrulay_opt);
-	    if (rc < 0)
-		BWLError(ctx,BWLErrFATAL,errno,"Initializing thrulay "
-			 "client: %s", thrulay_client_strerror(rc));
-
-	    prepare_and_wait_for_test(ctx,tsess,outfd,ipargs);
-
-	    /*
-	     * Now run thrulay client!
-	     */
-	    rc = thrulay_client_start();
-	    if (rc < 0)
-		BWLError(ctx,BWLErrFATAL,errno,"While performing thrulay "
-			 "test: %s", thrulay_client_strerror(rc));
-	    rc = thrulay_client_report_final();
-	    if (rc < 0)
-		BWLError(ctx,BWLErrFATAL,errno,"While generating thrulay"
-			 " final report: %s", thrulay_client_strerror(rc));
-	    thrulay_client_exit();
-	    exit(0);
-	}
-#else
-	BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"A thrulay test was requested, "
-		 "but libthrulay is not available. Something must have gone "
-		 "wrong with the tool negotiation.");
-	exit(BWL_CNTRL_FAILURE);
-#endif
-    }
-    else if(BWL_TOOL_IPERF == tsess->test_spec.tool){
-	/* Run iperf */
-	char *iperf = (char*)BWLContextConfigGetV(ctx,BWLIperfCmd);
-	if(!iperf) iperf = _BWL_IPERF_CMD;
-
-	/*
-	 * First figure out the args for iperf
-	 */
-	ipargs[a++] = iperf;
-
-	if(tsess->conf_receiver){
-	    ipargs[a++] = "-B";
-	    ipargs[a++] = recvhost;
-
-	    if(tsess->test_spec.parallel_streams > 0){
-		ipargs[a++] = "-P";
-		ipargs[a++] = uint32dup(ctx,tsess->test_spec.parallel_streams);
-	    }
-	    ipargs[a++] = "-s";
-	}
-	else{
-	    ipargs[a++] = "-c";
-	    ipargs[a++] = recvhost;
-	    ipargs[a++] = "-B";
-	    ipargs[a++] = sendhost;
-	    if(tsess->test_spec.tos){
-		ipargs[a++] = "-S";
-		ipargs[a++] = uint32dup(ctx,tsess->test_spec.tos);
-	    }
-	}
-
-	ipargs[a++] = "-f";
-	ipargs[a++] = "b";
-
-	if(tsess->test_spec.len_buffer){
-	    ipargs[a++] = "-l";
-	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.len_buffer);
-	}
-
-	ipargs[a++] = "-m";
-
-	ipargs[a++] = "-p";
-	ipargs[a++] = uint32dup(ctx,tsess->tool_port);
-
-	if(tsess->test_spec.udp){
-	    ipargs[a++] = "-u";
-	    if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
-		ipargs[a++] = "-b";
-		ipargs[a++] = uint32dup(ctx,tsess->test_spec.bandwidth);
-	    }
-	}
-
-	if(tsess->test_spec.window_size){
-	    ipargs[a++] = "-w";
-	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.window_size);
-	}
-
-	ipargs[a++] = "-t";
-	ipargs[a++] = uint32dup(ctx,tsess->test_spec.duration);
-
-	if(tsess->test_spec.report_interval){
-	    ipargs[a++] = "-i";
-	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.report_interval);
-	}
-
-	switch(rsaddr->sa_family){
-#ifdef    AF_INET6
-        case AF_INET6:
-            ipargs[a++] = "-V";
-            break;
-#endif
-        case AF_INET:
-        default:
-            break;
-	}
-
-	I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
-	if(!hlen){
-	    exit(BWL_CNTRL_FAILURE);
-	}
-
-	hlen = sizeof(sendhost);
-	I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
-	if(!hlen){
-	    exit(BWL_CNTRL_FAILURE);
-	}
-
-	ipargs[a++] = NULL;
-
-	prepare_and_wait_for_test(ctx,tsess,outfd,ipargs);
-
-	/*
-	 * Now run iperf!
-	 */
-	execvp(iperf,ipargs);
-
-	BWLError(ctx,BWLErrFATAL,errno,"execv(%s): %M",iperf);
-	exit(BWL_CNTRL_FAILURE);
-    
-    }
-    else if(BWL_TOOL_NUTTCP == tsess->test_spec.tool){
-	/* Run nuttcp. We use the client/server mode. */
-	char *nuttcp = (char*)BWLContextConfigGetV(ctx,BWLNuttcpCmd);
-	if(!nuttcp) nuttcp = _BWL_NUTTCP_CMD;
-
-	/* Figure out arguments. */
-	ipargs[a++] = nuttcp;
-	/* Be verbose */
-	ipargs[a++] = "-vv";
-	if(tsess->conf_receiver){
-	    ipargs[a++] = "-r";
-
-	    if(tsess->test_spec.parallel_streams > 0){
-		ipargs[a++] = "-N";
-		ipargs[a++] = uint32dup(ctx,tsess->test_spec.parallel_streams);
-	    }
-	}
-	else{
-	    if(tsess->test_spec.tos){
-		ipargs[a++] = "-c";
-		ipargs[a++] = uint32dup(ctx,tsess->test_spec.tos);
-	    }
-	}
-
-	if(tsess->test_spec.len_buffer){
-	    ipargs[a++] = "-l";
-	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.len_buffer);
-	}
-
-	ipargs[a++] = "-p";
-	ipargs[a++] = uint32dup(ctx,tsess->tool_port);
-
-	if(tsess->test_spec.udp){
-	    ipargs[a++] = "-u";
-	    if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
-		ipargs[a++] = "-R";
-		/* nuttcp expects a number of Kbytes. */
-		ipargs[a++] = uint32dup(ctx,tsess->test_spec.bandwidth / 1024);
-	    }
-	}
-
-	if(tsess->test_spec.window_size){
-	    ipargs[a++] = "-w";
-	    /* nuttcp expects a number of Kbytes. */
-	    ipargs[a++] = uint32dup(ctx,tsess->test_spec.window_size / 1024);
-	}
-
-	ipargs[a++] = "-T";
-	ipargs[a++] = uint32dup(ctx,tsess->test_spec.duration);
-
-	/* tsess->test_spec.report_interval (-i) is ignored, as the
-	   transmitter/receiver mode of nuttcp does not support is.*/
-
-	switch(rsaddr->sa_family){
-#ifdef    AF_INET6
-        case AF_INET6:
-            ipargs[a++] = "-6";
-            break;
-#endif
-        case AF_INET:
-        default:
-            break;
-	}
-
-	if(!tsess->conf_receiver){
-	    ipargs[a++] = "-t";
-	    ipargs[a++] = recvhost;
-	}
-
-	I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
-	if(!hlen){
-	    exit(BWL_CNTRL_FAILURE);
-	}
-
-	hlen = sizeof(sendhost);
-	I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
-	if(!hlen){
-	    exit(BWL_CNTRL_FAILURE);
-	}
-
-	ipargs[a++] = NULL;
-
-	prepare_and_wait_for_test(ctx,tsess,outfd,ipargs);
-
-	/*
-	 * Now run nuttcp!
-	 */
-	execvp(nuttcp,ipargs);
-
-	BWLError(ctx,BWLErrFATAL,errno,"execv(%s): %M",nuttcp);
-	exit(BWL_CNTRL_FAILURE);
-    }
-    else{
-	BWLError(ctx,BWLErrFATAL,errno,"Unknown tester tool: %x",
-		 tsess->test_spec.tool);
-	exit(BWL_CNTRL_UNSUPPORTED);
-    }
+    _BWLToolRunTest(ctx,tsess,closure);
+    /*NOTREACHED*/
 }
 
 BWLBoolean
@@ -1303,8 +928,8 @@ ACCEPT:
     }
 
     if(ep->child == 0){
-        /* go run tester. */
-        run_tester(ep);
+        /* Run the tool in the child process. */
+        run_tool(ep);
         /* NOTREACHED */
     }
 
