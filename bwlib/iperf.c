@@ -220,7 +220,7 @@ IperfPreRunTest(
 
     if( !(rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen))){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "IperfPreRunTest: Invalid receiver I2Addr");
+                "IperfPreRunTest(): Invalid receiver I2Addr");
         return NULL;
     }
 
@@ -228,7 +228,7 @@ IperfPreRunTest(
     I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
     if(!hlen){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "IperfPreRunTest: Invalid receiver I2Addr");
+                "IperfPreRunTest(): Invalid receiver I2Addr");
         return NULL;
     }
 
@@ -236,7 +236,7 @@ IperfPreRunTest(
     I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
     if(!hlen){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "IperfPreRunTest: Invalid sender I2Addr");
+                "IperfPreRunTest(): Invalid sender I2Addr");
         return NULL;
     }
 
@@ -258,7 +258,10 @@ IperfPreRunTest(
 
     if(tsess->conf_receiver){
         IperfArgs[a++] = "-B";
-        IperfArgs[a++] = recvhost;
+        if( !(IperfArgs[a++] = strdup(recvhost))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"IperfPreRunTest():strdup(): %M");
+            return NULL;
+        }
 
         if(tsess->test_spec.parallel_streams > 0){
             IperfArgs[a++] = "-P";
@@ -271,9 +274,15 @@ IperfPreRunTest(
     }
     else{
         IperfArgs[a++] = "-c";
-        IperfArgs[a++] = recvhost;
+        if( !(IperfArgs[a++] = strdup(recvhost))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"IperfPreRunTest():strdup(): %M");
+            return NULL;
+        }
         IperfArgs[a++] = "-B";
-        IperfArgs[a++] = sendhost;
+        if( !(IperfArgs[a++] = strdup(sendhost))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"IperfPreRunTest():strdup(): %M");
+            return NULL;
+        }
         if(tsess->test_spec.tos){
             IperfArgs[a++] = "-S";
             if( !(IperfArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos))){

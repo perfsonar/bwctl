@@ -418,6 +418,12 @@ sig_catch(
  * This function redirects stdout to the tmpfile that was created
  * to hold the result, and then waits until it should fire off
  * the test - and then exec's.
+ *
+ * Child process:
+ *  Redirects I/O, resets signal environment.
+ *  Does tool specific preparation (command-line mapping).
+ *  Waits until test should actually run.
+ *  Invokes tool specific test running.
  */
 static void
 run_tool(
@@ -466,6 +472,17 @@ run_tool(
     }
 
     /*
+     * Tool specific test preparation:
+     * Also should put a comment in the output file indicating the 'args'
+     * that were actually run.)
+     */
+    if( !(closure = _BWLToolPreRunTest(ctx,tsess))){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "run_tool: Unable to prepare test");
+        exit(BWL_CNTRL_FAILURE);
+    }
+
+    /*
      * Reset ignored signals to default
      *
      * (exec will reset set signals to default, but leaves ignored signals
@@ -475,21 +492,10 @@ run_tool(
     memset(&act,0,sizeof(act));
     act.sa_handler = SIG_DFL;
     sigemptyset(&act.sa_mask);
-    if(    (sigaction(SIGPIPE,&act,NULL) != 0) ||
-	   (sigaction(SIGALRM,&act,NULL) != 0)){
+    if( (sigaction(SIGPIPE,&act,NULL) != 0) ||
+            (sigaction(SIGALRM,&act,NULL) != 0)){
 	BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
 	exit(BWL_CNTRL_FAILURE);
-    }
-
-    /*
-     * Tool specific test preparation:
-     * Also should put a comment in the output file indicating the 'args'
-     * that were actually run.)
-     */
-    if( !(closure = _BWLToolPreRunTest(ctx,tsess))){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                "run_tool: Unable to prepare test");
-        exit(BWL_CNTRL_FAILURE);
     }
 
     /*
