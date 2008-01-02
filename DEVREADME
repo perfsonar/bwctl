@@ -1,0 +1,3 @@
+./configure --with-I2util=/Users/boote/dev/I2util/trunk --with-thrulay=/Users/boote/dev/thrulay/branches/fedemp --enable-NUTTCP=no
+
+glibtool --mode=execute gdb bwctld
