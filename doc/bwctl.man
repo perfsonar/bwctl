@@ -357,12 +357,13 @@ Specifies that \fBbwctl\fR should attempt to run the \fBIperf\fR test every
 Unset. If it is unset, \fBbwctl\fR only runs the test once.
 .RE
 .TP
-\fB\-L\fR \fIlatest\fR
-Specifies the latest time the client is willing to wait for a
+\fB\-L\fR \fIlongest\fR
+Specifies the longest amount of time the client is willing to wait for a
 reservation window. When \fBbwctl\fR requests a test from the \fBbwctld\fR
 server, it specifies the earliest time and the latest time it is willing
-to accept. The \fIlatest\fR option is specified as a number of seconds
-that will be added to the start time.
+to accept. The latest time is determined by adding this \fIlongest\fR
+option to the earliest time. The earliest time is essentially 'now'.
+The \fIlongest\fR time is specified as a number of seconds.
 .RS
 .IP Default:
 If \fIinterval\fR is set, the default is 50% of \fIinterval\fR. Otherwise,
