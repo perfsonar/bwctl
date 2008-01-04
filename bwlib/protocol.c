@@ -806,7 +806,8 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     100|                                                               |
  *     104|                            Unused                             |
- *     108|                                                               |
+ *	  +-+-+-+-+-+-+-+-+                               +-+-+-+-+-+-+-+-+
+ *     108|    Out Fmt    |                               |     Units     |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     112|                                                               |
  *     116|                Integrity Zero Padding (16 octets)             |
@@ -986,10 +987,22 @@ _BWLWriteTestRequest(
     if(tool_negotiation){
         buf[94] = tspec->parallel_streams;
         *(uint32_t*)&buf[96] = htonl(tspec->tool_id);
+        buf[111] = tspec->units;
+        buf[108] = tspec->outformat;
     }
     else if(tspec->parallel_streams){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -P option");
+        return BWLErrFATAL;
+    }
+    else if(tspec->units){
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support -f option");
+        return BWLErrFATAL;
+    }
+    else if(tspec->outformat){
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support -y option");
         return BWLErrFATAL;
     }
 
@@ -1277,6 +1290,8 @@ _BWLReadTestRequest(
 
         if(tool_negotiation){
             tspec.parallel_streams = buf[94];
+            tspec.outformat = buf[108];
+            tspec.units = buf[111];
             tspec.tool_id = ntohl(*(uint32_t*)&buf[96]);
 
             /* Ensure only one bit is set in the tool selection bit-mask */

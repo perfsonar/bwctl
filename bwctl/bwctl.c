@@ -81,9 +81,9 @@ print_conn_args(
             "                 [A]uthenticated, [E]ncrypted, [O]pen\n"
             "            AUTHMETHODS:\n"
             "                 AESKEY userid [keyfile]\n"
-            "  -U             deprecated\n"
-            "  -k             deprecated\n"
             "  -B srcaddr     use this as a local address for control connection and tests\n"
+            "  -k             deprecated\n"
+            "  -U             deprecated\n"
            );
 }
 
@@ -95,34 +95,36 @@ print_test_args(
 
     fprintf(stderr,
             "            [Test Args]\n\n");
-    fprintf(stderr,
-	        "  -T tool        tool one of:\n\n");
-    for(i=0,n = BWLToolGetNumTools(ctx);i<n;i++){
-        fprintf(stderr,
-                "                 %s\n",BWLToolGetNameByIndex(ctx,i));
-    }
     fprintf(stderr,"\n"
             "  -a offset      allow unsynchronized clock - good within offset (seconds)\n"
-            "  -i interval    report interval (seconds)\n"
-            "  -l len         length of read/write buffers (bytes)\n"
-            "  -u             UDP test\n"
-            "  -w window      TCP window size (bytes) 0 indicates system defaults\n"
-            "  -W window      Dynamic TCP window size: value used as fallback (bytes)\n"
-           );
-    fprintf(stderr,
-            "  -P nThreads    number of concurrent connections (ENOTSUPPORTED)\n"
-            "  -S TOS         type-of-service for outgoing packets\n"
             "  -b bandwidth   bandwidth to use for UDP test (bits/sec KM) (Default: 1Mb)\n"
-            "  -t time        duration of test (seconds) (Default: 10)\n"
-           );
-    fprintf(stderr,
             "  -c recvhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 recvhost will run thrulay/nuttcp/iperf server \n"
             "            AUTHMETHODS: (See -A argument)\n"
+           );
+    fprintf(stderr,
+            "  -i interval    report interval (seconds)\n"
+            "  -l len         length of read/write buffers (bytes)\n"
+            "  -P nThreads    number of concurrent connections (ENOTSUPPORTED)\n"
             "  -s sendhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 sendhost will run thrulay/nuttcp/iperf client \n"
             "            AUTHMETHODS: (See -A argument)\n"
             "             [MUST SPECIFY AT LEAST ONE OF -c/-s]\n"
+           );
+    fprintf(stderr,
+            "  -S TOS         type-of-service for outgoing packets\n"
+           );
+    fprintf(stderr,
+	        "  -T tool        tool one of:\n");
+    for(i=0,n = BWLToolGetNumTools(ctx);i<n;i++){
+        fprintf(stderr,
+                "                     %s\n",BWLToolGetNameByIndex(ctx,i));
+    }
+    fprintf(stderr,
+            "  -t time        duration of test (seconds) (Default: 10)\n"
+            "  -u             UDP test\n"
+            "  -w window      TCP window size (bytes) 0 indicates system defaults\n"
+            "  -W window      Dynamic TCP window size: value used as fallback (bytes)\n"
            );
 }
 
@@ -132,27 +134,29 @@ print_output_args(
 {
     fprintf(stderr,
             "              [Output Args]\n\n"
-            "  -p             print completed filenames to stdout - not session data\n"
-            "  -x             output sender session results\n"
+            "  -d dir         directory to save session files in (only if -p)\n"
+            "  -e facility    syslog facility to log to\n"
+            "  -f units       units type to use (Default: tool specific)\n"
+            "  -h             print this message and exit\n"
            );
     fprintf(stderr,
-            "  -d dir         directory to save session files in (only if -p)\n"
             "  -I Interval    time between BWL test sessions(seconds)\n"
+            "  -L LatestDelay latest time into an interval to run test(seconds)\n"
             "  -n nIntervals  number of tests to perform (default: continuous)\n"
+            "  -p             print completed filenames to stdout - not session data\n"
+           );
+    fprintf(stderr,
+            "  -q             silent mode\n"
+            "  -r             send syslog to stderr\n"
             "  -R alpha       randomize the start time within this alpha(0-50%%)\n"
-            "                  (default: 0 - start time not randomized)\n"
             "                  (Initial start randomized within the complete interval.)\n"
            );
     fprintf(stderr,
-            "  -L LatestDelay latest time into an interval to run test(seconds)\n"
-            "  -h             print this message and exit\n"
-            "  -e facility    syslog facility to log to\n"
-            "  -r             send syslog to stderr\n"
-           );
-    fprintf(stderr,
-            "  -V             print version and exit\n"
+            "                  (default: 0 - start time not randomized)\n"
             "  -v             verbose output to syslog - add 'v's to increase verbosity\n"
-            "  -q             silent mode\n"
+            "  -V             print version and exit\n"
+            "  -x             output sender session results\n"
+            "  -y outfmt      output format to use (Default: tool specific)\n"
            );
 }
 
@@ -1216,9 +1220,9 @@ main(
     int                 ch;
     char                *tstr = NULL;
     char                optstring[128];
-    static char         *conn_opts = "AB:a:";
-    static char         *out_opts = "pxd:I:R:n:L:e:qrvV";
-    static char         *test_opts = "T:ai:l:uw:W:P:S:b:t:c:s:S:";
+    static char         *conn_opts = "a:AB:";
+    static char         *out_opts = "d:e:f:I:L:n:pqrR:vVxy:";
+    static char         *test_opts = "ab:c:i:l:P:s:S:t:T:uw:W:";
     static char         *gen_opts = "hW";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
@@ -1413,6 +1417,14 @@ main(
                 break;
 
                 /* OUTPUT OPTIONS */
+            case 'f':
+                if(strlen(optarg) != 1){
+                    usage(progname, 
+                            "Invalid value. (-f) Single character expected");
+                    exit(1);
+                }
+                app.opt.units = optarg[0];
+                break;
             case 'p':
                 app.opt.printfiles = True;
                 break;
@@ -1472,6 +1484,14 @@ main(
                 version();
                 exit(0);
                 /* NOTREACHED */
+            case 'y':
+                if(strlen(optarg) != 1){
+                    usage(progname, 
+                            "Invalid value. (-y) Single character expected");
+                    exit(1);
+                }
+                app.opt.outformat = optarg[0];
+                break;
 
                 /* TEST OPTIONS */
             case 'T':
@@ -1771,6 +1791,8 @@ main(
     first.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
     first.tspec.len_buffer = app.opt.lenBuffer;
     first.tspec.report_interval = app.opt.reportInterval;
+    first.tspec.units = app.opt.units;
+    first.tspec.outformat = app.opt.outformat;
     first.tspec.parallel_streams = app.opt.parallel;
 
     /*

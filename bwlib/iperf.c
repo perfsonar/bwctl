@@ -291,8 +291,63 @@ IperfPreRunTest(
         }
     }
 
-    IperfArgs[a++] = "-f";
-    IperfArgs[a++] = "b";
+    /*
+     * XXX: Perhaps these should be validated earlier, in the CheckTest
+     * function chain?
+     */
+    if(!tsess->test_spec.units){
+        IperfArgs[a++] = "-f";
+        IperfArgs[a++] = "b";
+    }
+    else{
+        char    temp[2];
+
+        switch((char)tsess->test_spec.units){
+            case 'b':
+            case 'B':
+            case 'k':
+            case 'K':
+            case 'm':
+            case 'M':
+            case 'g':
+            case 'G':
+            case 'a':
+            case 'A':
+                IperfArgs[a++] = "-f";
+                temp[0] = (char)tsess->test_spec.units;
+                temp[1] = '\0';
+                if( !(IperfArgs[a++] = strdup(temp))){
+                    BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
+                            "IperfPreRunTest():strdup(): %M");
+                    return NULL;
+                }
+                break;
+
+            default:
+                fprintf(tsess->localfp,
+                        "bwctl: tool(iperf): Invalid units (-f) specification %c",
+                        (char)tsess->test_spec.units);
+                return NULL;
+                break;
+
+        }
+    }
+
+    if(tsess->test_spec.outformat){
+        switch((char)tsess->test_spec.outformat){
+            case 'c':
+                IperfArgs[a++] = "-y";
+                IperfArgs[a++] = "c";
+                break;
+            default:
+                fprintf(tsess->localfp,
+                        "bwctl: tool(iperf): Invalid out format (-y) specification %c",
+                        (char)tsess->test_spec.outformat);
+                return NULL;
+                break;
+
+        }
+    }
 
     if(tsess->test_spec.len_buffer){
         IperfArgs[a++] = "-l";

@@ -315,6 +315,8 @@ typedef struct{
     uint32_t        len_buffer;
     uint16_t        report_interval;
     uint8_t         parallel_streams;
+    uint8_t         units;
+    uint8_t         outformat;
     BWLBoolean      dynamic_window_size;
 } BWLTestSpec;
 

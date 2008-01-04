@@ -139,6 +139,8 @@ typedef	struct {
         I2Boolean	dynamicWindowSize;	/* -W used for -w */
         uint32_t	bandWidth;	/* -b (bits/sec) */
         uint32_t	timeDuration;	/* -t (secs) */
+        uint8_t	        units;          /* -f	*/
+        uint8_t	        outformat;      /* -y	*/
         uint32_t	parallel;	/* -P	*/
         uint32_t	tos;		/* -S	*/
         double          allowUnsync;    /* -a   */
