@@ -61,7 +61,8 @@ IperfAvailable(
     /*
      * Build conf-key name that is used to store the tool cmd
      */
-    strncpy(confkey,tool->name,sizeof(confkey));
+    strcpy(confkey,"V.");
+    strncat(confkey,tool->name,sizeof(confkey));
     len = strlen(confkey);
     strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
 
@@ -69,6 +70,9 @@ IperfAvailable(
      * Fetch 'tool' name
      */
     if( !(cmd = (char *)BWLContextConfigGetV(ctx,confkey))){
+        BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+                "IperfAvailable(): iperf_cmd unset, using \"%s\"",
+                tool->def_cmd);
         cmd = tool->def_cmd;
     }
 

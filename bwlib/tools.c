@@ -340,7 +340,30 @@ _BWLToolRunTest(
  * Side Effect:    
  */
 static int
-save_val(
+save_path(
+        BWLContext  ctx,
+        const char  *key,
+        const char  *val
+        )
+{
+    char    optname[BWL_MAX_TOOLNAME + 12];
+    char    *str;
+
+    if( !(str = strdup(val))){
+        BWLError(ctx,BWLErrFATAL,errno,"strdup(%s): %M",val);
+        return -1;
+    }
+
+    strcpy(optname,"V.");
+    strncat(optname,key,sizeof(optname));
+    if(BWLContextConfigSet(ctx,optname,str)){
+        return 1;
+    }
+
+    return -1;
+}
+static int
+save_ports(
         BWLContext  ctx,
         const char  *key,
         const void  *val
@@ -378,12 +401,12 @@ _BWLToolGenericParse(
 
     strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
     if(!strncasecmp(key,confkey,strlen(confkey))){
-        return save_val(ctx,key,val);
+        return save_path(ctx,key,val);
     }
 
     strncpy(&confkey[len],"_server_cmd",sizeof(confkey)-len);
     if(!strncasecmp(key,confkey,strlen(confkey))){
-        return save_val(ctx,key,val);
+        return save_path(ctx,key,val);
     }
 
     strncpy(&confkey[len],"_ports",sizeof(confkey)-len);
@@ -405,7 +428,7 @@ _BWLToolGenericParse(
         }
         *ports = portrange;
 
-        return save_val(ctx,key,ports);
+        return save_ports(ctx,key,ports);
     }
 
     /* key not handled */
