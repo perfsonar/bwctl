@@ -94,19 +94,18 @@ ThrulayPreRunTest(
         return NULL;
     }
 
+    /* -w window size in bytes */
+    if(!tsess->test_spec.window_size){
+        tsess->test_spec.window_size = THRULAY_DEFAULT_WINDOW;
+    }
+
+    /* -m parallel test streams */
+    if(tsess->test_spec.parallel_streams < 1){
+        tsess->test_spec.parallel_streams = 1;
+    }
 
     if(tsess->conf_receiver){
         /* Run thrulay server through its API */
-
-        /* -w window size in bytes */
-        if(!tsess->test_spec.window_size){
-            tsess->test_spec.window_size = THRULAY_DEFAULT_WINDOW;
-        }
-
-        /* -m parallel test streams */
-        if(tsess->test_spec.parallel_streams < 1){
-            tsess->test_spec.parallel_streams = 1;
-        }
 
         /* Log through stderr and verbose reports. */
         rc = thrulay_server_init(LOGTYPE_STDERR,1);
@@ -115,7 +114,14 @@ ThrulayPreRunTest(
                     thrulay_server_strerror(rc));
         }
 
-        fprintf(tsess->localfp,"bwctl: thrulay_server\n");
+        /*
+         * XXX: Make a more informative 'info' message indicating the
+         * test that is being done.
+         */
+        fprintf(tsess->localfp,
+                "bwctl: thrulay_server: streams=%d,win_size=%u\n",
+                tsess->test_spec.parallel_streams,
+                tsess->test_spec.window_size);
     }
     else{
         /* Run thrulay client through its API */
@@ -138,11 +144,6 @@ ThrulayPreRunTest(
             thrulay_opt.reporting_interval = tsess->test_spec.report_interval;
         }
 
-        /* -w window size in bytes */
-        if(tsess->test_spec.window_size){
-            thrulay_opt.window = tsess->test_spec.window_size;
-        }
-
         /* -l block size */
         if(tsess->test_spec.len_buffer){
             thrulay_opt.block_size = tsess->test_spec.len_buffer;
@@ -156,16 +157,34 @@ ThrulayPreRunTest(
             thrulay_opt.rate = tsess->test_spec.bandwidth;
         }
 
+        /* -w window size in bytes */
+        thrulay_opt.window = tsess->test_spec.window_size;
+
         /* -m parallel test streams */
-        if(tsess->test_spec.parallel_streams > 0){
-            thrulay_opt.num_streams = tsess->test_spec.parallel_streams;
-        }
+        thrulay_opt.num_streams = tsess->test_spec.parallel_streams;
+
 
         /* -b (busy wait in UDP test) and -D (DSCP value for TOS
            byte): not used for the moment. */
         /* Multicast options not used too. */
 
-        fprintf(tsess->localfp,"bwctl: thrulay_client\n");
+        /*
+         * XXX: Make a more informative 'info' message indicating the
+         * test that is being done.
+         */
+        fprintf(tsess->localfp,
+                "bwctl: thrulay_client(): protocol=%s, streams=%d,win_size=%u\n"
+                "bwctl: thrulay_client(): duration=%d,report_interval=%d\n"
+                "bwctl: thrulay_client(): block_size=%d,serv_port=%u,udp_rate=%llu\n",
+                ((tsess->test_spec.udp)?"UDP":"TCP"),
+                tsess->test_spec.parallel_streams,
+                tsess->test_spec.window_size,
+                thrulay_opt.test_duration,
+                thrulay_opt.reporting_interval,
+                thrulay_opt.block_size,
+                thrulay_opt.port,
+                ((tsess->test_spec.udp)?thrulay_opt.rate:0)
+                );
     }
 
     return (void *)&thrulay_opt;
@@ -194,6 +213,10 @@ ThrulayRunTest(
     int rc;
 
     if(tsess->conf_receiver){
+        int     wstatus;
+        int     ret=0;
+        pid_t   pid;
+
         /*
          * Now run thrulay server!
          */
@@ -208,7 +231,37 @@ ThrulayRunTest(
             BWLError(ctx,BWLErrINFO,errno,"Thrulay server: %s", 
                     thrulay_server_strerror(rc));
         }
-        exit(0);
+
+        while(1){
+AGAIN:
+            pid = waitpid(-1,&wstatus,0);
+            switch(pid){
+                case 0:
+                    BWLError(ctx,BWLErrFATAL,errno,
+                            "thrulay_server: waidpid(-1): returned 0");
+                    exit(BWL_CNTRL_FAILURE);
+                    /* NOTREACHED */
+                case -1:
+                    if(errno == EINTR) goto AGAIN;
+                    if(errno == ECHILD) goto DONE;
+                    break;
+                default:
+                    if(WIFEXITED(wstatus)){
+                        ret = MAX(ret,WEXITSTATUS(wstatus));
+                        goto AGAIN;
+                    }
+
+                    if(WIFSIGNALED(wstatus)){
+                        fprintf(tsess->localfp,
+                                "bwctl: thrulay_server: stream killed: #%d",
+                                WTERMSIG(wstatus));
+                        ret = 255;
+                        goto DONE;
+                    }
+            }
+        }
+DONE:
+        exit(ret);
     }
     else{
         /*

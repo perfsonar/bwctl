@@ -267,13 +267,6 @@ IperfPreRunTest(
             return NULL;
         }
 
-        if(tsess->test_spec.parallel_streams > 0){
-            IperfArgs[a++] = "-P";
-            if( !(IperfArgs[a++] =
-                        BWLUInt32Dup(ctx,tsess->test_spec.parallel_streams))){
-                return NULL;
-            }
-        }
         IperfArgs[a++] = "-s";
     }
     else{
@@ -350,6 +343,14 @@ IperfPreRunTest(
                 return NULL;
                 break;
 
+        }
+    }
+
+    if(tsess->test_spec.parallel_streams > 0){
+        IperfArgs[a++] = "-P";
+        if( !(IperfArgs[a++] =
+                    BWLUInt32Dup(ctx,tsess->test_spec.parallel_streams))){
+            return NULL;
         }
     }
 
