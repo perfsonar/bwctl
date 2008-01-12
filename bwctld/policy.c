@@ -2173,7 +2173,7 @@ BWLBoolean
 BWLDCheckTestPolicy(
         BWLControl	cntrl,
         BWLSID		sid,
-        BWLBoolean	local_sender __attribute__((unused)),
+        BWLBoolean	local_sender,
         struct sockaddr	*local_sa_addr	__attribute__((unused)),
         struct sockaddr	*remote_sa_addr __attribute__((unused)),
         socklen_t	sa_len	__attribute__((unused)),
@@ -2192,6 +2192,7 @@ BWLDCheckTestPolicy(
     BWLDMesgT	        ret;
     BWLDLimRec	        lim;
     BWLToolAvailability allowed_tools;
+    uint16_t	        tool_port_loc = *tool_port_ret;
 
     *err_ret = BWLErrOK;
 
@@ -2317,11 +2318,19 @@ reservation:
                     tspec->req_time.tstamp,fuzz_time,
                     tspec->latest_time,tspec->duration,
                     BWLGetRTTBound(cntrl),
-                    reservation_ret,tool_port_ret,peer_port_ret,tspec->tool_id))
+                    reservation_ret,&tool_port_loc,peer_port_ret,tspec->tool_id))
             != BWLDMESGOK){
         BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: No reservation time available");
         goto done;
+    }
+    /*
+     * Share the parents idea of a good port to use, if this is the
+     * receiver. (The sender MUST use what the reciever specifies, so
+     * ignore the parents suggestion in this case.)
+     */
+    if(!local_sender){
+        *tool_port_ret = tool_port_loc;
     }
     *closure = tinfo;
     return True;
