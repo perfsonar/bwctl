@@ -104,20 +104,18 @@ _BWLInitNTP(
 #ifdef  HAVE_SYS_TIMEX_H
     {
         struct timex	ntp_conf;
+	int n;
 
         memset(&ntp_conf,0,sizeof(ntp_conf));
-        if(ntp_adjtime(&ntp_conf) < 0){
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
-            return 1;
-        }
+        n = ntp_adjtime(&ntp_conf);
 
-        if(ntp_conf.status & STA_UNSYNC){
+        if(n < 0 || ntp_conf.status & STA_UNSYNC){
             BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                     "NTP: Status UNSYNC (clock offset problems likely)");
         }
 
 #ifdef	STA_NANO
-        if( !(ntp_conf.status & STA_NANO)){
+        if( n >= 0 && !(ntp_conf.status & STA_NANO)){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                     "_BWLInitNTP: STA_NANO must be set! - try \"ntptime -N\"");
             return 1;
@@ -207,17 +205,15 @@ _BWLGetTimespec(
 #ifdef HAVE_SYS_TIMEX_H
     {
         struct timex	ntp_conf;
+	int n;
 
         memset(&ntp_conf,0,sizeof(ntp_conf));
-        if(ntp_adjtime(&ntp_conf) < 0){
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"ntp_adjtime(): %M");
-            return NULL;
-        }
+        n = ntp_adjtime(&ntp_conf);
 
         /*
          * Check sync flag
          */
-        if(ntp_conf.status & STA_UNSYNC){
+        if(n < 0 || ntp_conf.status & STA_UNSYNC){
             /*
              * Report the unsync state - but only at level "info".
              * This is reported at level "warning" at initialization.

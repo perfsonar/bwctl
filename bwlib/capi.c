@@ -264,8 +264,10 @@ _BWLClientConnect(
 
         if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
             return 0;
-        if(rc < 0)
+        if(rc < 0) {
+	    BWLError(cntrl->ctx,BWLErrFATAL,errno, "TryAddr(in6) failed");
             goto error;
+        }
     }
 #endif
     /*
@@ -285,8 +287,10 @@ _BWLClientConnect(
 
         if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
             return 0;
-        if(rc < 0)
+        if(rc < 0) {
+	    BWLError(cntrl->ctx,BWLErrFATAL,errno, "TryAddr() failed");
             goto error;
+        }
     }
 
 error:
@@ -338,16 +342,20 @@ BWLControlOpen(
     /*
      * First allocate memory for the control state.
      */
-    if( !(cntrl = _BWLControlAlloc(ctx,err_ret)))
+    if( !(cntrl = _BWLControlAlloc(ctx,err_ret))) {
+        BWLError(ctx,BWLErrFATAL,errno, "Failed to allocate memory for the control state.");
         goto error;
+    }
 
     /*
      * Initialize server record for address we are connecting to.
      */
     if(!server_addr){
+        BWLError(ctx,BWLErrFATAL,errno, "!server_addr");
         goto error;
     }
     if(!I2AddrSetSocktype(server_addr,SOCK_STREAM)){
+        BWLError(ctx,BWLErrFATAL,errno, "I2AddrSetSocktype() failed");
         goto error;
     }
 
@@ -355,13 +363,16 @@ BWLControlOpen(
      * Connect to the server.
      * Address policy check happens in here.
      */
-    if(_BWLClientConnect(cntrl,local_addr,server_addr,err_ret) != 0)
+    if(_BWLClientConnect(cntrl,local_addr,server_addr,err_ret) != 0) {
+      BWLError(ctx,BWLErrFATAL,errno, "_BWLClientConnect() failed");
         goto error;
+    }
 
     if(!cntrl->local_addr){
         if( !(cntrl->local_addr = I2AddrByLocalSockFD(
                         BWLContextErrHandle(cntrl->ctx),
                         cntrl->sockfd,False))){
+            BWLError(ctx,BWLErrFATAL,errno, "I2AddrByLocalSockFD() failed");
             goto error;
         }
     }
@@ -370,6 +381,7 @@ BWLControlOpen(
      * Read the server greating.
      */
     if((rc=_BWLReadServerGreeting(cntrl,&mode_avail,challenge)) < BWLErrOK){
+        BWLError(ctx,BWLErrFATAL,errno, "Server Greeting Failed");
         *err_ret = (BWLErrSeverity)rc;
         goto error;
     }
@@ -390,10 +402,11 @@ BWLControlOpen(
                     err_ret)){
             key = key_value;
             cntrl->userid = cntrl->userid_buffer;
-        }
-        else{
-            if(*err_ret != BWLErrOK)
+        }else{
+            if(*err_ret != BWLErrOK) {
+                BWLError(ctx,BWLErrFATAL,errno, "Get AESKey failed");
                 goto error;
+            }
         }
     }
     /*
@@ -409,6 +422,7 @@ BWLControlOpen(
      */
     if(mode_req_mask & BWL_MODE_LEAST_RESTRICTIVE){
         do_mode = BWL_MODE_OPEN;
+	*err_ret = BWLErrOK;
         while((*err_ret == BWLErrOK) &&(do_mode <= BWL_MODE_ENCRYPTED)){
             if((mode_avail & do_mode) &&
                     _BWLCallCheckControlPolicy(cntrl,
@@ -423,6 +437,7 @@ BWLControlOpen(
         }
     }else{
         do_mode = BWL_MODE_ENCRYPTED;
+	*err_ret = BWLErrOK;
         while((*err_ret == BWLErrOK) && (do_mode > BWL_MODE_UNDEFINED)){
             if((mode_avail & do_mode) &&
                     _BWLCallCheckControlPolicy(cntrl,
@@ -438,9 +453,9 @@ BWLControlOpen(
     }
 
     if(*err_ret != BWLErrOK){
+	BWLError(ctx,BWLErrFATAL,errno, "No mode available");
         goto error;
-    }
-    else{
+    } else{
         errno = EACCES;
         goto denied;
     }
@@ -466,8 +481,11 @@ gotmode:
         /*
          * Create random session key
          */
-        if(I2RandomBytes(ctx->rand_src,cntrl->session_key,16) != 0)
+        if(I2RandomBytes(ctx->rand_src,cntrl->session_key,16) != 0) {
+	    BWLError(ctx,BWLErrFATAL,errno, "I2RandomBytes failed");
             goto error;
+	}
+
         /*
          * concat session key to buffer
          */
@@ -483,22 +501,28 @@ gotmode:
         /*
          * Encrypt the token as specified by Section 4.1
          */
-        if(_BWLEncryptToken(key,buf,token) != 0)
+        if(_BWLEncryptToken(key,buf,token) != 0) {
+	    BWLError(ctx,BWLErrFATAL,errno, "_BWLEncryptToken failed");
             goto error;
+        }
 
         /*
          * Create random writeIV
          */
-        if(I2RandomBytes(ctx->rand_src,cntrl->writeIV,16) != 0)
+        if(I2RandomBytes(ctx->rand_src,cntrl->writeIV,16) != 0) {
+	    BWLError(ctx,BWLErrFATAL,errno, "I2RandomBytes failed");
             goto error;
+	}
     }
 
     /*
      * Get current time before sending client greeting - used
      * for very rough estimate of RTT. (upper bound)
      */
-    if(!BWLGetTimeStamp(ctx,&timestart))
+    if(!BWLGetTimeStamp(ctx,&timestart)) {
+	BWLError(ctx,BWLErrFATAL,errno, "BWLGetTimeStamp failed");
         goto error;
+    }
 
     /*
      * Write the client greeting, and see if the Server agree's to it.
@@ -506,6 +530,7 @@ gotmode:
     if( ((rc=_BWLWriteClientGreeting(cntrl,token)) < BWLErrOK) ||
             ((rc=_BWLReadServerOK(cntrl,&acceptval,tools_ret)) < BWLErrOK)){
         *err_ret = (BWLErrSeverity)rc;
+	BWLError(ctx,BWLErrFATAL,errno, "BWLWriteClientGreeeting failed");
         goto error;
     }
 
@@ -520,13 +545,16 @@ gotmode:
      * Get current time after response from server and set the RTT
      * in the "rtt_bound" field of cntrl.
      */
-    if(!BWLGetTimeStamp(ctx,&timeend))
+    if(!BWLGetTimeStamp(ctx,&timeend)) {
+	BWLError(ctx,BWLErrFATAL,errno, "BWLGetTimeStamp failed");
         goto error;
+    }
 
     cntrl->rtt_bound = BWLNum64Sub(timeend.tstamp,timestart.tstamp);
 
     if((rc=_BWLReadServerUptime(cntrl,&uptime)) < BWLErrOK){
         *err_ret = (BWLErrSeverity)rc;
+	BWLError(ctx,BWLErrFATAL,errno, "BWLReadServerUptime failed");
         goto error;
     }
 

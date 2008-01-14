@@ -41,4 +41,5 @@ if TOOL_NUTTCP
 TOOL_SOURCES		+= nuttcp.c
 endif
 
-EXTRA_DIST		= bwlib.h
+I2utilincludedir = $(pkgincludedir)
+I2utilinclude_HEADERS	= bwlib.h

@@ -1,0 +1,76 @@
+Name: bwctl
+Summary: bwctl - network throughput tester
+Version: @VERSION@
+Release: 1
+License: Internet2 License (modified BSD-like)
+Group: *Development/Libraries*
+URL: http://www.internet2.edu/~shalunov/thrulay/
+Source: %{name}-%{version}.tar.gz
+Packager: Federico Montesino Pouzols <fedemp@altern.org>
+BuildRequires: libtool, thrulay-libthrulay
+Requires: bwctl-client, bwctl-server
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
+
+%description
+BWCTL is a command line client application and a scheduling and policy daemon
+that wraps Iperf, Thrulay or nuttcp.
+
+%files
+
+
+%package client
+Summary: bwctl client
+Group: Applications/Network
+%description client
+bwctl command line tool for scheduling bandwidth measurements with a bwctl
+server.
+
+%package server
+Summary: bwctl server
+Group: Applications/Network
+%description server
+bwctl server
+
+%package devel
+Group: Development/Libraries
+Summary: bwctl library headers.
+%description devel
+This package includes header files, and static link libraries for building
+applications that use the bwctl library.
+
+
+%prep
+%setup -q
+
+%build
+#%configure
+./configure --prefix=$RPM_BUILD_ROOT/usr --with-thrulay --enable-NUTTCP=no
+make
+
+%install
+%makeinstall
+
+%clean
+rm -rf $RPM_BUILD_ROOT 
+
+%files client
+%defattr(-,root,root,0755)
+%doc README
+%{_bindir}/bwctl
+%{_mandir}/man1/*
+
+%files server
+%defattr(-,root,root,0755)
+%doc README
+%{_bindir}/bwctld
+%{_mandir}/man5/*
+%{_mandir}/man8/*
+
+%files devel
+%defattr(-,root,root,0755)
+%{_libdir}/libbwlib.a
+%{_includedir}/bwctl/*
+
+%changelog
+* Fri Jan 11 2008 aaron@internet2.edu 1.0-1
+- Initial RPM
