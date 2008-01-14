@@ -129,7 +129,7 @@ _BWLInitNTP(
         }
 #endif	/*  STA_NANO */
     }
-#else
+#endif
 NOADJTIME:
     if( (BWLContextConfigGetV(ctx,BWLAllowUnsync))){
         allow_unsync = 1;
@@ -138,7 +138,6 @@ NOADJTIME:
         BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                 "NTP: Status UNSYNC (clock offset problems likely)");
     }
-#endif  /* HAVE_SYS_TIMEX_H */
 
     if( !(toffstr = getenv("BWCTL_DEBUG_TIMEOFFSET"))){
         timeoffset.tv_sec = 0;
