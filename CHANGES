@@ -6,6 +6,15 @@ seen in ChangeLog. The section from just the latest release
 can be seen in the main index.html bwctl documentation page in
 the doc dir.
 
+version 1.3rc1
+* This documentation is not complete...
+* time/scheduling related changes to make it more robust
+* better error handling of iperf children
+* additional testers added (not enabled for this version, but
+iperf is being run from the tool abstraction now)
+* parallel streams
+* csv output
+
 version 1.2a
 * Added -f option to bwctld to allow it to run with root permissions.
 * Added better usage() messages and more information to several
