@@ -1060,7 +1060,7 @@ ACCEPT:
                      * return. This is done so the alrm timer
                      * can be set before the StopSessions
                      * command is sent in the case where the
-                     * child working exits before the StopSessions
+                     * child exits before the StopSessions
                      * messages exchange.
                      */
                     while(BWLSessionsActive(cntrl,NULL)){
@@ -1627,8 +1627,6 @@ main(int argc, char *argv[])
 
     /*
      * Add Context var for setting access log priority.
-     * It seems silly to have this extra function for this.
-     * (Perhaps I've been doing too much java lately...)
      */
     if((opts.access_prio != -1) &&
             !BWLContextConfigSet(ctx,
@@ -1765,6 +1763,11 @@ main(int argc, char *argv[])
 
     if( !BWLContextFinalize(ctx)){
         I2ErrLog(errhand, "BWLContextFinalize failed.");
+        exit(1);
+    }
+
+    if( !BWLContextFindTools(ctx)){
+        I2ErrLog(errhand, "BWLContextFindTools failed.");
         exit(1);
     }
 

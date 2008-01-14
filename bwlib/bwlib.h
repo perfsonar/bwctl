@@ -584,6 +584,11 @@ BWLContextFinalize(
         BWLContext  ctx
         );
 
+BWLBoolean
+BWLContextFindTools(
+        BWLContext  ctx
+        );
+
 extern void
 BWLContextFree(
         BWLContext    ctx

@@ -340,6 +340,16 @@ BWLControlOpen(
     *err_ret = BWLErrOK;
 
     /*
+     * Check for valid context.
+     */
+    if( !ctx->valid){
+        BWLError(ctx,BWLErrFATAL,EINVAL,
+                "BWLControlOpen(): Invalid context record");
+        *err_ret = BWLErrFATAL;
+        return NULL;
+    }
+
+    /*
      * First allocate memory for the control state.
      */
     if( !(cntrl = _BWLControlAlloc(ctx,err_ret))) {

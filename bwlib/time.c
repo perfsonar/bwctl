@@ -53,6 +53,8 @@
 
 static struct timeval   timeoffset;
 static int              sign_timeoffset = 0;
+static int              ntpsyscall_fails = 0;
+static int              allow_unsync = 0;
 
 /*
  * Function:	_BWLInitNTP
@@ -104,27 +106,38 @@ _BWLInitNTP(
 #ifdef  HAVE_SYS_TIMEX_H
     {
         struct timex	ntp_conf;
-	int n;
 
         memset(&ntp_conf,0,sizeof(ntp_conf));
-        n = ntp_adjtime(&ntp_conf);
+        if( ntp_adjtime(&ntp_conf) < 0){
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,"ntp_adjtime(): %M");
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "NTP: BWCTL will not be able to verify synchronization on this system");
+            ntpsyscall_fails = 1;
+            goto NOADJTIME;
+        }
 
-        if(n < 0 || ntp_conf.status & STA_UNSYNC){
+        if(ntp_conf.status & STA_UNSYNC){
             BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                     "NTP: Status UNSYNC (clock offset problems likely)");
         }
 
 #ifdef	STA_NANO
-        if( n >= 0 && !(ntp_conf.status & STA_NANO)){
+        if( !(ntp_conf.status & STA_NANO)){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "_BWLInitNTP: STA_NANO must be set! - try \"ntptime -N\"");
+                    "NTP: STA_NANO must be set! - try \"ntptime -N\"");
             return 1;
         }
 #endif	/*  STA_NANO */
     }
 #else
-    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-            "NTP: Status UNSYNC (clock offset problems likely)");
+NOADJTIME:
+    if( (BWLContextConfigGetV(ctx,BWLAllowUnsync))){
+        allow_unsync = 1;
+    }
+    else{
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                "NTP: Status UNSYNC (clock offset problems likely)");
+    }
 #endif  /* HAVE_SYS_TIMEX_H */
 
     if( !(toffstr = getenv("BWCTL_DEBUG_TIMEOFFSET"))){
@@ -203,7 +216,7 @@ _BWLGetTimespec(
      * time error.
      */
 #ifdef HAVE_SYS_TIMEX_H
-    {
+    if( !ntpsyscall_fails){
         struct timex	ntp_conf;
 	int n;
 
@@ -213,7 +226,13 @@ _BWLGetTimespec(
         /*
          * Check sync flag
          */
-        if(n < 0 || ntp_conf.status & STA_UNSYNC){
+        if(n < 0){
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,"ntp_adjtime(): %M");
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "NTP: BWCTL will not be able to verify synchronization on this system");
+            ntpsyscall_fails = 1;
+        }
+        else if(ntp_conf.status & STA_UNSYNC){
             /*
              * Report the unsync state - but only at level "info".
              * This is reported at level "warning" at initialization.

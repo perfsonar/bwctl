@@ -954,7 +954,7 @@ portdone:
     }
 
     /*
-     * XXX: Replace all of this with a ~/.bwctldconf file.
+     * XXX: Replace all of this with a ~/.bwctldrc file.
      *
      * Environment Vars that effect server:
      *  BWCTL_IPERFPORTRANGE        (above)
@@ -1061,8 +1061,8 @@ portdone:
         _exit(1);
     }
 
-    if( !BWLContextFinalize(ctx)){
-        I2ErrLog(eh,"BWLContextFinalize failed.");
+    if( !BWLContextFindTools(ctx)){
+        I2ErrLog(eh,"BWLContextFindTools failed.");
         _exit(1);
     }
 
@@ -1098,7 +1098,8 @@ portdone:
      * Process all requests - return when complete.
      */
     while(1){
-        BWLErrSeverity    rc;
+        BWLErrSeverity  rc;
+        int             wstate;
 
         rc = BWLErrOK;
 
@@ -1123,60 +1124,60 @@ portdone:
             goto done;
 
         switch (msgtype){
-            int    wstate;
+
 
             case BWLReqTest:
-            rc = BWLProcessTestRequest(cntrl,&ip_exit);
-            break;
+                rc = BWLProcessTestRequest(cntrl,&ip_exit);
+                break;
 
             case BWLReqTime:
-            rc = BWLProcessTimeRequest(cntrl,&ip_exit);
-            break;
+                rc = BWLProcessTimeRequest(cntrl,&ip_exit);
+                break;
 
             case BWLReqStartSession:
-            rc = BWLProcessStartSession(cntrl,&ip_exit);
-            if(rc < BWLErrOK){
+                rc = BWLProcessStartSession(cntrl,&ip_exit);
+                if(rc < BWLErrOK){
+                    break;
+                }
+                /*
+                 * Test session started - unset timer - wait
+                 * until all sessions are complete, then
+                 * reset the timer and wait for stopsessions
+                 * to complete.
+                 */
+                itval.it_value.tv_sec = 0;
+                if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+                    I2ErrLog(eh,"setitimer(): %M");
+                    goto done;
+                }
+                if(ip_exit)
+                    goto done;
+
+                rc = BWLErrOK;
+                wstate = BWLStopSessionWait(cntrl,NULL,
+                        &ip_exit,NULL,&rc);
+                if(ip_exit || (wstate != 0)){
+                    goto done;
+                }
+
+                /*
+                 * Sessions are complete, but StopSession
+                 * message has not been exchanged - set the
+                 * timer and trade StopSession messages
+                 */
+                itval.it_value.tv_sec = controltimeout;
+                if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+                    I2ErrLog(eh,"setitimer(): %M");
+                    goto done;
+                }
+                rc = BWLStopSession(cntrl,&ip_exit,NULL);
+
                 break;
-            }
-            /*
-             * Test session started - unset timer - wait
-             * until all sessions are complete, then
-             * reset the timer and wait for stopsessions
-             * to complete.
-             */
-            itval.it_value.tv_sec = 0;
-            if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
-                I2ErrLog(eh,"setitimer(): %M");
-                goto done;
-            }
-            if(ip_exit)
-                goto done;
-
-            rc = BWLErrOK;
-            wstate = BWLStopSessionWait(cntrl,NULL,
-                    &ip_exit,NULL,&rc);
-            if(ip_exit || (wstate != 0)){
-                goto done;
-            }
-
-            /*
-             * Sessions are complete, but StopSession
-             * message has not been exchanged - set the
-             * timer and trade StopSession messages
-             */
-            itval.it_value.tv_sec = controltimeout;
-            if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
-                I2ErrLog(eh,"setitimer(): %M");
-                goto done;
-            }
-            rc = BWLStopSession(cntrl,&ip_exit,NULL);
-
-            break;
 
             case BWLReqSockClose:
             default:
-            rc = BWLErrFATAL;
-            break;
+                rc = BWLErrFATAL;
+                break;
         }
         if(rc < BWLErrWARNING){
             break;
@@ -1354,7 +1355,7 @@ main(
         exit(1);
     }
 
-    while ((ch = getopt(argc, argv, optstring)) != -1)
+    while ((ch = getopt(argc, argv, optstring)) != -1){
         switch (ch) {
             /* Connection options. */
             case 'A':
@@ -1495,10 +1496,6 @@ main(
 
                 /* TEST OPTIONS */
             case 'T':
-                /* XXX: Get from extensible jump-table for
-                 * known tools.
-                 * Also make -help option print out known tools.
-                 */
                 if( (app.opt.tool_id = BWLToolGetID(ctx,optarg)) ==
                         BWL_TOOL_UNDEFINED){
                     char    buf[BWL_MAX_TOOLNAME + 20];
@@ -1590,6 +1587,7 @@ main(
                 exit(0);
                 /* UNREACHED */
         }
+    }
     argc -= optind;
     argv += optind;
 
@@ -1675,6 +1673,10 @@ main(
         exit(1);
     }
 
+    if( !BWLContextFinalize(ctx)){
+        I2ErrLog(eh,"BWLContextFinalize failed.");
+        exit(1);
+    }
 
     /*
      * If seriesInterval is in use, verify the args and pick a
@@ -1919,8 +1921,8 @@ AGAIN:
              */
             current_auth = ((first.auth)?first.auth:app.def_auth);
             first.cntrl = BWLControlOpen(ctx,
-                    I2AddrByNode(ctx,app.opt.srcaddr),
-                    I2AddrByNode(ctx,first.host),
+                    I2AddrByNode(eh,app.opt.srcaddr),
+                    I2AddrByNode(eh,first.host),
                     ((current_auth)?
                      current_auth->auth_mode:BWL_MODE_OPEN),
                     ((current_auth)?
@@ -1975,8 +1977,8 @@ AGAIN:
                  * process is required.
                  */
                 second.cntrl = BWLControlOpen(ctx,
-                        I2AddrByNode(ctx,app.opt.srcaddr),
-                        I2AddrByNode(ctx,second.host),
+                        I2AddrByNode(eh,app.opt.srcaddr),
+                        I2AddrByNode(eh,second.host),
                         ((current_auth)?
                          current_auth->auth_mode:
                          BWL_MODE_OPEN),

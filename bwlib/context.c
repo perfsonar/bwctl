@@ -606,18 +606,26 @@ BWLContextCreate(
         }
     }
 
-    if(_BWLInitNTP(ctx) != 0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                "Unable to initialize clock interface.");
-        BWLContextFree(ctx);
-        return NULL;
-    }
-
     return ctx;
 }
 
 BWLBoolean
 BWLContextFinalize(
+        BWLContext  ctx
+        )
+{
+    if(_BWLInitNTP(ctx) != 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "Unable to initialize clock interface.");
+        return False;
+    }
+
+    ctx->valid = True;
+    return True;
+}
+
+BWLBoolean
+BWLContextFindTools(
         BWLContext  ctx
         )
 {

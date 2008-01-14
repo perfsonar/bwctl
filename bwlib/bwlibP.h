@@ -214,6 +214,7 @@ typedef struct BWLControlRec BWLControlRec;
 #define _BWL_CONTEXT_MAX_KEYLEN    64
 
 struct BWLContextRec{
+    BWLBoolean          valid;
     BWLBoolean          lib_eh;
     I2ErrHandle         eh;
     int                 access_prio;

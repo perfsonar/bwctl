@@ -244,6 +244,23 @@ BWLControlAccept(
     size_t          localnodelen = sizeof(localnode);
     size_t          localservlen = sizeof(localserv);
 
+    *err_ret = BWLErrFATAL;
+
+    /*
+     * Check for valid context.
+     */
+    if( !ctx->valid){
+        BWLError(ctx,BWLErrFATAL,EINVAL,
+                "BWLControlAccept(): Invalid context record");
+        return NULL;
+    }
+    if(!ctx->tool_avail){
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                "BWLControlAccept: Context invalid, tools not initialized");
+        return NULL;
+    }
+
+
     if(connfd < 0)
         return NULL;
 
@@ -253,13 +270,6 @@ BWLControlAccept(
 
     *err_ret = BWLErrOK;
     mode_offered &= BWL_MODE_ALLMODES;
-
-    if(!ctx->tool_avail){
-        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                "BWLControlAccept: Context has not been finalized");
-        *err_ret = BWLErrFATAL;
-        return NULL;
-    }
 
     if( !(cntrl = _BWLControlAlloc(ctx,err_ret))){
         BWLError(ctx,BWLErrFATAL,errno,"_BWLControlAlloc(): %M");
