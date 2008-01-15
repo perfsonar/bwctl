@@ -21,6 +21,7 @@ that wraps Iperf, Thrulay or nuttcp.
 %package client
 Summary: bwctl client
 Group: Applications/Network
+Requires: thrulay-libthrulay
 %description client
 bwctl command line tool for scheduling bandwidth measurements with a bwctl
 server.
@@ -28,6 +29,7 @@ server.
 %package server
 Summary: bwctl server
 Group: Applications/Network
+Requires: thrulay-libthrulay
 %description server
 bwctl server
 
@@ -49,9 +51,28 @@ make
 
 %install
 %makeinstall
+%{__install} -D -p -m 0755 conf/bwctld.init %{buildroot}%{_sysconfdir}/rc.d/init.d/bwctld
+%{__install} -D -p -m 0755 conf/bwctld.limits.default %{buildroot}%{_sysconfdir}/bwctld/bwctld.limits
+%{__install} -D -p -m 0755 conf/bwctld.conf %{buildroot}%{_sysconfdir}/bwctld/bwctld.conf
 
 %clean
 rm -rf $RPM_BUILD_ROOT 
+
+%post server
+/sbin/chkconfig --add bwctld
+/usr/sbin/useradd -r -s /bin/nologin -d /tmp bwctl || :
+
+%preun server
+if [ $1 -eq 0 ]; then
+    /sbin/chkconfig --del bwctld
+    /sbin/service bwctld stop
+fi
+
+%postun server
+/usr/sbin/userdel bwctl || :
+if [ $1 -ge 1 ]; then
+    /sbin/service bwctld stop
+fi
 
 %files client
 %defattr(-,root,root,0755)
@@ -65,6 +86,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/bwctld
 %{_mandir}/man5/*
 %{_mandir}/man8/*
+%{_sysconfdir}/rc.d/init.d/bwctld
+%config(noreplace) %{_sysconfdir}/bwctld/*
 
 %files devel
 %defattr(-,root,root,0755)
