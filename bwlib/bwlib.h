@@ -558,7 +558,7 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
  * This value is used to indicate the priority to report 'access'
  * logging. (This is useful for isolating in syslog configurations.)
  */
-#define BWLAccessPriority  "I32.BWLAccessPriority"
+#define BWLAccessPriority  "U32.BWLAccessPriority"
 
 #ifndef    NDEBUG
 /*

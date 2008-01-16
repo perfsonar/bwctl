@@ -36,8 +36,6 @@ typedef struct {
     I2Boolean	    verbose;
     I2Boolean	    help;
 
-    int             access_prio;
-
     char	    cwd[MAXPATHLEN];
     char	    *confdir;
     char	    *vardir;

@@ -1314,12 +1314,10 @@ LoadConfig(
         }
         else if(!strncasecmp(key,"accesspriority",15) ||
                 !strncasecmp(key,"access_priority",16)){
-            opts.access_prio = I2ErrLogSyslogPriority(val);
-            if(opts.access_prio == -1){
-                I2ErrLog(errhand,
-                        "Invalid syslog priority for access_priority: "
-                        "\"%s\" unknown",
-                        val);
+            int prio = I2ErrLogSyslogPriority(val);
+            if( (prio < 0) ||
+                    !BWLContextConfigSet(ctx,BWLAccessPriority,(uint32_t)prio)){
+                I2ErrLog(errhand, "Unable to set access_priority: \"%s\"",val);
                 rc = -rc;
                 break;
             }
@@ -1530,7 +1528,6 @@ main(int argc, char *argv[])
 
     /* Set up options defaults */
     memset(&opts,0,sizeof(opts));
-    opts.access_prio = -1;
     opts.daemon = 1;
     opts.dieby = 30;
     opts.controltimeout = 7200;
@@ -1624,16 +1621,6 @@ main(int argc, char *argv[])
      * be queried for tool specific option parsing.
      */
     LoadConfig(ctx,&lbuf,&lbuf_max);
-
-    /*
-     * Add Context var for setting access log priority.
-     */
-    if((opts.access_prio != -1) &&
-            !BWLContextConfigSet(ctx,
-                BWLAccessPriority,(void*)opts.access_prio)){
-        I2ErrLog(errhand,"Unable to set AccessPriority.");
-        exit(1);
-    }
 
     /*
      * Now deal with "all" cmdline options.

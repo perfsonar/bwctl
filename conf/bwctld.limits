@@ -40,19 +40,19 @@
 #	allow_open_mode
 #	allow_tcp
 #	allow_udp
-#	max_time_error
 #
 
 # setup the root node with max bandwidth as open as possible.
+# Super-user access
 limit root with \
 	bandwidth=900m, \
-	duration=0, \
+	duration=30, \
 	allow_udp=on, \
 	allow_tcp=on, \
-	allow_open_mode=off, \
-        max_time_error=5
+	allow_open_mode=off
 
 # minimal everything
+# send hackers and bad nets here
 limit jail with parent=root, \
 	bandwidth=1, \
 	duration=1, \
@@ -60,19 +60,22 @@ limit jail with parent=root, \
 	allow_tcp=off, \
 	allow_open_mode=off
 
-# wide open everything - default integer limits to parent to get max
-limit ami with parent=root, \
-	bandwidth=0, \
-	duration=0, \
+# wide open everything - unspecified values default
+# to parent permissions
+# Turn off UDP testing for Knoppix distribution.
+limit regular with parent=root, \
+	duration=30, \
+	allow_tcp=on, \
+	allow_udp=off, \
 	allow_open_mode=on
 
-# default everything to disabled
-assign default jail
+# default everything to regular user access
+# this allows TCP for up to 30 seconds and 
+# no UDP tests
+assign default regular
 
-# nmslan networks
-assign net 2001:468::/40 ami
-assign net 198.32.10.0/23 ami
-assign net 207.75.164.0/24 ami
-
-# testing
-#assign user demo ami
+# hacker and BBI networks
+# this shows a 172.16 private address block being
+# prohibited 
+# see RFC 1918 for a descripton of private address blocks
+assign net 172.16.10.0/24 jail

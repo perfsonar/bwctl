@@ -70,7 +70,7 @@ IperfAvailable(
      * Fetch 'tool' name
      */
     if( !(cmd = (char *)BWLContextConfigGetV(ctx,confkey))){
-        BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+        BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
                 "IperfAvailable(): iperf_cmd unset, using \"%s\"",
                 tool->def_cmd);
         cmd = tool->def_cmd;
