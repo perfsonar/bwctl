@@ -1359,7 +1359,7 @@ LoadConfig(
             }
         }
         else if(!strncasecmp(key,"verbose",8)){
-            opts.verbose = True;
+            I2ErrLog(errhand,"The verbose option has been depricated, ignoring...");
         }
         else if(!strncasecmp(key,"authmode",9) ||
                 !strncasecmp(key,"auth_mode",10)){
@@ -1632,7 +1632,7 @@ main(int argc, char *argv[])
         switch (ch) {
             /* Connection options. */
             case 'v':    /* -v "verbose" */
-                opts.verbose = True;
+                I2ErrLog(errhand,"The verbose (-v) option has been depricated, ignoring...");
                 break;
             case 'f':
                 opts.allowRoot = True;

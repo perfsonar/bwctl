@@ -280,14 +280,6 @@ Directory path where the bwctld.pid file will be placed.
 .IP Default:
 Current directory
 .RE
-.TP
-.B verbose
-If this option is present, it directs the \fBbwctld\fR process to
-generate more verbose messages to syslog.
-.RS
-.IP Default:
-unset
-.RE
 .SH SEE ALSO
 bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5),
 and the \%http://e2epi.internet2.edu/bwctl/ web site.

@@ -33,17 +33,12 @@
  */
 typedef struct {
 
-    I2Boolean	    verbose;
     I2Boolean	    help;
 
     char	    cwd[MAXPATHLEN];
     char	    *confdir;
     char	    *vardir;
 
-    uint16_t	    *testerports;
-    uint16_t	    def_port;
-    uint16_t	    port_range_len;
-    uint16_t	    port_count;
     char	    *datadir;
 
     BWLPortRange    peerports;
