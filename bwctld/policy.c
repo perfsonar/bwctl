@@ -836,7 +836,6 @@ BWLDPolicyInstall(
         BWLContext	ctx,
         char		*datadir,
         char		*confdir,
-        uint64_t	*bottleneckcapacity,
         int		*retn_on_intr,
         char		**lbuf,
         size_t		*lbuf_max
@@ -985,11 +984,6 @@ BADLINE:
         return NULL;
     }
 
-    if(bottleneckcapacity && *bottleneckcapacity &&
-            !BWLContextConfigSet(ctx,BWLBottleNeckCapacity,
-                (void*)bottleneckcapacity)){
-        return NULL;
-    }
     if(!BWLContextConfigSet(ctx,BWLGetAESKey,(BWLFunc)getaeskey)){
         return NULL;
     }

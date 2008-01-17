@@ -40,7 +40,6 @@ typedef struct {
     char	    *confdir;
     char	    *vardir;
 
-    I2numT  	    bottleneckcapacity;
     uint16_t	    *testerports;
     uint16_t	    def_port;
     uint16_t	    port_range_len;

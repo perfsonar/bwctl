@@ -908,13 +908,12 @@ ACCEPT:
          *
          * Reset window_size based on the results.
          */
-        uint64_t    *bottleneckcapacity;
+        uint64_t    bnc;
 
-        if((bottleneckcapacity = (uint64_t*)BWLContextConfigGetV(ctx,
-                        BWLBottleNeckCapacity))){
-            double    dbnc = (double)*bottleneckcapacity;
-            double    rtt = BWLNum64ToDouble(
-                    BWLGetRTTBound(ep->rcntrl));
+        if( BWLContextConfigGetU64(ctx,BWLBottleNeckCapacity,&bnc)){
+            double  dbnc = (double)bnc;
+            double  rtt = BWLNum64ToDouble(BWLGetRTTBound(ep->rcntrl));
+
             tsess->test_spec.window_size = dbnc * rtt / 8 * 1.1;
         }
     }

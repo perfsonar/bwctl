@@ -1416,12 +1416,14 @@ LoadConfig(
         else if(!strncasecmp(key,"bottleneckcapacity",19) ||
                 !strncasecmp(key,"bottleneck_capacity",20)){
             I2numT    bneck;
-            if(I2StrToNum(&bneck,val)){
-                I2ErrLog(errhand,"Invalid value: %M");
+            if( I2StrToNum(&bneck,val) ||
+                    !BWLContextConfigSet(ctx,BWLBottleNeckCapacity,bneck)){
+                I2ErrLog(errhand,
+                        "Unable to set bottlenect_capacity: \"%s\"",val);
                 rc=-rc;
                 break;
             }
-            opts.bottleneckcapacity = (uint64_t)bneck;
+
         }
         else if(!strncasecmp(key,"syncfuzz",9) ||
                 !strncasecmp(key,"sync_fuzz",10)){
@@ -1741,7 +1743,6 @@ main(int argc, char *argv[])
      * Install policy for "ctx" - and return policy record.
      */
     if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
-                    &opts.bottleneckcapacity,
                     &ipfd_exit,
                     &lbuf,&lbuf_max))){
         I2ErrLog(errhand, "PolicyInit failed. Exiting...");

@@ -80,6 +80,7 @@ typedef union _BWLContextHashValue{
     void        (*func)(void);
     uint32_t    u32;
     int32_t     i32;
+    uint64_t    u64;
 } _BWLContextHashValue;
 
 struct _BWLContextHashRecord{
@@ -265,6 +266,7 @@ ConfigSetU(
 
     assert(table);
     assert(key);
+    assert(strlen(key) < _BWL_CONTEXT_MAX_KEYLEN);
 
     if(!(rec = calloc(1,sizeof(struct _BWLContextHashRecord)))){
         return False;
@@ -300,6 +302,35 @@ ConfigSetU(
     return False;
 }
 
+/*
+ * Have to expand the va_arg in-line, so since I don't want to
+ * duplicate this code in multilpe stdarg functions, I'm using
+ * this ugly macro.
+ */
+#define ASSIGN_UNION(u,k,l,rc) \
+    do{                                             \
+        if( !strncmp(k,"V.",2)){                    \
+            u.value = (void *)va_arg(l, void*);     \
+        }                                           \
+        else if( !strncmp(k,"F.",2)){               \
+            u.func = (BWLFunc)va_arg(l, BWLFunc);   \
+        }                                           \
+        else if( !strncmp(k,"U32.",4)){             \
+            u.u32 = (uint32_t)va_arg(l, uint32_t);  \
+        }                                           \
+        else if( !strncmp(k,"I32.",4)){             \
+            u.i32 = (int32_t)va_arg(l, int32_t);    \
+        }                                           \
+        else if( !strncmp(k,"U64.",4)){             \
+            u.u64 = (int64_t)va_arg(l, uint64_t);   \
+        }                                           \
+        else{                                       \
+            rc = False;                             \
+        }                                           \
+        rc = True;                                  \
+    } while(0)
+
+
 static BWLBoolean
 ConfigSetVA(
         I2Table     table,
@@ -308,22 +339,11 @@ ConfigSetVA(
         )
 {
     _BWLContextHashValue    val;
+    int                     ret;
 
-    if( !strncmp(key,"V.",2)){
-        val.value = (void *)va_arg(ap, void*);
-    }
-    else if( !strncmp(key,"F.",2)){
-        val.func = (BWLFunc)va_arg(ap, BWLFunc);
-    }
-    else if( !strncmp(key,"U32.",4)){
-        val.u32 = (uint32_t)va_arg(ap, uint32_t);
-    }
-    else if( !strncmp(key,"I32.",4)){
-        val.i32 = (int32_t)va_arg(ap, int32_t);
-    }
-    else{
-        return False;
-    }
+    ASSIGN_UNION(val,key,ap,ret);
+
+    if(!ret) return False;
 
     return ConfigSetU(table,key,val);
 }
@@ -420,6 +440,29 @@ ConfigGetF(
 }
 
 static BWLBoolean
+ConfigGetU64(
+        I2Table     table,
+        const char  *key,
+        uint64_t    *u64
+        )
+{
+    _BWLContextHashValue    val;
+
+    if( strncmp(key,"U64.",4)){
+        errno = EINVAL;
+        return False;
+    }
+
+    if( !ConfigGetU(table,key,&val)){
+        return False;
+    }
+
+    *u64 = val.u64;
+
+    return True;
+}
+
+static BWLBoolean
 ConfigDelete(
         I2Table	    table,
         const char  *key
@@ -509,27 +552,11 @@ BWLContextCreate(
     va_start(ap,eh);
     while( (key = (char *)va_arg(ap, char *)) != NULL){
         _BWLContextHashValue    val;
+        int                     ret;
 
-        if( !strncmp(key,"V.",2)){
-            val.value = (void *)va_arg(ap, void*);
-        }
-        else if( !strncmp(key,"F.",2)){
-            val.func = (BWLFunc)va_arg(ap, BWLFunc);
-        }
-        else if( !strncmp(key,"U32.",4)){
-            val.u32 = (uint32_t)va_arg(ap, uint32_t);
-        }
-        else if( !strncmp(key,"I32.",4)){
-            val.i32 = (int32_t)va_arg(ap, int32_t);
-        }
-        else{
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "Unknown \"type\" for Context key %s",key);
-            BWLContextFree(ctx);
-            return NULL;
-        }
+        ASSIGN_UNION(val,key,ap,ret);
 
-        if( !ConfigSetU(ctx->table,key,val)){
+        if( !ret || !ConfigSetU(ctx->table,key,val)){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                     "Unable to set Context value for %s",key);
             BWLContextFree(ctx);
@@ -709,6 +736,18 @@ BWLContextConfigGetU32(
 }
 
 BWLBoolean
+BWLContextConfigGetU64(
+        BWLContext  ctx,
+        const char  *key,
+        uint64_t    *u64
+        )
+{
+    assert(ctx);
+
+    return ConfigGetU64(ctx->table,key,u64);
+}
+
+BWLBoolean
 BWLContextConfigDelete(
         BWLContext  ctx,
         const char  *key
@@ -783,6 +822,18 @@ BWLControlConfigGetU32(
     assert(cntrl);
 
     return ConfigGetU32(cntrl->table,key,u32);
+}
+
+BWLBoolean
+BWLControlConfigGetU64(
+        BWLControl  cntrl,
+        const char  *key,
+        uint64_t    *u64
+        )
+{
+    assert(cntrl);
+
+    return ConfigGetU64(cntrl->table,key,u64);
 }
 
 BWLBoolean

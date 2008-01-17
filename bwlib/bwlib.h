@@ -432,7 +432,7 @@ typedef struct BWLPortRangeRec{
  * a rtt estimate to dynamically size the send/recv window sizes.
  * (uint64_t)
  */
-#define BWLBottleNeckCapacity    "V.BWLBottleNeckCapacity"
+#define BWLBottleNeckCapacity    "U64.BWLBottleNeckCapacity"
 
 /*
  * This type is used to define the function that retrieves the shared
@@ -626,6 +626,13 @@ BWLContextConfigGetU32(
         );
 
 extern BWLBoolean
+BWLContextConfigGetU64(
+        BWLContext  ctx,
+        const char  *key,
+        uint64_t    *u64
+        );
+
+extern BWLBoolean
 BWLContextConfigDelete(
         BWLContext    ctx,
         const char    *key
@@ -660,6 +667,13 @@ BWLControlConfigGetU32(
         BWLControl    cntrl,
         const char  *key,
         uint32_t    *u32
+        );
+
+extern BWLBoolean
+BWLControlConfigGetU64(
+        BWLControl    cntrl,
+        const char  *key,
+        uint64_t    *u64
         );
 
 extern BWLBoolean

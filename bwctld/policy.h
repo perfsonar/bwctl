@@ -473,7 +473,6 @@ BWLDPolicyInstall(
         BWLContext	ctx,
         char		*datadir,	/* root dir for datafiles	*/
         char		*confdir,	/* conf dir for policy		*/
-        uint64_t	*bottleneckcapacity,
         int		*retn_on_intr,
         char		**lbuf,
         size_t		*lbuf_max

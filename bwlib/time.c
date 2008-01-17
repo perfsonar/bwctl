@@ -53,7 +53,7 @@
 
 static struct timeval   timeoffset;
 static int              sign_timeoffset = 0;
-static int              ntpsyscall_fails = 0;
+static int              ntpsyscall_fails; /* initialized in InitNTP */
 static int              allow_unsync = 0;
 
 /*
@@ -98,6 +98,8 @@ _BWLInitNTP(
 {
     char    *toffstr=NULL;
 
+    ntpsyscall_fails = 0;
+
     /*
      * If this system has the ntp system calls, use them. Otherwise,
      * assume the clock is not synchronized.
@@ -129,8 +131,8 @@ _BWLInitNTP(
         }
 #endif	/*  STA_NANO */
     }
-#endif
 NOADJTIME:
+#endif
     if( (BWLContextConfigGetV(ctx,BWLAllowUnsync))){
         allow_unsync = 1;
     }
