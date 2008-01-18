@@ -415,6 +415,12 @@ typedef void (*BWLFunc)(void);
 #define BWLInterruptIO        "V.BWLInterruptIO"
 
 /*
+ * This type is used by the Daemon request broker to decide how
+ * long to wait for responses from the client and peer agent.
+ */
+#define BWLControlTimeout   "U32.BWLControlTimeout"
+
+/*
  * This context variable is used to hold a pointer to a port-range record. This
  * record is used to indicate what port ranges should be used for port
  * selections.
@@ -508,7 +514,6 @@ typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
         BWLNum64        fuzz_time,
         BWLNum64        *reservation_ret,
         uint16_t        *tool_port_ret,
-        uint16_t        *peer_port_ret,
         void            **closure,
         BWLErrSeverity  *err_ret
         );
@@ -587,6 +592,17 @@ BWLContextFinalize(
 BWLBoolean
 BWLContextFindTools(
         BWLContext  ctx
+        );
+
+/*
+ * Used to register memory pointers that should be free'd when the
+ * Context is free'd. (Returns false if the Context is unable to
+ * register the memory - failure if ENOMEM.
+ */
+BWLBoolean
+BWLContextRegisterMemory(
+        BWLContext  ctx,
+        void        *ptr
         );
 
 extern void

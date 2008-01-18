@@ -57,7 +57,6 @@ static I2ErrHandle          errhand;
 static I2Table              fdtable=NULL;
 static I2Table              pidtable=NULL;
 static BWLNum64             uptime;
-static BWLPortRangeRec      peerports;
 
 #if defined HAVE_DECL_OPTRESET && !HAVE_DECL_OPTRESET
 int optreset;
@@ -82,7 +81,6 @@ usage(
     fprintf(stderr,
             "   -a authmode       Default supported authmodes:[E]ncrypted,[A]uthenticated,[O]pen\n"
             "   -c confdir        Configuration directory\n"
-            "   -d datadir        Data directory\n"
             "   -e facility       syslog facility to log errors\n"
             "   -f                Allow daemon to run as \"root\" (folly!)\n"
             "   -G group          Run as group \"group\" :-gid also valid\n"
@@ -93,7 +91,6 @@ usage(
             "   -S nodename:port  Srcaddr to bind to\n"
             "      -U/-G options only used if run as root\n"
             "   -U user           Run as user \"user\" :-uid also valid\n"
-            "   -v                verbose output\n"
             "   -V                version\n"
 #ifndef    NDEBUG
             "   -w                Debugging: busy-wait children after fork to allow attachment\n"
@@ -150,7 +147,6 @@ struct ReservationRec{
     BWLNum64    fuzz;
     uint32_t    duration;
     uint16_t    toolport;
-    uint16_t    peerport;
     Reservation next;
 };
 
@@ -168,8 +164,7 @@ AllocReservation(
         ChldState   cstate,
         BWLSID      sid,
         BWLToolType tool_id,
-        uint16_t    *toolport,
-        uint16_t    *peerport
+        uint16_t    *toolport
         )
 {
     BWLErrSeverity  err = BWLErrOK;
@@ -201,17 +196,6 @@ AllocReservation(
         return NULL;
     }
     res->toolport = *toolport;
-
-    /*
-     * Set *peerport
-     * Done here so there is daemon-wide state for the 'last' port allocated.
-     */
-    if(opts.peerports){
-        res->peerport = *peerport = BWLPortsNext(opts.peerports);
-    }
-    else{
-        res->peerport = *peerport = 0;
-    }
 
     cstate->res = res;
 
@@ -284,7 +268,6 @@ ChldReservationDemand(
         BWLNum64    rtttime,
         BWLNum64    *restime,
         uint16_t    *toolport,
-        uint16_t    *peerport,
         BWLToolType tool_id,
         int         *err)
 {
@@ -310,9 +293,8 @@ ChldReservationDemand(
         if(!ResRemove(cstate->res))
             return False;
         cstate->res->toolport = *toolport;
-        cstate->res->peerport = *peerport;
     }
-    else if(!AllocReservation(cstate,sid,tool_id,toolport,peerport)){
+    else if(!AllocReservation(cstate,sid,tool_id,toolport)){
         /*
          * Alloc failed.
          */
@@ -473,7 +455,6 @@ next_slot:
 
     *restime = res->restime;
     *toolport = res->toolport;
-    *peerport = res->peerport;
 
     return True;
 
@@ -677,7 +658,6 @@ CheckFD(
         BWLNum64        rtime,ftime,ltime,restime,rtttime;
         uint32_t        duration;
         uint16_t        toolport;
-        uint16_t        peerport;
         BWLToolType     tool_id;
         BWLAcceptType   aval;
 
@@ -709,7 +689,7 @@ CheckFD(
                             &ipfd_exit,sid,
                             &rtime,&ftime,&ltime,
                             &duration,&rtttime,
-                            &toolport,&peerport,&tool_id,&err)){
+                            &toolport,&tool_id,&err)){
                     goto done;
                 }
 
@@ -719,7 +699,7 @@ CheckFD(
                 if(ChldReservationDemand(cstate,
                             sid,rtime,ftime,ltime,
                             duration,rtttime,
-                            &restime,&toolport,&peerport,tool_id,&err)){
+                            &restime,&toolport,tool_id,&err)){
                     resp = BWLDMESGOK;
                 }
                 else if(err){
@@ -733,7 +713,7 @@ CheckFD(
                  * Send response
                  */
                 err = BWLDSendReservationResponse(cstate->fd,
-                        &ipfd_exit,resp,restime,toolport,peerport);
+                        &ipfd_exit,resp,restime,toolport);
                 break;
             case BWLDMESGCOMPLETE:
 
@@ -919,17 +899,19 @@ ACCEPT:
         BWLRequestType      msgtype=BWLReqInvalid;
 
 #ifndef    NDEBUG
-        void                *childwait;
+        void                *childwait = BWLContextConfigGetV(policy->ctx,
+                BWLChildWait);
 
-        if((childwait = opts.childwait)){
+        if(childwait){
             BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
                     "Waiting for Debugger.");
             /* busy loop to wait for debug-attach */
             while(childwait);
 
             /*
-             * set BWLChildWait if you want to attach
-             * to them... (by resetting childwait back to non-zero)
+             * reset BWLChildWait if you want to attach
+             * to Endpoint tool children:
+             * (by resetting childwait back to non-zero before the next line)
              */
             if(childwait &&
                     !BWLContextConfigSet(policy->ctx,BWLChildWait,
@@ -1253,7 +1235,7 @@ LoadConfig(
     char    *key = keybuf;
     char    *val = valbuf;
     int     rc;
-    int     tc;
+    int     dc;
 
     conf_file[0] = '\0';
 
@@ -1282,6 +1264,10 @@ LoadConfig(
         return;
     }
 
+    /*
+     * XXX: Determine which conf file things should be in 'DaemonParseArg',
+     * and what should stay here.
+     */
     rc=0;
     while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max)) > 0){
 
@@ -1312,37 +1298,13 @@ LoadConfig(
                 !strncasecmp(key,"root_folly",11)){
             opts.allowRoot = True;
         }
-        else if(!strncasecmp(key,"accesspriority",15) ||
-                !strncasecmp(key,"access_priority",16)){
-            int prio = I2ErrLogSyslogPriority(val);
-            if( (prio < 0) ||
-                    !BWLContextConfigSet(ctx,BWLAccessPriority,(uint32_t)prio)){
-                I2ErrLog(errhand, "Unable to set access_priority: \"%s\"",val);
-                rc = -rc;
-                break;
-            }
-        }
         else if(!strncasecmp(key,"loglocation",12)  ||
                 !strncasecmp(key,"log_location",13)){
             syslogattr.line_info |= I2FILE|I2LINE;
         }
-        else if(!strncasecmp(key,"peerports",10) ||
-                !strncasecmp(key,"peer_ports",11)){
-            if(!BWLPortsParse(ctx,val,&peerports)){
-                rc=-rc;
-                break;
-            }
-            else{
-                opts.peerports = &peerports;
-            }
-        }
         else if(!strncasecmp(key,"datadir",8) ||
                 !strncasecmp(key,"data_dir",9)){
-            if(!(opts.datadir = strdup(val))) {
-                I2ErrLog(errhand,"strdup(): %M");
-                rc=-rc;
-                break;
-            }
+            I2ErrLog(errhand,"The data_dir option has been depricated, ignoring...");
         }
         else if(!strncasecmp(key,"user",5)){
             if(!(opts.user = strdup(val))) {
@@ -1399,57 +1361,8 @@ LoadConfig(
             }
             opts.dieby = tlng;
         }
-        else if(!strncasecmp(key,"controltimeout",15) ||
-                !strncasecmp(key,"control_timeout",16)){
-            char        *end=NULL;
-            uint32_t    tlng;
-
-            errno = 0;
-            tlng = strtoul(val,&end,10);
-            if((end == val) || (errno == ERANGE)){
-                I2ErrLog(errhand,"strtoul(): %M");
-                rc=-rc;
-                break;
-            }
-            opts.controltimeout = tlng;
-        }
-        else if(!strncasecmp(key,"bottleneckcapacity",19) ||
-                !strncasecmp(key,"bottleneck_capacity",20)){
-            I2numT    bneck;
-            if( I2StrToNum(&bneck,val) ||
-                    !BWLContextConfigSet(ctx,BWLBottleNeckCapacity,bneck)){
-                I2ErrLog(errhand,
-                        "Unable to set bottlenect_capacity: \"%s\"",val);
-                rc=-rc;
-                break;
-            }
-
-        }
-        else if(!strncasecmp(key,"syncfuzz",9) ||
-                !strncasecmp(key,"sync_fuzz",10)){
-            char    *end=NULL;
-            double    tdbl;
-
-            errno = 0;
-            tdbl = strtod(val,&end);
-            if((end == val) || (errno == ERANGE)){
-                I2ErrLog(errhand,"strtod(): %M");
-                rc=-rc;
-                break;
-            }
-            if(tdbl < 0.0){
-                I2ErrLog(errhand,"Invalid value sync_fuzz: %f", tdbl);
-                rc=-rc;
-                break;
-            }
-            opts.syncfuzz = tdbl;
-        }
-        else if(!strncasecmp(key,"allowunsync",12) ||
-                !strncasecmp(key,"allow_unsync",13)){
-            opts.allowUnsync = True;
-        }
-        else if( (tc = BWLToolParseArg(ctx,key,val))){
-            if(tc < 0){
+        else if( (dc = BWLDaemonParseArg(ctx,key,val))){
+            if(dc < 0){
                 rc = -rc;
                 break;
             }
@@ -1610,9 +1523,7 @@ main(int argc, char *argv[])
      * Initialize the context. (Set the error handler to the app defined
      * one.)
      */
-    if(!(ctx = BWLContextCreate(errhand,
-                    BWLAllowUnsync,&opts.allowUnsync,
-                    NULL))){
+    if(!(ctx = BWLContextCreate(errhand,NULL))){
         exit(1);
     }
 
@@ -1674,7 +1585,11 @@ main(int argc, char *argv[])
 #ifndef NDEBUG
             case 'w':
                 /* just non-null */
-                opts.childwait = (void*)!NULL;
+                if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+                    I2ErrLog(errhand,
+                            "ContextConfigSet(): Unable to set BWLChildWait");
+                    exit(1);
+                }
                 break;
 #endif
             case 'V':
@@ -1701,8 +1616,6 @@ main(int argc, char *argv[])
         opts.vardir = opts.cwd;
     if(!opts.confdir)
         opts.confdir = opts.cwd;
-    if(!opts.datadir)
-        opts.datadir = opts.cwd;
 
     /*  Get exclusive lock for pid file. */
     strcpy(pid_file, opts.vardir);
@@ -1727,23 +1640,10 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    if((opts.syncfuzz != 0.0) &&
-            !BWLContextConfigSet(ctx,BWLSyncFuzz,(void*)&opts.syncfuzz)){
-        I2ErrLog(errhand,"Unable to set SyncFuzz.");
-        exit(1);
-    }
-
-    if((opts.peerports) &&
-            !BWLContextConfigSet(ctx,BWLPeerPortRange,(void*)opts.peerports)){
-        I2ErrLog(errhand,"Unable to set PeerPorts.");
-        exit(1);
-    }
-
     /*
      * Install policy for "ctx" - and return policy record.
      */
-    if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
-                    &ipfd_exit,
+    if(!(policy = BWLDPolicyInstall(ctx,opts.confdir,&ipfd_exit,
                     &lbuf,&lbuf_max))){
         I2ErrLog(errhand, "PolicyInit failed. Exiting...");
         exit(1);
@@ -2160,6 +2060,12 @@ main(int argc, char *argv[])
         kill(-mypid,SIGKILL);
         exit(1);
     }
+
+    /*
+     * Free context
+     */
+    BWLContextFree(ctx);
+    ctx = NULL;
 
     I2ErrLog(errhand,"%s: exited.",progname);
 

@@ -831,6 +831,15 @@ SpawnLocalServer(
     BWLRequestType      msgtype;
 
     /*
+     * TODO: Open a user specific ~/.bwctldrc config file for specifying
+     * how a 'local' daemon will behave. Then parse it with the conf-file
+     * parsing routine. getpwuid(getuid())...
+     * Or perhaps... getpwnam($LOGNAME)?
+     *
+     * If env($LOGNAME), then getpwnam($LOGNAME), else getpwuid(getuid()).
+     */
+
+    /*
      * Set up port info for iperf/thrulay tests.
      */
     if(!tool_port_range){
@@ -954,11 +963,13 @@ portdone:
     }
 
     /*
-     * XXX: Replace all of this with a ~/.bwctldrc file.
+     * Environment Vars that effect server:
+     *  BWCTL_CHILDWAIT             (debugging)
+     *
+     * XXX: Replace these with a ~/.bwctldrc file.
      *
      * Environment Vars that effect server:
      *  BWCTL_IPERFPORTRANGE        (above)
-     *  BWCTL_CHILDWAIT             (debugging)
      *  BWCTL_IPERFCMD              IperfCmd
      *  BWCTL_BOTTLENECKCAPACITY    BottleNeckCapacity
      *  BWCTL_SYNCFUZZ              SyncFuzz
@@ -1662,7 +1673,7 @@ main(
     /*
      * Set configurable constants for library
      */
-    if( !BWLContextConfigSet(ctx,BWLAllowUnsync,(app.opt.allowUnsync != 0.0))){
+    if( !BWLContextConfigSet(ctx,BWLAllowUnsync,(syncfuzz != 0.0))){
         I2ErrLog(eh,"BWLContextconfigSet(AllowUnsync): %M");
         exit(1);
     }
@@ -2008,12 +2019,8 @@ AGAIN:
                     I2ErrLog(eh,
                             "Unable to contact a local bwctld: Spawning local tool controller");
 
-                    /* LookForTesters exec's, so reset signal indicators */
-                    ip_intr=0; ip_chld=0;
-                    if(!(second.cntrl =
-                                SpawnLocalServer(ctx))){
-                        I2ErrLog(eh,
-                                "Unable to spawn local tool controller");
+                    if(!(second.cntrl = SpawnLocalServer(ctx))){
+                        I2ErrLog(eh,"Unable to spawn local tool controller");
                     }
                     fake_daemon = True;
                 }
@@ -2184,19 +2191,18 @@ AGAIN:
          * TODO: Come up with a *real* value here!
          * (Actually - make this an option?)
          */
-        req_time.tstamp = BWLNum64Add(req_time.tstamp,
-                BWLULongToNum64(1));
+        req_time.tstamp = BWLNum64Add(req_time.tstamp,BWLDoubleToNum64(.25));
 
         /*
          * Wait this long after a test should be complete before
          * poking the servers. It should be long enough to allow
          * the servers to declare the session complete before the
          * client does.
-         * (Again 2 seconds is just a guess - I'm making a lot of
+         * (Again 1 seconds is just a guess - I'm making a lot of
          * guesses due to time constrants. If these values cause
          * problems they can be revisited.)
          */
-        fuzz64 = BWLNum64Add(BWLULongToNum64(2),
+        fuzz64 = BWLNum64Add(BWLULongToNum64(1),
                 BWLNum64Max(first.rttbound,second.rttbound));
 
         /*
@@ -2271,8 +2277,7 @@ AGAIN:
                          * and proceed to next session
                          * interval.
                          */
-                        I2ErrLog(eh,
-                                "SessionRequest: %s busy. (Try -L flag)",
+                        I2ErrLog(eh,"SessionRequest: %s busy. (Try -L flag)",
                                 s[p]->host);
                     }
                     else{
@@ -2280,8 +2285,7 @@ AGAIN:
                          * Don't know why it was
                          * denied.
                          */
-                        I2ErrLog(eh,
-                                "SessionRequest: Denied by %s",
+                        I2ErrLog(eh,"SessionRequest: Denied by %s",
                                 s[p]->host);
                     }
 
@@ -2321,7 +2325,7 @@ sess_req_err:
                      */
                     CloseSessions();
                     I2ErrLog(eh,
-                            "SessionRequest Control connection failure for \'%s\'. Skipping.",
+                            "SessionRequest Control connection failure for \'%s\'. Skipping...",
                             s[p]->host);
                 }
                 goto next_test;
@@ -2561,6 +2565,9 @@ next_test:
 
 finish:
     CloseSessions();
+
+    BWLContextFree(ctx);
+    ctx = NULL;
 
     exit(exit_val);
 }

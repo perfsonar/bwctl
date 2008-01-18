@@ -66,7 +66,6 @@ struct BWLDPolicyRec{
     BWLContext	    ctx;
 
     int		    fd;	/* socket to parent. */
-    char	    *datadir;
 
     int		    *retn_on_intr;	/* If one, exit I/O on sigs */
 
@@ -282,7 +281,7 @@ typedef union BWLDPidUnion{
 *	52|                           RTT TIME                            |
 *	56|                                                               |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-*	60|           Recv Port           |           Peer Port           |
+*	60|           Recv Port           |             Unused            |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 *	64|                            Tool_id                            |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -301,7 +300,7 @@ typedef union BWLDPidUnion{
 *	08|                        Request Time                           |
 *	12|                                                               |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-*	16|           Recv Port             |          Peer Port          |
+*	16|           Recv Port             |            Unused           |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 *	20|                          BWLDMESGMARK                         |
 *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -355,7 +354,6 @@ BWLDReadReservationQuery(
         uint32_t	*duration,
         BWLNum64	*rtt_time,
         uint16_t	*toolport,
-        uint16_t	*peerport,
         BWLToolType     *tool_id,
         int		*err
         );
@@ -382,8 +380,7 @@ BWLDSendReservationResponse(
         int		*retn_on_intr,
         BWLDMesgT	mesg,
         BWLNum64	reservation,
-        uint16_t	toolport,
-        uint16_t	peerport
+        uint16_t	toolport
         );
 
 /*
@@ -456,7 +453,6 @@ BWLDCheckTestPolicy(
         BWLNum64	fuzz_time,
         BWLNum64	*reservation_ret,
         uint16_t	*tool_port_ret,
-        uint16_t	*peer_port_ret,
         void		**closure,
         BWLErrSeverity	*err_ret
         );
@@ -471,7 +467,6 @@ BWLDTestComplete(
 extern BWLDPolicy
 BWLDPolicyInstall(
         BWLContext	ctx,
-        char		*datadir,	/* root dir for datafiles	*/
         char		*confdir,	/* conf dir for policy		*/
         int		*retn_on_intr,
         char		**lbuf,

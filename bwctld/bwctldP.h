@@ -32,16 +32,11 @@
  * Types
  */
 typedef struct {
-
     I2Boolean	    help;
 
     char	    cwd[MAXPATHLEN];
     char	    *confdir;
     char	    *vardir;
-
-    char	    *datadir;
-
-    BWLPortRange    peerports;
 
     char	    *authmode;
     uint32_t	    auth_mode;	/* cooked version of authmode */
@@ -53,13 +48,8 @@ typedef struct {
 
     uint32_t	    dieby;
     uint32_t	    controltimeout;
-#ifndef	NDEBUG
-    void	    *childwait;
-#endif
     I2Boolean	    daemon;
 
-    double	    syncfuzz;
-    I2Boolean       allowUnsync;
 } bwctld_opts;
 
 #endif	/*	_BWCTLDP_H_	*/

@@ -588,7 +588,7 @@ BWLProcessTestRequest(
      *
      * TODO: Make this constant configurable somehow?
      */
-    tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLULongToNum64(1));
+    tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLDoubleToNum64(0.1));
 
     if(!_BWLCallCheckTestPolicy(cntrl,tsession,&err_ret)){
         if(err_ret < BWLErrOK)

@@ -213,6 +213,15 @@ typedef struct BWLControlRec BWLControlRec;
 #define _BWL_CONTEXT_TABLE_SIZE    64
 #define _BWL_CONTEXT_MAX_KEYLEN    64
 
+#define _BWL_CONTEXT_FLIST_SIZE 20
+
+typedef struct BWLContextFreeList BWLContextFreeList;
+struct BWLContextFreeList{
+    uint32_t            len;
+    void                *list[_BWL_CONTEXT_FLIST_SIZE];
+    BWLContextFreeList  *next;
+};
+
 struct BWLContextRec{
     BWLBoolean          valid;
     BWLBoolean          lib_eh;
@@ -225,6 +234,7 @@ struct BWLContextRec{
     uint32_t            tool_list_size;
     BWLToolRec          *tool_list;
     BWLToolAvailability tool_avail;
+    BWLContextFreeList  *flist;
 };
 
 struct BWLControlRec{
@@ -317,7 +327,6 @@ struct BWLTestSessionRec{
     BWLNum64            fuzz;
     BWLToolDefinition   tool;
     uint16_t            tool_port;
-    uint16_t            peer_port;  /* indicates 'starting' port to try */
 
     BWLBoolean          conf_sender;
     BWLBoolean          conf_receiver;

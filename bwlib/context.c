@@ -118,6 +118,25 @@ free_hash_entries(
     return True;
 }
 
+static void
+freefreelist(
+        BWLContextFreeList  *list
+        )
+{
+    uint32_t    i;
+
+    if(!list)
+        return;
+
+    freefreelist(list->next);
+
+    for(i=0;i<list->len;i++){
+        free(list->list[i]);
+    }
+    free(list);
+
+    return;
+}
 
 void
 BWLContextFree(
@@ -148,6 +167,9 @@ BWLContextFree(
         I2ErrClose(ctx->eh);
         ctx->eh = NULL;
     }
+
+    freefreelist(ctx->flist);
+    ctx->flist = NULL;
 
     free(ctx);
 
@@ -515,8 +537,7 @@ BWLContextCreate(
     char                *key;
 
     if(!ctx){
-        BWLError(eh,
-                BWLErrFATAL,ENOMEM,":calloc(1,%d): %M",sizeof(BWLContextRec));
+        I2ErrLogP(eh,ENOMEM,": calloc(1,%d): %M",sizeof(BWLContextRec));
         return NULL;
     }
 
@@ -665,6 +686,54 @@ BWLContextFindTools(
     if( _BWLToolLookForTesters(ctx) != BWLErrOK){
         return False;
     }
+
+    return True;
+}
+
+/*
+ * Function:    BWLContextRegisterMemory
+ *
+ * Description:    
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+BWLBoolean
+BWLContextRegisterMemory(
+        BWLContext  ctx,
+        void        *ptr
+        )
+{
+    BWLContextFreeList  **flptr;
+
+    assert(ptr);
+    assert(ctx);
+
+    /*
+     * fwd to the 'last' flist ptr record with room for more.
+     */
+    for(flptr = &ctx->flist;
+            *flptr && (*flptr)->len >= _BWL_CONTEXT_FLIST_SIZE;
+            flptr = &((*flptr)->next));
+
+    /*
+     * If fwd'd to a null ptr, alloc a new record.
+     */
+    if( !*flptr){
+        if( !(*flptr = calloc(1,sizeof(BWLContextFreeList)))){
+            BWLError(ctx,BWLErrWARNING,ENOMEM,
+                    "BWLContextRegisterMemory(): calloc(1,%d): %M",
+                    sizeof(BWLContextFreeList));
+            return False;
+        }
+    }
+
+    (*flptr)->list[(*flptr)->len++] = ptr;
 
     return True;
 }
@@ -958,7 +1027,7 @@ _BWLCallCheckTestPolicy(
 
     return func(cntrl,tsess->sid,tsess->conf_sender,lsaddr,rsaddr,
             lsaddrlen,&tsess->test_spec,tsess->fuzz,&tsess->reserve_time,
-            &tsess->tool_port,&tsess->peer_port,&tsess->closure,err_ret);
+            &tsess->tool_port,&tsess->closure,err_ret);
 }
 
 /*

@@ -198,10 +198,10 @@ _BWLGetTimespec(
 
     /*
      * By default, assume the clock is unsynchronized, but that it
-     * is still acurate to within 1 second (1000000 usec's).
+     * is still acurate to within .1 second (1000000 usec's).
      */
     *sync = 0;
-    maxerr = (uint32_t)1000000;
+    maxerr = (uint32_t)100000;
 
     if(gettimeofday(&tod,NULL) != 0){
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday(): %M");
@@ -238,10 +238,10 @@ _BWLGetTimespec(
              * Report the unsync state - but only at level "info".
              * This is reported at level "warning" at initialization.
              */
-            BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"NTP: Status UNSYNC!");
-            if( !(BWLContextConfigGetV(ctx,BWLAllowUnsync))){
+            BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"NTP: Status UNSYNC");
+            if( !allow_unsync){
                 BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                        "allowunsync is not set, failing.");
+                        "allow_unsync is not set, failing.");
                 return NULL;
             }
         }

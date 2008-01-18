@@ -245,7 +245,8 @@ epssock(
 
     if((portrange = (BWLPortRange)BWLContextConfigGetV(tsess->cntrl->ctx,
                     BWLPeerPortRange))){
-        BWLPortsSetI(tsess->cntrl->ctx,portrange,tsess->peer_port);
+        /* Initialize port range with 'random' value in range */
+        BWLPortsSetI(tsess->cntrl->ctx,portrange,0);
         p = port = BWLPortsNext(portrange);
     }
     else{

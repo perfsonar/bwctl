@@ -353,6 +353,11 @@ save_path(
         BWLError(ctx,BWLErrFATAL,errno,"strdup(%s): %M",val);
         return -1;
     }
+    if( !BWLContextRegisterMemory(ctx,str)){
+        BWLError(ctx,BWLErrFATAL,errno,
+                "BWLToolGenericParse: BWLContextRegisterMemor(): %M");
+        return -1;
+    }
 
     strcpy(optname,"V.");
     strncat(optname,key,sizeof(optname));
@@ -364,17 +369,29 @@ save_path(
 }
 static int
 save_ports(
-        BWLContext  ctx,
-        const char  *key,
-        const void  *val
+        BWLContext      ctx,
+        const char      *key,
+        BWLPortRangeRec *portrangerec
         )
 {
-    char        optname[BWL_MAX_TOOLNAME + 12];
+    char            optname[BWL_MAX_TOOLNAME + 12];
+    BWLPortRange    ports;
+
+    if( !(ports = calloc(sizeof(BWLPortRangeRec),1))){
+        BWLError(ctx,BWLErrFATAL,errno,
+                "BWLToolGenericParse: calloc(): %M");
+        return -1;
+    }
+    if( !BWLContextRegisterMemory(ctx,ports)){
+        BWLError(ctx,BWLErrFATAL,errno,
+                "BWLToolGenericParse: BWLContextRegisterMemor(): %M");
+        return -1;
+    }
+    *ports = *portrangerec;
 
     strcpy(optname,"V.");
     strncat(optname,key,sizeof(optname));
-
-    if(BWLContextConfigSet(ctx,optname,val)){
+    if(BWLContextConfigSet(ctx,optname,ports)){
         return 1;
     }
 
@@ -412,7 +429,6 @@ _BWLToolGenericParse(
     strncpy(&confkey[len],"_ports",sizeof(confkey)-len);
     if(!strncasecmp(key,confkey,strlen(confkey))){
         BWLPortRangeRec portrange;
-        BWLPortRange    ports;
 
         if(!BWLPortsParse(ctx,val,&portrange)){
             BWLError(ctx,BWLErrFATAL,errno,
@@ -421,14 +437,7 @@ _BWLToolGenericParse(
             return -1;
         }
 
-        if( !(ports = calloc(sizeof(BWLPortRangeRec),1))){
-            BWLError(ctx,BWLErrFATAL,errno,
-                    "BWLToolGenericParse: calloc(): %M");
-            return -1;
-        }
-        *ports = portrange;
-
-        return save_ports(ctx,key,ports);
+        return save_ports(ctx,key,&portrange);
     }
 
     /* key not handled */
