@@ -208,6 +208,13 @@ _BWLGetTimespec(
         return NULL;
     }
 
+    if(sign_timeoffset > 0){
+        tvaladd(&tod,&timeoffset);
+    }
+    else if(sign_timeoffset < 0){
+        tvalsub(&tod,&timeoffset);
+    }
+
     /* assign localtime */
     ts->tv_sec = tod.tv_sec;
     ts->tv_nsec = tod.tv_usec * 1000;	/* convert to nsecs */
@@ -336,6 +343,8 @@ BWLGetTimeStamp(
 
     if(!_BWLGetTimespec(ctx,&ts,&errest,&sync))
         return NULL;
+
+    tstamp->sync = sync;
 
     /* type conversion */
     return BWLTimespecToTimeStamp(tstamp,&ts,&errest,NULL);
