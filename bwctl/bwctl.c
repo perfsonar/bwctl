@@ -2449,17 +2449,23 @@ sess_req_err:
                 goto finish;
             }
             if(stop || (BWLNum64Cmp(currtime.tstamp,endtime) > 0)){
+                BWLAcceptType   atype;
+
                 /*
                  * Send TerminateSession
                  */
                 if(recvfp == stdout){
                     fprintf(stdout,"\nRECEIVER START\n");
                 }
+                atype = BWL_CNTRL_ACCEPT;
                 if( (err_ret =BWLEndSession(s[0]->cntrl,
-                                &ip_intr,recvfp))
+                                &ip_intr,&atype,recvfp))
                         < BWLErrWARNING){
                     CloseSessions();
                     goto next_test;
+                }
+                if(atype != BWL_CNTRL_ACCEPT){
+                    fprintf(recvfp,"bwctl: Session ended abnormally\n");
                 }
                 if(recvfp == stdout){
                     fprintf(stdout,"\nRECEIVER END\n");
@@ -2480,11 +2486,15 @@ sess_req_err:
                 if(sendfp == stdout){
                     fprintf(stdout,"\nSENDER START\n");
                 }
+                atype = BWL_CNTRL_ACCEPT;
                 if( (err_ret = BWLEndSession(s[1]->cntrl,
-                                &ip_intr,sendfp))
+                                &ip_intr,&atype,sendfp))
                         < BWLErrWARNING){
                     CloseSessions();
                     goto next_test;
+                }
+                if(atype != BWL_CNTRL_ACCEPT){
+                    fprintf(sendfp,"bwctl: Session ended abnormally\n");
                 }
                 if(sendfp == stdout){
                     fprintf(stdout,"\nSENDER END\n");

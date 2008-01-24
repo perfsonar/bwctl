@@ -1000,6 +1000,7 @@ BWLStartSession(
 BWLErrSeverity
 BWLEndSession(
         BWLControl      cntrl,
+        int	        *retn_on_intr,
         BWLAcceptType	*acceptval,
         FILE		*fp
         )
@@ -1013,6 +1014,9 @@ BWLEndSession(
 
     if(acceptval)
         aptr = acceptval;
+
+    if(retn_on_intr)
+        intr = retn_on_intr;
 
     if( (rc = _BWLWriteStopSession(cntrl,intr,*aptr,NULL)) < BWLErrOK){
         *aptr = BWL_CNTRL_FAILURE;

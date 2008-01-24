@@ -936,9 +936,10 @@ BWLStopSession(
  */
 extern BWLErrSeverity
 BWLEndSession(
-        BWLControl  cntrl,
-        int         *retn_on_intr,
-        FILE        *fp
+        BWLControl      cntrl,
+        int             *retn_on_intr,
+        BWLAcceptType   *acceptval,
+        FILE            *fp
         );
 
 /*
