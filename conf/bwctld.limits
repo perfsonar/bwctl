@@ -40,6 +40,7 @@
 #	allow_open_mode
 #	allow_tcp
 #	allow_udp
+#       max_time_error
 #
 
 # setup the root node with max bandwidth as open as possible.
@@ -49,7 +50,8 @@ limit root with \
 	duration=30, \
 	allow_udp=on, \
 	allow_tcp=on, \
-	allow_open_mode=off
+	allow_open_mode=off, \
+        max_time_error=7
 
 # minimal everything
 # send hackers and bad nets here

@@ -549,7 +549,7 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
  * This value is used to increase the tolerance of bwctld to deal
  * with incorrectly configured ntpd processes. Specified as a (*double).
  */
-#define BWLSyncFuzz    "F.BWLSyncFuzz"
+#define BWLSyncFuzz    "DBL.BWLSyncFuzz"
 
 /*
  * This value is used to indicate if NTP synchronization is required
@@ -649,6 +649,13 @@ BWLContextConfigGetU64(
         );
 
 extern BWLBoolean
+BWLContextConfigGetDbl(
+        BWLContext  ctx,
+        const char  *key,
+        double      *dbl
+        );
+
+extern BWLBoolean
 BWLContextConfigDelete(
         BWLContext    ctx,
         const char    *key
@@ -690,6 +697,13 @@ BWLControlConfigGetU64(
         BWLControl    cntrl,
         const char  *key,
         uint64_t    *u64
+        );
+
+extern BWLBoolean
+BWLControlConfigGetDbl(
+        BWLControl  cntrl,
+        const char  *key,
+        double      *dbl
         );
 
 extern BWLBoolean
@@ -1124,6 +1138,16 @@ BWLToolInitTest(
         BWLContext  ctx,
         BWLToolType tool_id,
         uint16_t    *toolport
+        );
+
+/*
+ * daemon.c functions for PeerAgent daemon (client or server invoked)
+ */
+extern int
+BWLDaemonParseArg(
+        BWLContext  ctx,
+        const char  *key,
+        char        *val
         );
 
 /*

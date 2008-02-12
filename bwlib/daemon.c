@@ -28,11 +28,6 @@
 #include <bwlib/bwlib.h>
 #include "bwlibP.h"
 
-/*
- * XXX:
- * replace I2ErrLog with BWLError stuff
- * return -1,0,1 based on failure, unknown, good instead of updating rc.
- */
 int
 BWLDaemonParseArg(
         BWLContext  ctx,

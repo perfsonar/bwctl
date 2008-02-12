@@ -324,17 +324,14 @@ ChldReservationDemand(
      * The algorithm being used to determine the "earliest time
      * the daemon" is willing to have a test is:
      *
-     *    2 X (rtt(client) + fuzztime(otherserver))
+     *    2 X rtt(client) + fuzztime(otherserver)
      *
      * The actual message time is:
      *    server            client
      *    request response ->
      *            <-    start sessions
      *    start response    ->
-     *    (This is only 1.5 rtt, but it is potentially 2 rtt's to the
-     *    other server for a request/response and a start/response
-     *     and that is the value "fuzztime" represents. So, a possible
-     *    extra delay of .5 rtt is acceptible.)
+     *    (This is only 1.5 rtt, but rouding up to 2 rtt seems prudent)
      *
      * The reservation is defined by the following vars:
      * res->restime == time of reservation
@@ -344,18 +341,15 @@ ChldReservationDemand(
      * allocated to this test.
      */
     res->start = BWLNum64Sub(rtime,ftime);
-#if    NOT
-    I2ErrLog(errhand,"ResReq: %24.10f, Fuzz: %24.10f",
+    I2ErrLogT(errhand,LOG_DEBUG,0,"ResReq: %24.10f, Fuzz: %24.10f",
             BWLNum64ToDouble(rtime),
             BWLNum64ToDouble(ftime));
-    I2ErrLog(errhand,"Current: %24.10f, Start: %24.10f",
+    I2ErrLogT(errhand,LOG_DEBUG,0,"Current: %24.10f, Start: %24.10f",
             BWLNum64ToDouble(currtime.tstamp),
             BWLNum64ToDouble(res->start));
-#endif
     minstart =BWLNum64Add(currtime.tstamp,
-            BWLNum64Mult(
-                BWLNum64Add(rtttime,ftime),
-                BWLULongToNum64(2)));
+            BWLNum64Add(ftime,
+                BWLNum64Mult(rtttime,BWLULongToNum64(2))));
     /*
      * If the start time is less than the minimum start time, then
      * reset the start time to one second past the minimum start time.
@@ -368,11 +362,9 @@ ChldReservationDemand(
     }
     res->restime = BWLNum64Add(res->start,ftime);
 
-#if    NOT
-    I2ErrLog(errhand,"ResCompute: %24.10f, NewStart: %24.10f",
+    I2ErrLogT(errhand,LOG_DEBUG,0,"ResCompute: %24.10f, NewStart: %24.10f",
             BWLNum64ToDouble(res->restime),
             BWLNum64ToDouble(res->start));
-#endif
     dtime = BWLNum64Add(BWLULongToNum64(duration),ftime);
     res->end = BWLNum64Add(res->restime,dtime);
     res->fuzz = ftime;
@@ -425,14 +417,13 @@ ChldReservationDemand(
          * Adjust res->start,res->restime,res->end to be just past
          * the current reservation.
          */
+
         /*
-         * new start is the expected endtime + Max of the two
-         * fuzz factors.
+         * new start is the expected endtime of the previous res (plus
+         * that res's fuzz)
          */
-        res->start = BWLNum64Add(tres->restime,
-                BWLULongToNum64(tres->duration));
-        res->start = BWLNum64Add(res->start,
-                BWLNum64Max(res->fuzz,tres->fuzz));
+        res->start = BWLNum64Add(tres->restime,BWLULongToNum64(tres->duration));
+        res->start = BWLNum64Add(res->start,tres->fuzz);
 
         res->restime = BWLNum64Add(res->start,res->fuzz);
         res->end = BWLNum64Add(res->restime,dtime);
@@ -992,7 +983,7 @@ ACCEPT:
 
             /*
              * reset signal vars
-             * TODO: If there is a pending reservation,
+             * XXX: If there is a pending reservation,
              * timer should be reduced to:
              *     MIN(time-util-start,reserve-timeout)
              */
@@ -1065,7 +1056,7 @@ ACCEPT:
                      * timer and trade StopSession messages
                      */
                     ipfd_intr = 0;
-                    itval.it_value.tv_sec = opts.controltimeout;
+                    itval.it_value.tv_sec = opts.dieby;
                     if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
                         I2ErrLog(errhand,"setitimer(): %M");
                         goto done;

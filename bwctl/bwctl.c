@@ -2168,13 +2168,13 @@ AGAIN:
          * server two server rtt can be estimated as the sum of
          * the client->first and client->second rtts. So, we would
          * expect the amount of time required to setup a test to
-         * be (rtt(c->first)+rtt(c->second))x5.
+         * be (rtt(c->first)+rtt(c->second))x7.
          *
          */
         /* initialize */
         req_time.tstamp = BWLNum64Mult(
                 BWLNum64Add(first.rttbound,second.rttbound),
-                BWLULongToNum64(5));
+                BWLULongToNum64(7));
         /*
          * Add a small constant value to this... Will need to experiment
          * to find the right number. All the previous values were
@@ -2231,10 +2231,14 @@ AGAIN:
         s[1]->tspec.req_time.tstamp = zero64;
         memset(sid,0,sizeof(sid));
         recv_port = 0;
-#if    NOT
-        I2ErrLog(eh,"ReqInitial: %24.10f",BWLNum64ToDouble(req_time.tstamp));
-        I2ErrLog(eh,"LastTime: %24.10f",BWLNum64ToDouble(s[0]->tspec.latest_time));
-#endif
+        if(app.opt.verbose > 1){
+            I2ErrLog(eh,"CurrTime: %24.10f",
+                    BWLNum64ToDouble(currtime.tstamp));
+            I2ErrLog(eh,"ReqInitial: %24.10f",
+                    BWLNum64ToDouble(req_time.tstamp));
+            I2ErrLog(eh,"LastTime: %24.10f",
+                    BWLNum64ToDouble(s[0]->tspec.latest_time));
+        }
 
         p=0;q=0;
         while(1){
@@ -2334,10 +2338,11 @@ sess_req_err:
                 exit_val = 1;
                 goto finish;
             }
-#if    NOT
-            I2ErrLog(eh,"Res(%s): %24.10f",s[p]->host,BWLNum64ToDouble(req_time.tstamp));
-#endif
-	    
+            if(app.opt.verbose > 1){
+                I2ErrLog(eh,"Res(%s): %24.10f",s[p]->host,
+                        BWLNum64ToDouble(req_time.tstamp));
+            }
+
             if(BWLNum64Cmp(req_time.tstamp,
                         s[p]->tspec.latest_time) > 0){
                 I2ErrLog(eh,

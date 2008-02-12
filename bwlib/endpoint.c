@@ -1017,16 +1017,24 @@ ACCEPT:
         if((t1-e1) > (tr+er)){
             BWLError(ctx,BWLErrFATAL,errno,
                     "PeerAgent: Remote clock is at least %f(secs) "
-                    "ahead of local, time error specified: %f(secs)",
+                    "ahead of local, NTP only indicates %f(secs) error, failing",
                     t1-tr,e1+er);
-            goto end;
+            fprintf(tsess->localfp,
+                    "bwctl: Remote clock is at least %f(secs) ahead of local,"
+                    " NTP only indicates %f(secs) error, failing\n",
+                    t1-tr,e1+er);
+            ipf_intr = 1;
         }
         else if((tr-er) > (t2+e2)){
             BWLError(ctx,BWLErrFATAL,errno,
                     "PeerAgent: Remote clock is at least %f(secs) "
-                    "behind local, time error specified: %f(secs)",
+                    "behind local, NTP only indicates %f(secs) error, failing",
                     tr-t2,e2+er);
-            goto end;
+            fprintf(tsess->localfp,
+                    "PeerAgent: Remote clock is at least %f(secs) behind local,"
+                    " NTP only indicates %f(secs) error, failing\n",
+                    tr-t2,e2+er);
+            ipf_intr = 1;
         }
     }
 
@@ -1080,13 +1088,32 @@ ACCEPT:
     /*
      * send a graceful kill to the child (If already dead, errno will be ESRCH)
      *
-     * XXX:possible race condition (sender side finishies first, it sends
-     * the StopSessions message, and it could be received and acted upon
-     * before the receiver iperf process finishes)
+     * There is an unlikely race condition:
+     * The sender side will finish first, it is technically possible that it
+     * will exit, and the PeerAgent watching it exit will send the StopSession
+     * message to the reciever PeerAgent. It is *possible* that the StopSession
+     * message could get to the reciver PeerAgent before the tester-tool
+     * receiver process ends.
+     *
+     * This is unlikely since it will do things like fetch the timestamp
+     * above before sending the message, and it will have to traverse the
+     * same network as the tester tool... However, it may eventually be
+     * prudent to wait 'errest' after the sender process finishes before
+     * sending the StopSession message.
      */
     if(!ipf_chld && ep->child){
+
+        /*
+         * Send the kill signal twice, iperf does not exit after receiving one
+         */
         if(kill(ep->child,SIGTERM) == 0){
+            /*
+             * Ignore any errors from the second one since some testing tools
+             * will actually die from just the first one.
+             */
+            (void)kill(ep->child,SIGTERM);
             ep->killed = True;
+
         }
         else if(errno != ESRCH){
             /* kill failed */
@@ -1164,7 +1191,7 @@ ACCEPT:
                     "PeerAgent: Local tool exited before expected with status=%d",
                     ep->exit_status);
             fprintf(tsess->localfp,
-                    "bwctl: tool exited before expected with status=%d\n",
+                    "bwctl: local tool exited before expected with status=%d\n",
                     ep->exit_status);
         }
 
@@ -1174,6 +1201,7 @@ ACCEPT:
         if(rc > 0){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                     "PeerAgent: Peer cancelled test before expected");
+            fprintf(tsess->localfp,"bwctl: remote peer cancelled test\n");
         }
 
     }

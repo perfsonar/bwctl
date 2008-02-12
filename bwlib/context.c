@@ -81,6 +81,7 @@ typedef union _BWLContextHashValue{
     uint32_t    u32;
     int32_t     i32;
     uint64_t    u64;
+    double      dbl;
 } _BWLContextHashValue;
 
 struct _BWLContextHashRecord{
@@ -346,6 +347,9 @@ ConfigSetU(
         else if( !strncmp(k,"U64.",4)){             \
             u.u64 = (int64_t)va_arg(l, uint64_t);   \
         }                                           \
+        else if( !strncmp(k,"DBL.",4)){             \
+            u.dbl = (double)va_arg(l, double);      \
+        }                                           \
         else{                                       \
             rc = False;                             \
         }                                           \
@@ -480,6 +484,29 @@ ConfigGetU64(
     }
 
     *u64 = val.u64;
+
+    return True;
+}
+
+static BWLBoolean
+ConfigGetDbl(
+        I2Table     table,
+        const char  *key,
+        double      *dbl
+        )
+{
+    _BWLContextHashValue    val;
+
+    if( strncmp(key,"DBL.",4)){
+        errno = EINVAL;
+        return False;
+    }
+
+    if( !ConfigGetU(table,key,&val)){
+        return False;
+    }
+
+    *dbl = val.dbl;
 
     return True;
 }
@@ -817,6 +844,18 @@ BWLContextConfigGetU64(
 }
 
 BWLBoolean
+BWLContextConfigGetDbl(
+        BWLContext  ctx,
+        const char  *key,
+        double      *dbl
+        )
+{
+    assert(ctx);
+
+    return ConfigGetDbl(ctx->table,key,dbl);
+}
+
+BWLBoolean
 BWLContextConfigDelete(
         BWLContext  ctx,
         const char  *key
@@ -903,6 +942,18 @@ BWLControlConfigGetU64(
     assert(cntrl);
 
     return ConfigGetU64(cntrl->table,key,u64);
+}
+
+BWLBoolean
+BWLControlConfigGetDbl(
+        BWLControl  cntrl,
+        const char  *key,
+        double      *dbl
+        )
+{
+    assert(cntrl);
+
+    return ConfigGetDbl(cntrl->table,key,dbl);
 }
 
 BWLBoolean

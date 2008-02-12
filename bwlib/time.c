@@ -191,10 +191,10 @@ _BWLGetTimespec(
         int		*sync
         )
 {
-    struct timeval  tod;
-    static long	    syncfuzz = 0;
-    static double   *dbptr = NULL;
-    uint32_t        maxerr;
+    struct timeval      tod;
+    static BWLBoolean   check_fuzz=False;
+    static long	        syncfuzz = 0;
+    uint32_t            maxerr;
 
     /*
      * By default, assume the clock is unsynchronized, but that it
@@ -300,16 +300,17 @@ _BWLGetTimespec(
      * See if SyncFuzz was set.
      * Used to increase tolerance for incomplete NTP configs.
      */
-    if(!dbptr){
-        dbptr = (double*)BWLContextConfigGetV(ctx,BWLSyncFuzz);
-        if(dbptr){
+    if(!check_fuzz){
+        double  tdbl;
+
+        if(BWLContextConfigGetDbl(ctx,BWLSyncFuzz,&tdbl)){
             /*
              * BWLSyncFuzz is specified as a double (sec)
              * ntp errors are long (usec) convert.
              */
-            syncfuzz = *dbptr * 1000000;
+            syncfuzz = tdbl * 1000000;
         }
-        dbptr = (void*)1; /* not a valid pointer - just non-null */
+        check_fuzz=True;
     }
 
     /*
