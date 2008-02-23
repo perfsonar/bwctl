@@ -222,8 +222,10 @@ _BWLClientConnect(
         )
 {
     int		rc;
-    struct addrinfo	*fai;
-    struct addrinfo	*ai;
+    struct      addrinfo	*fai;
+    struct      addrinfo	*ai;
+    char        buf[NI_MAXHOST+NI_MAXSERV+3];
+    size_t      buflen = sizeof(buf);
 
     if(!server_addr)
         goto error;
@@ -259,7 +261,8 @@ _BWLClientConnect(
         memcpy(&srec,ai->ai_addr,sizeof(srec));
         if(IN6_IS_ADDR_LOOPBACK(&srec.sin6_addr)){
             BWLError(cntrl->ctx,BWLErrWARNING,errno,
-                    "Loopback is probably not a valid test address (can't schedule both a receiver and a sender at one time)");
+                    "Server(%s): Loopback is probably not a valid test address",
+                    I2AddrNodeServName(server_addr,buf,&buflen));
         }
 
         if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
@@ -282,7 +285,8 @@ _BWLClientConnect(
         memcpy(&saddr4,ai->ai_addr,sizeof(saddr4));
         if(saddr4.sin_addr.s_addr == INADDR_LOOPBACK){
             BWLError(cntrl->ctx,BWLErrWARNING,errno,
-                    "Loopback is probably not a valid test address (can't schedule both a receiver and a sender at one time)");
+                    "Server(%s): Loopback is probably not a valid test address",
+                    I2AddrNodeServName(server_addr,buf,&buflen));
         }
 
         if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
