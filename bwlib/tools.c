@@ -326,7 +326,7 @@ _BWLToolRunTest(
  *      This function will handle:
  *      ${TOOL}_cmd
  *      ${TOOL}_server_cmd
- *      ${TOOL}_ports
+ *      ${TOOL}_port
  *
  *      These are common to most tools - so providing a common implementation
  *      is reasonable.
@@ -426,7 +426,7 @@ _BWLToolGenericParse(
         return save_path(ctx,key,val);
     }
 
-    strncpy(&confkey[len],"_ports",sizeof(confkey)-len);
+    strncpy(&confkey[len],"_port",sizeof(confkey)-len);
     if(!strncasecmp(key,confkey,strlen(confkey))){
         BWLPortRangeRec portrange;
 

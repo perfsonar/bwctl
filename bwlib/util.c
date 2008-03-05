@@ -124,10 +124,6 @@ BWLPortsParse(
 
     switch(*endptr){
         case '\0':
-            /* only allow a single value if it is 0 */
-            if(prange->low){
-                goto failed;
-            }
             prange->high = prange->low;
             goto done;
             break;
@@ -169,6 +165,10 @@ BWLPortsNext(
     uint16_t    i;
 
     assert(prange);
+
+    if( !BWLPortsRange(prange)){
+        return prange->i;
+    }
 
     /* save i to return */
     i = prange->i;

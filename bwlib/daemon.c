@@ -28,6 +28,21 @@
 #include <bwlib/bwlib.h>
 #include "bwlibP.h"
 
+/*
+ * Function:    BWLDaemonParseArg
+ *
+ * Description:    
+ *              parse options common between client/server for providing
+ *              'tester' functionality.
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    0 if opt not found, neg if error, pos if success
+ * Side Effect:    
+ */
 int
 BWLDaemonParseArg(
         BWLContext  ctx,

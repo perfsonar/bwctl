@@ -35,6 +35,7 @@
 #include <math.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <pwd.h>
 
 #include <bwlib/bwlib.h>
 
@@ -1215,6 +1216,110 @@ done:
     _exit(1);
 }
 
+#define BWCTL_DEFAULT_RCNAME    ".bwctlrc"
+
+static BWLBoolean
+LoadConfig(
+        BWLContext  ctx
+        )
+{
+    FILE    *conf;
+    char    conf_filebuf[MAXPATHLEN+1];
+    char    *conf_file;
+    char    keybuf[MAXPATHLEN],valbuf[MAXPATHLEN];
+    char    *key = keybuf;
+    char    *val = valbuf;
+    int     rc;
+    int     dc;
+    char    *lbuf=NULL;
+    size_t  lbuf_max=0;
+
+    if( !(conf_file = getenv("BWCTLRC"))){
+        char    *home;
+
+        if( !(home = getenv("HOME"))){
+            struct passwd   *pw;
+
+            if( !(pw = getpwuid(getuid()))){
+                BWLError(ctx,BWLErrFATAL,errno,"LoadConfig: getpwuid(): %M");
+                return False;
+            }
+
+            home = pw->pw_dir;
+        }
+
+        rc = strlen(home) + strlen(BWL_PATH_SEPARATOR) +
+            strlen(BWCTL_DEFAULT_RCNAME);
+
+        if(rc > MAXPATHLEN){
+            BWLError(ctx,BWLErrFATAL,errno,"strlen(BWCTLRC) > MAXPATHLEN");
+            return False;
+        }
+
+        conf_file = conf_filebuf;
+        strcpy(conf_file,home);
+        strcat(conf_file,BWL_PATH_SEPARATOR);
+        strcat(conf_file,BWCTL_DEFAULT_RCNAME);
+    }
+
+    if( !(conf = fopen(conf_file, "r"))){
+        /*
+         * XXX:
+         * No local config - just go with the defaults
+         * Set something in the ctx so this can be seen later?
+         * Perhaps better to set something if it is opened - to indicate
+         * what rc files is used...
+         *
+         */
+        /* no conf file, success */
+        return True;
+    }
+
+    /*
+     * XXX: here here here here
+     * Now parse the file
+     */
+    rc=0;
+    while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,&lbuf,&lbuf_max)) >0){
+
+        /*
+         * Add any client specific conf vars first
+         * (none yet, but could provide defaults for command-line opts...)
+         */
+
+        /*
+         * Now, daemon functionality
+         */
+        if( (dc = BWLDaemonParseArg(ctx,key,val))){
+            if(dc < 0){
+                rc = -rc;
+                break;
+            }
+        }
+        else{
+            BWLError(ctx,BWLErrFATAL,BWLErrINVALID,"Unknown key=%s",key);
+            rc = -rc;
+            break;
+        }
+    }
+
+    /*
+     * Done with line buffer.
+     */
+    if(lbuf){
+        free(lbuf);
+    }
+    lbuf = NULL;
+    lbuf_max = 0;
+
+    if(rc < 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"%s:%d Problem parsing config file",conf_file,-rc);
+        return False;
+    }
+
+    return True;
+}
+
 int
 main(
         int    argc,
@@ -1363,6 +1468,15 @@ main(
                     BWLGetAESKey,   getclientkey,
                     NULL))){
         I2ErrLog(eh, "Unable to initialize BWL library.");
+        exit(1);
+    }
+
+    /*
+     * Currently mostly for daemon config options, but allowing this to
+     * set defaults for the client could be nice.
+     */
+    if( !LoadConfig(ctx)){
+        I2ErrLog(eh, "Unable to initialize configuration.");
         exit(1);
     }
 

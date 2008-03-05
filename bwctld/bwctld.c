@@ -1256,8 +1256,7 @@ LoadConfig(
     }
 
     /*
-     * XXX: Determine which conf file things should be in 'DaemonParseArg',
-     * and what should stay here.
+     * Parse conf file
      */
     rc=0;
     while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max)) > 0){
