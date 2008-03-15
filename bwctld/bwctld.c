@@ -891,7 +891,7 @@ ACCEPT:
 
 #ifndef    NDEBUG
         void                *childwait = BWLContextConfigGetV(policy->ctx,
-                BWLChildWait);
+                                                                BWLChildWait);
 
         if(childwait){
             BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
@@ -900,16 +900,14 @@ ACCEPT:
             while(childwait);
 
             /*
-             * reset BWLChildWait if you want to attach
-             * to Endpoint tool children:
-             * (by resetting childwait back to non-zero before the next line)
+             * Set childwait back to non-zero in debugger before
+             * executing the next line to make sub children 'wait'
+             * as well.
              */
-            if(childwait &&
-                    !BWLContextConfigSet(policy->ctx,BWLChildWait,
+            if( !BWLContextConfigSet(policy->ctx,BWLChildWait,
                         (void*)childwait)){
-                BWLError(policy->ctx,BWLErrWARNING,
-                        BWLErrUNKNOWN,
-                        "BWLContextConfigSet(): Unable to set BWLChildWait?!");
+                BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "BWLContextConfigSet(ChildWait): %M");
             }
         }
 #endif
@@ -1638,6 +1636,13 @@ main(int argc, char *argv[])
         I2ErrLog(errhand, "PolicyInit failed. Exiting...");
         exit(1);
     };
+
+    if(getenv("BWCTL_DEBUG_CHILDWAIT")){
+        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+            I2ErrLog(errhand,"BWLContextconfigSet(ChildWait): %M");
+            exit(1);
+        }
+    }
 
     if( !BWLContextFinalize(ctx)){
         I2ErrLog(errhand, "BWLContextFinalize failed.");

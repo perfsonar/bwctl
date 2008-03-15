@@ -243,6 +243,7 @@ BWLControlAccept(
     char            localnode[NI_MAXHOST],localserv[NI_MAXSERV];
     size_t          localnodelen = sizeof(localnode);
     size_t          localservlen = sizeof(localserv);
+    uint32_t        access_prio = _BWL_DEFAULT_ACCESSPRIO;
 
     *err_ret = BWLErrFATAL;
 
@@ -260,6 +261,7 @@ BWLControlAccept(
         return NULL;
     }
 
+    (void)BWLContextConfigGetU32(ctx,BWLAccessPriority,&access_prio);
 
     if(connfd < 0)
         return NULL;
@@ -330,7 +332,7 @@ BWLControlAccept(
         goto error;
     }
 
-    BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
+    BWLError(ctx,access_prio,BWLErrPOLICY,
             "Connection to (%s:%s) from (%s:%s)",
             localnode,localserv,remotenode,remoteserv);
 
@@ -356,7 +358,7 @@ BWLControlAccept(
      * server greeting. (Nice way of saying goodbye.)
      */
     if(!mode_offered){
-        BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
+        BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                 "Control request to (%s:%s) denied from (%s:%s): mode == 0",
                 localnode,localserv,remotenode,remoteserv);
         goto error;
@@ -383,7 +385,7 @@ BWLControlAccept(
     }
 
     if(!(cntrl->mode | mode_offered)){ /* can't provide requested mode */
-        BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
+        BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                 "Control request to (%s:%s) denied from (%s:%s): mode not offered (%u)",
                 localnode,localserv,remotenode,remoteserv,cntrl->mode);
         if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr)) <
@@ -423,12 +425,12 @@ BWLControlAccept(
         /* Decrypted challenge is in the first 16 bytes */
         if((memcmp(challenge,token,16) != 0) || !getkey_success){
             if(!getkey_success){
-                BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
+                BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                         "Unknown userid (%s)",
                         cntrl->userid_buffer);
             }
             else{
-                BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
+                BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                         "Control request to (%s:%s) denied from (%s:%s):Invalid challenge encryption",
                         localnode,localserv,remotenode,remoteserv);
             }
@@ -452,7 +454,7 @@ BWLControlAccept(
                 I2AddrSAddr(cntrl->local_addr,NULL),
                 I2AddrSAddr(cntrl->remote_addr,NULL),err_ret)){
         if(*err_ret > BWLErrWARNING){
-            BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
+            BWLError(ctx,access_prio,BWLErrPOLICY,
                     "ControlSession request to (%s:%s) denied from userid(%s):(%s:%s)",
                     localnode,localserv,
                     (cntrl->userid)?cntrl->userid:"nil",
@@ -478,7 +480,7 @@ BWLControlAccept(
         *err_ret = (BWLErrSeverity)rc;
         goto error;
     }
-    BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
+    BWLError(ctx,access_prio,BWLErrPOLICY,
             "ControlSession([%s]:%s) accepted from userid(%s):([%s]:%s)",
             localnode,localserv,
             (cntrl->userid)?cntrl->userid:"nil",
@@ -503,10 +505,13 @@ BWLProcessTestRequest(
     BWLAcceptType   acceptval = BWL_CNTRL_FAILURE;
     int             ival=0;
     int             *intr = &ival;
+    uint32_t        access_prio = _BWL_DEFAULT_ACCESSPRIO;
 
     if(retn_on_intr){
         intr = retn_on_intr;
     }
+
+    (void)BWLContextConfigGetU32(cntrl->ctx,BWLAccessPriority,&access_prio);
 
     /*
      * Read the TestRequest and use tsession to hold the information.
@@ -593,7 +598,7 @@ BWLProcessTestRequest(
     if(!_BWLCallCheckTestPolicy(cntrl,tsession,&err_ret)){
         if(err_ret < BWLErrOK)
             goto error;
-        BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
+        BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                 "Test not allowed");
         acceptval = BWL_CNTRL_REJECT;
         err_ret = BWLErrINFO;

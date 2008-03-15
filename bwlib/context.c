@@ -54,7 +54,7 @@ notmuch(
 }
 
 /*
- * Function:	BWLContextGetErrHandle
+ * Function:	BWLContextErrHandle
  *
  * Description:	
  * 	Returns the ErrHandle that was set for this context upon creation.
@@ -67,12 +67,63 @@ notmuch(
  * Returns:	
  * Side Effect:	
  */
-extern I2ErrHandle
+I2ErrHandle
 BWLContextErrHandle(
         BWLContext	ctx
         )
 {
     return ctx->eh;
+}
+
+/*
+ * Function:    BWLContextSetErrMask
+ *
+ * Description:    
+ *              Used to specify the least severe error level that should 
+ *              be printed. To get all errors printed, specify BWLErrOK.
+ *              (a level of BWLErrOK specifically means don't print, so
+ *              these are NEVER printed anyway.)
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+void
+BWLContextSetErrMask(
+        BWLContext      ctx,
+        BWLErrSeverity  errmask
+        )
+{
+    ctx->errmaskprio = errmask;
+
+    return;
+}
+
+/*
+ * Function:    BWLContextErrMask
+ *
+ * Description:    
+ *              Used to retrieve the current error level that will
+ *              actually be printed.
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+BWLErrSeverity
+BWLContextErrMask(
+        BWLContext  ctx
+        )
+{
+    return ctx->errmaskprio;
 }
 
 typedef union _BWLContextHashValue{
@@ -332,6 +383,7 @@ ConfigSetU(
  */
 #define ASSIGN_UNION(u,k,l,rc) \
     do{                                             \
+        rc = True;                                  \
         if( !strncmp(k,"V.",2)){                    \
             u.value = (void *)va_arg(l, void*);     \
         }                                           \
@@ -353,7 +405,6 @@ ConfigSetU(
         else{                                       \
             rc = False;                             \
         }                                           \
-        rc = True;                                  \
     } while(0)
 
 
@@ -568,6 +619,8 @@ BWLContextCreate(
         return NULL;
     }
 
+    ctx->errmaskprio = _BWL_DEFAULT_ERRORMASK;
+
     if(!eh){
         ctx->lib_eh = True;
         ia.line_info = (I2NAME|I2MSG);
@@ -583,8 +636,6 @@ BWLContextCreate(
         ctx->lib_eh = False;
         ctx->eh = eh;
     }
-
-    ctx->access_prio = BWLErrINFO;
 
     if(!_BWLToolInitialize(ctx)){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Cannot init tools module");
@@ -695,10 +746,6 @@ BWLContextFinalize(
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "Unable to initialize clock interface.");
         return False;
-    }
-
-    if( BWLContextConfigGetU32(ctx,BWLAccessPriority,&prio)){
-        ctx->access_prio = prio;
     }
 
     ctx->valid = True;

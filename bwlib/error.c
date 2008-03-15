@@ -32,6 +32,13 @@ BWLError_(
 {
     va_list ap;
 
+    /*
+     * Don't report errors that are not at least as severe as errmaskprio
+     */
+    if(severity > ctx->errmaskprio){
+        return;
+    }
+
     va_start(ap,fmt);
 
     if(ctx && ctx->eh){

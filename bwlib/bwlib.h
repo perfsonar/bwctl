@@ -239,11 +239,11 @@ typedef struct BWLTimeStampRec{
 /* Codes for returning error severity and type. */
 /* when possible, values are mapped to syslog "priorities" we want to use. */
 typedef enum {
-    BWLErrFATAL=LOG_ERR,
-    BWLErrWARNING=LOG_WARNING,
-    BWLErrINFO=LOG_INFO,
-    BWLErrDEBUG=LOG_DEBUG,
-    BWLErrOK=I2LOG_NONE
+    BWLErrFATAL=LOG_ERR,        /* 3 */
+    BWLErrWARNING=LOG_WARNING,  /* 4 */
+    BWLErrINFO=LOG_INFO,        /* 6 */
+    BWLErrDEBUG=LOG_DEBUG,      /* 7 */
+    BWLErrOK=I2LOG_NONE         /* 8 */
 } BWLErrSeverity;
 
 typedef enum {
@@ -612,6 +612,24 @@ BWLContextFree(
 
 extern I2ErrHandle
 BWLContextErrHandle(
+        BWLContext  ctx
+        );
+
+/*
+ * Used to specify the level of error messages that should be printed/syslogged
+ * (this level and 'worse' of course.)
+ */
+extern void
+BWLContextSetErrMask(
+        BWLContext      ctx,
+        BWLErrSeverity  level
+        );
+
+/*
+ * Retrieve current error masking level
+ */
+extern BWLErrSeverity
+BWLContextErrMask(
         BWLContext  ctx
         );
 
@@ -1113,6 +1131,12 @@ BWLToolGetID(
 extern uint32_t
 BWLToolGetNumTools(
         BWLContext  ctx
+        );
+
+extern const char *
+BWLToolGetNameByID(
+        BWLContext  ctx,
+        BWLToolType id
         );
 
 extern const char *

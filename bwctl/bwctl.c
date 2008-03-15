@@ -97,7 +97,7 @@ print_test_args(
     fprintf(stderr,
             "            [Test Args]\n\n");
     fprintf(stderr,"\n"
-            "  -a offset      allow unsynchronized clock - good within offset (seconds)\n"
+            "  -a offset      allow unsync'd clock - claim good within offset (seconds)\n"
             "  -b bandwidth   bandwidth to use for UDP test (bits/sec KM) (Default: 1Mb)\n"
             "  -c recvhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 recvhost will run thrulay/nuttcp/iperf server \n"
@@ -741,29 +741,22 @@ next_start(
 }
 
 /*
- * XXX: Get tool port-range stuff in a common way for bwctld/bwctl-spawn
- */
-static uint16_t *tool_port_range = NULL;
-static uint16_t tool_port_range_len = 0;
-static uint16_t tool_port_default = 5001;
-static uint16_t tool_port_count = 0;
-
-/*
- * XXX: Common CheckTestPolicy between bwctld/bwctl possible?
+ * CheckTestPolicy for client faux-daemon. Always say yes, but do
+ * scheduling and tool initialization check.
  */
 static BWLBoolean
 CheckTestPolicy(
         BWLControl      cntrl,
         BWLSID          sid __attribute__((unused)),
-        BWLBoolean      local_sender __attribute__((unused)),
+        BWLBoolean      local_sender,
         struct sockaddr *local_sa_addr    __attribute__((unused)),
         struct sockaddr *remote_sa_addr __attribute__((unused)),
         socklen_t       sa_len    __attribute__((unused)),
         BWLTestSpec     *tspec,
         BWLNum64        fuzz_time,
         BWLNum64        *reservation_ret,
-        uint16_t       *port_ret,
-        void            **closure __attribute__((unused)),
+        uint16_t        *tool_port_ret,
+        void            **closure,
         BWLErrSeverity  *err_ret
         )
 {
@@ -771,6 +764,7 @@ CheckTestPolicy(
     BWLTimeStamp    currtime;
     BWLNum64        start;
     BWLNum64        minstart;
+    uint16_t        tool_port_loc;
 
     *err_ret = BWLErrOK;
 
@@ -789,8 +783,7 @@ CheckTestPolicy(
      * Determine earliest time test can happen. (See comments in
      * bwctl/bwctld.c:ChldReservationDemand() )
      */
-    minstart = BWLNum64Add(currtime.tstamp,
-            BWLNum64Mult(
+    minstart = BWLNum64Add(currtime.tstamp,BWLNum64Mult(
                 BWLNum64Add(BWLGetRTTBound(cntrl),fuzz_time),
                 BWLULongToNum64(2))
             );
@@ -808,9 +801,28 @@ CheckTestPolicy(
      */
     *reservation_ret = BWLNum64Add(start,fuzz_time);
 
-    if(!*port_ret){
-        *port_ret = tool_port_range[
-            tool_port_count++ % tool_port_range_len];
+    /*
+     * Initialize the tool if this is the first time CheckTest was called.
+     * (closure is kept to maintain state between calls to CheckTest,
+     * no information is needed so just set it to any non-NULL value
+     * for this logic test.)
+     */
+    if(!*closure){
+        if( BWLErrOK !=
+                (*err_ret =
+                 BWLToolInitTest(ctx,tspec->tool_id,&tool_port_loc))){
+            BWLError(ctx,*err_ret,BWLErrINVALID,
+                    "CheckTestPolicy(): Tool initialization failed");
+            return False;
+        }
+        *closure = (void *)!NULL;
+
+        /*
+         * Only update the tool port if configuring the receiver
+         */
+        if(!local_sender){
+            *tool_port_ret = tool_port_loc;
+        }
     }
 
     return True;
@@ -818,7 +830,8 @@ CheckTestPolicy(
 
 static BWLControl
 SpawnLocalServer(
-        BWLContext    ctx
+        BWLContext          ctx,
+        BWLToolAvailability *avail_tools
         )
 {
     int                 new_pipe[2];
@@ -826,104 +839,21 @@ SpawnLocalServer(
     BWLErrSeverity      err = BWLErrOK;
     uint32_t            controltimeout = 7200;
     BWLTimeStamp        currtime;
-    char                *tstr;
     struct itimerval    itval;
     BWLControl          cntrl;
     BWLRequestType      msgtype;
+    void                *childwait;
 
     /*
-     * TODO: Open a user specific ~/.bwctldrc config file for specifying
-     * how a 'local' daemon will behave. Then parse it with the conf-file
-     * parsing routine. getpwuid(getuid())...
-     * Or perhaps... getpwnam($LOGNAME)?
-     *
-     * If env($LOGNAME), then getpwnam($LOGNAME), else getpwuid(getuid()).
+     * This socket is the 'control' connection to the mock-daemon
      */
-
-    /*
-     * Set up port info for iperf/thrulay tests.
-     */
-    if(!tool_port_range){
-        if((tstr = getenv("BWCTL_IPERFPORTRANGE"))){
-            char        *hpstr;
-            char        *end=NULL;
-            uint16_t   lport,hport;
-            uint32_t   tlng;
-
-            if(!(tstr = strdup(tstr))){
-                I2ErrLog(eh,"strdup(): %M");
-                exit(1);
-            }
-
-            if( (hpstr = strchr(tstr,'-'))){
-                *hpstr++ = '\0';
-            }
-            errno = 0;
-            tlng = strtoul(tstr,&end,10);
-            if((end == tstr) || (errno == ERANGE)){
-                I2ErrLog(eh,"strtoul(%s): %M",tstr);
-                goto portdone;
-            }
-            lport = (uint16_t)tlng;
-            if(lport != tlng){
-                I2ErrLog(eh,"Low port (%d) out-of-range",tlng);
-                goto portdone;
-            }
-
-            if(hpstr){
-                errno = 0;
-                tlng = strtoul(hpstr,&end,10);
-                if((end == hpstr) || (errno == ERANGE)){
-                    I2ErrLog(eh,"strtoul(%s): %M",hpstr);
-                    goto portdone;
-                }
-                hport = (uint16_t)tlng;
-                if(hport != tlng){
-                    I2ErrLog(eh,
-                            "High port (%d) out-of-range",
-                            tlng);
-                    goto portdone;
-                }
-            }
-            else{
-                hport = lport;
-            }
-
-            if(hport < lport){
-                I2ErrLog(eh,"Invalid port range");
-                goto portdone;
-            }
-
-            tool_port_range_len = hport-lport+1;
-            if(!(tool_port_range = calloc(sizeof(uint16_t),
-                            tool_port_range_len))){
-                I2ErrLog(eh,"calloc(%d,%d): %M",
-                        sizeof(uint16_t),
-                        tool_port_range_len);
-                exit(1);
-            }
-
-            for(tlng=0;tlng<tool_port_range_len;tlng++){
-                tool_port_range[tlng] = tlng + lport;
-            }
-
-portdone:
-            if(!tool_port_range){
-                I2ErrLog(eh,
-                        "Invalid BWCTL_IPERFPORTRANGE env variable");
-                exit(1);
-            }
-        }
-        else{
-            tool_port_range = &tool_port_default;
-            tool_port_range_len = 1;
-        }
-    }
-
     if(socketpair(AF_UNIX,SOCK_STREAM,0,new_pipe) < 0){
         I2ErrLog(eh,"socketpair(): %M");
     }
 
+    /*
+     * Now spawn the child process to be the mock-daemon
+     */
     pid = fork();
 
     /* fork error */
@@ -945,7 +875,7 @@ portdone:
         }
 
         cntrl = BWLControlOpen(ctx,NULL,servaddr,
-                BWL_MODE_OPEN,NULL,NULL,NULL,&err);
+                BWL_MODE_OPEN,NULL,NULL,avail_tools,&err);
 
         if(!cntrl){
             I2ErrLog(eh,"Failed to connect to local-server: %M");
@@ -964,28 +894,6 @@ portdone:
     }
 
     /*
-     * Environment Vars that effect server:
-     *  BWCTL_CHILDWAIT             (debugging)
-     *
-     * XXX: Replace these with a ~/.bwctldrc file.
-     *
-     * Environment Vars that effect server:
-     *  BWCTL_IPERFPORTRANGE        (above)
-     *  BWCTL_IPERFCMD              IperfCmd
-     *  BWCTL_BOTTLENECKCAPACITY    BottleNeckCapacity
-     *  BWCTL_SYNCFUZZ              SyncFuzz
-     *  BWCTL_CONTROLTIMEOUT        ControlTimeout
-     *  BWCTL_PEERPORTS             PeerPorts
-     *
-     * Set them in the Context if appropriate.
-     * (Also set other Context things that are needed.)
-     *
-     * Stack values are ok - this process never leaves this
-     * function context again.
-     *
-     */
-
-    /*
      * Make access log stuff be quiet in child server if !verbose.
      */
     if(!app.opt.verbose){
@@ -993,80 +901,26 @@ portdone:
             I2ErrLog(eh,"BWLContextconfigSet(BWLAccessPriority,BWLErrOK): %M");
             _exit(1);
         }
+
+        BWLContextSetErrMask(ctx,BWLErrWARNING);
     }
 
-    if(getenv("BWCTL_CHILDWAIT")){
-        int    wait = 1;
-        I2ErrLog(eh,"BWCTL_CHILDWAIT(%d)",getpid());
-        while(wait);
-    }
-
-#if NOT
-    if((tstr = getenv("BWCTL_IPERFCMD"))){
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-        if(!BWLContextConfigSet(ctx,BWLIperfCmd,(void*)tstr)){
-            I2ErrLog(eh,"BWLContextconfigSet(IperfCmd,%s): %M",
-                    tstr);
-            _exit(1);
-        }
-    }
-
-    if((tstr = getenv("BWCTL_BOTTLENECKCAPACITY"))){
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-        if(I2StrToNum(&bottle,tstr)){
-            I2ErrLog(eh,
-                    "Ignoring invalid BWCTL_BOTTLENECKCAPACITY value: %M");
-        }
-        else if(bottle &&
-                !BWLContextConfigSet(ctx,BWLBottleNeckCapacity,(void*)&bottle)){
-            I2ErrLog(eh,
-                    "BWLContextconfigSet(BottleNeckCapacity): %M");
+    /*
+     * Wait for the debugger?
+     */
+    if( (childwait = BWLContextConfigGetV(ctx,BWLChildWait))){
+        I2ErrLog(eh,"Waiting for Debugger(%d)",getpid());
+        while(childwait);
+        /*
+         * Set childwait back to non-zero in debugger before
+         * executing the next line to make sub children 'wait'
+         * as well.
+         */
+        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)childwait)){
+            I2ErrLog(eh,"BWLContextConfigSet(ChildWait): %M");
             _exit(1);
         }
     }
-
-    if((tstr = getenv("BWCTL_CONTROLTIMEOUT"))){
-        char        *end=NULL;
-        uint32_t    tlng;
-
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-
-        errno = 0;
-        tlng = strtoul(tstr,&end,10);
-        if((end == tstr) || (errno == ERANGE)){
-            I2ErrLog(eh,"strtod(): %M");
-            I2ErrLog(eh,
-                    "Ignoring invalid BWCTL_CONTROLTIMEOUT value");
-        }
-        else{
-            controltimeout = tlng;
-        }
-    }
-
-    if((tstr = getenv("BWCTL_PEERPORTS"))){
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-        if(!BWLPortsParse(ctx,tstr,&peerports_mem)){
-            I2ErrLog(eh,"Ignoring invalid BWCTL_PEERPORTS value");
-        }
-        else if(!BWLContextConfigSet(ctx,BWLPeerPortRange,
-                    (void*)&peerports_mem)){
-            I2ErrLog(eh,"BWLContextConfigSet(PeerPortRange): %M");
-            _exit(1);
-        }
-    }
-#endif
 
     if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,CheckTestPolicy)){
         I2ErrLog(eh,"BWLContextConfigSet(\"CheckTestPolicy\")");
@@ -1107,6 +961,8 @@ portdone:
     }
 
     /*
+     * TODO?: Figure out a way to share the event-loop with bwctld
+     *
      * Process all requests - return when complete.
      */
     while(1){
@@ -1264,7 +1120,7 @@ LoadConfig(
 
     if( !(conf = fopen(conf_file, "r"))){
         /*
-         * XXX:
+         * TODO?:
          * No local config - just go with the defaults
          * Set something in the ctx so this can be seen later?
          * Perhaps better to set something if it is opened - to indicate
@@ -1276,7 +1132,6 @@ LoadConfig(
     }
 
     /*
-     * XXX: here here here here
      * Now parse the file
      */
     rc=0;
@@ -1767,22 +1622,11 @@ main(
         app.opt.timeDuration = 10; /* 10 second default */
     }
 
+    /*
+     * Possibly over-ride .bwctlrc allow_unsync and sync_fuzz options
+     * with command-line.
+     */
     syncfuzz = app.opt.allowUnsync;
-    if((syncfuzz == 0.0) && (tstr = getenv("BWCTL_SYNCFUZZ"))){
-        char    *end=NULL;
-
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-
-        errno = 0;
-        syncfuzz = strtod(tstr,&end);
-        if((end == tstr) || (errno == ERANGE)){
-            I2ErrLog(eh,"strtod(): %M");
-            I2ErrLog(eh,"Ignoring invalid BWCTL_SYNCFUZZ value");
-        }
-    }
 
     /*
      * Set configurable constants for library
@@ -1793,11 +1637,21 @@ main(
     }
 
     if((syncfuzz != 0.0) &&
-                !BWLContextConfigSet(ctx,BWLSyncFuzz,(void*)&syncfuzz)){
+                !BWLContextConfigSet(ctx,BWLSyncFuzz,syncfuzz)){
         I2ErrLog(eh,"BWLContextconfigSet(SyncFuzz): %M");
         exit(1);
     }
 
+    if(getenv("BWCTL_DEBUG_CHILDWAIT")){
+        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+            I2ErrLog(eh,"BWLContextconfigSet(ChildWait): %M");
+            exit(1);
+        }
+    }
+
+    /*
+     * Initialize logging and clock issues, now that configuration complete.
+     */
     if( !BWLContextFinalize(ctx)){
         I2ErrLog(eh,"BWLContextFinalize failed.");
         exit(1);
@@ -2133,7 +1987,8 @@ AGAIN:
                     I2ErrLog(eh,
                             "Unable to contact a local bwctld: Spawning local tool controller");
 
-                    if(!(second.cntrl = SpawnLocalServer(ctx))){
+                    if( !(second.cntrl =
+                                SpawnLocalServer(ctx,&second.avail_tools))){
                         I2ErrLog(eh,"Unable to spawn local tool controller");
                     }
                     fake_daemon = True;

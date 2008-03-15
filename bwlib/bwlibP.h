@@ -109,6 +109,8 @@
 /*
  * other useful constants.
  */
+#define _BWL_DEFAULT_ACCESSPRIO BWLErrINFO
+#define _BWL_DEFAULT_ERRORMASK  BWLErrOK
 #define _BWL_DEFAULT_TMPDIR "/tmp"
 #define _BWL_DEV_NULL       "/dev/null"
 #define _BWL_ERR_MAXSTRING  (1024)
@@ -226,7 +228,7 @@ struct BWLContextRec{
     BWLBoolean          valid;
     BWLBoolean          lib_eh;
     I2ErrHandle         eh;
-    int                 access_prio;
+    uint32_t            errmaskprio;
     I2Table             table;
     I2RandomSource      rand_src;
     char                tmpdir[PATH_MAX+1];

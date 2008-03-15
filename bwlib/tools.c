@@ -155,6 +155,23 @@ BWLToolGetNumTools(
 }
 
 const char *
+BWLToolGetNameByID(
+        BWLContext  ctx,
+        BWLToolType tool_id
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(tool_id == ctx->tool_list[i].id){
+            return ctx->tool_list[i].tool->name;
+        }
+    }
+
+    return NULL;
+}
+
+const char *
 BWLToolGetNameByIndex(
         BWLContext ctx,
         uint32_t    i
@@ -191,6 +208,14 @@ BWLToolParseArg(
     return False;
 }
 
+/*
+ * This must currently be called from the CheckTestPolicy function
+ * that is registered with the daemon. This is because the 'policy'
+ * portion of the code needs to succeed before initializing the test,
+ * but, the 'policy' portion also wants to know what toolport is
+ * actually used and I did not want to add another 'phase' to the
+ * policy checking.
+ */
 BWLErrSeverity
 BWLToolInitTest(
         BWLContext  ctx,

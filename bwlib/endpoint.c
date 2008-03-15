@@ -441,10 +441,12 @@ run_tool(
     struct timespec     ts_sleep;
     struct timespec     ts_remain;
     void                *closure;
+    char                *tname;
 
 
+    tname = BWLToolGetNameByID(ctx,tsess->test_spec.tool_id);
     BWLError(tsess->cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
-            "run_tool: tester = %lu",tsess->test_spec.tool_id);
+            "run_tool: tester = %s",((tname)?tname:"unknown"));
 
     /*
      * Open /dev/null to dup to stdin before the exec.

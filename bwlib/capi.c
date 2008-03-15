@@ -378,7 +378,10 @@ BWLControlOpen(
      * Address policy check happens in here.
      */
     if(_BWLClientConnect(cntrl,local_addr,server_addr,err_ret) != 0) {
-      BWLError(ctx,BWLErrFATAL,errno, "_BWLClientConnect() failed");
+        /*
+         * no error printing here - smart client can recover. (Spawn local...)
+         */
+        BWLError(ctx,BWLErrINFO,errno, "_BWLClientConnect() failed");
         goto error;
     }
 
