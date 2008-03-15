@@ -740,8 +740,6 @@ BWLContextFinalize(
         BWLContext  ctx
         )
 {
-    uint32_t    prio;
-
     if(_BWLInitNTP(ctx) != 0){
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "Unable to initialize clock interface.");

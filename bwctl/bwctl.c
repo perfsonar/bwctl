@@ -1631,6 +1631,13 @@ main(
     /*
      * Set configurable constants for library
      */
+    if(app.opt.verbose){
+        BWLContextSetErrMask(ctx,BWLErrOK);
+    }
+    else{
+        BWLContextSetErrMask(ctx,BWLErrINFO);
+    }
+
     if( !BWLContextConfigSet(ctx,BWLAllowUnsync,(syncfuzz != 0.0))){
         I2ErrLog(eh,"BWLContextconfigSet(AllowUnsync): %M");
         exit(1);
@@ -1838,18 +1845,18 @@ main(
     base = wake;
 
     do{
-        BWLTimeStamp    req_time;
-        BWLTimeStamp    currtime;
-        BWLNum64        endtime;
-        BWLNum64        rel;
-        uint16_t       dataport;
-        BWLBoolean      stop;
-        char            recvfname[PATH_MAX];
-        char            sendfname[PATH_MAX];
-        FILE            *recvfp = NULL;
-        FILE            *sendfp = NULL;
-        struct timespec tspec;
-	BWLToolAvailability common_tools;
+        BWLTimeStamp        req_time;
+        BWLTimeStamp        currtime;
+        BWLNum64            endtime;
+        BWLNum64            rel;
+        uint16_t            dataport;
+        BWLBoolean          stop;
+        char                recvfname[PATH_MAX];
+        char                sendfname[PATH_MAX];
+        FILE                *recvfp = NULL;
+        FILE                *sendfp = NULL;
+        struct timespec     tspec;
+	    BWLToolAvailability common_tools;
 
 AGAIN:
         if(sig_check()){
@@ -2043,30 +2050,49 @@ AGAIN:
             goto finish;
         }
 
-        /* XXX: Pick tool! */
+        /* Pick tool */
 
         /* Check if the requested tool is available at both servers. */
         common_tools = first.avail_tools & second.avail_tools;
         if (!(first.tspec.tool_id & common_tools)){
-            I2ErrLog(eh,"Requested tool (%x) not supported by both servers "
-                    "(%x %x).",
-                    first.tspec.tool_id,
-                    first.avail_tools,second.avail_tools);
-            /* Try to fall-back to iperf. */
-            /* We assume those servers that say they do not support any
-               tool are old versions and should support iperf. */
-            if((!first.avail_tools || 
-                        (first.avail_tools & BWL_TOOL_IPERF)) &&
-                    (!second.avail_tools ||
-                     (second.avail_tools & BWL_TOOL_IPERF))) {
-                I2ErrLog(eh,"Falling-back to iperf.");
-                first.tspec.tool_id = second.tspec.tool_id = BWL_TOOL_IPERF;
+            uint32_t    tid;
+            char        tname[BWL_MAX_TOOLNAME];
+            const char  *req_name = BWLToolGetNameByID(ctx,first.tspec.tool_id);
+
+            if(!req_name){
+                sprintf(tname,"unknown(id=%x)",tid);
+                req_name = tname;
             }
-            else{
-                I2ErrLog(eh,"Falling-back to iperf was not possible.");
-                exit_val = 1;
-                goto finish;
+            I2ErrLog(eh,"Requested tool \"%s\" not supported by both servers",
+                    req_name);
+
+            /*
+             * Print out 'common' tools.
+             */
+            tid = 1;
+            while(common_tools){
+
+                if(tid & common_tools){
+                    req_name = BWLToolGetNameByID(ctx,tid);
+
+                    if(!req_name){
+                        sprintf(tname,"unknown tool(id=%x)",tid);
+                        req_name = tname;
+                    }
+
+                    I2ErrLog(eh,"Available in-common: %s",req_name);
+                }
+
+                /*
+                 * remove tid from common mask, and bump tid to next bit
+                 */
+                common_tools &= ~tid;
+                tid <<= 1;
             }
+
+            exit_val = 1;
+            goto finish;
+
         }
 
         /*

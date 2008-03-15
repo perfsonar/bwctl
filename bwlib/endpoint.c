@@ -441,7 +441,7 @@ run_tool(
     struct timespec     ts_sleep;
     struct timespec     ts_remain;
     void                *closure;
-    char                *tname;
+    const char          *tname;
 
 
     tname = BWLToolGetNameByID(ctx,tsess->test_spec.tool_id);

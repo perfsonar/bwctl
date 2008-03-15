@@ -381,7 +381,7 @@ BWLControlOpen(
         /*
          * no error printing here - smart client can recover. (Spawn local...)
          */
-        BWLError(ctx,BWLErrINFO,errno, "_BWLClientConnect() failed");
+        BWLError(ctx,BWLErrDEBUG,errno, "_BWLClientConnect() failed");
         goto error;
     }
 
