@@ -223,6 +223,7 @@ BWLContextFree(
     freefreelist(ctx->flist);
     ctx->flist = NULL;
 
+    free(ctx->tool_list);
     free(ctx);
 
     return;
