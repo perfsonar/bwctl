@@ -1,0 +1,74 @@
+<tests>
+    
+    <test id="iperf_basic">
+        <client>
+            <cmd_args>-T iperf</cmd_args>
+        </client>
+	<!-- check that a transfer actually occurred -->
+        <success_regex>0.0-10.0</success_regex>
+    </test>
+
+        <test id="iperf_udp">
+            <dependencies>iperf_basic</dependencies>
+            <client>
+                <cmd_args>-T iperf -u -b 50M</cmd_args>
+            </client>
+	    <!-- ensure that the client was connecting with udp -->
+            <success_regex>Client connecting to.*UDP</success_regex>
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>0.0-10.0</success_regex>
+        </test>
+    
+        <test id="iperf_multistream">
+            <dependencies>iperf_basic</dependencies>
+            <client>
+                <cmd_args>-T iperf -P 4</cmd_args>
+            </client>
+	    <!-- verify that iperf was called to spawn 4 streams -->
+            <success_regex>exec_line.*iperf.*-P 4</success_regex>
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>0.0-10.0</success_regex>
+        </test>
+    
+        <test id="iperf_time_30">
+            <dependencies>iperf_basic</dependencies>
+            <client>
+                <cmd_args>-T iperf -t 30</cmd_args>
+            </client>
+	    <!-- check that a 30 second transfer actually occurred -->
+            <success_regex>0.0-30.0</success_regex>
+        </test>
+    
+        <test id="iperf_window">
+            <dependencies>iperf_basic</dependencies>
+            <client>
+                <cmd_args>-T iperf -w 15k</cmd_args>
+            </client>
+	    <!-- fail if the window size is the default -->
+            <failure_regex>window size.*Default</failure_regex>
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>0.0-10.0</success_regex>
+        </test>
+    
+        <test id="iperf_len">
+            <dependencies>iperf_basic</dependencies>
+            <client>
+                <cmd_args>-T iperf -l 1500</cmd_args>
+            </client>
+	    <!-- check that iperf was called with the right flag -->
+            <success_regex>exec_line.*iperf.*-l 1500</success_regex>
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>0.0-10.0</success_regex>
+        </test>
+    
+        <test id="iperf_window_advisory">
+            <dependencies>iperf_basic</dependencies>
+            <client>
+                <cmd_args>-T iperf -W 1500</cmd_args>
+            </client>
+	    <!-- fail if the window size is the default -->
+            <failure_regex>window size.*Default</failure_regex>
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>0.0-10.0</success_regex>
+        </test>
+</tests>

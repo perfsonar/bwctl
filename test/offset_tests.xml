@@ -1,0 +1,50 @@
+<tests>
+    
+    <test id="iperf_basic">
+        <client>
+            <cmd_args>-T iperf -a 5</cmd_args>
+        </client>
+	<!-- check that a transfer actually occurred -->
+        <success_regex>0.0-10.0</success_regex>
+    </test>
+
+         <test id="offset_catcher_nofuzz">
+            <dependencies>iperf_basic</dependencies>
+            <client>
+                <cmd_args>-T iperf</cmd_args>
+            </client>
+            <catcher>
+                <clock_offset>30</clock_offset>
+            </catcher>
+	    <!-- fail if a transfer actually occurred -->
+            <failure_regex>0.0-10.0</failure_regex>
+        </test>
+ 
+         <test id="offset_sender_nofuzz">
+            <dependencies>iperf_basic</dependencies>
+            <client>
+                <cmd_args>-T iperf</cmd_args>
+            </client>
+            <sender>
+                <clock_offset>30</clock_offset>
+            </sender>
+	    <!-- fail if a transfer actually occurred -->
+            <failure_regex>0.0-10.0</failure_regex>
+        </test>   
+
+         <test id="offset_offset_fuzzed">
+            <dependencies>iperf_basic</dependencies>
+            <client>
+                <cmd_args>-T iperf -a 30</cmd_args>
+            </client>
+            <sender>
+                <clock_offset>30</clock_offset>
+            </sender>
+            <catcher>
+                <clock_offset>30</clock_offset>
+            </catcher>
+	    <!-- fail if a transfer actually occurred -->
+            <success_regex>0.0-10.0</success_regex>
+        </test>   
+
+</tests>
