@@ -186,14 +186,9 @@ else
     fi
     AC_SEARCH_LIBS([thrulay_client_init],thrulay, ,AC_MSG_ERROR([Couldn't find thrulay library]))
     AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_ERROR([Couldn't find thrulay header files]), [AC_INCLUDES_DEFAULT])
+    use_sys_thrulay="true"
 fi
 do_thrulay=true
-
-#
-# Add flags to find bwctl includes/libs
-#
-LDFLAGS="-L${ac_top_srcdir}/bwlib $LDFLAGS"
-CFLAGS="-I${ac_top_srcdir} $CFLAGS"
 
 # if test -n "$with_I2util" -a "$with_I2util" != "yes" -a -d "$with_I2util"; then 
 # 	# Path given for libI2util
@@ -246,6 +241,7 @@ CFLAGS="-I${ac_top_srcdir} $CFLAGS"
 #             ])
 # fi
 
+AM_CONDITIONAL(USE_SYS_THRULAY, test x$use_sys_thrulay = xtrue)
 AM_CONDITIONAL(TOOL_THRULAY, test x$do_thrulay = xtrue)
 
 AC_ARG_ENABLE(IPERF,

@@ -21,4 +21,11 @@
 bin_PROGRAMS	= bwctld
 bwctld_SOURCES	= bwctldP.h bwctld.c policy.h policy.c 
 bwctld_CFLAGS	= -I..
-bwctld_LDADD	= -L../bwlib -lbwlib -llibthrulay -lI2util
+
+if USE_SYS_THRULAY
+BWLIBTHRULAY = -lthrulay
+else
+BWLIBTHRULAY = ../thrulay/thrulay/libthrulay.la
+endif
+
+bwctld_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) -lI2util
