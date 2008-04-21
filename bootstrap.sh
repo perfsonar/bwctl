@@ -38,6 +38,30 @@ case "$1" in
 		;;
 esac
 
+if test -x I2util/bootstrap.sh; then
+        echo
+        echo "## I2util/bootstrap"
+        echo
+        cd I2util
+        ./bootstrap.sh $*
+        cd ..
+        echo
+        echo "## Finished I2util/bootstrap"
+        echo
+fi
+
+if test -x thrulay/bootstrap.sh; then
+        echo
+        echo "## thrulay/bootstrap"
+        echo
+        cd thrulay
+        ./bootstrap.sh $*
+        cd ..
+        echo
+        echo "## Finished thrulay/bootstrap"
+        echo
+fi
+
 set -x
 libtoolize --copy --force --automake
 aclocal -I config

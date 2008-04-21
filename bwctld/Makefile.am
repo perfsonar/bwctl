@@ -18,12 +18,7 @@
 #
 #	Description:	bwctld build description
 
-# possible solution to conf dir location
-AM_CFLAGS = $(BWL_PREFIX_CFLAGS)
-
-INCLUDES	= $(BWLINCS)
-
 bin_PROGRAMS	= bwctld
 bwctld_SOURCES	= bwctldP.h bwctld.c policy.h policy.c 
-bwctld_LDADD	= $(BWLLIBS) $(MALLOCDEBUGLIBS)
-bwctld_DEPENDENCIES = $(BWLLIBDEPS)
+bwctld_CFLAGS	= -I..
+bwctld_LDADD	= -L../bwlib -lbwlib -llibthrulay -lI2util
