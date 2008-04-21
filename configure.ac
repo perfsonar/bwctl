@@ -188,9 +188,10 @@ else
         CFLAGS="-I$thrulay_dir/include $CFLAGS"
     fi
     AC_SEARCH_LIBS([thrulay_client_init],thrulay, ,AC_MSG_ERROR([Couldn't find thrulay library]))
-    AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_ERROR([Couldn't find thrulay header files]), [AC_INCLUDES_DEFAULT])
     use_sys_thrulay="true"
 fi
+
+AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_ERROR([Couldn't find thrulay header files]), [AC_INCLUDES_DEFAULT])
 do_thrulay=true
 
 # if test -n "$with_I2util" -a "$with_I2util" != "yes" -a -d "$with_I2util"; then 
