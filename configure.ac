@@ -41,8 +41,8 @@ TOP_BUILD_DIRS=""
 
 # Checks for programs.
 AC_PROG_CC
-#AC_PROG_LIBTOOL
-AC_PROG_RANLIB
+AC_PROG_LIBTOOL
+#AC_PROG_RANLIB
 AC_PROG_LN_S
 
 # possible solution to config location
