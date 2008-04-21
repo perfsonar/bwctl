@@ -245,7 +245,11 @@ do_thrulay=true
 #             ])
 # fi
 
+AC_DEFINE(USE_SYS_THRULAY, 1, [Use system installed thrulay library])
 AM_CONDITIONAL(USE_SYS_THRULAY, test x$use_sys_thrulay = xtrue)
+
+
+AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throughput tool])
 AM_CONDITIONAL(TOOL_THRULAY, test x$do_thrulay = xtrue)
 
 AC_ARG_ENABLE(IPERF,

@@ -98,7 +98,7 @@ _BWLInitNTP(
 {
     char    *toffstr=NULL;
 
-    ntpsyscall_fails = 0;
+    ntpsyscall_fails = 1;
 
     /*
      * If this system has the ntp system calls, use them. Otherwise,
@@ -114,9 +114,9 @@ _BWLInitNTP(
             BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,"ntp_adjtime(): %M");
             BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                     "NTP: BWCTL will not be able to verify synchronization on this system");
-            ntpsyscall_fails = 1;
             goto NOADJTIME;
         }
+        ntpsyscall_fails = 0;
 
         if(ntp_conf.status & STA_UNSYNC){
             BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
@@ -133,12 +133,14 @@ _BWLInitNTP(
     }
 NOADJTIME:
 #endif
-    if( (BWLContextConfigGetV(ctx,BWLAllowUnsync))){
-        allow_unsync = 1;
-    }
-    else{
-        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-                "NTP: Status UNSYNC (clock offset problems likely)");
+    if(ntpsyscall_fails){
+        if( (BWLContextConfigGetV(ctx,BWLAllowUnsync))){
+            allow_unsync = 1;
+        }
+        else{
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "NTP: Status *unknown* (ntp syscalls unavailable)");
+        }
     }
 
     if( !(toffstr = getenv("BWCTL_DEBUG_TIMEOFFSET"))){
