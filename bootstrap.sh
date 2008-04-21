@@ -63,7 +63,7 @@ if test -x thrulay/bootstrap.sh; then
 fi
 
 set -x
-libtoolize --copy --force --automake
+#libtoolize --copy --force --automake
 aclocal -I config
 autoheader
 automake --foreign --add-missing --copy
