@@ -34,6 +34,7 @@ AC_INIT(bwctl, 1.3rc1, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
 AM_INIT_AUTOMAKE(bwctl, 1.3rc1, [no-define])
 
+
 AC_CONFIG_SRCDIR(bwlib/context.c)
 AM_CONFIG_HEADER(bwlib/config.h)
 
@@ -41,9 +42,11 @@ TOP_BUILD_DIRS=""
 
 # Checks for programs.
 AC_PROG_CC
-AC_PROG_LIBTOOL
 #AC_PROG_RANLIB
 AC_PROG_LN_S
+
+AM_DISABLE_SHARED
+AC_PROG_LIBTOOL
 
 # possible solution to config location
 #BWL_PREFIX='${prefix}'
