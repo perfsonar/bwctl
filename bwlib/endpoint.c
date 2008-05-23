@@ -811,6 +811,8 @@ ACCEPT:
             }
             BWLError(ctx,BWLErrFATAL,errno,
                     "Unable to accept() endpoint cntrl: %M");
+            fprintf(tsess->localfp,
+                    "bwctl: Remote \'sender\' never initiated handshake - canceling");
             if(ipf_intr){
                 BWLError(tsess->cntrl->ctx,BWLErrFATAL,
                         BWLErrINVALID,
@@ -852,10 +854,8 @@ ACCEPT:
 
         if( (saddr = I2AddrSAddr(tsess->test_spec.sender,&saddrlen)) &&
                 (local = I2AddrBySAddr(BWLContextErrHandle(ctx),
-                                       saddr,saddrlen,
-                                       I2AddrSocktype(tsess->test_spec.sender),
-                                       I2AddrProtocol(tsess->test_spec.sender)
-                                       ))){
+                                       saddr,saddrlen,SOCK_STREAM,IPPROTO_TCP
+                                      ))){
             if(!(I2AddrSetPort(local,0))){
                 I2AddrFree(local);
                 local = NULL;
@@ -863,9 +863,7 @@ ACCEPT:
         }
         if( (saddr = I2AddrSAddr(tsess->test_spec.receiver,&saddrlen)) &&
                 (remote =I2AddrBySAddr(BWLContextErrHandle(ctx),
-                                       saddr,saddrlen,
-                                       I2AddrSocktype(tsess->test_spec.receiver),
-                                       I2AddrProtocol(tsess->test_spec.receiver)
+                                       saddr,saddrlen,SOCK_STREAM,IPPROTO_TCP
                                       ))){
             if(!(I2AddrSetPort(remote,*peerport))){
                 I2AddrFree(remote);
@@ -886,6 +884,8 @@ ACCEPT:
     if(!ep->rcntrl){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
                 "Endpoint: Unable to connect to Peer!: %M");
+        fprintf(tsess->localfp,
+                    "bwctl: Unable to initiate peer handshake - canceling");
         if(ipf_intr){
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
                     "Endpoint: Signal = %d",signo_caught);

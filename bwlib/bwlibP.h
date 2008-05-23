@@ -256,7 +256,7 @@ struct BWLControlRec{
     BWLBoolean              server;    /* this record represents server */
     int                     state;    /* current state of connection */
     BWLSessionMode          mode;
-    BWLToolNegotiationVersion tool_negotiation_version;
+    BWLProtocolVersion      protocol_version;
 
     /*
      * Very rough upper bound estimate of

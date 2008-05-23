@@ -150,8 +150,12 @@ TryAddr(
     int		fd;
 
     fd = socket(ai->ai_family,ai->ai_socktype,ai->ai_protocol);
-    if(fd < 0)
+    if(fd < 0){
+        BWLError(cntrl->ctx,BWLErrDEBUG,errno,"socket(): %M: "
+                "family=%d, socktype=%d, protocol=%d",
+                ai->ai_family,ai->ai_socktype,ai->ai_protocol);
         return 1;
+    }
 
     if(local_addr){
         if(!_BWLClientBind(cntrl,fd,local_addr,ai,&addr_ok)){
@@ -241,7 +245,8 @@ _BWLClientConnect(
     /*
      * Initialize addrinfo portion of server_addr record.
      */
-    if(!(fai = I2AddrAddrInfo(server_addr,NULL,BWL_CONTROL_SERVICE_NAME))){
+    if(!(fai = I2AddrAddrInfo(server_addr,"localhost",
+                    BWL_CONTROL_SERVICE_NAME))){
         goto error;
     }
 

@@ -1904,7 +1904,7 @@ main(int argc, char *argv[])
      * If the local interface was specified, use it - otherwise use NULL
      * for wildcard.
      */
-    if(opts.srcnode && !(listenaddr = I2AddrByNode(ctx,opts.srcnode))){
+    if(opts.srcnode && !(listenaddr = I2AddrByNode(errhand,opts.srcnode))){
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "Invalid source address specified: %s",opts.srcnode);
         exit(1);

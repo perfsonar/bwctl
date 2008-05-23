@@ -62,6 +62,11 @@ limit jail with parent=root, \
 	allow_tcp=off, \
 	allow_open_mode=off
 
+# allow anything - including unauthenticated.
+# send local clients here
+limit local with parent=root, \
+	allow_open_mode=on
+
 # wide open everything - unspecified values default
 # to parent permissions
 # Turn off UDP testing for Knoppix distribution.
@@ -81,3 +86,8 @@ assign default regular
 # prohibited 
 # see RFC 1918 for a descripton of private address blocks
 assign net 172.16.10.0/24 jail
+
+# localhost (and any other hosts you completely trust)
+# (might as well trust localhost, the user could run iperf directly...)
+assign net 127.0.0.1/32 local
+assign net ::1/128  local

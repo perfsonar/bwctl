@@ -2063,8 +2063,14 @@ AGAIN:
                 sprintf(tname,"unknown(id=%x)",tid);
                 req_name = tname;
             }
-            I2ErrLog(eh,"Requested tool \"%s\" not supported by both servers",
-                    req_name);
+            I2ErrLog(eh,"Requested tool \"%s\" not supported by both servers. "
+                    "See the \'-T\' option", req_name);
+
+            if(!common_tools){
+                I2ErrLog(eh,"No tools in common");
+                exit_val = 1;
+                goto finish;
+            }
 
             /*
              * Print out 'common' tools.

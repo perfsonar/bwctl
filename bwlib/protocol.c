@@ -52,7 +52,7 @@
  *	04|                      Unused (12 octets)                       |
  *	08|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	12|                            Modes                              |
+ *	12|  PROTO-VERS   |            Modes                              |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	16|                                                               |
  *	20|                     Challenge (16 octets)                     |
@@ -60,8 +60,7 @@
  *	28|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
- *        Note: The last byte of 'Modes' is set to 
- *        BWL_MODE_TESTER_NEGOTIATION_VERSION.
+ *  PROTO-VERS of '1' implies tool negotiation
  */
 BWLErrSeverity
 _BWLWriteServerGreeting(
@@ -90,7 +89,7 @@ _BWLWriteServerGreeting(
     memset(buf,0,12);
 
     *((uint32_t *)&buf[12]) = htonl(avail_modes | 
-            BWL_MODE_TESTER_NEGOTIATION_VERSION);
+            BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION);
     memcpy(&buf[16],challenge,16);
     if(I2Writeni(cntrl->sockfd,buf,32,retn_on_err) != 32){
         return BWLErrFATAL;
@@ -133,9 +132,9 @@ _BWLReadServerGreeting(
      * Get tool negotiation byte and clear it for subsequent
      * operations on the mode field.
      */
-    cntrl->tool_negotiation_version = 
-        *mode & BWL_MODE_TESTER_NEGOTIATION_MASK;
-    *mode &= ~BWL_MODE_TESTER_NEGOTIATION_MASK;
+    cntrl->protocol_version = 
+        *mode & BWL_MODE_PROTOCOL_VERSION_MASK;
+    *mode &= ~BWL_MODE_PROTOCOL_VERSION_MASK;
 
     memcpy(challenge,&buf[16],16);
 
@@ -176,9 +175,9 @@ _BWLReadServerGreeting(
  *	64|                                                               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
- *        Note: The last byte of 'Mode' is set to 
- *        cntrl->tool_negotiation_version, which is the
- *        BWL_MODE_TESTER_NEGOTIATION_VERSION from the server.
+ *        Note: The high-order byte of 'Mode' is set to the protocol version
+ *        cntrl->protocol_version, which is (currently)
+ *        BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION from the server.
  */
 BWLErrSeverity
 _BWLWriteClientGreeting(
@@ -200,8 +199,7 @@ _BWLWriteClientGreeting(
         return BWLErrFATAL;
     }
 
-    *(uint32_t *)&buf[0] = htonl(cntrl->mode | 
-            cntrl->tool_negotiation_version);
+    *(uint32_t *)&buf[0] = htonl(cntrl->mode | cntrl->protocol_version);
 
     if(cntrl->mode & BWL_MODE_DOCIPHER){
         memcpy(&buf[4],cntrl->userid,16);
@@ -254,9 +252,9 @@ _BWLReadClientGreeting(
      * Get tool negotiation byte and clear it for subsequent
      * operations on the mode field.
      */
-    cntrl->tool_negotiation_version = 
-        *mode & BWL_MODE_TESTER_NEGOTIATION_MASK;
-    *mode &= ~BWL_MODE_TESTER_NEGOTIATION_MASK;
+    cntrl->protocol_version = 
+        *mode & BWL_MODE_PROTOCOL_VERSION_MASK;
+    *mode &= ~BWL_MODE_PROTOCOL_VERSION_MASK;
 
     memcpy(cntrl->userid_buffer,&buf[4],16);
     memcpy(token,&buf[20],32);
@@ -420,6 +418,14 @@ _BWLReadServerOK(
 
     if(avail_tools){
         *avail_tools = ntohl(*(uint32_t *)&buf[0]);
+
+        /*
+         * If this server pre-dates tester negotiation protocol,
+         * then add in iperf as an implicite tester.
+         */
+        if(!cntrl->protocol_version){
+            *avail_tools = BWL_TOOL_IPERF;
+        }
     }
 
     memcpy(cntrl->readIV,&buf[16],16);
@@ -893,8 +899,8 @@ _BWLWriteTestRequest(
 
     /* Is there support for tool negotiation as in this version? */
     /* If so, the tool selection block will be written. */
-    tool_negotiation = cntrl->tool_negotiation_version >=
-        BWL_MODE_TESTER_NEGOTIATION_VERSION;
+    tool_negotiation = cntrl->protocol_version >=
+        BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION;
     if (tool_negotiation){
         message_len = 8*_BWL_RIJNDAEL_BLOCK_SIZE;
     }
@@ -1097,8 +1103,8 @@ _BWLReadTestRequest(
     /*
      * Check if tool negotiation has been requested.
      */
-    tool_negotiation =  cntrl->tool_negotiation_version >=
-        BWL_MODE_TESTER_NEGOTIATION_VERSION;
+    tool_negotiation =  cntrl->protocol_version >=
+        BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION;
     if(!tool_negotiation){
         blocks--;
     }

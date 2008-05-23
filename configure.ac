@@ -28,11 +28,11 @@
 #	Options:
 # Process this file with autoconf to produce a configure script.
 PACKAGE=bwctl
-VERSION="1.3rc1"
+VERSION="1.3rc2"
 
-AC_INIT(bwctl, 1.3rc1, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.3rc2, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.3rc1, [no-define])
+AM_INIT_AUTOMAKE(bwctl, 1.3rc2, [no-define])
 
 
 AC_CONFIG_SRCDIR(bwlib/context.c)
@@ -190,60 +190,8 @@ else
     AC_SEARCH_LIBS([thrulay_client_init],thrulay, ,AC_MSG_ERROR([Couldn't find thrulay library]))
     use_sys_thrulay="true"
 fi
-
-AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_ERROR([Couldn't find thrulay header files]), [AC_INCLUDES_DEFAULT])
 do_thrulay=true
-
-# if test -n "$with_I2util" -a "$with_I2util" != "yes" -a -d "$with_I2util"; then 
-# 	# Path given for libI2util
-# 	LDFLAGS="$LDFLAGS -L$with_I2util/I2util"
-# 	CFLAGS="$CFLAGS -I$with_I2util"
-#         BWLLIBDEPS="$BWLLIBDEPS $with_I2util/I2util/libI2util.a"
-# fi
-# 
-# AC_SEARCH_LIBS([I2AddrByNode],I2util, ,AC_MSG_ERROR([Couldn't find I2util]))
-# AC_CHECK_HEADERS([I2util/util.h I2util/conf.h], ,AC_MSG_ERROR([Couldn't find I2util header files]), [AC_INCLUDES_DEFAULT])
-# 
-#
-# Configure option to specify where to look for libthrulay if not installed.
-#
-# AC_ARG_WITH([thrulay],
-# 		AC_HELP_STRING([--with-thrulay=<path>],
-# 				[libthrulay path; defaults to system installation]),
-# 				with_thrulay=$withval)
-# 
-# if test "$with_thrulay" != "no"; then
-#     if test -n "$with_thrulay" -a "$with_thrulay" != "yes" -a -d "$with_thrulay"; then 
-#         # Path given for libthrulay
-#         LDFLAGS="$LDFLAGS -L$with_thrulay/thrulay/.libs"
-#         CFLAGS="$CFLAGS -I$with_thrulay"
-#         BWLLIBDEPS="$BWLLIBDEPS $with_thrulay/thrulay/.libs/libthrulay.a"
-#     fi
-#     AC_SEARCH_LIBS([thrulay_client_init],thrulay,
-#             # if lib found
-#             AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h],
-#                         [
-#                         #if header found
-#                         AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throuphput tool])
-#                         do_thrulay=true
-#                         ],
-#                         #if header not found
-#                         [
-#                             if test "$with_thrulay" = ""; then
-#                                 AC_MSG_WARN([Couldn't fine thrulay headers: configuring for no thrulay support])
-#                             else
-#                                 AC_MSG_ERROR([Couldn't fine thrulay headers])
-#                             fi
-#                         ], [AC_INCLUDES_DEFAULT]),
-#             #if lib not found
-#             [
-#                 if test "$with_thrulay" = ""; then
-#                     AC_MSG_WARN([Couldn't find libthrulay])
-#                 else
-#                     AC_MSG_ERROR([Couldn't find libthrulay])
-#                 fi
-#             ])
-# fi
+AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_ERROR([Couldn't find thrulay header files]), [AC_INCLUDES_DEFAULT])
 
 AC_DEFINE(USE_SYS_THRULAY, 1, [Use system installed thrulay library])
 AM_CONDITIONAL(USE_SYS_THRULAY, test x$use_sys_thrulay = xtrue)

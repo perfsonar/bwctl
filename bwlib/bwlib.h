@@ -288,8 +288,8 @@ typedef uint32_t   BWLToolAvailability;
 typedef char        BWLUserID[BWL_USERID_LEN+1];    /* add 1 for '\0' */
 typedef uint8_t    BWLKey[16];
 
-#define BWL_MODE_TESTER_NEGOTIATION_VERSION   (0x01000000)
-#define BWL_MODE_TESTER_NEGOTIATION_MASK      (0xff000000)
+#define BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION   (0x01000000)
+#define BWL_MODE_PROTOCOL_VERSION_MASK      (0xff000000)
 #define BWL_MODE_UNDEFINED          (0x0)
 #define BWL_MODE_LEAST_RESTRICTIVE  (0x80)
 #define BWL_MODE_OPEN               (0x1)
@@ -299,7 +299,7 @@ typedef uint8_t    BWLKey[16];
 #define BWL_MODE_ALLMODES           (BWL_MODE_DOCIPHER|BWL_MODE_OPEN)
 
 typedef uint32_t    BWLSessionMode;
-typedef uint32_t    BWLToolNegotiationVersion;
+typedef uint32_t    BWLProtocolVersion;
 
 typedef struct{
     BWLToolType     tool_id;
