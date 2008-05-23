@@ -57,11 +57,17 @@ static I2ErrHandle          errhand;
 static I2Table              fdtable=NULL;
 static I2Table              pidtable=NULL;
 static BWLNum64             uptime;
-static BWLPortRangeRec      peerports;
 
 #if defined HAVE_DECL_OPTRESET && !HAVE_DECL_OPTRESET
 int optreset;
 #endif
+
+static void
+version(){
+    fprintf(stderr, "\nVersion: %s\n\n", PACKAGE_VERSION);
+    return;
+}
+
 
 static void
 usage(
@@ -75,7 +81,6 @@ usage(
     fprintf(stderr,
             "   -a authmode       Default supported authmodes:[E]ncrypted,[A]uthenticated,[O]pen\n"
             "   -c confdir        Configuration directory\n"
-            "   -d datadir        Data directory\n"
             "   -e facility       syslog facility to log errors\n"
             "   -f                Allow daemon to run as \"root\" (folly!)\n"
             "   -G group          Run as group \"group\" :-gid also valid\n"
@@ -86,14 +91,14 @@ usage(
             "   -S nodename:port  Srcaddr to bind to\n"
             "      -U/-G options only used if run as root\n"
             "   -U user           Run as user \"user\" :-uid also valid\n"
-            "   -v                verbose output\n"
+            "   -V                version\n"
 #ifndef    NDEBUG
             "   -w                Debugging: busy-wait children after fork to allow attachment\n"
             "   -Z                Debugging: Run in foreground\n"
 #endif
             "\n"
            );
-    fprintf(stderr, "\nVersion: %s\n\n", PACKAGE_VERSION);
+    version();
     return;
 }
 
@@ -134,13 +139,14 @@ signal_catch(
 
 typedef struct ReservationRec ReservationRec, *Reservation;
 struct ReservationRec{
+    BWLToolType tool;
     BWLSID      sid;
     BWLNum64    restime;
     BWLNum64    start;    /* fuzz applied */
     BWLNum64    end;    /* fuzz applied */
     BWLNum64    fuzz;
-    uint32_t   duration;
-    uint16_t   port;
+    uint32_t    duration;
+    uint16_t    toolport;
     Reservation next;
 };
 
@@ -157,10 +163,12 @@ static Reservation
 AllocReservation(
         ChldState   cstate,
         BWLSID      sid,
-        uint16_t   *port
+        BWLToolType tool_id,
+        uint16_t    *toolport
         )
 {
-    Reservation res;
+    BWLErrSeverity  err = BWLErrOK;
+    Reservation     res;
 
     if(cstate->res){
         BWLError(cstate->policy->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -176,16 +184,18 @@ AllocReservation(
     memcpy(res->sid,sid,sizeof(sid));
 
     /*
-     * Get next port in range
-     * Could add randomness... For now just step through.
+     * Invoke 'tool' one-time initialization phase
+     * Sets *toolport
+     *
+     * Done here so there is daemon-wide state for the 'last' port allocated.
      */
-    if(!*port){
-        res->port = opts.testerports[
-            opts.port_count++ % opts.port_range_len];
+    if( BWLErrOK !=
+            (err = BWLToolInitTest(cstate->policy->ctx,tool_id,toolport))){
+        BWLError(cstate->policy->ctx,err,BWLErrINVALID,
+                "AllocReservation: Tool initialization failed");
+        return NULL;
     }
-    else{
-        res->port = *port;
-    }
+    res->toolport = *toolport;
 
     cstate->res = res;
 
@@ -254,10 +264,11 @@ ChldReservationDemand(
         BWLNum64    rtime,
         BWLNum64    ftime,
         BWLNum64    ltime,
-        uint32_t   duration,
+        uint32_t    duration,
         BWLNum64    rtttime,
         BWLNum64    *restime,
-        uint16_t   *port,
+        uint16_t    *toolport,
+        BWLToolType tool_id,
         int         *err)
 {
     BWLContext      ctx = cstate->policy->ctx;
@@ -281,9 +292,9 @@ ChldReservationDemand(
          */
         if(!ResRemove(cstate->res))
             return False;
-        cstate->res->port = *port;
+        cstate->res->toolport = *toolport;
     }
-    else if(!AllocReservation(cstate,sid,port)){
+    else if(!AllocReservation(cstate,sid,tool_id,toolport)){
         /*
          * Alloc failed.
          */
@@ -313,17 +324,14 @@ ChldReservationDemand(
      * The algorithm being used to determine the "earliest time
      * the daemon" is willing to have a test is:
      *
-     *    2 X (rtt(client) + fuzztime(otherserver))
+     *    2 X rtt(client) + fuzztime(otherserver)
      *
      * The actual message time is:
      *    server            client
      *    request response ->
      *            <-    start sessions
      *    start response    ->
-     *    (This is only 1.5 rtt, but it is potentially 2 rtt's to the
-     *    other server for a request/response and a start/response
-     *     and that is the value "fuzztime" represents. So, a possible
-     *    extra delay of .5 rtt is acceptible.)
+     *    (This is only 1.5 rtt, but rouding up to 2 rtt seems prudent)
      *
      * The reservation is defined by the following vars:
      * res->restime == time of reservation
@@ -333,18 +341,15 @@ ChldReservationDemand(
      * allocated to this test.
      */
     res->start = BWLNum64Sub(rtime,ftime);
-#if    NOT
-    I2ErrLog(errhand,"ResReq: %24.10f, Fuzz: %24.10f",
+    I2ErrLogT(errhand,LOG_DEBUG,0,"ResReq: %24.10f, Fuzz: %24.10f",
             BWLNum64ToDouble(rtime),
             BWLNum64ToDouble(ftime));
-    I2ErrLog(errhand,"Current: %24.10f, Start: %24.10f",
+    I2ErrLogT(errhand,LOG_DEBUG,0,"Current: %24.10f, Start: %24.10f",
             BWLNum64ToDouble(currtime.tstamp),
             BWLNum64ToDouble(res->start));
-#endif
     minstart =BWLNum64Add(currtime.tstamp,
-            BWLNum64Mult(
-                BWLNum64Add(rtttime,ftime),
-                BWLULongToNum64(2)));
+            BWLNum64Add(ftime,
+                BWLNum64Mult(rtttime,BWLULongToNum64(2))));
     /*
      * If the start time is less than the minimum start time, then
      * reset the start time to one second past the minimum start time.
@@ -357,11 +362,9 @@ ChldReservationDemand(
     }
     res->restime = BWLNum64Add(res->start,ftime);
 
-#if    NOT
-    I2ErrLog(errhand,"ResCompute: %24.10f, NewStart: %24.10f",
+    I2ErrLogT(errhand,LOG_DEBUG,0,"ResCompute: %24.10f, NewStart: %24.10f",
             BWLNum64ToDouble(res->restime),
             BWLNum64ToDouble(res->start));
-#endif
     dtime = BWLNum64Add(BWLULongToNum64(duration),ftime);
     res->end = BWLNum64Add(res->restime,dtime);
     res->fuzz = ftime;
@@ -414,14 +417,13 @@ ChldReservationDemand(
          * Adjust res->start,res->restime,res->end to be just past
          * the current reservation.
          */
+
         /*
-         * new start is the expected endtime + Max of the two
-         * fuzz factors.
+         * new start is the expected endtime of the previous res (plus
+         * that res's fuzz)
          */
-        res->start = BWLNum64Add(tres->restime,
-                BWLULongToNum64(tres->duration));
-        res->start = BWLNum64Add(res->start,
-                BWLNum64Max(res->fuzz,tres->fuzz));
+        res->start = BWLNum64Add(tres->restime,BWLULongToNum64(tres->duration));
+        res->start = BWLNum64Add(res->start,tres->fuzz);
 
         res->restime = BWLNum64Add(res->start,res->fuzz);
         res->end = BWLNum64Add(res->restime,dtime);
@@ -443,7 +445,7 @@ next_slot:
     *rptr = res;
 
     *restime = res->restime;
-    *port = res->port;
+    *toolport = res->toolport;
 
     return True;
 
@@ -645,8 +647,9 @@ CheckFD(
 
         BWLSID          sid;
         BWLNum64        rtime,ftime,ltime,restime,rtttime;
-        uint32_t       duration;
-        uint16_t       port;
+        uint32_t        duration;
+        uint16_t        toolport;
+        BWLToolType     tool_id;
         BWLAcceptType   aval;
 
         switch(BWLDReadReqType(cstate->fd,&ipfd_exit,&err)){
@@ -677,7 +680,7 @@ CheckFD(
                             &ipfd_exit,sid,
                             &rtime,&ftime,&ltime,
                             &duration,&rtttime,
-                            &port,&err)){
+                            &toolport,&tool_id,&err)){
                     goto done;
                 }
 
@@ -687,7 +690,7 @@ CheckFD(
                 if(ChldReservationDemand(cstate,
                             sid,rtime,ftime,ltime,
                             duration,rtttime,
-                            &restime,&port,&err)){
+                            &restime,&toolport,tool_id,&err)){
                     resp = BWLDMESGOK;
                 }
                 else if(err){
@@ -701,7 +704,7 @@ CheckFD(
                  * Send response
                  */
                 err = BWLDSendReservationResponse(cstate->fd,
-                        &ipfd_exit,resp,restime,port);
+                        &ipfd_exit,resp,restime,toolport);
                 break;
             case BWLDMESGCOMPLETE:
 
@@ -801,10 +804,9 @@ ClosePipes(
 static void
 NewConnection(
         BWLDPolicy  policy,
-        BWLAddr     listenaddr,
+        I2Addr     listenaddr,
         int         *maxfd,
-        fd_set      *readfds,
-	BWLTesterAvailability avail_testers
+        fd_set      *readfds
         )
 {
     int                     connfd;
@@ -813,7 +815,7 @@ NewConnection(
     int                     new_pipe[2];
     pid_t                   pid;
     BWLSessionMode          mode = opts.auth_mode;
-    int                     listenfd = BWLAddrFD(listenaddr);
+    int                     listenfd = I2AddrFD(listenaddr);
     BWLControl              cntrl=NULL;
     BWLErrSeverity          out;
 
@@ -885,27 +887,27 @@ ACCEPT:
     /* Child */
     else{
         struct itimerval    itval;
-        BWLRequestType        msgtype=BWLReqInvalid;
+        BWLRequestType      msgtype=BWLReqInvalid;
 
 #ifndef    NDEBUG
-        int        childwait;
+        void                *childwait = BWLContextConfigGetV(policy->ctx,
+                                                                BWLChildWait);
 
-        if((childwait = opts.childwait)){
+        if(childwait){
             BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
                     "Waiting for Debugger.");
             /* busy loop to wait for debug-attach */
             while(childwait);
 
             /*
-             * set BWLChildWait if you want to attach
-             * to them... (by resetting childwait back to non-zero)
+             * Set childwait back to non-zero in debugger before
+             * executing the next line to make sub children 'wait'
+             * as well.
              */
-            if(childwait && !BWLContextConfigSet(policy->ctx,
-                        BWLChildWait,(void*)childwait)){
-                BWLError(policy->ctx,BWLErrWARNING,
-                        BWLErrUNKNOWN,
-                        "BWLContextConfigSet(): "
-                        "Unable to set BWLChildWait?!");
+            if( !BWLContextConfigSet(policy->ctx,BWLChildWait,
+                        (void*)childwait)){
+                BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "BWLContextConfigSet(ChildWait): %M");
             }
         }
 #endif
@@ -961,7 +963,7 @@ ACCEPT:
         }
         cntrl = BWLControlAccept(policy->ctx,connfd,
                 (struct sockaddr *)&sbuff,sbufflen,
-                mode,uptime,avail_testers,&ipfd_intr,&out);
+                mode,uptime,&ipfd_intr,&out);
         /*
          * session not accepted.
          */
@@ -979,7 +981,7 @@ ACCEPT:
 
             /*
              * reset signal vars
-             * TODO: If there is a pending reservation,
+             * XXX: If there is a pending reservation,
              * timer should be reduced to:
              *     MIN(time-util-start,reserve-timeout)
              */
@@ -995,7 +997,7 @@ ACCEPT:
             switch (msgtype){
 
                 case BWLReqTest:
-                    rc = BWLProcessTestRequest(cntrl,avail_testers,&ipfd_intr);
+                    rc = BWLProcessTestRequest(cntrl,&ipfd_intr);
                     break;
 
                 case BWLReqTime:
@@ -1029,7 +1031,7 @@ ACCEPT:
                      * return. This is done so the alrm timer
                      * can be set before the StopSessions
                      * command is sent in the case where the
-                     * child working exits before the StopSessions
+                     * child exits before the StopSessions
                      * messages exchange.
                      */
                     while(BWLSessionsActive(cntrl,NULL)){
@@ -1052,7 +1054,7 @@ ACCEPT:
                      * timer and trade StopSession messages
                      */
                     ipfd_intr = 0;
-                    itval.it_value.tv_sec = opts.controltimeout;
+                    itval.it_value.tv_sec = opts.dieby;
                     if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
                         I2ErrLog(errhand,"setitimer(): %M");
                         goto done;
@@ -1132,7 +1134,7 @@ FindMaxFD(
 }
 
 static void
-LoadConfig(
+LoadErrConfig(
         char    **lbuf,
         size_t  *lbuf_max
         )
@@ -1172,20 +1174,10 @@ LoadConfig(
         return;
     }
 
-    while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max))
-            > 0){
+    while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max)) > 0){
 
-	/* Tester selection (thrulay/iperf/nuttcp) */
-	if(!strncasecmp(key,"tester",7)){
-	    if(!(opts.tester = strdup(val))){
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-	    }
-	}
         /* syslog facility */
-        else if(!strncasecmp(key,"facility",9)){
+        if(!strncasecmp(key,"facility",9)){
             int fac = I2ErrLogSyslogFacility(val);
             if(fac == -1){
                 fprintf(stderr,
@@ -1207,156 +1199,122 @@ LoadConfig(
             }
             syslogattr.priority = prio;
         }
-        else if(!strncasecmp(key,"rootfolly",10) ||
-                !strncasecmp(key,"root_folly",11)){
-            opts.allowRoot = True;
+        /* fall-through: unrecognized syntax ignored here */
+    }
+
+    if(rc < 0){
+        fprintf(stderr,"%s:%d Problem parsing config file\n",
+                conf_file,-rc);
+        exit(1);
+    }
+
+    return;
+}
+
+static void
+LoadConfig(
+    BWLContext  ctx,
+    char        **lbuf,
+    size_t      *lbuf_max
+        )
+{
+    FILE    *conf;
+    char    conf_file[MAXPATHLEN+1];
+    char    keybuf[MAXPATHLEN],valbuf[MAXPATHLEN];
+    char    *key = keybuf;
+    char    *val = valbuf;
+    int     rc;
+    int     dc;
+
+    conf_file[0] = '\0';
+
+    rc = strlen(BWCTLD_CONF_FILE);
+    if(rc > MAXPATHLEN){
+        I2ErrLog(errhand,"strlen(BWCTLD_CONF_FILE) > MAXPATHLEN");
+        exit(1);
+    }
+    if(opts.confdir){
+        rc += strlen(opts.confdir) + strlen(BWL_PATH_SEPARATOR);
+        if(rc > MAXPATHLEN){
+            I2ErrLog(errhand,"Path to %s > MAXPATHLEN",
+                    BWCTLD_CONF_FILE);
+            exit(1);
         }
-        else if(!strncasecmp(key,"accesspriority",15) ||
-                !strncasecmp(key,"access_priority",16)){
-            opts.access_prio = I2ErrLogSyslogPriority(val);
-            if(opts.access_prio == -1){
-                fprintf(stderr,
-                        "Invalid syslog priority for access_priority: "
-                        "\"%s\" unknown\n",
+        strcpy(conf_file, opts.confdir);
+        strcat(conf_file, BWL_PATH_SEPARATOR);
+    }
+    strcat(conf_file, BWCTLD_CONF_FILE);
+
+    if(!(conf = fopen(conf_file, "r"))){
+        if(opts.confdir){
+            I2ErrLog(errhand,"Unable to open %s: %M",conf_file);
+            exit(1);
+        }
+        return;
+    }
+
+    /*
+     * Parse conf file
+     */
+    rc=0;
+    while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,lbuf,lbuf_max)) > 0){
+
+        /* syslog facility */
+        if(!strncasecmp(key,"facility",9)){
+            int fac = I2ErrLogSyslogFacility(val);
+            if(fac == -1){
+                I2ErrLog(errhand,
+                        "Invalid -e: Syslog facility \"%s\" unknown",
                         val);
                 rc = -rc;
                 break;
             }
+            syslogattr.facility = fac;
+        }
+        else if(!strncasecmp(key,"priority",9)){
+            int prio = I2ErrLogSyslogPriority(val);
+            if(prio == -1){
+                I2ErrLog(errhand,
+                        "Invalid syslog priority \"%s\" unknown",
+                        val);
+                rc = -rc;
+                break;
+            }
+            syslogattr.priority = prio;
+        }
+        else if(!strncasecmp(key,"rootfolly",10) ||
+                !strncasecmp(key,"root_folly",11)){
+            opts.allowRoot = True;
         }
         else if(!strncasecmp(key,"loglocation",12)  ||
                 !strncasecmp(key,"log_location",13)){
             syslogattr.line_info |= I2FILE|I2LINE;
         }
-        else if(!strncasecmp(key,"iperfcmd",9) ||
-                !strncasecmp(key,"iperf_cmd",10)){
-            if(!strncasecmp(opts.tester,"iperf",6) && 
-	       !(opts.testercmd = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-            }
-        }
-        else if(!strncasecmp(key,"iperfport",10) ||
-                !strncasecmp(key,"iperf_port",11) ||
-		!strncasecmp(key,"thrulay_port",13)){
-            char        *hpstr = NULL;
-            uint16_t    lport,hport;
-            char        *end=NULL;
-            uint32_t    tlng;
-
-	    /* Only process ports for the selected tool */
-	    if((!strncasecmp(key,"iperfport",10) || 
-		!strncasecmp(key,"iperf_port",11) &&
-		strncasecmp(opts.tester,"iperf",6) ||
-		(!strncasecmp(key,"thrulay_port",13) && 
-		 strncasecmp(opts.tester,"thrulay",8))))
-	       continue;
-
-            if( (hpstr = strchr(val,'-'))){
-                *hpstr++ = '\0';
-            }
-            errno = 0;
-            tlng = strtoul(val,&end,10);
-            if((end == val) || (errno == ERANGE)){
-                fprintf(stderr,"strtoul(): %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-            }
-            lport = (uint16_t)tlng;
-            if(lport != tlng){
-                rc=-rc;
-                break;
-            }
-
-            if(hpstr){
-                errno = 0;
-                tlng = strtoul(hpstr,&end,10);
-                if((end == hpstr) || (errno == ERANGE)){
-                    fprintf(stderr,"strtoul(): %s\n",
-                            strerror(errno));
-                    rc=-rc;
-                    break;
-                }
-                hport = (uint16_t)tlng;
-                if(hport != tlng){
-                    rc=-rc;
-                    break;
-                }
-            }
-            else{
-                hport = lport;
-            }
-
-            if(hport < lport){
-		char *tester;
-		if(!strncasecmp(key,"thrulay_port",13))
-		    tester = "thrulay";
-		else if(!strncasecmp(key,"iperf_port",11))
-		    tester = "iperf";
-		else
-		    tester = "nuttcp";
-                fprintf(stderr,
-                        "%s_port: invalid range specified",tester);
-                rc=-rc;
-                break;
-            }
-
-            opts.port_range_len = hport-lport+1;
-            if(!(opts.testerports = calloc(sizeof(uint16_t),
-                            opts.port_range_len))){
-                fprintf(stderr,"calloc(): %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-            }
-
-            for(tlng=0;tlng<opts.port_range_len;tlng++){
-                opts.testerports[tlng] = tlng + lport;
-            }
-        }
-        else if(!strncasecmp(key,"peerports",10) ||
-                !strncasecmp(key,"peer_ports",11)){
-            if(!BWLParsePorts(val,&peerports,&opts.peerports,NULL,stderr)){
-                fprintf(stderr,"Invalid peer_ports range specified.");
-                rc=-rc;
-                break;
-            }
-        }
         else if(!strncasecmp(key,"datadir",8) ||
                 !strncasecmp(key,"data_dir",9)){
-            if(!(opts.datadir = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-            }
+            I2ErrLog(errhand,"The data_dir option has been depricated, ignoring...");
         }
         else if(!strncasecmp(key,"user",5)){
             if(!(opts.user = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
         }
         else if(!strncasecmp(key,"group",6)){
             if(!(opts.group = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
         }
         else if(!strncasecmp(key,"verbose",8)){
-            opts.verbose = True;
+            I2ErrLog(errhand,"The verbose option has been depricated, ignoring...");
         }
         else if(!strncasecmp(key,"authmode",9) ||
                 !strncasecmp(key,"auth_mode",10)){
             if(!(opts.authmode = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
@@ -1364,8 +1322,7 @@ LoadConfig(
         else if(!strncasecmp(key,"srcnode",8) ||
                 !strncasecmp(key,"src_node",9)){
             if(!(opts.srcnode = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
@@ -1373,8 +1330,7 @@ LoadConfig(
         else if(!strncasecmp(key,"vardir",7) ||
                 !strncasecmp(key,"var_dir",8)){
             if(!(opts.vardir = strdup(val))) {
-                fprintf(stderr,"strdup(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strdup(): %M");
                 rc=-rc;
                 break;
             }
@@ -1387,74 +1343,27 @@ LoadConfig(
             errno = 0;
             tlng = strtoul(val,&end,10);
             if((end == val) || (errno == ERANGE)){
-                fprintf(stderr,"strtoul(): %s\n",
-                        strerror(errno));
+                I2ErrLog(errhand,"strtoul(): %M");
                 rc=-rc;
                 break;
             }
             opts.dieby = tlng;
         }
-        else if(!strncasecmp(key,"controltimeout",15) ||
-                !strncasecmp(key,"control_timeout",16)){
-            char        *end=NULL;
-            uint32_t    tlng;
-
-            errno = 0;
-            tlng = strtoul(val,&end,10);
-            if((end == val) || (errno == ERANGE)){
-                fprintf(stderr,"strtoul(): %s\n",
-                        strerror(errno));
-                rc=-rc;
+        else if( (dc = BWLDaemonParseArg(ctx,key,val))){
+            if(dc < 0){
+                rc = -rc;
                 break;
             }
-            opts.controltimeout = tlng;
-        }
-        else if(!strncasecmp(key,"bottleneckcapacity",19) ||
-                !strncasecmp(key,"bottleneck_capacity",20)){
-            I2numT    bneck;
-            if(I2StrToNum(&bneck,val)){
-                fprintf(stderr,"Invalid value: %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-            }
-            opts.bottleneckcapacity = (uint64_t)bneck;
-        }
-        else if(!strncasecmp(key,"syncfuzz",9) ||
-                !strncasecmp(key,"sync_fuzz",10)){
-            char    *end=NULL;
-            double    tdbl;
-
-            errno = 0;
-            tdbl = strtod(val,&end);
-            if((end == val) || (errno == ERANGE)){
-                fprintf(stderr,"strtod(): %s\n",
-                        strerror(errno));
-                rc=-rc;
-                break;
-            }
-            if(tdbl < 0.0){
-                fprintf(stderr,"Invalid value sync_fuzz: %f\n",
-                        tdbl);
-                rc=-rc;
-                break;
-            }
-            opts.syncfuzz = tdbl;
-        }
-        else if(!strncasecmp(key,"allowunsync",12) ||
-                !strncasecmp(key,"allow_unsync",13)){
-            opts.allowUnsync = True;
         }
         else{
-            fprintf(stderr,"Unknown key=%s\n",key);
+            I2ErrLog(errhand,"Unknown key=%s",key);
             rc = -rc;
             break;
         }
     }
 
     if(rc < 0){
-        fprintf(stderr,"%s:%d Problem parsing config file\n",
-                conf_file,-rc);
+        I2ErrLog(errhand,"%s:%d Problem parsing config file",conf_file,-rc);
         exit(1);
     }
 
@@ -1473,8 +1382,7 @@ main(int argc, char *argv[])
     int                 maxfd;    /* max fd in readfds */
     BWLContext          ctx;
     BWLDPolicy          policy;
-    BWLAddr             listenaddr = NULL;
-    BWLTesterAvailability avail_testers = 0xffffffff;
+    I2Addr              listenaddr = NULL;
     int                 listenfd;
     int                 rc;
     I2Datum             data;
@@ -1493,11 +1401,14 @@ main(int argc, char *argv[])
     struct sigaction    setact;
     sigset_t            sigs;
 
+#define OPTBASESTRING "hvVc:d:fR:a:S:e:ZU:G:"
 #ifndef NDEBUG
-    char                *optstring = "hvc:d:fR:a:S:e:ZU:G:w";
-#else    
-    char                *optstring = "hvc:d:fR:a:S:e:ZU:G:";
+#define OPTSTRING   OPTBASESTRING "w"
+#else
+#define OPTSTRING   OPTBASESTRING
 #endif
+
+    char                *optstring = OPTSTRING;
 
     /*
      * Start an error loggin session for reporting errors to the
@@ -1512,11 +1423,14 @@ main(int argc, char *argv[])
     syslogattr.logopt = LOG_PID;
     syslogattr.facility = LOG_DAEMON;
     syslogattr.priority = LOG_ERR;
-    syslogattr.line_info = I2MSG;
+    syslogattr.line_info = (I2MSG);
+
+#ifndef NDEBUG
+    syslogattr.line_info |= (I2LINE | I2FILE);
+#endif
 
     /* Set up options defaults */
     memset(&opts,0,sizeof(opts));
-    opts.access_prio = -1;
     opts.daemon = 1;
     opts.dieby = 30;
     opts.controltimeout = 7200;
@@ -1546,13 +1460,13 @@ main(int argc, char *argv[])
     opterr = optreset = optind = 1;
 
     /*
-     * Load Config file.
+     * Load Config file options for error reporting.
      * lbuf/lbuf_max keep track of a dynamically grown "line" buffer.
      * (It is grown using realloc.)
      * This will be used throughout all the config file reading and
      * should be free'd once all config files have been read.
      */
-    LoadConfig(&lbuf,&lbuf_max);
+    LoadErrConfig(&lbuf,&lbuf_max);
 
     /*
      * Read cmdline options that effect syslog so the rest of cmdline
@@ -1594,6 +1508,22 @@ main(int argc, char *argv[])
     }
 
     /*
+     * Initialize the context. (Set the error handler to the app defined
+     * one.)
+     */
+    if(!(ctx = BWLContextCreate(errhand,NULL))){
+        exit(1);
+    }
+
+    /*
+     * Load all config file options.
+     * This one will exit with a syntax error for things it does not
+     * understand. It takes the context as an arg so the context can
+     * be queried for tool specific option parsing.
+     */
+    LoadConfig(ctx,&lbuf,&lbuf_max);
+
+    /*
      * Now deal with "all" cmdline options.
      */
     while ((ch = getopt(argc, argv, optstring)) != -1){
@@ -1601,7 +1531,7 @@ main(int argc, char *argv[])
         switch (ch) {
             /* Connection options. */
             case 'v':    /* -v "verbose" */
-                opts.verbose = True;
+                I2ErrLog(errhand,"The verbose (-v) option has been depricated, ignoring...");
                 break;
             case 'f':
                 opts.allowRoot = True;
@@ -1642,9 +1572,18 @@ main(int argc, char *argv[])
                 break;
 #ifndef NDEBUG
             case 'w':
-                opts.childwait = True;
+                /* just non-null */
+                if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+                    I2ErrLog(errhand,
+                            "ContextConfigSet(): Unable to set BWLChildWait");
+                    exit(1);
+                }
                 break;
 #endif
+            case 'V':
+                version();
+                exit(0);
+                /* UNREACHED */
             case 'h':
             case '?':
             default:
@@ -1665,8 +1604,6 @@ main(int argc, char *argv[])
         opts.vardir = opts.cwd;
     if(!opts.confdir)
         opts.confdir = opts.cwd;
-    if(!opts.datadir)
-        opts.datadir = opts.cwd;
 
     /*  Get exclusive lock for pid file. */
     strcpy(pid_file, opts.vardir);
@@ -1692,66 +1629,29 @@ main(int argc, char *argv[])
     }
 
     /*
-     * Initialize the context. (Set the error handler to the app defined
-     * one.)
-     */
-    if(!(ctx = BWLContextCreate(errhand,
-                    BWLAllowUnsync,&opts.allowUnsync,
-                    NULL))){
-        exit(1);
-    }
-
-    /*
-     * TODO: Add Context var for setting access log priority.
-     * It seems silly to have this extra function for this.
-     * (Perhaps I've been doing too much java lately...)
-     */
-    if(opts.access_prio != -1){
-        BWLContextSetAccessLogPriority(ctx,opts.access_prio);
-    }
-
-    if((opts.syncfuzz != 0.0) &&
-            !BWLContextConfigSet(ctx,BWLSyncFuzz,
-                (void*)&opts.syncfuzz)){
-        I2ErrLog(errhand,"Unable to set SyncFuzz.");
-        exit(1);
-    }
-
-    if((opts.peerports) &&
-            !BWLContextConfigSet(ctx,BWLPeerPortRange,
-                (void*)opts.peerports)){
-        I2ErrLog(errhand,"Unable to set PeerPorts.");
-        exit(1);
-    }
-
-    /*
      * Install policy for "ctx" - and return policy record.
      */
-    if(!(policy = BWLDPolicyInstall(ctx,opts.datadir,opts.confdir,
-                    opts.tester,
-                    opts.testercmd,
-                    &opts.bottleneckcapacity,
-                    &ipfd_exit,
+    if(!(policy = BWLDPolicyInstall(ctx,opts.confdir,&ipfd_exit,
                     &lbuf,&lbuf_max))){
         I2ErrLog(errhand, "PolicyInit failed. Exiting...");
         exit(1);
     };
 
-    /* Check which testers are available */
-    avail_testers = LookForTesters(ctx);
+    if(getenv("BWCTL_DEBUG_CHILDWAIT")){
+        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+            I2ErrLog(errhand,"BWLContextconfigSet(ChildWait): %M");
+            exit(1);
+        }
+    }
 
-    if(!opts.testerports){
-	if(opts.tester && (!strncasecmp(opts.tester,"iperf",6) 
-			   || !strncasecmp(opts.tester,"nuttcp",7))){
-	    /* iperf and nuttcp */
-	    opts.def_port = 5001;
-	} 
-	else{
-	    /* thrulay */
-	    opts.def_port = 5003;
-	}
-        opts.testerports = &opts.def_port;
-        opts.port_range_len = 1;
+    if( !BWLContextFinalize(ctx)){
+        I2ErrLog(errhand, "BWLContextFinalize failed.");
+        exit(1);
+    }
+
+    if( !BWLContextFindTools(ctx)){
+        I2ErrLog(errhand, "BWLContextFindTools failed.");
+        exit(1);
     }
 
     /*
@@ -2004,7 +1904,7 @@ main(int argc, char *argv[])
      * If the local interface was specified, use it - otherwise use NULL
      * for wildcard.
      */
-    if(opts.srcnode && !(listenaddr = BWLAddrByNode(ctx,opts.srcnode))){
+    if(opts.srcnode && !(listenaddr = I2AddrByNode(ctx,opts.srcnode))){
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "Invalid source address specified: %s",opts.srcnode);
         exit(1);
@@ -2052,7 +1952,7 @@ main(int argc, char *argv[])
         exit(1);
     }
 
-    listenfd = BWLAddrFD(listenaddr);
+    listenfd = I2AddrFD(listenaddr);
     FD_ZERO(&readfds);
     FD_SET(listenfd,&readfds);
     maxfd = listenfd;
@@ -2095,7 +1995,7 @@ main(int argc, char *argv[])
             continue;
 
         if(FD_ISSET(listenfd, &ready)){ /* new connection */
-            NewConnection(policy,listenaddr,&maxfd,&readfds,avail_testers);
+            NewConnection(policy,listenaddr,&maxfd,&readfds);
         }
         else{
             CleanPipes(&ready,&maxfd,&readfds,nfound);
@@ -2113,7 +2013,7 @@ main(int argc, char *argv[])
      * Close the server socket. reset the readfds/maxfd so they
      * can't confuse later ReapChildren calls.
      */
-    BWLAddrFree(listenaddr);
+    I2AddrFree(listenaddr);
     FD_ZERO(&readfds);
     maxfd = -1;
 
@@ -2155,6 +2055,12 @@ main(int argc, char *argv[])
         kill(-mypid,SIGKILL);
         exit(1);
     }
+
+    /*
+     * Free context
+     */
+    BWLContextFree(ctx);
+    ctx = NULL;
 
     I2ErrLog(errhand,"%s: exited.",progname);
 

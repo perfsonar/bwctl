@@ -26,7 +26,6 @@
 #			that was bundled with the distribution if
 #			at all possible.)
 #
-
 case "$1" in
 	ac257)
 		alias autoconf=autoconf257
@@ -39,26 +38,34 @@ case "$1" in
 		;;
 esac
 
-if test -x I2util/bootstrap; then
-	echo
-	echo "## I2util/bootstrap"
-	echo
-	cd I2util
-	./bootstrap $*
-	cd ..
-	echo
-	echo "## Finished I2util/bootstrap"
-	echo
+if test -x I2util/bootstrap.sh; then
+        echo
+        echo "## I2util/bootstrap"
+        echo
+        cd I2util
+        ./bootstrap.sh $*
+        cd ..
+        echo
+        echo "## Finished I2util/bootstrap"
+        echo
+fi
+
+if test -x thrulay/bootstrap.sh; then
+        echo
+        echo "## thrulay/bootstrap"
+        echo
+        cd thrulay
+        ./bootstrap.sh $*
+        cd ..
+        echo
+        echo "## Finished thrulay/bootstrap"
+        echo
 fi
 
 set -x
+libtoolize --copy --force --automake
 aclocal -I config
 autoheader
 automake --foreign --add-missing --copy
 autoconf
-#aclocal17 -I config
-#autoheader257
-#automake17 --foreign --add-missing --copy
-#autoconf257
-# run configure by hand.
-# ./configure $*
+rm -rf config.cache

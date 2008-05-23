@@ -1,5 +1,5 @@
 #
-#      $Id$
+#      $Id: bwctld.limits,v 1.7 2005/07/18 20:16:30 boote Exp $
 #
 #########################################################################
 #									#
@@ -40,7 +40,6 @@
 #	allow_open_mode
 #	allow_tcp
 #	allow_udp
-#       max_time_error
 #
 
 # setup the root node with max bandwidth as open as possible.
@@ -50,8 +49,7 @@ limit root with \
 	duration=30, \
 	allow_udp=on, \
 	allow_tcp=on, \
-	allow_open_mode=off, \
-        max_time_error=7
+	allow_open_mode=off
 
 # minimal everything
 # send hackers and bad nets here

@@ -18,12 +18,14 @@
 #
 #	Description:	bwctld build description
 
-# possible solution to conf dir location
-AM_CFLAGS = $(BWL_PREFIX_CFLAGS)
-
-INCLUDES	= $(BWLINCS) $(I2UTILINCS)
-
 bin_PROGRAMS	= bwctld
 bwctld_SOURCES	= bwctldP.h bwctld.c policy.h policy.c 
-bwctld_LDADD	= $(BWLLIBS) $(I2UTILLIBS) $(MALLOCDEBUGLIBS)
-bwctld_DEPENDENCIES = $(BWLLIBDEPS) $(I2UTILLIBDEPS)
+bwctld_CFLAGS	= -I..
+
+if USE_SYS_THRULAY
+BWLIBTHRULAY = -lthrulay
+else
+BWLIBTHRULAY = ../thrulay/thrulay/libthrulay.la
+endif
+
+bwctld_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) -lI2util

@@ -18,18 +18,31 @@
 #
 #	Description:	libbwlib build description.
 
-INCLUDES		= $(BWLINCS) $(I2UTILINCS)
+# INCLUDES		= $(BWLINCS) $(I2UTILINCS)
 
 lib_LIBRARIES		= libbwlib.a
 libbwlib_a_SOURCES	= api.c capi.c sapi.c context.c error.c bwlibP.h \
 			protocol.c io.c endpoint.c time.c arithm64.c \
 			rijndael-alg-fst.c rijndael-alg-fst.h \
 			rijndael-api-fst.c rijndael-api-fst.h \
-			util.c schedule.c
+			util.c daemon.c $(TOOL_SOURCES)
 
-EXTRA_DIST		= bwlib.h
+# add parent
+libbwlib_a_CFLAGS	= -I..
 
-# Need to rewrite this test slightly before making it a build test...
-#TESTS			= rijndael-test-fst
-#noinst_PROGRAMS		= rijndael-test-fst
-#test_hash_SOURCES	= rijndael-test-fst.c
+TOOL_SOURCES		= tools.c
+
+if TOOL_THRULAY
+TOOL_SOURCES		+= thrulay.c
+endif
+
+if TOOL_IPERF
+TOOL_SOURCES		+= iperf.c
+endif
+
+if TOOL_NUTTCP
+TOOL_SOURCES		+= nuttcp.c
+endif
+
+I2utilincludedir = $(pkgincludedir)
+I2utilinclude_HEADERS	= bwlib.h

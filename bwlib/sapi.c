@@ -33,15 +33,15 @@ static int
 OpenSocket(
         BWLContext  ctx    __attribute__((unused)),
         int         family,
-        BWLAddr     addr
+        I2Addr      addr
         )
 {
     struct addrinfo *fai;
     struct addrinfo *ai;
     int             on;
-    int             fd;
+    int             fd = -1;
 
-    if(!(fai = BWLAddrAddrInfo(addr,NULL,BWL_CONTROL_SERVICE_NAME))){
+    if(!(fai = I2AddrAddrInfo(addr,NULL,BWL_CONTROL_SERVICE_NAME))){
         return -2;
     }
 
@@ -75,10 +75,10 @@ OpenSocket(
 
         if(bind(fd,ai->ai_addr,ai->ai_addrlen) == 0){
 
-            BWLAddrSetFD(addr,-1,True);
-            BWLAddrSetSocktype(addr,ai->ai_socktype);
-            BWLAddrSetSAddr(addr,ai->ai_addr,ai->ai_addrlen);
-            BWLAddrSetFD(addr,fd,True);
+            I2AddrSetFD(addr,-1,True);
+            I2AddrSetSocktype(addr,ai->ai_socktype);
+            I2AddrSetSAddr(addr,ai->ai_addr,ai->ai_addrlen);
+            I2AddrSetFD(addr,fd,True);
 
             break;
         }
@@ -107,12 +107,12 @@ failsock:
  *         over IPV4.)
  *
  *         The addr should be NULL for a wildcard socket, or bound to
- *         a specific interface using BWLAddrByNode or BWLAddrByAddrInfo.
+ *         a specific interface using I2AddrByNode or I2AddrByAddrInfo.
  *
  *         This function will create the socket, bind it, and set the
  *         "listen" backlog length.
  *
- *         If addr is set using BWLAddrByFD, it will cause an error.
+ *         If addr is set using I2AddrByFD, it will cause an error.
  *         (It doesn't really make much sense to call this function at
  *         all if you are going to    create and bind your own socket -
  *         the only thing left is to call "listen"...)
@@ -125,38 +125,38 @@ failsock:
  * Returns:    
  * Side Effect:    
  */
-BWLAddr
+I2Addr
 BWLServerSockCreate(
         BWLContext      ctx,
-        BWLAddr         addr,
+        I2Addr          addr,
         BWLErrSeverity  *err_ret
         )
 {
-    int        fd = -1;
+    int fd = -1;
 
     *err_ret = BWLErrOK;
 
     /*
-     * AddrByFD is invalid.
+     * I2AddrByFD is invalid.
      */
-    if(addr && (addr->fd > -1)){
+    if(addr && (I2AddrFD(addr) > -1)){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                "Invalid BWLAddr record - fd already specified.");
+                "Invalid I2Addr record - fd already specified.");
         goto error;
     }
 
     /*
      * If no addr specified, then use wildcard address.
      */
-    if((!addr) && !(addr = BWLAddrByWildcard(ctx,SOCK_STREAM)))
+    if((!addr) &&
+            !(addr = I2AddrByWildcard(BWLContextErrHandle(ctx),SOCK_STREAM,
+                    BWL_CONTROL_SERVICE_NAME))){
         goto error;
+    }
 
-    /*
-     * Tell Addr API that this should be created as a "passive"
-     * socket.
-     */
-     if(!BWLAddrSetPassive(addr,True))
+     if(!I2AddrSetPassive(addr,True)){
         goto error;
+     }
 
 #ifdef    AF_INET6
     /*
@@ -192,7 +192,7 @@ BWLServerSockCreate(
     return addr;
 
 error:
-    BWLAddrFree(addr);
+    I2AddrFree(addr);
     *err_ret = BWLErrFATAL;
     return NULL;
 
@@ -219,25 +219,49 @@ error:
  */
 BWLControl
 BWLControlAccept(
-        BWLContext      ctx,              /* library context              */
-        int             connfd,           /* connected socket             */
-        struct sockaddr *connsaddr,       /* connected socket addr        */
-        socklen_t       connsaddrlen,     /* connected socket addr len    */
-        uint32_t       mode_offered,      /* advertised server mode       */
-        BWLNum64        uptime,           /* uptime for server            */
-	BWLTesterAvailability  avail_testers, /* server available testers */
-        int             *retn_on_intr,    /* if *retn_on_intr return      */
-        BWLErrSeverity  *err_ret          /* err - return                 */
+        BWLContext          ctx,            /* library context              */
+        int                 connfd,         /* connected socket             */
+        struct sockaddr     *connsaddr,     /* connected socket addr        */
+        socklen_t           connsaddrlen,   /* connected socket addr len    */
+        uint32_t            mode_offered,   /* advertised server mode       */
+        BWLNum64            uptime,         /* uptime for server            */
+        int                 *retn_on_intr,  /* if *retn_on_intr return      */
+        BWLErrSeverity      *err_ret        /* err - return                 */
         )
 {
     BWLControl      cntrl;
-    uint8_t        challenge[16];
-    uint8_t        rawtoken[32];
-    uint8_t        token[32];
+    uint8_t         challenge[16];
+    uint8_t         rawtoken[32];
+    uint8_t         token[32];
     int             rc;
-    struct timeval  tvalstart,tvalend;
     int             ival=0;
     int             *intr = &ival;
+    BWLTimeStamp    timestart,timeend;
+    char            remotenode[NI_MAXHOST],remoteserv[NI_MAXSERV];
+    size_t          remotenodelen = sizeof(remotenode);
+    size_t          remoteservlen = sizeof(remoteserv);
+    char            localnode[NI_MAXHOST],localserv[NI_MAXSERV];
+    size_t          localnodelen = sizeof(localnode);
+    size_t          localservlen = sizeof(localserv);
+    uint32_t        access_prio = _BWL_DEFAULT_ACCESSPRIO;
+
+    *err_ret = BWLErrFATAL;
+
+    /*
+     * Check for valid context.
+     */
+    if( !ctx->valid){
+        BWLError(ctx,BWLErrFATAL,EINVAL,
+                "BWLControlAccept(): Invalid context record");
+        return NULL;
+    }
+    if(!ctx->tool_avail){
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                "BWLControlAccept: Context invalid, tools not initialized");
+        return NULL;
+    }
+
+    (void)BWLContextConfigGetU32(ctx,BWLAccessPriority,&access_prio);
 
     if(connfd < 0)
         return NULL;
@@ -249,8 +273,10 @@ BWLControlAccept(
     *err_ret = BWLErrOK;
     mode_offered &= BWL_MODE_ALLMODES;
 
-    if ( !(cntrl = _BWLControlAlloc(ctx,err_ret)))
+    if( !(cntrl = _BWLControlAlloc(ctx,err_ret))){
+        BWLError(ctx,BWLErrFATAL,errno,"_BWLControlAlloc(): %M");
         goto error;
+    }
 
     cntrl->sockfd = connfd;
     cntrl->server = True;
@@ -258,42 +284,57 @@ BWLControlAccept(
     /*
      * set up remote_addr for policy decisions, and log reporting.
      *
-     * set fd_user false to make BWLAddrFree of remote_addr close the
-     * socket. (This will happen from BWLControlClose.)
-     */
-    /*
      * If connsaddr is not existant, than create the Addr using the
      * socket only.
      */
     if(!connsaddr || !connsaddrlen){
-        if(!(cntrl->remote_addr = BWLAddrBySockFD(ctx,connfd))){
+        if(!(cntrl->remote_addr = I2AddrBySockFD(ctx,connfd,True))){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to determine socket peername: %M");
+            *err_ret = BWLErrFATAL;
             goto error;
         }
     }
-    else if(!(cntrl->remote_addr =
-                BWLAddrBySAddr(ctx,connsaddr,connsaddrlen,SOCK_STREAM))){
-        goto error;
-    }
-    /* set fd_user to False so a Free of the addr will close the fd. */
-    if(!BWLAddrSetFD(cntrl->remote_addr,connfd,True)){
-        goto error;
+    else{
+        if( !(cntrl->remote_addr = I2AddrBySAddr(
+                        BWLContextErrHandle(ctx),
+                        connsaddr,connsaddrlen,SOCK_STREAM,0))){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to determine socket peername: %M");
+            *err_ret = BWLErrFATAL;
+            goto error;
+        }
+        if( !I2AddrSetFD(cntrl->remote_addr,connfd,True)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to set socket fd: %M");
+            *err_ret = BWLErrFATAL;
+            goto error;
+        }
     }
 
     /*
      * set up local_addr for policy decisions, and log reporting.
      */
-    if( !(cntrl->local_addr = BWLAddrByLocalSockFD(ctx,connfd))){
+    if( !(cntrl->local_addr = I2AddrByLocalSockFD(
+                    BWLContextErrHandle(ctx),connfd,False))){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to determine socketname: %M");
         *err_ret = BWLErrFATAL;
         goto error;
     }
 
-    /*
-     * TODO: decide what "level" to send access logs to.
-     */
-    BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
+    if( !I2AddrNodeName(cntrl->remote_addr,remotenode,&remotenodelen) ||
+            !I2AddrServName(cntrl->remote_addr,remoteserv,&remoteservlen) ||
+            !I2AddrNodeName(cntrl->local_addr,localnode,&localnodelen) ||
+            !I2AddrServName(cntrl->local_addr,localserv,&localservlen)){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "Unable to set service names: %M");
+        goto error;
+    }
+
+    BWLError(ctx,access_prio,BWLErrPOLICY,
             "Connection to (%s:%s) from (%s:%s)",
-            cntrl->local_addr->node,cntrl->local_addr->port,
-            cntrl->remote_addr->node, cntrl->remote_addr->port);
+            localnode,localserv,remotenode,remoteserv);
 
     /* generate 16 random bytes of challenge and save them away. */
     if(I2RandomBytes(ctx->rand_src,challenge, 16) != 0){
@@ -301,8 +342,8 @@ BWLControlAccept(
         goto error;
     }
 
-    if(gettimeofday(&tvalstart,NULL)!=0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday():%M");
+    if(!BWLGetTimeStamp(ctx,&timestart)){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"BWLGetTimeStamp(): %M");
         *err_ret = BWLErrFATAL;
         goto error;
     }
@@ -317,10 +358,9 @@ BWLControlAccept(
      * server greeting. (Nice way of saying goodbye.)
      */
     if(!mode_offered){
-        BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
+        BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                 "Control request to (%s:%s) denied from (%s:%s): mode == 0",
-                cntrl->local_addr->node,cntrl->local_addr->port,
-                cntrl->remote_addr->node,cntrl->remote_addr->port);
+                localnode,localserv,remotenode,remoteserv);
         goto error;
     }
 
@@ -329,13 +369,12 @@ BWLControlAccept(
         *err_ret = (BWLErrSeverity)rc;
         goto error;
     }
-    if(gettimeofday(&tvalend,NULL)!=0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"gettimeofday():%M");
+    if(!BWLGetTimeStamp(ctx,&timeend)){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"BWLGetTimeStamp(): %M");
         *err_ret = BWLErrFATAL;
         goto error;
     }
-    tvalsub(&tvalend,&tvalstart);
-    BWLTimevalToNum64(&cntrl->rtt_bound,&tvalend);
+    cntrl->rtt_bound = BWLNum64Sub(timeend.tstamp,timestart.tstamp);
 
     /* insure that exactly one mode is chosen */
     if(    (cntrl->mode != BWL_MODE_OPEN) &&
@@ -346,11 +385,9 @@ BWLControlAccept(
     }
 
     if(!(cntrl->mode | mode_offered)){ /* can't provide requested mode */
-        BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
-                "Control request to (%s:%s) denied from (%s:%s):mode not offered (%u)",
-                cntrl->local_addr->node,cntrl->local_addr->port,
-                cntrl->remote_addr->node,
-                cntrl->remote_addr->port,cntrl->mode);
+        BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
+                "Control request to (%s:%s) denied from (%s:%s): mode not offered (%u)",
+                localnode,localserv,remotenode,remoteserv,cntrl->mode);
         if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr)) <
                 BWLErrOK){
             *err_ret = (BWLErrSeverity)rc;
@@ -359,7 +396,7 @@ BWLControlAccept(
     }
 
     if(cntrl->mode & (BWL_MODE_AUTHENTICATED|BWL_MODE_ENCRYPTED)){
-        uint8_t    binKey[16];
+        uint8_t     binKey[16];
         BWLBoolean  getkey_success;
 
         /* Fetch the encryption key into binKey */
@@ -375,7 +412,7 @@ BWLControlAccept(
             goto error;
         }
 
-        if (BWLDecryptToken(binKey,rawtoken,token) < 0){
+        if (_BWLDecryptToken(binKey,rawtoken,token) < 0){
             BWLError(cntrl->ctx,BWLErrFATAL,
                     BWLErrUNKNOWN,
                     "Encryption state problem?!?!");
@@ -388,17 +425,14 @@ BWLControlAccept(
         /* Decrypted challenge is in the first 16 bytes */
         if((memcmp(challenge,token,16) != 0) || !getkey_success){
             if(!getkey_success){
-                BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
+                BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                         "Unknown userid (%s)",
                         cntrl->userid_buffer);
             }
             else{
-                BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
+                BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                         "Control request to (%s:%s) denied from (%s:%s):Invalid challenge encryption",
-                        cntrl->local_addr->node,
-                        cntrl->local_addr->port,
-                        cntrl->remote_addr->node,
-                        cntrl->remote_addr->port);
+                        localnode,localserv,remotenode,remoteserv);
             }
             (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr);
             goto error;
@@ -417,14 +451,14 @@ BWLControlAccept(
     }
 
     if(!_BWLCallCheckControlPolicy(cntrl,cntrl->mode,cntrl->userid, 
-                cntrl->local_addr->saddr,cntrl->remote_addr->saddr,err_ret)){
+                I2AddrSAddr(cntrl->local_addr,NULL),
+                I2AddrSAddr(cntrl->remote_addr,NULL),err_ret)){
         if(*err_ret > BWLErrWARNING){
-            BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
+            BWLError(ctx,access_prio,BWLErrPOLICY,
                     "ControlSession request to (%s:%s) denied from userid(%s):(%s:%s)",
-                    cntrl->local_addr->node,cntrl->local_addr->port,
+                    localnode,localserv,
                     (cntrl->userid)?cntrl->userid:"nil",
-                    cntrl->remote_addr->node,
-                    cntrl->remote_addr->port);
+                    remotenode,remoteserv);
             /*
              * send mode of 0 to client, and then close.
              */
@@ -442,17 +476,15 @@ BWLControlAccept(
      * Made it through the gauntlet - accept the control session!
      */
     if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_ACCEPT,uptime,
-				avail_testers,intr)) <
-            BWLErrOK){
+				ctx->tool_avail,intr)) < BWLErrOK){
         *err_ret = (BWLErrSeverity)rc;
         goto error;
     }
-    BWLError(ctx,ctx->access_prio,BWLErrPOLICY,
+    BWLError(ctx,access_prio,BWLErrPOLICY,
             "ControlSession([%s]:%s) accepted from userid(%s):([%s]:%s)",
-            cntrl->local_addr->node,cntrl->local_addr->port,
+            localnode,localserv,
             (cntrl->userid)?cntrl->userid:"nil",
-            cntrl->remote_addr->node,
-            cntrl->remote_addr->port);
+            remotenode,remoteserv);
 
     return cntrl;
 
@@ -463,24 +495,28 @@ error:
 
 BWLErrSeverity
 BWLProcessTestRequest(
-        BWLControl    cntrl,
-	BWLTesterAvailability avail_testers,
-        int        *retn_on_intr
+        BWLControl              cntrl,
+        int                     *retn_on_intr
         )
 {
-    BWLTestSession    tsession = cntrl->tests;
-    BWLErrSeverity    err_ret=BWLErrOK;
-    int        rc;
-    BWLAcceptType    acceptval = BWL_CNTRL_FAILURE;
-    int        ival=0;
-    int        *intr = &ival;
+    BWLTestSession  tsession = cntrl->tests;
+    BWLErrSeverity  err_ret=BWLErrOK;
+    int             rc;
+    BWLAcceptType   acceptval = BWL_CNTRL_FAILURE;
+    int             ival=0;
+    int             *intr = &ival;
+    uint32_t        access_prio = _BWL_DEFAULT_ACCESSPRIO;
 
     if(retn_on_intr){
         intr = retn_on_intr;
     }
 
+    (void)BWLContextConfigGetU32(cntrl->ctx,BWLAccessPriority,&access_prio);
+
     /*
-     * Read the TestRequest and allocate tsession to hold the information.
+     * Read the TestRequest and use tsession to hold the information.
+     * (during schedule negotiation, only the timestamps from the
+     * subsequent requests are used.)
      */
     if((rc = _BWLReadTestRequest(cntrl,intr,&tsession,&acceptval)) !=
             BWLErrOK){
@@ -522,13 +558,26 @@ BWLProcessTestRequest(
             goto error;
         }
     }
-    /*
-     * If this "new" session is a receiver session, create a SID for it.
-     */
-    else if(tsession->conf_receiver && (_BWLCreateSID(tsession) != 0)){
-        err_ret = BWLErrWARNING;
-        acceptval = BWL_CNTRL_FAILURE;
-        goto error;
+    else{
+        /*
+         * If this "new" session is a receiver session, create a SID for it.
+         */
+        if(tsession->conf_receiver && (_BWLCreateSID(tsession) != 0)){
+            err_ret = BWLErrWARNING;
+            acceptval = BWL_CNTRL_FAILURE;
+            goto error;
+        }
+
+        /*
+         * Get definition record for selected tool
+         * (This will fail if an unsupported tool is requested.)
+         */
+        if( !(tsession->tool = _BWLToolGetDefinition(cntrl->ctx,
+                        tsession->test_spec.tool_id))){
+            err_ret = BWLErrWARNING;
+            acceptval = BWL_CNTRL_UNSUPPORTED;
+            goto error;
+        }
     }
 
     /*
@@ -544,12 +593,12 @@ BWLProcessTestRequest(
      *
      * TODO: Make this constant configurable somehow?
      */
-    tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLULongToNum64(1));
+    tsession->fuzz = BWLNum64Add(tsession->fuzz,BWLDoubleToNum64(0.1));
 
     if(!_BWLCallCheckTestPolicy(cntrl,tsession,&err_ret)){
         if(err_ret < BWLErrOK)
             goto error;
-        BWLError(cntrl->ctx,cntrl->ctx->access_prio,BWLErrPOLICY,
+        BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                 "Test not allowed");
         acceptval = BWL_CNTRL_REJECT;
         err_ret = BWLErrINFO;
@@ -586,13 +635,13 @@ err2:
 
 BWLErrSeverity
 BWLProcessTimeRequest(
-        BWLControl    cntrl,
-        int        *retn_on_intr
+        BWLControl  cntrl,
+        int         *retn_on_intr
         )
 {
-    int        rc;
-    int        ival=0;
-    int        *intr = &ival;
+    int             rc;
+    int             ival=0;
+    int             *intr = &ival;
     BWLTimeStamp    tstamp;
 
     if(retn_on_intr){
@@ -613,29 +662,29 @@ BWLProcessTimeRequest(
 
 BWLErrSeverity
 BWLProcessStartSession(
-        BWLControl    cntrl,
-        int        *retn_on_intr
+        BWLControl  cntrl,
+        int         *retn_on_intr
         )
 {
-    int        rc;
-    BWLErrSeverity    err=BWLErrOK;
-    int        ival=0;
-    int        *intr = &ival;
-    uint16_t    dataport = 0;
+    int             rc;
+    BWLErrSeverity  err=BWLErrOK;
+    int             ival=0;
+    int             *intr = &ival;
+    uint16_t        peerport = 0;
 
     if(retn_on_intr){
         intr = retn_on_intr;
     }
 
-    if( (rc = _BWLReadStartSession(cntrl,&dataport,intr)) < BWLErrOK)
+    if( (rc = _BWLReadStartSession(cntrl,&peerport,intr)) < BWLErrOK)
         return _BWLFailControlSession(cntrl,rc);
 
-    if(!_BWLEndpointStart(cntrl->tests,&dataport,&err)){
+    if(!_BWLEndpointStart(cntrl->tests,&peerport,&err)){
         (void)_BWLWriteStartAck(cntrl,intr,0,BWL_CNTRL_FAILURE);
         return _BWLFailControlSession(cntrl,err);
     }
 
-    if( (rc = _BWLWriteStartAck(cntrl,intr,dataport,BWL_CNTRL_ACCEPT))
+    if( (rc = _BWLWriteStartAck(cntrl,intr,peerport,BWL_CNTRL_ACCEPT))
             < BWLErrOK)
         return _BWLFailControlSession(cntrl,rc);
 
@@ -664,13 +713,13 @@ BWLProcessStartSession(
  */
 BWLBoolean
 BWLSessionStatus(
-        BWLControl    cntrl,
-        BWLSID        sid,
-        BWLAcceptType    *aval
+        BWLControl      cntrl,
+        BWLSID          sid,
+        BWLAcceptType   *aval
         )
 {
-    BWLTestSession    tsession;
-    BWLErrSeverity    err;
+    BWLTestSession  tsession;
+    BWLErrSeverity  err;
 
     /*
      * First find the tsession record for this test.
@@ -684,13 +733,13 @@ BWLSessionStatus(
 
 int
 BWLSessionsActive(
-        BWLControl    cntrl,
-        BWLAcceptType    *aval
+        BWLControl      cntrl,
+        BWLAcceptType   *aval
         )
 {
-    BWLTestSession    tsession;
-    BWLAcceptType    laval = 0;
-    BWLErrSeverity    err;
+    BWLTestSession  tsession;
+    BWLAcceptType   laval = 0;
+    BWLErrSeverity  err;
 
     tsession = cntrl->tests;
     if(tsession && _BWLEndpointStatus(tsession,&laval,&err) && (laval < 0))
@@ -704,18 +753,18 @@ BWLSessionsActive(
 
 BWLErrSeverity
 BWLStopSession(
-        BWLControl    cntrl,
-        int        *retn_on_intr,
-        BWLAcceptType    *acceptval_ret    /* in/out    */
+        BWLControl      cntrl,
+        int             *retn_on_intr,
+        BWLAcceptType   *acceptval_ret    /* in/out    */
         )
 {
-    BWLErrSeverity    err,err2=BWLErrOK;
-    BWLRequestType    msgtype;
-    BWLAcceptType    aval=BWL_CNTRL_ACCEPT;
-    BWLAcceptType    *acceptval=&aval;
-    int        ival=0;
-    int        *intr=&ival;
-    FILE        *fp;
+    BWLErrSeverity  err,err2=BWLErrOK;
+    BWLRequestType  msgtype;
+    BWLAcceptType   aval=BWL_CNTRL_ACCEPT;
+    BWLAcceptType   *acceptval=&aval;
+    int             ival=0;
+    int             *intr=&ival;
+    FILE            *fp;
 
     if(!cntrl->tests){
         return BWLErrOK;
@@ -783,26 +832,25 @@ BWLStopSession(
 
 int
 BWLStopSessionWait(
-        BWLControl        cntrl,
+        BWLControl      cntrl,
         BWLNum64        *wake,
-        int            *retn_on_intr,
-        BWLAcceptType        *acceptval_ret,
-        BWLErrSeverity        *err_ret
+        int             *retn_on_intr,
+        BWLAcceptType   *acceptval_ret,
+        BWLErrSeverity  *err_ret
         )
 {
-    struct timeval    currtime;
-    struct timeval    reltime;
-    struct timeval    *waittime = NULL;
-    fd_set        readfds;
-    fd_set        exceptfds;
-    int        rc;
-    int        msgtype;
-    BWLErrSeverity    err2=BWLErrOK;
-    BWLAcceptType    aval;
-    BWLAcceptType    *acceptval=&aval;
-    int        ival=0;
-    int        *intr=&ival;
-    FILE        *fp;
+    struct timeval  reltime;
+    struct timeval  *waittime = NULL;
+    fd_set          readfds;
+    fd_set          exceptfds;
+    int             rc;
+    int             msgtype;
+    BWLErrSeverity  err2=BWLErrOK;
+    BWLAcceptType   aval;
+    BWLAcceptType   *acceptval=&aval;
+    int             ival=0;
+    int             *intr=&ival;
+    FILE            *fp;
 
     *err_ret = BWLErrOK;
     if(acceptval_ret){
@@ -832,28 +880,18 @@ BWLStopSessionWait(
 
 AGAIN:
     if(wake){
-        BWLTimeStamp    wakestamp;
+        BWLTimeStamp    currstamp;
+        BWLNum64        wakenum;
 
-        /*
-         * convert abs wake time to timeval
-         */
-        wakestamp.tstamp = *wake;
-        BWLTimeStampToTimeval(&reltime,&wakestamp);
-
-        /*
-         * get current time.
-         */
-        if(gettimeofday(&currtime,NULL) != 0){
+        if(!BWLGetTimeStamp(cntrl->ctx,&currstamp)){
             BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "gettimeofday():%M");
+                    "BWLGetTimeStamp(): %M");
             return -1;
         }
 
-        /*
-         * compute relative wake time from current time and abs wake.
-         */
-        if(tvalcmp(&currtime,&reltime,<)){
-            tvalsub(&reltime,&currtime);
+        if(BWLNum64Cmp(currstamp.tstamp,*wake) < 0){
+            wakenum = BWLNum64Sub(*wake,currstamp.tstamp);
+            BWLNum64ToTimeval(&reltime,wakenum);
         }
         else{
             tvalclear(&reltime);

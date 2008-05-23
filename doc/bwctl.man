@@ -34,13 +34,10 @@ bwctl \- Client application to request throughput tests.
 [\fIoptions\fR] \fI\-s sendhost\fR
 .SH DESCRIPTION
 \fBbwctl\fR is a command line client application that is used to
-initiate \fBIperf\fR throughput tests.
+initiate throughput tests.
 .TP
-From the \fBIperf\fR web site:
-\fBIperf\fR is a tool to measure
-maximum TCP bandwidth, allowing the tuning of various parameters
-and UDP characteristics. \fBIperf\fR reports bandwidth, delay jitter,
-datagram loss. 
+This versio of \fBbwctl\fR is capable of initiating \fBIperf\fR,
+\fBnuttcp\fR, and \fBthrulay\fR tests.
 .PP
 .B bwctl
 works by
@@ -53,6 +50,12 @@ other endpoint. \fBbwctl\fR will attempt to contact a local \fBbwctld\fR
 if it can. If there is no local \fBbwctld\fR running, \fBbwctl\fR assumes
 the local host does not require policy controls and will execute the
 \fBbwctld\fR functionality required to run the test directly.
+.PP
+If cases where \fBbwctl\fR is directly running the throughput test
+on the host, there are several configuration options that are shared
+with \fBbwctld\fR. Those configuration options
+can be set using the .bwctlrc(5) configuration file in a way very similar
+to the way they are specified in the bwctld.conf(5) file.
 .PP
 The \fBbwctl\fR client is used to request the type of \fBIperf\fR
 test wanted. Furthermore, it requests when the test is wanted.
@@ -284,9 +287,9 @@ length of read/write buffers (bytes).
 8 KB TCP, 1470 bytes UDP.
 .RE
 .TP
-\fB\-P\fR \fInThreads\fR
-Generates an error message. The \fB\-P\fR option of \fBIperf\fR is not
-currently supported by \fBbwctl\fR.
+\fB\-P\fR \fInStreams\fR
+Number of concurrent streams for the test. See the \fB\-P\fR option
+of \fBIperf\fR for details.
 .TP
 \fB\-S\fR \fITOS\fR
 Set the TOS (See RFC 1349) byte in packets.
@@ -357,12 +360,13 @@ Specifies that \fBbwctl\fR should attempt to run the \fBIperf\fR test every
 Unset. If it is unset, \fBbwctl\fR only runs the test once.
 .RE
 .TP
-\fB\-L\fR \fIlatest\fR
-Specifies the latest time the client is willing to wait for a
+\fB\-L\fR \fIlongest\fR
+Specifies the longest amount of time the client is willing to wait for a
 reservation window. When \fBbwctl\fR requests a test from the \fBbwctld\fR
 server, it specifies the earliest time and the latest time it is willing
-to accept. The \fIlatest\fR option is specified as a number of seconds
-that will be added to the start time.
+to accept. The latest time is determined by adding this \fIlongest\fR
+option to the earliest time. The earliest time is essentially 'now'.
+The \fIlongest\fR time is specified as a number of seconds.
 .RS
 .IP Default:
 If \fIinterval\fR is set, the default is 50% of \fIinterval\fR. Otherwise,
@@ -433,25 +437,14 @@ Output sender (\fBIperf\fR client) results as well as receiver results.
 By default, sender results are not output. If the \fB\-p\fR option is
 specified, the sender results are placed in an additional file.
 .SH ENVIRONMENT VARIABLES
-If \fBbwctl\fR is directly running the \fBIperf\fR test on the host then
-it will be executing some of the \fRbwctld\fR functionality directly. In some
-cases it might be useful to specify some of the configuration options that can
-be specified for \fBbwctld\fR in this context. The following Environment
-Variables can be used to specify those configuration options:
 .TS
-lb lb
-_ _
-lb li .
-bwctl Environment Variable	bwctld.conf Option
-BWCTL_IPERFPORTRANGE	iperfport
-BWCTL_IPERFCMD	iperfcmd
-BWCTL_BOTTLENECKCAPACITY	bottleneckcapacity
-BWCTL_SYNCFUZZ	syncfuzz
-BWCTL_CONTROLTIMEOUT	controltimeout
-BWCTL_PEERPORTS	peerports
+lb lb lb
+_ _ _
+lb li li .
+bwctl Environment Variable	use	default
+BWCTLRC	Config file	~/.bwctlrc
+BWCTL_DEBUG_TIMEOFFSET	Offset	0.0(seconds)
 .TE
-.PP
-See the bwctld.conf(5) man page for details on these options.
 .SH LIMITATIONS
 Only tested with versions 1.7.0 and 2.0.b of \fBIperf\fR.
 .SH EXAMPLES

@@ -47,7 +47,7 @@
 #endif
 
 
-#if    !HAVE_MALLOC || !HAVE_MEMSET
+#if    !HAVE_MEMSET
 #error    Missing needed memory functions!
 #endif
 #endif    /* HAVE_CONFIG_H */
@@ -176,31 +176,32 @@ BWLNum64Mult(
 
 extern BWLNum64
 BWLULongToNum64(
-        uint32_t    from);
+        uint32_t    from
+        );
 
 
 extern void
 BWLNum64ToTimeval(
-        struct timeval    *to,
-        BWLNum64    from
+        struct timeval  *to,
+        BWLNum64        from
         );
 
 extern void
 BWLTimevalToNum64(
-        BWLNum64    *to,
-        struct timeval    *from
+        BWLNum64        *to,
+        struct timeval  *from
         );
 
 extern void
 BWLNum64ToTimespec(
-        struct timespec    *to,
-        BWLNum64    from
+        struct timespec *to,
+        BWLNum64        from
         );
 
 extern void
 BWLTimespecToNum64(
-        BWLNum64    *to,
-        struct timespec    *from
+        BWLNum64        *to,
+        struct timespec *from
         );
 
 extern double
@@ -222,7 +223,6 @@ BWLUsecToNum64(uint32_t usec);
  */
 typedef struct BWLContextRec    *BWLContext;
 typedef struct BWLControlRec    *BWLControl;
-typedef struct BWLAddrRec    *BWLAddr;
 
 /*
  * TimeStamp related types and structures needed throughout.
@@ -239,11 +239,11 @@ typedef struct BWLTimeStampRec{
 /* Codes for returning error severity and type. */
 /* when possible, values are mapped to syslog "priorities" we want to use. */
 typedef enum {
-    BWLErrFATAL=LOG_ERR,
-    BWLErrWARNING=LOG_WARNING,
-    BWLErrINFO=LOG_INFO,
-    BWLErrDEBUG=LOG_DEBUG,
-    BWLErrOK=I2LOG_NONE
+    BWLErrFATAL=LOG_ERR,        /* 3 */
+    BWLErrWARNING=LOG_WARNING,  /* 4 */
+    BWLErrINFO=LOG_INFO,        /* 6 */
+    BWLErrDEBUG=LOG_DEBUG,      /* 7 */
+    BWLErrOK=I2LOG_NONE         /* 8 */
 } BWLErrSeverity;
 
 typedef enum {
@@ -258,8 +258,6 @@ typedef enum {
  * Valid values for "accept" - this will be added to for the purpose of
  * enumerating the reasons for rejecting a session, or early termination
  * of a test session.
- *
- * TODO:Get the additional "accept" values added to the spec.
  */
 typedef enum{
     BWL_CNTRL_INVALID=-1,
@@ -269,17 +267,18 @@ typedef enum{
     BWL_CNTRL_UNSUPPORTED=0x4
 } BWLAcceptType;
 
-/* Supported testers. */
+/* Supported tools. The values*/
 typedef enum{
-    BWL_TESTER_THRULAY=0x1,
-    BWL_TESTER_IPERF=0x2,
-    BWL_TESTER_NUTTCP=0x4
-} BWLTester;
+    BWL_TOOL_UNDEFINED=0,
+    BWL_TOOL_THRULAY=0x1,
+    BWL_TOOL_IPERF=0x2,
+    BWL_TOOL_NUTTCP=0x4
+} BWLToolType;
 
 typedef uint32_t   BWLBoolean;
 typedef uint8_t    BWLSID[16];
 typedef uint8_t    BWLSequence[4];
-typedef uint32_t   BWLTesterAvailability;
+typedef uint32_t   BWLToolAvailability;
 
 /*
  * technically the username in the client greeting message can have uint8_t
@@ -300,32 +299,31 @@ typedef uint8_t    BWLKey[16];
 #define BWL_MODE_ALLMODES           (BWL_MODE_DOCIPHER|BWL_MODE_OPEN)
 
 typedef uint32_t    BWLSessionMode;
-typedef uint32_t    BWLTesterNegotiationVersion;
+typedef uint32_t    BWLToolNegotiationVersion;
 
 typedef struct{
-    BWLTester       tester;
-    BWLAddr         sender;
-    BWLAddr         receiver;
+    BWLToolType     tool_id;
+    I2Addr          sender;
+    I2Addr          receiver;
     BWLTimeStamp    req_time;
     BWLNum64        latest_time;
-    uint32_t       duration;
+    uint32_t        duration;
     BWLBoolean      udp;
-    uint8_t        tos;
-    uint32_t       bandwidth;
-    uint32_t       window_size;
-    uint32_t       len_buffer;
-    uint16_t       report_interval;
-    uint8_t        parallel_streams;
+    uint8_t         tos;
+    uint32_t        bandwidth;
+    uint32_t        window_size;
+    uint32_t        len_buffer;
+    uint16_t        report_interval;
+    uint8_t         parallel_streams;
+    uint8_t         units;
+    uint8_t         outformat;
     BWLBoolean      dynamic_window_size;
 } BWLTestSpec;
 
 typedef uint32_t   BWLPacketSizeT;
 
-BWLTesterAvailability
-LookForTesters(BWLContext ctx);
-
 /*
- * an BWLScheduleContextRec is used to maintain state for the schedule
+ * The BWLScheduleContextRec is used to maintain state for the schedule
  * generator. Multiple contexts can be allocated to maintain multiple
  * "streams" of schedules.
  */
@@ -334,8 +332,8 @@ typedef struct BWLScheduleContextRec    *BWLScheduleContext;
 BWLScheduleContext
 BWLScheduleContextCreate(
         BWLContext  ctx,
-        uint8_t    seed[16],
-        uint32_t   mean
+        uint8_t     seed[16],
+        uint32_t    mean
         );
 
 void
@@ -346,8 +344,8 @@ BWLScheduleContextFree(
 BWLErrSeverity
 BWLScheduleContextReset(
         BWLScheduleContext  sctx,
-        uint8_t            seed[16],
-        uint32_t           mean
+        uint8_t             seed[16],
+        uint32_t            mean
         );
 
 BWLNum64
@@ -372,7 +370,7 @@ BWLScheduleContextGenerateNextDelta(
  * (Sure would be nice if it were possible to do vararg macros...)
  */
 #define BWLError    I2ErrLocation_(__FILE__,__DATE__,__LINE__);    \
-BWLError_
+    BWLError_
 
 /*
  * Don't call this directly - use the BWLError macro.
@@ -397,7 +395,14 @@ BWLError_(
  * calling the BWLContextConfigSet function with the following keys and
  * types. (The key is a string - the type indicates what type of data
  * will be stored/retrieved using that key.
+ * The first couple of char's of the name indicate what integral type
+ * needs to be used to set the value.
  */
+
+/* Used to define a 'generic' function type to use for setting/getting
+ * functions below.
+ */
+typedef void (*BWLFunc)(void);
 
 /*
  * This type is used to hold a pointer to an integer pointer. That pointer
@@ -407,32 +412,25 @@ BWLError_(
  * ignore the interrupt and restart the i/o.
  * (this can be used to ignore some signals and return on others.)
  */
-#define BWLInterruptIO        "BWLInterruptIO"
+#define BWLInterruptIO        "V.BWLInterruptIO"
+
+/*
+ * This type is used by the Daemon request broker to decide how
+ * long to wait for responses from the client and peer agent.
+ */
+#define BWLControlTimeout   "U32.BWLControlTimeout"
 
 /*
  * This context variable is used to hold a pointer to a port-range record. This
- * record is used to indicate what port ranges should be used for peer
- * server connections. (The connection used to verify clocks and share
- * test results.)
+ * record is used to indicate what port ranges should be used for port
+ * selections.
  */
-#define BWLPeerPortRange    "BWLPeerPortRange"
+#define BWLPeerPortRange    "V.BWLPeerPortRange"
 typedef struct BWLPortRangeRec{
-    uint16_t   low;
-    uint16_t   high;
+    uint16_t    i;      /* current port */
+    uint16_t    low;
+    uint16_t    high;
 } BWLPortRangeRec, *BWLPortRange;
-
-/*
- * This types are used to hold the path to the iperf/thrulay executables.
- * (char *)
- */
-#define    BWLIperfCmd           "BWLIperfCmd"
-#define    BWLNuttcpCmd          "BWLNuttcpCmd"
-
-/*
- * Which tester tool was selected ("iperf", "thrulay", etc.).
- * (char *)
- */
-#define    BWLTester          "BWLTester"
 
 /*
  * This type is used to hold a pointer to an unsigned-64 bit int that
@@ -440,7 +438,7 @@ typedef struct BWLPortRangeRec{
  * a rtt estimate to dynamically size the send/recv window sizes.
  * (uint64_t)
  */
-#define BWLBottleNeckCapacity    "BWLBottleNeckCapacity"
+#define BWLBottleNeckCapacity    "U64.BWLBottleNeckCapacity"
 
 /*
  * This type is used to define the function that retrieves the shared
@@ -453,7 +451,7 @@ typedef struct BWLPortRangeRec{
  * If an application doesn't set this, Encrypted and Authenticated
  * mode will be disabled.
  */    
-#define    BWLGetAESKey        "BWLGetAESKey"
+#define    BWLGetAESKey        "F.BWLGetAESKey"
 typedef BWLBoolean  (*BWLGetAESKeyFunc)(
         BWLContext      ctx,
         const BWLUserID userid,
@@ -471,7 +469,7 @@ typedef BWLBoolean  (*BWLGetAESKeyFunc)(
  *
  * If an application doesn't set this, all connections will be allowed.
  */
-#define BWLCheckControlPolicy    "BWLCheckControlPolicy"
+#define BWLCheckControlPolicy    "F.BWLCheckControlPolicy"
 typedef BWLBoolean (*BWLCheckControlPolicyFunc)(
         BWLControl    cntrl,
         BWLSessionMode    mode_req,
@@ -504,20 +502,20 @@ typedef BWLBoolean (*BWLCheckControlPolicyFunc)(
  * writing (a receiver context) and not being opened for reading (a fetch
  * context).
  */
-#define BWLCheckTestPolicy    "BWLCheckTestPolicy"
+#define BWLCheckTestPolicy    "F.BWLCheckTestPolicy"
 typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
-        BWLControl    cntrl,
-        BWLSID        sid,
-        BWLBoolean    local_sender,
-        struct sockaddr    *local_sa_addr,
-        struct sockaddr    *remote_sa_addr,
-        socklen_t    sa_len,
-        BWLTestSpec    *test_spec,
-        BWLNum64    fuzz_time,
-        BWLNum64    *reservation_ret,
-        uint16_t    *port_ret,
-        void        **closure,
-        BWLErrSeverity    *err_ret
+        BWLControl      cntrl,
+        BWLSID          sid,
+        BWLBoolean      local_sender,
+        struct sockaddr *local_sa_addr,
+        struct sockaddr *remote_sa_addr,
+        socklen_t       sa_len,
+        BWLTestSpec     *test_spec,
+        BWLNum64        fuzz_time,
+        BWLNum64        *reservation_ret,
+        uint16_t        *tool_port_ret,
+        void            **closure,
+        BWLErrSeverity  *err_ret
         );
 
 /*
@@ -525,11 +523,11 @@ typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
  * to free resources that were allocated on behalf of the test including
  * memory associated with the "closure" pointer itself if necessary.
  */
-#define BWLTestComplete        "BWLTestComplete"
+#define BWLTestComplete        "F.BWLTestComplete"
 typedef void (*BWLTestCompleteFunc)(
-        BWLControl    cntrl,
-        void        *closure,
-        BWLAcceptType    aval
+        BWLControl      cntrl,
+        void            *closure,
+        BWLAcceptType   aval
         );
 
 /*
@@ -538,11 +536,11 @@ typedef void (*BWLTestCompleteFunc)(
  * (The function should handle the case where the FILE*'s are null. This
  * simply means that test results are unavailable.)
  */
-#define BWLProcessResults    "BWLProcessResults"
+#define BWLProcessResults    "F.BWLProcessResults"
 typedef BWLErrSeverity (*BWLProcessResultsFunc)(
-        BWLControl    cntrl,
-        BWLBoolean    local_sender,
-        BWLTestSpec    *tspec,
+        BWLControl  cntrl,
+        BWLBoolean  local_sender,
+        BWLTestSpec *tspec,
         FILE        *sendfp,
         FILE        *recvfp
         );
@@ -551,7 +549,7 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
  * This value is used to increase the tolerance of bwctld to deal
  * with incorrectly configured ntpd processes. Specified as a (*double).
  */
-#define BWLSyncFuzz    "BWLSyncFuzz"
+#define BWLSyncFuzz    "DBL.BWLSyncFuzz"
 
 /*
  * This value is used to indicate if NTP synchronization is required
@@ -559,19 +557,25 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
  * can attempt to continue without determining if the current clock
  * is really synchronized.
  */
-#define BWLAllowUnsync  "BWLAllowUnsync"
+#define BWLAllowUnsync  "V.BWLAllowUnsync"
+
+/*
+ * This value is used to indicate the priority to report 'access'
+ * logging. (This is useful for isolating in syslog configurations.)
+ */
+#define BWLAccessPriority  "U32.BWLAccessPriority"
 
 #ifndef    NDEBUG
 /*
- * This integer type is used to aid in child-debugging. If BWLChildWait is
- * set and non-zero forked off endpoints will go into a busy-wait loop to
+ * This void* type is used to aid in child-debugging. If BWLChildWait is
+ * non-null forked off endpoints will go into a busy-wait loop to
  * allow a debugger to attach to the process. (i.e. they will be hung until
  * attached and the loop variable modified with the debugger. This should
  * not strictly be needed, but the gdb on many of the test plateforms I
  * used did not implement the follow-fork-mode option.) This was a quick
  * fix. (This will not be used if bwlib is compiled with -DNDEBUG.)
  */
-#define    BWLChildWait    "BWLChildWait"
+#define    BWLChildWait    "V.BWLChildWait"
 #endif
 
 extern BWLContext
@@ -580,33 +584,93 @@ BWLContextCreate(
         ...
         );
 
+BWLBoolean
+BWLContextFinalize(
+        BWLContext  ctx
+        );
+
+BWLBoolean
+BWLContextFindTools(
+        BWLContext  ctx
+        );
+
+/*
+ * Used to register memory pointers that should be free'd when the
+ * Context is free'd. (Returns false if the Context is unable to
+ * register the memory - failure if ENOMEM.
+ */
+BWLBoolean
+BWLContextRegisterMemory(
+        BWLContext  ctx,
+        void        *ptr
+        );
+
 extern void
 BWLContextFree(
         BWLContext    ctx
         );
 
 extern I2ErrHandle
-BWLContextGetErrHandle(
+BWLContextErrHandle(
         BWLContext  ctx
         );
 
+/*
+ * Used to specify the level of error messages that should be printed/syslogged
+ * (this level and 'worse' of course.)
+ */
 extern void
-BWLContextSetAccessLogPriority(
-        BWLContext  ctx,
-        int         prio
+BWLContextSetErrMask(
+        BWLContext      ctx,
+        BWLErrSeverity  level
+        );
+
+/*
+ * Retrieve current error masking level
+ */
+extern BWLErrSeverity
+BWLContextErrMask(
+        BWLContext  ctx
         );
 
 extern BWLBoolean
 BWLContextConfigSet(
         BWLContext  ctx,
         const char  *key,
-        void        *value
+        ...
         );
 
 extern void*
-BWLContextConfigGet(
-        BWLContext    ctx,
-        const char    *key
+BWLContextConfigGetV(
+        BWLContext  ctx,
+        const char  *key
+        );
+
+extern BWLFunc
+BWLContextConfigGetF(
+        BWLContext  ctx,
+        const char  *key
+        );
+
+extern BWLBoolean
+BWLContextConfigGetU32(
+        BWLContext  ctx,
+        const char  *key,
+        uint32_t    *u32
+        );
+
+extern BWLBoolean
+BWLContextConfigGetU64(
+        BWLContext  ctx,
+        const char  *key,
+        uint64_t    *u64
+        );
+
+extern BWLBoolean
+BWLContextConfigGetDbl(
+        BWLContext  ctx,
+        const char  *key,
+        double      *dbl
         );
 
 extern BWLBoolean
@@ -624,13 +688,40 @@ extern BWLBoolean
 BWLControlConfigSet(
         BWLControl    cntrl,
         const char    *key,
-        void        *value
+        ...
         );
 
 extern void*
-BWLControlConfigGet(
+BWLControlConfigGetV(
         BWLControl    cntrl,
-        const char    *key
+        const char  *key
+        );
+
+extern BWLFunc
+BWLControlConfigGetF(
+        BWLControl    cntrl,
+        const char  *key
+        );
+
+extern BWLBoolean
+BWLControlConfigGetU32(
+        BWLControl    cntrl,
+        const char  *key,
+        uint32_t    *u32
+        );
+
+extern BWLBoolean
+BWLControlConfigGetU64(
+        BWLControl    cntrl,
+        const char  *key,
+        uint64_t    *u64
+        );
+
+extern BWLBoolean
+BWLControlConfigGetDbl(
+        BWLControl  cntrl,
+        const char  *key,
+        double      *dbl
         );
 
 extern BWLBoolean
@@ -639,150 +730,14 @@ BWLControlConfigDelete(
         const char    *key
         );
 
-/*
- * The BWLAddrBy* functions are used to allow the BWL API to more
- * adequately manage the memory associated with the many different ways
- * of specifying an address - and to provide a uniform way to specify an
- * address to the main API functions.
- * These functions return NULL on failure. (They call the error handler
- * to specify the reason.)
- */
-extern BWLAddr
-BWLAddrByNode(
-        BWLContext    ctx,
-        const char    *node    /* dns or valid char representation of addr */
-        );
-
-extern BWLAddr
-BWLAddrByWildcard(
-        BWLContext  ctx,
-        int         socktype
-        );
-
-extern BWLAddr
-BWLAddrBySAddr(
-        BWLContext      ctx,
-        struct sockaddr *saddr,
-        socklen_t       saddr_len,
-        int             socktype
-        );
-
-/*
- * Return the address for the remote side of the given socket.
- * (wrapper for getpeername)
- */
-extern BWLAddr
-BWLAddrBySockFD(
-        BWLContext    ctx,
-        int        fd    /* fd must be an already connected socket */
-        );
-
-/*
- * Return the address for the remote side of the given socket.
- * (wrapper for getsockname)
- */
-extern BWLAddr
-BWLAddrByLocalSockFD(
-        BWLContext    ctx,
-        int        fd    /* fd must be an already connected socket */
-        );
-
-/*
- * Return the address for the remote side of the control connection.
- * (getpeername)
- */
-BWLAddr
+extern I2Addr
 BWLAddrByControl(
-        BWLControl    cntrl
+        BWLControl  cntrl
         );
 
-/*
- * Return the address for the local side of the control connection.
- * (getsockname)
- */
-BWLAddr
+extern I2Addr
 BWLAddrByLocalControl(
-        BWLControl    cntrl
-        );
-
-/*
- * Addr access functions.
- * The set functions are only valid *before* a real socket is associated
- * with the Addr. So, the internal fd cannot be set upon entrance.
- */
-BWLBoolean
-BWLAddrSetSAddr(
-        BWLAddr         addr,
-        struct sockaddr *saddr,
-        socklen_t       saddr_len
-        );
-
-BWLBoolean
-BWLAddrSetFD(
-        BWLAddr addr,
-        int     fd,
-        int     close_on_free
-        );
-
-BWLBoolean
-BWLAddrSetPort(
-        BWLAddr     addr,
-        uint16_t   port
-        );
-
-BWLBoolean
-BWLAddrSetSocktype(
-        BWLAddr addr,
-        int     so_type
-        );
-
-BWLBoolean
-BWLAddrSetPassive(
-        BWLAddr     addr,
-        BWLBoolean  passive
-        );
-
-struct addrinfo
-*BWLAddrAddrInfo(
-        BWLAddr     addr,
-        char        *def_node,
-        char        *def_serv
-        );
-
-BWLBoolean
-BWLAddrNodeName(
-        BWLAddr addr,
-        char    *buf,
-        size_t  *len    /* in/out parameter for buf len */
-        );
-
-BWLBoolean
-BWLAddrNodeService(
-        BWLAddr addr,
-        char    *buf,
-        size_t  *len    /* in/out parameter for buf len */
-        );
-
-/*
- * return FD for given BWLAddr or -1 if it doesn't refer to a socket yet.
- */
-extern int
-BWLAddrFD(
-        BWLAddr    addr
-        );
-
-/*
- * return socket address length (for use in calling accept etc...)
- * or 0 if it doesn't refer to a socket yet.
- */
-extern socklen_t
-BWLAddrSockLen(
-        BWLAddr    addr
-        );
-
-extern BWLErrSeverity
-BWLAddrFree(
-        BWLAddr    addr
+        BWLControl  cntrl
         );
 
 /*
@@ -805,24 +760,24 @@ BWLAddrFree(
  *     If successful - even marginally - a valid BWLclient handle
  *     is returned. If unsuccessful, NULL is returned.
  *
- * local_addr can only be set using BWLAddrByNode or BWLAddrByAddrInfo
- * server_addr can use any of the BWLAddrBy* functions.
+ * local_addr can only be set using I2AddrByNode or I2AddrByAddrInfo
+ * server_addr can use any of the I2AddrBy* functions.
  *
- * Once an BWLAddr record is passed into this function - it is
+ * Once an I2Addr record is passed into this function - it is
  * automatically free'd and should not be referenced again in any way.
  *
  * Client
  */
 extern BWLControl
 BWLControlOpen(
-        BWLContext    ctx,
-        BWLAddr        local_addr,    /* src addr or NULL        */
-        BWLAddr        server_addr,    /* server addr or NULL        */
-        uint32_t    mode_mask,    /* OR of BWLSessionMode vals    */
-        BWLUserID    userid,        /* null if unwanted        */
-        BWLNum64    *uptime_ret,    /* server uptime - ret or NULL    */
-	BWLTesterAvailability	*avail_testers,	/* server supported testers */
-        BWLErrSeverity    *err_ret
+        BWLContext          ctx,
+        I2Addr              local_addr,     /* src addr or NULL             */
+        I2Addr              server_addr,    /* server addr or NULL          */
+        uint32_t            mode_mask,      /* OR of BWLSessionMode vals    */
+        BWLUserID           userid,         /* null if unwanted             */
+        BWLNum64            *uptime_ret,    /* server uptime - ret or NULL  */
+        BWLToolAvailability *avail_tools,   /* server supported tool      */
+        BWLErrSeverity      *err_ret
         );
 
 /*
@@ -836,7 +791,7 @@ BWLControlOpen(
  */
 extern BWLErrSeverity
 BWLControlTimeCheck(
-        BWLControl    cntrl,
+        BWLControl      cntrl,
         BWLTimeStamp    *remote_time
         );
 
@@ -876,23 +831,25 @@ BWLControlClose(
  * 3. Local resource problem (malloc/fork/fdopen): err_ret == ErrFATAL
  * 4. Bad addresses: err_ret == ErrWARNING
  *
- * Once an BWLAddr record has been passed into this function, it
+ * Once an I2Addr record has been passed into this function, it
  * is automatically free'd. It should not be referenced again in any way.
  *
  * Conversely, the test_spec is completely copied, and the caller continues
  * to "own" all memory associated with it after this call.
  *
- * Client
+ * Client:
+ *
  */
+
 extern BWLBoolean
 BWLSessionRequest(
-        BWLControl    control_handle,
-        BWLBoolean    sender,
-        BWLTestSpec    *test_spec,
+        BWLControl      control_handle,
+        BWLBoolean      sender,
+        BWLTestSpec     *test_spec,
         BWLTimeStamp    *avail_time_ret,
-        uint16_t    *recv_port,
-        BWLSID        sid_ret,
-        BWLErrSeverity    *err_ret
+        uint16_t        *tool_port,
+        BWLSID          sid_ret,
+        BWLErrSeverity  *err_ret
         );
 
 /*
@@ -902,7 +859,7 @@ BWLSessionRequest(
  */
 extern BWLErrSeverity
 BWLStartSession(
-        BWLControl    control_handle,
+        BWLControl  control_handle,
         uint16_t    *dataport
         );
 
@@ -966,9 +923,9 @@ BWLStopSessionWait(
  */
 extern BWLBoolean
 BWLSessionStatus(
-        BWLControl    cntrl,
-        BWLSID        sid,    /* SID of test to poll    */
-        BWLAcceptType    *aval    /* out - return accept value    */
+        BWLControl      cntrl,
+        BWLSID          sid,    /* SID of test to poll    */
+        BWLAcceptType   *aval    /* out - return accept value    */
         );
 
 /*
@@ -986,8 +943,8 @@ BWLSessionStatus(
  */
 extern int
 BWLSessionsActive(
-        BWLControl    cntrl,
-        BWLAcceptType    *acceptval    /* rtn */
+        BWLControl      cntrl,
+        BWLAcceptType   *acceptval    /* rtn */
         );
 
 /*
@@ -997,9 +954,9 @@ BWLSessionsActive(
  */
 extern BWLErrSeverity
 BWLStopSession(
-        BWLControl    control_handle,
-        int        *retn_on_intr,
-        BWLAcceptType    *acceptval    /* in/out */
+        BWLControl      control_handle,
+        int             *retn_on_intr,
+        BWLAcceptType   *acceptval    /* in/out */
         );
 
 /*
@@ -1011,9 +968,10 @@ BWLStopSession(
  */
 extern BWLErrSeverity
 BWLEndSession(
-        BWLControl    cntrl,
-        int        *retn_on_intr,
-        FILE        *fp
+        BWLControl      cntrl,
+        int             *retn_on_intr,
+        BWLAcceptType   *acceptval,
+        FILE            *fp
         );
 
 /*
@@ -1037,20 +995,20 @@ BWLEndSession(
  */
 extern int
 BWLControlFD(
-        BWLControl    control_handle
+        BWLControl  control_handle
         );
 
 extern int
 BWLErrorFD(
-        BWLContext    ctx
+        BWLContext  ctx
         );
 
 extern
-BWLAddr
+I2Addr
 BWLServerSockCreate(
-        BWLContext    ctx,
-        BWLAddr        addr,
-        BWLErrSeverity    *err_ret
+        BWLContext      ctx,
+        I2Addr          addr,
+        BWLErrSeverity  *err_ret
         );
 
 
@@ -1079,15 +1037,14 @@ BWLServerSockCreate(
  */
 extern BWLControl
 BWLControlAccept(
-        BWLContext    ctx,        /* library context        */
-        int        connfd,        /* conencted socket        */
-        struct sockaddr    *connsaddr,    /* connected socket addr    */
-        socklen_t    connsaddrlen,    /* connected socket addr len    */
-        uint32_t    mode_offered,    /* advertised server mode    */
-        BWLNum64    uptime,        /* uptime report        */
-	BWLTesterAvailability  avail_testers, /* server available testers */
-        int        *retn_on_intr,    /* return on i/o interrupt    */
-        BWLErrSeverity    *err_ret    /* err - return            */
+        BWLContext          ctx,            /* library context              */
+        int                 connfd,         /* conencted socket             */
+        struct sockaddr     *connsaddr,     /* connected socket addr        */
+        socklen_t           connsaddrlen,   /* connected socket addr len    */
+        uint32_t            mode_offered,   /* advertised server mode       */
+        BWLNum64            uptime,         /* uptime report                */
+        int                 *retn_on_intr,  /* return on i/o interrupt      */
+        BWLErrSeverity      *err_ret        /* err - return                 */
         );
 
 typedef enum BWLRequestType{
@@ -1107,21 +1064,20 @@ BWLReadRequestType(
 
 extern BWLErrSeverity
 BWLProcessTestRequest(
-        BWLControl    cntrl,
-	BWLTesterAvailability avail_testers,
-        int        *retn_on_intr
+        BWLControl              cntrl,
+        int                     *retn_on_intr
         );
 
 extern BWLErrSeverity
 BWLProcessTimeRequest(
-        BWLControl    cntrl,
-        int        *retn_on_intr
+        BWLControl  cntrl,
+        int         *retn_on_intr
         );
 
 extern BWLErrSeverity
 BWLProcessStartSession(
-        BWLControl    cntrl,
-        int        *retn_on_intr
+        BWLControl  cntrl,
+        int         *retn_on_intr
         );
 
 extern BWLErrSeverity
@@ -1152,6 +1108,73 @@ BWLTestPacketBandwidth(
         );
 
 /*
+ * tools.c abstraction
+ *
+ * These types are used to define the functionality for a given 'tool'
+ */
+
+#define BWL_MAX_TOOLNAME    PATH_MAX
+
+typedef struct BWLToolDefinitionRec
+BWLToolDefinitionRec, *BWLToolDefinition;
+
+/*
+ * Client functions to 'invoke' tool functionality
+ */
+
+extern BWLToolType
+BWLToolGetID(
+        BWLContext  ctx,
+        const char  *name
+        );
+
+extern uint32_t
+BWLToolGetNumTools(
+        BWLContext  ctx
+        );
+
+extern const char *
+BWLToolGetNameByID(
+        BWLContext  ctx,
+        BWLToolType id
+        );
+
+extern const char *
+BWLToolGetNameByIndex(
+        BWLContext  ctx,
+        uint32_t    i
+        );
+
+/*
+ * return vals: -1 (key recognized, val invalid)
+ *              1 (key recognized, val used)
+ *              0 (key not recognized)
+ */
+extern int
+BWLToolParseArg(
+        BWLContext  ctx,
+        const char  *key,
+        const char  *val
+        );
+
+extern BWLErrSeverity
+BWLToolInitTest(
+        BWLContext  ctx,
+        BWLToolType tool_id,
+        uint16_t    *toolport
+        );
+
+/*
+ * daemon.c functions for PeerAgent daemon (client or server invoked)
+ */
+extern int
+BWLDaemonParseArg(
+        BWLContext  ctx,
+        const char  *key,
+        char        *val
+        );
+
+/*
  * time.c conversion functions.
  */
 
@@ -1162,35 +1185,35 @@ BWLTestPacketBandwidth(
 #endif
 #ifndef    tvaladd
 #define tvaladd(a,b)                        \
-do{                                         \
-    (a)->tv_sec += (b)->tv_sec;             \
+    do{                                     \
+        (a)->tv_sec += (b)->tv_sec;         \
         (a)->tv_usec += (b)->tv_usec;       \
         if((a)->tv_usec >= 1000000){        \
             (a)->tv_sec++;                  \
-                (a)->tv_usec -= 1000000;    \
+            (a)->tv_usec -= 1000000;        \
         }                                   \
-} while (0)
+    } while (0)
 #endif
 #ifndef    tvalsub
 #define tvalsub(a,b)                        \
-do{                                         \
-    (a)->tv_sec -= (b)->tv_sec;             \
+    do{                                     \
+        (a)->tv_sec -= (b)->tv_sec;         \
         (a)->tv_usec -= (b)->tv_usec;       \
         if((a)->tv_usec < 0){               \
             (a)->tv_sec--;                  \
-                (a)->tv_usec += 1000000;    \
+            (a)->tv_usec += 1000000;        \
         }                                   \
-} while (0)
+    } while (0)
 #endif
 
 #ifndef    tvalcmp
-#define    tvalcmp(tvp,uvp,cmp)         \
-(((tvp)->tv_sec == (uvp)->tv_sec) ?     \
- ((tvp)->tv_usec cmp (uvp)->tv_usec) :  \
- ((tvp)->tv_sec cmp (uvp)->tv_sec))
+#define    tvalcmp(tvp,uvp,cmp)             \
+    (((tvp)->tv_sec == (uvp)->tv_sec) ?     \
+     ((tvp)->tv_usec cmp (uvp)->tv_usec) :  \
+     ((tvp)->tv_sec cmp (uvp)->tv_sec))
 #endif
 
-    /* Operations on timespecs */
+/* Operations on timespecs */
 #ifndef    timespecclear
 #define timespecclear(tvp)      ((tvp)->tv_sec = (tvp)->tv_nsec = 0)
 #endif
@@ -1207,43 +1230,43 @@ do{                                         \
 #endif
 
 #ifndef    timespecadd
-#define timespecadd(vvp, uvp)                       \
-    do {                                            \
-        (vvp)->tv_sec += (uvp)->tv_sec;             \
-            (vvp)->tv_nsec += (uvp)->tv_nsec;       \
-            if ((vvp)->tv_nsec >= 1000000000){      \
-                (vvp)->tv_sec++;                    \
-                    (vvp)->tv_nsec -= 1000000000;   \
-            }                                       \
+#define timespecadd(vvp, uvp)                   \
+    do {                                        \
+        (vvp)->tv_sec += (uvp)->tv_sec;         \
+        (vvp)->tv_nsec += (uvp)->tv_nsec;       \
+        if ((vvp)->tv_nsec >= 1000000000){      \
+            (vvp)->tv_sec++;                    \
+            (vvp)->tv_nsec -= 1000000000;       \
+        }                                       \
     } while (0)
 #endif
 
 #ifndef timespecsub
 #define timespecsub(vvp, uvp)                   \
-do {                                            \
-    (vvp)->tv_sec -= (uvp)->tv_sec;             \
+    do {                                        \
+        (vvp)->tv_sec -= (uvp)->tv_sec;         \
         (vvp)->tv_nsec -= (uvp)->tv_nsec;       \
         if ((vvp)->tv_nsec < 0) {               \
             (vvp)->tv_sec--;                    \
-                (vvp)->tv_nsec += 1000000000;   \
+            (vvp)->tv_nsec += 1000000000;       \
         }                                       \
-} while (0)
+    } while (0)
 #endif
 
 #ifndef    timespecdiff
 #define    timespecdiff(vvp,uvp)        \
-do {                                    \
-    struct timespec    ts1_,ts2_;       \
+    do {                                \
+        struct timespec    ts1_,ts2_;   \
         if(timespeccmp(vvp,uvp,>)){     \
             ts1_ = *vvp;                \
-                ts2_ = *uvp;            \
+            ts2_ = *uvp;                \
         }else{                          \
             ts1_ = *uvp;                \
-                ts2_ = *vvp;            \
+            ts2_ = *vvp;                \
         }                               \
-    timespecsub(&ts1_,&ts2_);           \
+        timespecsub(&ts1_,&ts2_);       \
         *vvp = ts1_;                    \
-} while(0)
+    } while(0)
 #endif
 
 extern BWLNum64
@@ -1254,7 +1277,7 @@ BWLGetRTTBound(
 extern void
 BWLSetTimeStampError(
         BWLTimeStamp    *tstamp,
-        BWLNum64    err
+        BWLNum64        err
         );
 
 extern BWLNum64
@@ -1264,33 +1287,33 @@ BWLGetTimeStampError(
 
 extern BWLTimeStamp *
 BWLGetTimeStamp(
-        BWLContext    ctx,
+        BWLContext      ctx,
         BWLTimeStamp    *tstamp
         );
 
 extern BWLTimeStamp *
 BWLTimevalToTimeStamp(
         BWLTimeStamp    *tstamp,
-        struct timeval    *tval
+        struct timeval  *tval
         );
 
 extern struct timeval *
 BWLTimeStampToTimeval(
-        struct timeval    *tval,
+        struct timeval  *tval,
         BWLTimeStamp    *tstamp
         );
 
 extern BWLTimeStamp *
 BWLTimespecToTimeStamp(
         BWLTimeStamp    *tstamp,
-        struct timespec    *tval,
-        uint32_t    *errest,    /* usec's */
-        uint32_t    *last_errest    /* usec's */
+        struct timespec *tval,
+        uint32_t        *errest,    /* usec's */
+        uint32_t        *last_errest    /* usec's */
         );
 
 extern struct timespec *
 BWLTimeStampToTimespec(
-        struct timespec    *tval,
+        struct timespec *tval,
         BWLTimeStamp    *tstamp
         );
 
@@ -1299,13 +1322,44 @@ BWLTimeStampToTimespec(
  * that are needed by the spawned daemon of bwctl as well as the real
  * bwctld daemon.
  */
-I2Boolean
-BWLParsePorts(
-        char            *pspec,
-        BWLPortRange    prange_mem,
-        BWLPortRange    *prange_ret,
-        I2ErrHandle     ehand,
-        FILE            *fout
+extern I2Boolean
+BWLPortsParse(
+        BWLContext      ctx,
+        const char      *pspec,
+        BWLPortRange    prange_mem
+        );
+
+/*
+ * Return the next port in the cycle
+ */
+extern uint16_t
+BWLPortsNext(
+        BWLPortRange    prange
+        );
+
+/*
+ * Set the next port - useful when initializing the state to start with
+ * a specific 'i' in the range.
+ * (No errors - if 'i' is not in the range, this function uses a random
+ * number generator to determone what to use, and if that fails starts
+ * with the beginning of the range.)
+ */
+extern void
+BWLPortsSetI(
+        BWLContext      ctx,
+        BWLPortRange    prange,
+        u_int16_t       i
+        );
+
+/*
+ * How long is the range?
+ */
+#define BWLPortsRange(prange)   (prange->high - prange->low)
+
+extern char *
+BWLUInt32Dup(
+        BWLContext  ctx,
+        uint32_t    n
         );
 
 #endif    /* OWAMP_H */

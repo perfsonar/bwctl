@@ -18,11 +18,14 @@
 #
 #	Description:
 
-INCLUDES	= $(BWLINCS) $(I2UTILINCS)
-AM_CFLAGS	= $(BWL_PREFIX_CFLAGS)
-
 bin_PROGRAMS	= bwctl
 bwctl_SOURCES	= bwctl.c bwctlP.h
-bwctl_LDADD	= $(BWLLIBS) $(I2UTILLIBS) $(MALLOCDEBUGLIBS)
-bwctl_DEPENDENCIES = $(BWLLIBDEPS) $(I2UTILLIBDEPS)
+bwctl_CFLAGS	= -I..
 
+if USE_SYS_THRULAY
+BWLIBTHRULAY	= -lthrulay
+else
+BWLIBTHRULAY	= ../thrulay/thrulay/libthrulay.la
+endif
+
+bwctl_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) -lI2util

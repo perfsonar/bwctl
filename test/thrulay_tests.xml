@@ -1,0 +1,75 @@
+<tests>
+    
+    <test id="thrulay_basic">
+        <client>
+            <cmd_args>-T thrulay</cmd_args>
+        </client>
+	<!-- check that a transfer actually occurred -->
+        <success_regex>0\.\d\d\d\s+1\.\d\d\d</success_regex>
+    </test>
+
+        <test id="thrulay_udp">
+            <dependencies>thrulay_basic</dependencies>
+            <client>
+                <cmd_args>-T thrulay -u -b 50M</cmd_args>
+            </client>
+            <success_regex>Client connecting to.*UDP</success_regex>
+            <success_regex>0.0-10.0</success_regex>
+        </test>
+    
+        <test id="thrulay_multistream">
+            <dependencies>thrulay_basic</dependencies>
+            <client>
+                <cmd_args>-T thrulay -P 4</cmd_args>
+            </client>
+	    <!-- check that the number of streams was set -->
+            <success_regex>streams=4</success_regex>
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>0\.\d\d\d\s+1\.\d\d\d</success_regex>
+        </test>
+    
+        <test id="thrulay_time_30">
+            <dependencies>thrulay_basic</dependencies>
+            <client>
+                <cmd_args>-T thrulay -t 30</cmd_args>
+            </client>
+	    <!-- check that the duration was set -->
+            <success_regex>duration=30</success_regex>
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>29\.\d\d\d\s+30\.\d\d\d</success_regex>
+        </test>
+    
+        <test id="thrulay_window">
+            <dependencies>thrulay_basic</dependencies>
+            <client>
+                <cmd_args>-T thrulay -w 15k</cmd_args>
+            </client>
+	    <!-- check that the window size got set -->
+            <success_regex>win_size=15360</success_regex>
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>0\.\d\d\d\s+1\.\d\d\d</success_regex>
+        </test>
+    
+        <test id="thrulay_len">
+            <dependencies>thrulay_basic</dependencies>
+            <client>
+                <cmd_args>-T thrulay -l 1500</cmd_args>
+            </client>
+	    <!-- check that the block size got set -->
+            <success_regex>block_size=1500</success_regex>
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>0\.\d\d\d\s+1\.\d\d\d</success_regex>
+        </test>
+   
+        <test id="thrulay_window_advisory">
+            <dependencies>thrulay_basic</dependencies>
+            <client>
+                <cmd_args>-T thrulay -W 1500</cmd_args>
+            </client>
+	    <!-- I'm not sure of a good way to check that the window size got
+		set since it could be set to anything depending on the RTT -->
+
+	    <!-- check that a transfer actually occurred -->
+            <success_regex>0\.\d\d\d\s+1\.\d\d\d</success_regex>
+        </test>
+</tests>

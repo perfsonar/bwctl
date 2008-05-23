@@ -100,6 +100,7 @@ allow_udp	on/off	off
 bandwidth	integer (b/s)	0 (unlimited)
 duration	integer (seconds)	0 (unlimited)
 event_horizon	integer (seconds)	0 (unlimited)
+max_time_error	integer (seconds)	0 (unlimited)
 parent	previously defined \fIclassname\fR	null
 pending	integer	0 (unlimited)
 .TE
@@ -131,6 +132,15 @@ Maximum duration of a single \fBIperf\fR test for this
 .I event_horizon
 Maximum window into the future to look when trying to schedule
 a test for this \fIuserclass\fR.
+.TP
+.I max_time_error
+Maximum amount of time error to allow for tests in this class. The time
+error is the sum of the errors reported by NTP on the two involved systems.
+The larger the time error, the larger the duration of the reservation
+because the time error is used to ensure tests don't overlap. There is a
+limit on this to defend against DOS attacks where a client could
+report large errors to ensure other clients can not allocate test
+reservations.
 .TP
 .I parent     
 The first \fIlimit\fR line cannot have a parent since

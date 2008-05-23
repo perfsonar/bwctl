@@ -1,0 +1,16 @@
+To make a new release of owamp:
+
+    1) Edit configure.ac and modify the version number in the macros.
+    2) Edit doc/index.html and modify the version number
+    3) check-in all changes
+    4) svn log > ChangeLog
+    4.5) Review ChangeLog and edit CHANGELOG (eventually create doc/milestones.html)
+    4.6) check-in doc/milestones
+    4.7) svn log > CHANGELOG
+    5) check-in CHANGELOG
+    6) tag release ex. "cvs tag BWCTL_1_3rc1"
+    7) make dist (builds spec file in tree)
+        a) sudo cp [tarball] /usr/src/redhat/SOURCES/
+        b) sudo rpmbuild -ba [spec-file]
+    8) copy tarball to dist area of website
+    9) update webpages

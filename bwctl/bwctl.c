@@ -35,6 +35,7 @@
 #include <math.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <pwd.h>
 
 #include <bwlib/bwlib.h>
 
@@ -81,9 +82,9 @@ print_conn_args(
             "                 [A]uthenticated, [E]ncrypted, [O]pen\n"
             "            AUTHMETHODS:\n"
             "                 AESKEY userid [keyfile]\n"
-            "  -U             deprecated\n"
-            "  -k             deprecated\n"
             "  -B srcaddr     use this as a local address for control connection and tests\n"
+            "  -k             deprecated\n"
+            "  -U             deprecated\n"
            );
 }
 
@@ -91,30 +92,40 @@ static void
 print_test_args(
         )
 {
+    uint32_t    i,n;
+
     fprintf(stderr,
-            "            [Test Args]\n\n"
-	    "  -T tool        select iperf, nuttcp or thrulay (default)\n"
-            "  -a             allow running with unsynchronized clock\n"
-            "  -i interval    report interval (seconds)\n"
-            "  -l len         length of read/write buffers (bytes)\n"
-            "  -u             UDP test\n"
-            "  -w window      TCP window size (bytes) 0 indicates system defaults\n"
-            "  -W window      Dynamic TCP window size: value used as fallback (bytes)\n"
-           );
-    fprintf(stderr,
-            "  -P nThreads    number of concurrent connections (ENOTSUPPORTED)\n"
-            "  -S TOS         type-of-service for outgoing packets\n"
+            "            [Test Args]\n\n");
+    fprintf(stderr,"\n"
+            "  -a offset      allow unsync'd clock - claim good within offset (seconds)\n"
             "  -b bandwidth   bandwidth to use for UDP test (bits/sec KM) (Default: 1Mb)\n"
-            "  -t time        duration of test (seconds) (Default: 10)\n"
-           );
-    fprintf(stderr,
             "  -c recvhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 recvhost will run thrulay/nuttcp/iperf server \n"
             "            AUTHMETHODS: (See -A argument)\n"
+           );
+    fprintf(stderr,
+            "  -i interval    report interval (seconds)\n"
+            "  -l len         length of read/write buffers (bytes)\n"
+            "  -P nThreads    number of concurrent connections (ENOTSUPPORTED)\n"
             "  -s sendhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 sendhost will run thrulay/nuttcp/iperf client \n"
             "            AUTHMETHODS: (See -A argument)\n"
-            "             [MUST SPECIFY AT LEAST ONE OF -c/-s]"
+            "             [MUST SPECIFY AT LEAST ONE OF -c/-s]\n"
+           );
+    fprintf(stderr,
+            "  -S TOS         type-of-service for outgoing packets\n"
+           );
+    fprintf(stderr,
+	        "  -T tool        tool one of:\n");
+    for(i=0,n = BWLToolGetNumTools(ctx);i<n;i++){
+        fprintf(stderr,
+                "                     %s\n",BWLToolGetNameByIndex(ctx,i));
+    }
+    fprintf(stderr,
+            "  -t time        duration of test (seconds) (Default: 10)\n"
+            "  -u             UDP test\n"
+            "  -w window      TCP window size (bytes) 0 indicates system defaults\n"
+            "  -W window      Dynamic TCP window size: value used as fallback (bytes)\n"
            );
 }
 
@@ -124,28 +135,38 @@ print_output_args(
 {
     fprintf(stderr,
             "              [Output Args]\n\n"
-            "  -p             print completed filenames to stdout - not session data\n"
-            "  -x             output sender session results\n"
+            "  -d dir         directory to save session files in (only if -p)\n"
+            "  -e facility    syslog facility to log to\n"
+            "  -f units       units type to use (Default: tool specific)\n"
+            "  -h             print this message and exit\n"
            );
     fprintf(stderr,
-            "  -d dir         directory to save session files in (only if -p)\n"
             "  -I Interval    time between BWL test sessions(seconds)\n"
+            "  -L LatestDelay latest time into an interval to run test(seconds)\n"
             "  -n nIntervals  number of tests to perform (default: continuous)\n"
+            "  -p             print completed filenames to stdout - not session data\n"
+           );
+    fprintf(stderr,
+            "  -q             silent mode\n"
+            "  -r             send syslog to stderr\n"
             "  -R alpha       randomize the start time within this alpha(0-50%%)\n"
-            "                  (default: 0 - start time not randomized)\n"
             "                  (Initial start randomized within the complete interval.)\n"
            );
     fprintf(stderr,
-            "  -L LatestDelay latest time into an interval to run test(seconds)\n"
-            "  -h             print this message and exit\n"
-            "  -e facility    syslog facility to log to\n"
-            "  -r             send syslog to stderr\n"
-           );
-    fprintf(stderr,
-            "  -V             print version and exit\n"
+            "                  (default: 0 - start time not randomized)\n"
             "  -v             verbose output to syslog - add 'v's to increase verbosity\n"
-            "  -q             silent mode\n"
+            "  -V             print version and exit\n"
+            "  -x             output sender session results\n"
+            "  -y outfmt      output format to use (Default: tool specific)\n"
            );
+}
+
+static void
+version()
+{
+    fprintf(stderr,"\nVersion: %s\n",PACKAGE_VERSION);
+
+    return;
 }
 
 static void
@@ -165,7 +186,7 @@ usage(
     fprintf(stderr, "\n");
     print_output_args();
 
-    fprintf(stderr,"\nVersion: %s\n",PACKAGE_VERSION);
+    version();
 
     return;
 }
@@ -719,24 +740,23 @@ next_start(
     return inc;
 }
 
-static uint16_t *tester_port_range = NULL;
-static uint16_t tester_port_range_len = 0;
-static uint16_t tester_port_default = 5001;
-static uint16_t tester_port_count = 0;
-
+/*
+ * CheckTestPolicy for client faux-daemon. Always say yes, but do
+ * scheduling and tool initialization check.
+ */
 static BWLBoolean
 CheckTestPolicy(
         BWLControl      cntrl,
         BWLSID          sid __attribute__((unused)),
-        BWLBoolean      local_sender __attribute__((unused)),
+        BWLBoolean      local_sender,
         struct sockaddr *local_sa_addr    __attribute__((unused)),
         struct sockaddr *remote_sa_addr __attribute__((unused)),
         socklen_t       sa_len    __attribute__((unused)),
         BWLTestSpec     *tspec,
         BWLNum64        fuzz_time,
         BWLNum64        *reservation_ret,
-        uint16_t       *port_ret,
-        void            **closure __attribute__((unused)),
+        uint16_t        *tool_port_ret,
+        void            **closure,
         BWLErrSeverity  *err_ret
         )
 {
@@ -744,6 +764,7 @@ CheckTestPolicy(
     BWLTimeStamp    currtime;
     BWLNum64        start;
     BWLNum64        minstart;
+    uint16_t        tool_port_loc;
 
     *err_ret = BWLErrOK;
 
@@ -762,8 +783,7 @@ CheckTestPolicy(
      * Determine earliest time test can happen. (See comments in
      * bwctl/bwctld.c:ChldReservationDemand() )
      */
-    minstart = BWLNum64Add(currtime.tstamp,
-            BWLNum64Mult(
+    minstart = BWLNum64Add(currtime.tstamp,BWLNum64Mult(
                 BWLNum64Add(BWLGetRTTBound(cntrl),fuzz_time),
                 BWLULongToNum64(2))
             );
@@ -781,9 +801,28 @@ CheckTestPolicy(
      */
     *reservation_ret = BWLNum64Add(start,fuzz_time);
 
-    if(!*port_ret){
-        *port_ret = tester_port_range[
-            tester_port_count++ % tester_port_range_len];
+    /*
+     * Initialize the tool if this is the first time CheckTest was called.
+     * (closure is kept to maintain state between calls to CheckTest,
+     * no information is needed so just set it to any non-NULL value
+     * for this logic test.)
+     */
+    if(!*closure){
+        if( BWLErrOK !=
+                (*err_ret =
+                 BWLToolInitTest(ctx,tspec->tool_id,&tool_port_loc))){
+            BWLError(ctx,*err_ret,BWLErrINVALID,
+                    "CheckTestPolicy(): Tool initialization failed");
+            return False;
+        }
+        *closure = (void *)!NULL;
+
+        /*
+         * Only update the tool port if configuring the receiver
+         */
+        if(!local_sender){
+            *tool_port_ret = tool_port_loc;
+        }
     }
 
     return True;
@@ -791,106 +830,30 @@ CheckTestPolicy(
 
 static BWLControl
 SpawnLocalServer(
-        BWLContext    ctx,
-	BWLTesterAvailability avail_testers
+        BWLContext          ctx,
+        BWLToolAvailability *avail_tools
         )
 {
     int                 new_pipe[2];
     pid_t               pid;
     BWLErrSeverity      err = BWLErrOK;
-    uint32_t           controltimeout = 7200;
+    uint32_t            controltimeout = 7200;
     BWLTimeStamp        currtime;
-    I2numT           bottle;
-    char                *tstr;
     struct itimerval    itval;
     BWLControl          cntrl;
     BWLRequestType      msgtype;
-    BWLPortRangeRec     peerports_mem;
+    void                *childwait;
 
     /*
-     * Set up port info for iperf/thrulay tests.
+     * This socket is the 'control' connection to the mock-daemon
      */
-    if(!tester_port_range){
-        if((tstr = getenv("BWCTL_IPERFPORTRANGE"))){
-            char        *hpstr;
-            char        *end=NULL;
-            uint16_t   lport,hport;
-            uint32_t   tlng;
-
-            if(!(tstr = strdup(tstr))){
-                I2ErrLog(eh,"strdup(): %M");
-                exit(1);
-            }
-
-            if( (hpstr = strchr(tstr,'-'))){
-                *hpstr++ = '\0';
-            }
-            errno = 0;
-            tlng = strtoul(tstr,&end,10);
-            if((end == tstr) || (errno == ERANGE)){
-                I2ErrLog(eh,"strtoul(%s): %M",tstr);
-                goto portdone;
-            }
-            lport = (uint16_t)tlng;
-            if(lport != tlng){
-                I2ErrLog(eh,"Low port (%d) out-of-range",tlng);
-                goto portdone;
-            }
-
-            if(hpstr){
-                errno = 0;
-                tlng = strtoul(hpstr,&end,10);
-                if((end == hpstr) || (errno == ERANGE)){
-                    I2ErrLog(eh,"strtoul(%s): %M",hpstr);
-                    goto portdone;
-                }
-                hport = (uint16_t)tlng;
-                if(hport != tlng){
-                    I2ErrLog(eh,
-                            "High port (%d) out-of-range",
-                            tlng);
-                    goto portdone;
-                }
-            }
-            else{
-                hport = lport;
-            }
-
-            if(hport < lport){
-                I2ErrLog(eh,"Invalid port range");
-                goto portdone;
-            }
-
-            tester_port_range_len = hport-lport+1;
-            if(!(tester_port_range = calloc(sizeof(uint16_t),
-                            tester_port_range_len))){
-                I2ErrLog(eh,"calloc(%d,%d): %M",
-                        sizeof(uint16_t),
-                        tester_port_range_len);
-                exit(1);
-            }
-
-            for(tlng=0;tlng<tester_port_range_len;tlng++){
-                tester_port_range[tlng] = tlng + lport;
-            }
-
-portdone:
-            if(!tester_port_range){
-                I2ErrLog(eh,
-                        "Invalid BWCTL_IPERFPORTRANGE env variable");
-                exit(1);
-            }
-        }
-        else{
-            tester_port_range = &tester_port_default;
-            tester_port_range_len = 1;
-        }
-    }
-
     if(socketpair(AF_UNIX,SOCK_STREAM,0,new_pipe) < 0){
         I2ErrLog(eh,"socketpair(): %M");
     }
 
+    /*
+     * Now spawn the child process to be the mock-daemon
+     */
     pid = fork();
 
     /* fork error */
@@ -901,15 +864,23 @@ portdone:
 
     /* parent */
     if(pid > 0){
-        BWLControl    cntrl;
+        BWLControl  cntrl;
+        I2Addr      servaddr;
 
         while((close(new_pipe[1]) < 0) && (errno == EINTR));
 
-        cntrl = BWLControlOpen(ctx,NULL,
-                BWLAddrBySockFD(ctx,new_pipe[0]),
-                BWL_MODE_OPEN,NULL,NULL,NULL,&err);
+        if(!(servaddr = I2AddrBySockFD(eh,new_pipe[0],True))){
+            I2ErrLog(eh,"Failed to create local-server address: %M");
+            return NULL;
+        }
 
-        if(!cntrl) return NULL;
+        cntrl = BWLControlOpen(ctx,NULL,servaddr,
+                BWL_MODE_OPEN,NULL,NULL,avail_tools,&err);
+
+        if(!cntrl){
+            I2ErrLog(eh,"Failed to connect to local-server: %M");
+            return NULL;
+        }
 
         fake_fd = new_pipe[0];
         fake_pid = pid;
@@ -918,113 +889,48 @@ portdone:
 
     /* Now implement child "server" */
     if(ip_exit){
+        I2ErrLog(eh,"Child exiting from signal");
         _exit(0);
     }
-
-    /*
-     * Environment Vars that effect server:
-     *  BWCTL_IPERFPORTRANGE        (above)
-     *  BWCTL_CHILDWAIT             (debugging)
-     *  BWCTL_IPERFCMD              IperfCmd
-     *  BWCTL_BOTTLENECKCAPACITY    BottleNeckCapacity
-     *  BWCTL_SYNCFUZZ              SyncFuzz
-     *  BWCTL_CONTROLTIMEOUT        ControlTimeout
-     *  BWCTL_PEERPORTS             PeerPorts
-     *
-     * Set them in the Context if appropriate.
-     * (Also set other Context things that are needed.)
-     *
-     * Stack values are ok - this process never leaves this
-     * function context again.
-     *
-     */
 
     /*
      * Make access log stuff be quiet in child server if !verbose.
      */
     if(!app.opt.verbose){
-        BWLContextSetAccessLogPriority(ctx,BWLErrOK);
-    }
-
-    if(getenv("BWCTL_CHILDWAIT")){
-        int    wait = 1;
-        I2ErrLog(eh,"BWCTL_CHILDWAIT(%d)",getpid());
-        while(wait);
-    }
-
-    if((tstr = getenv("BWCTL_IPERFCMD"))){
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
+        if(!BWLContextConfigSet(ctx,BWLAccessPriority,BWLErrOK)){
+            I2ErrLog(eh,"BWLContextconfigSet(BWLAccessPriority,BWLErrOK): %M");
             _exit(1);
         }
-        if(!BWLContextConfigSet(ctx,BWLIperfCmd,(void*)tstr)){
-            I2ErrLog(eh,"BWLContextconfigSet(IperfCmd,%s): %M",
-                    tstr);
-            _exit(1);
-        }
+
+        BWLContextSetErrMask(ctx,BWLErrWARNING);
     }
 
-    if((tstr = getenv("BWCTL_BOTTLENECKCAPACITY"))){
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-        if(I2StrToNum(&bottle,tstr)){
-            I2ErrLog(eh,
-                    "Ignoring invalid BWCTL_BOTTLENECKCAPACITY value: %M");
-        }
-        else if(bottle &&
-                !BWLContextConfigSet(ctx,BWLBottleNeckCapacity,
-                    (void*)&bottle)){
-            I2ErrLog(eh,
-                    "BWLContextconfigSet(BottleNeckCapacity): %M");
+    /*
+     * Wait for the debugger?
+     */
+    if( (childwait = BWLContextConfigGetV(ctx,BWLChildWait))){
+        I2ErrLog(eh,"Waiting for Debugger(%d)",getpid());
+        while(childwait);
+        /*
+         * Set childwait back to non-zero in debugger before
+         * executing the next line to make sub children 'wait'
+         * as well.
+         */
+        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)childwait)){
+            I2ErrLog(eh,"BWLContextConfigSet(ChildWait): %M");
             _exit(1);
         }
     }
 
-    if((tstr = getenv("BWCTL_CONTROLTIMEOUT"))){
-        char        *end=NULL;
-        uint32_t    tlng;
-
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-
-        errno = 0;
-        tlng = strtoul(tstr,&end,10);
-        if((end == tstr) || (errno == ERANGE)){
-            I2ErrLog(eh,"strtod(): %M");
-            I2ErrLog(eh,
-                    "Ignoring invalid BWCTL_CONTROLTIMEOUT value");
-        }
-        else{
-            controltimeout = tlng;
-        }
-    }
-
-    if((tstr = getenv("BWCTL_PEERPORTS"))){
-        BWLPortRange    peerports=NULL;
-
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-        if(!BWLParsePorts(tstr,&peerports_mem,&peerports,eh,NULL)){
-            I2ErrLog(eh,"Ignoring invalid BWCTL_PEERPORTS value");
-        }
-        else if(peerports && !BWLContextConfigSet(ctx,BWLPeerPortRange,
-                    (void*)peerports)){
-            I2ErrLog(eh,"BWLContextConfigSet(PeerPortRange): %M");
-            _exit(1);
-        }
-    }
-
-    if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,(void*)CheckTestPolicy)){
+    if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,CheckTestPolicy)){
         I2ErrLog(eh,"BWLContextConfigSet(\"CheckTestPolicy\")");
         _exit(1);
     }
 
+    if( !BWLContextFindTools(ctx)){
+        I2ErrLog(eh,"BWLContextFindTools failed.");
+        _exit(1);
+    }
 
     /*
      * Initialize interval timer
@@ -1048,16 +954,20 @@ portdone:
      * Accept connection and send server greeting.
      */
     cntrl = BWLControlAccept(ctx,new_pipe[1],NULL,0,BWL_MODE_OPEN,
-            currtime.tstamp,avail_testers,&ip_exit,&err);
+            currtime.tstamp,&ip_exit,&err);
     if(!cntrl){
+        I2ErrLog(eh,"BWLControlAccept() failed");
         _exit(err);
     }
 
     /*
+     * TODO?: Figure out a way to share the event-loop with bwctld
+     *
      * Process all requests - return when complete.
      */
     while(1){
-        BWLErrSeverity    rc;
+        BWLErrSeverity  rc;
+        int             wstate;
 
         rc = BWLErrOK;
 
@@ -1082,60 +992,60 @@ portdone:
             goto done;
 
         switch (msgtype){
-            int    wstate;
+
 
             case BWLReqTest:
-            rc = BWLProcessTestRequest(cntrl,avail_testers,&ip_exit);
-            break;
+                rc = BWLProcessTestRequest(cntrl,&ip_exit);
+                break;
 
             case BWLReqTime:
-            rc = BWLProcessTimeRequest(cntrl,&ip_exit);
-            break;
+                rc = BWLProcessTimeRequest(cntrl,&ip_exit);
+                break;
 
             case BWLReqStartSession:
-            rc = BWLProcessStartSession(cntrl,&ip_exit);
-            if(rc < BWLErrOK){
+                rc = BWLProcessStartSession(cntrl,&ip_exit);
+                if(rc < BWLErrOK){
+                    break;
+                }
+                /*
+                 * Test session started - unset timer - wait
+                 * until all sessions are complete, then
+                 * reset the timer and wait for stopsessions
+                 * to complete.
+                 */
+                itval.it_value.tv_sec = 0;
+                if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+                    I2ErrLog(eh,"setitimer(): %M");
+                    goto done;
+                }
+                if(ip_exit)
+                    goto done;
+
+                rc = BWLErrOK;
+                wstate = BWLStopSessionWait(cntrl,NULL,
+                        &ip_exit,NULL,&rc);
+                if(ip_exit || (wstate != 0)){
+                    goto done;
+                }
+
+                /*
+                 * Sessions are complete, but StopSession
+                 * message has not been exchanged - set the
+                 * timer and trade StopSession messages
+                 */
+                itval.it_value.tv_sec = controltimeout;
+                if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+                    I2ErrLog(eh,"setitimer(): %M");
+                    goto done;
+                }
+                rc = BWLStopSession(cntrl,&ip_exit,NULL);
+
                 break;
-            }
-            /*
-             * Test session started - unset timer - wait
-             * until all sessions are complete, then
-             * reset the timer and wait for stopsessions
-             * to complete.
-             */
-            itval.it_value.tv_sec = 0;
-            if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
-                I2ErrLog(eh,"setitimer(): %M");
-                goto done;
-            }
-            if(ip_exit)
-                goto done;
-
-            rc = BWLErrOK;
-            wstate = BWLStopSessionWait(cntrl,NULL,
-                    &ip_exit,NULL,&rc);
-            if(ip_exit || (wstate != 0)){
-                goto done;
-            }
-
-            /*
-             * Sessions are complete, but StopSession
-             * message has not been exchanged - set the
-             * timer and trade StopSession messages
-             */
-            itval.it_value.tv_sec = controltimeout;
-            if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
-                I2ErrLog(eh,"setitimer(): %M");
-                goto done;
-            }
-            rc = BWLStopSession(cntrl,&ip_exit,NULL);
-
-            break;
 
             case BWLReqSockClose:
             default:
-            rc = BWLErrFATAL;
-            break;
+                rc = BWLErrFATAL;
+                break;
         }
         if(rc < BWLErrWARNING){
             break;
@@ -1162,6 +1072,109 @@ done:
     _exit(1);
 }
 
+#define BWCTL_DEFAULT_RCNAME    ".bwctlrc"
+
+static BWLBoolean
+LoadConfig(
+        BWLContext  ctx
+        )
+{
+    FILE    *conf;
+    char    conf_filebuf[MAXPATHLEN+1];
+    char    *conf_file;
+    char    keybuf[MAXPATHLEN],valbuf[MAXPATHLEN];
+    char    *key = keybuf;
+    char    *val = valbuf;
+    int     rc;
+    int     dc;
+    char    *lbuf=NULL;
+    size_t  lbuf_max=0;
+
+    if( !(conf_file = getenv("BWCTLRC"))){
+        char    *home;
+
+        if( !(home = getenv("HOME"))){
+            struct passwd   *pw;
+
+            if( !(pw = getpwuid(getuid()))){
+                BWLError(ctx,BWLErrFATAL,errno,"LoadConfig: getpwuid(): %M");
+                return False;
+            }
+
+            home = pw->pw_dir;
+        }
+
+        rc = strlen(home) + strlen(BWL_PATH_SEPARATOR) +
+            strlen(BWCTL_DEFAULT_RCNAME);
+
+        if(rc > MAXPATHLEN){
+            BWLError(ctx,BWLErrFATAL,errno,"strlen(BWCTLRC) > MAXPATHLEN");
+            return False;
+        }
+
+        conf_file = conf_filebuf;
+        strcpy(conf_file,home);
+        strcat(conf_file,BWL_PATH_SEPARATOR);
+        strcat(conf_file,BWCTL_DEFAULT_RCNAME);
+    }
+
+    if( !(conf = fopen(conf_file, "r"))){
+        /*
+         * TODO?:
+         * No local config - just go with the defaults
+         * Set something in the ctx so this can be seen later?
+         * Perhaps better to set something if it is opened - to indicate
+         * what rc files is used...
+         *
+         */
+        /* no conf file, success */
+        return True;
+    }
+
+    /*
+     * Now parse the file
+     */
+    rc=0;
+    while((rc = I2ReadConfVar(conf,rc,key,val,MAXPATHLEN,&lbuf,&lbuf_max)) >0){
+
+        /*
+         * Add any client specific conf vars first
+         * (none yet, but could provide defaults for command-line opts...)
+         */
+
+        /*
+         * Now, daemon functionality
+         */
+        if( (dc = BWLDaemonParseArg(ctx,key,val))){
+            if(dc < 0){
+                rc = -rc;
+                break;
+            }
+        }
+        else{
+            BWLError(ctx,BWLErrFATAL,BWLErrINVALID,"Unknown key=%s",key);
+            rc = -rc;
+            break;
+        }
+    }
+
+    /*
+     * Done with line buffer.
+     */
+    if(lbuf){
+        free(lbuf);
+    }
+    lbuf = NULL;
+    lbuf_max = 0;
+
+    if(rc < 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"%s:%d Problem parsing config file",conf_file,-rc);
+        return False;
+    }
+
+    return True;
+}
+
 int
 main(
         int    argc,
@@ -1179,9 +1192,9 @@ main(
     int                 ch;
     char                *tstr = NULL;
     char                optstring[128];
-    static char         *conn_opts = "AB:a:";
-    static char         *out_opts = "pxd:I:R:n:L:e:qrvV";
-    static char         *test_opts = "T:ai:l:uw:W:P:S:b:t:c:s:S:";
+    static char         *conn_opts = "a:AB:";
+    static char         *out_opts = "d:e:f:I:L:n:pqrR:vVxy:";
+    static char         *test_opts = "ab:c:i:l:P:s:S:t:T:uw:W:";
     static char         *gen_opts = "hW";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
@@ -1302,7 +1315,27 @@ main(
                 I2ErrLogSyslogPriorityName(syslogattr.priority));
     }
 
-    while ((ch = getopt(argc, argv, optstring)) != -1)
+    /*
+     * Initialize library with configuration functions.
+     */
+    if( !(ctx = BWLContextCreate(eh,
+                    BWLInterruptIO, &ip_intr,
+                    BWLGetAESKey,   getclientkey,
+                    NULL))){
+        I2ErrLog(eh, "Unable to initialize BWL library.");
+        exit(1);
+    }
+
+    /*
+     * Currently mostly for daemon config options, but allowing this to
+     * set defaults for the client could be nice.
+     */
+    if( !LoadConfig(ctx)){
+        I2ErrLog(eh, "Unable to initialize configuration.");
+        exit(1);
+    }
+
+    while ((ch = getopt(argc, argv, optstring)) != -1){
         switch (ch) {
             /* Connection options. */
             case 'A':
@@ -1365,6 +1398,14 @@ main(
                 break;
 
                 /* OUTPUT OPTIONS */
+            case 'f':
+                if(strlen(optarg) != 1){
+                    usage(progname, 
+                            "Invalid value. (-f) Single character expected");
+                    exit(1);
+                }
+                app.opt.units = optarg[0];
+                break;
             case 'p':
                 app.opt.printfiles = True;
                 break;
@@ -1421,21 +1462,25 @@ main(
                 /* handled in prior getopt call... */
                 break;
             case 'V':
-                app.opt.version = True;
-                fprintf(stderr,"Version: $Revision$\n");
+                version();
                 exit(0);
+                /* NOTREACHED */
+            case 'y':
+                if(strlen(optarg) != 1){
+                    usage(progname, 
+                            "Invalid value. (-y) Single character expected");
+                    exit(1);
+                }
+                app.opt.outformat = optarg[0];
+                break;
 
                 /* TEST OPTIONS */
-	case 'T':
-                if (0 == strncasecmp(optarg,"iperf",6)) { 
-                    app.opt.tester = BWL_TESTER_IPERF;
-		} else if (0 == strncasecmp(optarg,"thrulay",8)) {
-                    app.opt.tester = BWL_TESTER_THRULAY;
-		} else if (0 == strncasecmp(optarg,"nuttcp",7)) {
-                    app.opt.tester = BWL_TESTER_NUTTCP;
-		} else {
-                    usage(progname, "Invalid tester tool. "
-			  "'iperf', 'nuttcp' or 'thrulay' expected");
+            case 'T':
+                if( (app.opt.tool_id = BWLToolGetID(ctx,optarg)) ==
+                        BWL_TOOL_UNDEFINED){
+                    char    buf[BWL_MAX_TOOLNAME + 20];
+                    snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",optarg);
+                    usage(progname,buf);
                     exit(1);
                 }
                 break;
@@ -1522,6 +1567,7 @@ main(
                 exit(0);
                 /* UNREACHED */
         }
+    }
     argc -= optind;
     argv += optind;
 
@@ -1576,42 +1622,47 @@ main(
         app.opt.timeDuration = 10; /* 10 second default */
     }
 
+    /*
+     * Possibly over-ride .bwctlrc allow_unsync and sync_fuzz options
+     * with command-line.
+     */
     syncfuzz = app.opt.allowUnsync;
-    if((syncfuzz != 0.0) && (tstr = getenv("BWCTL_SYNCFUZZ"))){
-        char    *end=NULL;
-
-        if(!(tstr = strdup(tstr))){
-            I2ErrLog(eh,"strdup(): %M");
-            _exit(1);
-        }
-
-        errno = 0;
-        syncfuzz = strtod(tstr,&end);
-        if((end == tstr) || (errno == ERANGE)){
-            I2ErrLog(eh,"strtod(): %M");
-            I2ErrLog(eh,"Ignoring invalid BWCTL_SYNCFUZZ value");
-        }
-    }
 
     /*
-     * Initialize library with configuration functions.
+     * Set configurable constants for library
      */
-    if( !(ctx = BWLContextCreate(eh,
-                    BWLAllowUnsync, (app.opt.allowUnsync != 0.0),
-                    BWLInterruptIO, &ip_intr,
-                    BWLGetAESKey,   getclientkey,
-                    NULL))){
-        I2ErrLog(eh, "Unable to initialize BWL library.");
+    if(app.opt.verbose){
+        BWLContextSetErrMask(ctx,BWLErrOK);
+    }
+    else{
+        BWLContextSetErrMask(ctx,BWLErrINFO);
+    }
+
+    if( !BWLContextConfigSet(ctx,BWLAllowUnsync,(syncfuzz != 0.0))){
+        I2ErrLog(eh,"BWLContextconfigSet(AllowUnsync): %M");
         exit(1);
     }
 
     if((syncfuzz != 0.0) &&
-                !BWLContextConfigSet(ctx,BWLSyncFuzz,
-                    (void*)&syncfuzz)){
+                !BWLContextConfigSet(ctx,BWLSyncFuzz,syncfuzz)){
         I2ErrLog(eh,"BWLContextconfigSet(SyncFuzz): %M");
-        _exit(1);
+        exit(1);
     }
 
+    if(getenv("BWCTL_DEBUG_CHILDWAIT")){
+        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+            I2ErrLog(eh,"BWLContextconfigSet(ChildWait): %M");
+            exit(1);
+        }
+    }
+
+    /*
+     * Initialize logging and clock issues, now that configuration complete.
+     */
+    if( !BWLContextFinalize(ctx)){
+        I2ErrLog(eh,"BWLContextFinalize failed.");
+        exit(1);
+    }
 
     /*
      * If seriesInterval is in use, verify the args and pick a
@@ -1681,8 +1732,7 @@ main(
     if(app.opt.printfiles){
         strcpy(lockpath,dirpath);
         strcat(lockpath,BWLOCK);
-        lockfd = open(lockpath,O_RDWR|O_CREAT,
-                S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+        lockfd = open(lockpath,O_RDWR|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
         if(lockfd < 0){
             I2ErrLog(eh,"open(%s): %M",lockpath);
             exit(1);
@@ -1712,12 +1762,12 @@ main(
      * Initialize session records
      */
     /* skip req_time/latest_time - set per/test */
-    if(app.opt.tester){
-	first.tspec.tester = second.tspec.tester = app.opt.tester;
+    if(app.opt.tool_id){
+        first.tspec.tool_id = second.tspec.tool_id = app.opt.tool_id;
     }
     else{
-	/* Default to thrulay */
-	first.tspec.tester = second.tspec.tester = BWL_TESTER_THRULAY;
+        /* Default to thrulay */
+        first.tspec.tool_id = second.tspec.tool_id = BWL_TOOL_THRULAY;
     }
     first.tspec.duration = app.opt.timeDuration;
     first.tspec.udp = app.opt.udpTest;
@@ -1729,6 +1779,8 @@ main(
     first.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
     first.tspec.len_buffer = app.opt.lenBuffer;
     first.tspec.report_interval = app.opt.reportInterval;
+    first.tspec.units = app.opt.units;
+    first.tspec.outformat = app.opt.outformat;
     first.tspec.parallel_streams = app.opt.parallel;
 
     /*
@@ -1788,24 +1840,23 @@ main(
         }
 
         wake.tstamp = BWLNum64Add(wake.tstamp,
-                BWLDoubleToNum64((double)app.opt.seriesInterval*
-                    r/0xffffffff));
+                BWLDoubleToNum64((double)app.opt.seriesInterval*r/0xffffffff));
     }
     base = wake;
 
     do{
-        BWLTimeStamp    req_time;
-        BWLTimeStamp    currtime;
-        BWLNum64        endtime;
-        BWLNum64        rel;
-        uint16_t       dataport;
-        BWLBoolean      stop;
-        char            recvfname[PATH_MAX];
-        char            sendfname[PATH_MAX];
-        FILE            *recvfp = NULL;
-        FILE            *sendfp = NULL;
-        struct timespec tspec;
-	BWLTesterAvailability common_testers;
+        BWLTimeStamp        req_time;
+        BWLTimeStamp        currtime;
+        BWLNum64            endtime;
+        BWLNum64            rel;
+        uint16_t            dataport;
+        BWLBoolean          stop;
+        char                recvfname[PATH_MAX];
+        char                sendfname[PATH_MAX];
+        FILE                *recvfp = NULL;
+        FILE                *sendfp = NULL;
+        struct timespec     tspec;
+	    BWLToolAvailability common_tools;
 
 AGAIN:
         if(sig_check()){
@@ -1840,31 +1891,29 @@ AGAIN:
                         tspec.tv_sec);
             }
 
-            if((nanosleep(&tspec,NULL) == 0) ||
-                    (errno == EINTR)){
+            if((nanosleep(&tspec,NULL) == 0) || (errno == EINTR)){
                 goto AGAIN;
             }
 
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "nanosleep(): %M");
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"nanosleep(): %M");
             exit_val = 1;
             goto finish;
         }
 
-        /* Open first connection */
+        /* Open first (definitely remote) connection */
         if(!first.cntrl){
             /*
              * pick auth to use
              */
             current_auth = ((first.auth)?first.auth:app.def_auth);
             first.cntrl = BWLControlOpen(ctx,
-                    BWLAddrByNode(ctx,app.opt.srcaddr),
-                    BWLAddrByNode(ctx,first.host),
+                    I2AddrByNode(eh,app.opt.srcaddr),
+                    I2AddrByNode(eh,first.host),
                     ((current_auth)?
                      current_auth->auth_mode:BWL_MODE_OPEN),
                     ((current_auth)?
                      current_auth->identity:NULL),
-                    NULL,&first.avail_testers,&err_ret);
+                    NULL,&first.avail_tools,&err_ret);
             if(sig_check()){
                 exit_val = 1;
                 goto finish;
@@ -1872,11 +1921,19 @@ AGAIN:
 
             /* TODO: deal with temporary failures? */
             if(!first.cntrl){
-                I2ErrLog(eh,"Unable to connect to %s",
-                        first.host);
+                I2ErrLog(eh,"Unable to connect to %s",first.host);
                 goto next_test;
             }
+
+            /*
+             * Get sockfd for later 'select' usage
+             */
             first.sockfd = BWLControlFD(first.cntrl);
+
+            /*
+             * Need to get a clean I2Addr that is basically a copy of
+             * the control connection (but unconnected).
+             */
             if(first.send){
                 first.tspec.sender = second.tspec.sender =
                     BWLAddrByControl(first.cntrl);
@@ -1896,7 +1953,7 @@ AGAIN:
              * If second host not specified, attempt to
              * contact localhost server. If can, then
              * use it. If not, and if "client_test"
-             * option is set, then fork of a client tester.
+             * option is set, then fork of a client tool.
              */
             current_auth = ((second.auth)?second.auth:app.def_auth);
             fake_daemon = False;
@@ -1906,21 +1963,21 @@ AGAIN:
                  * process is required.
                  */
                 second.cntrl = BWLControlOpen(ctx,
-                        BWLAddrByNode(ctx,app.opt.srcaddr),
-                        BWLAddrByNode(ctx,second.host),
+                        I2AddrByNode(eh,app.opt.srcaddr),
+                        I2AddrByNode(eh,second.host),
                         ((current_auth)?
                          current_auth->auth_mode:
                          BWL_MODE_OPEN),
                         ((current_auth)?
                          current_auth->identity:NULL),
-                        NULL,&second.avail_testers,&err_ret);
+                        NULL,&second.avail_tools,&err_ret);
             }else{
                 /*
                  * Try "localhost" server.
                  */
-                BWLAddr laddr = BWLAddrByLocalControl(first.cntrl);
-                if(!BWLAddrSetPort(laddr,BWL_CONTROL_SERVICE_NUMBER)){
-                    if(laddr) BWLAddrFree(laddr);
+                I2Addr laddr = BWLAddrByLocalControl(first.cntrl);
+                if(!I2AddrSetPort(laddr,BWL_CONTROL_SERVICE_NUMBER)){
+                    if(laddr) I2AddrFree(laddr);
                     I2ErrLog(eh,"Unable to determine address for local server");
                     exit_val = 1;
                     goto finish;
@@ -1929,18 +1986,17 @@ AGAIN:
                 second.cntrl = BWLControlOpen(ctx,NULL,laddr,
                         ((current_auth)?current_auth->auth_mode:BWL_MODE_OPEN),
                         ((current_auth)?current_auth->identity:NULL),
-                        NULL,&second.avail_testers,&err_ret);
+                        NULL,&second.avail_tools,&err_ret);
                 if(!second.cntrl && (errno==ECONNREFUSED)){
                     /*
                      * No local daemon - spawn something.
                      */
                     I2ErrLog(eh,
-                            "Unable to contact a local bwctld: Spawning local tester controller");
-		    second.avail_testers = LookForTesters(ctx);
-                    if(!(second.cntrl =
-                                SpawnLocalServer(ctx,second.avail_testers))){
-                        I2ErrLog(eh,
-                                "Unable to spawn local tester controller");
+                            "Unable to contact a local bwctld: Spawning local tool controller");
+
+                    if( !(second.cntrl =
+                                SpawnLocalServer(ctx,&second.avail_tools))){
+                        I2ErrLog(eh,"Unable to spawn local tool controller");
                     }
                     fake_daemon = True;
                 }
@@ -1952,34 +2008,32 @@ AGAIN:
                 goto finish;
             }
             if(!second.cntrl){
-                I2ErrLog(eh,"Unable to connect to %s",
-                        second.host);
+                I2ErrLog(eh,"Unable to connect to %s",second.host);
                 goto next_test;
             }
+
+            /*
+             * Get sockfd for later 'select' usage
+             */
             second.sockfd = BWLControlFD(second.cntrl);
+
             if(fake_daemon){
                 if(second.send){
-                    first.tspec.sender =
-                        second.tspec.sender =
-                        BWLAddrByLocalControl(
-                                first.cntrl);
+                    first.tspec.sender = second.tspec.sender =
+                        BWLAddrByLocalControl(first.cntrl);
                 }
                 else{
-                    first.tspec.receiver =
-                        second.tspec.receiver =
-                        BWLAddrByLocalControl(
-                                first.cntrl);
+                    first.tspec.receiver = second.tspec.receiver =
+                        BWLAddrByLocalControl(first.cntrl);
                 }
             }
             else{
                 if(second.send){
-                    first.tspec.sender =
-                        second.tspec.sender =
+                    first.tspec.sender = second.tspec.sender =
                         BWLAddrByControl(second.cntrl);
                 }
                 else{
-                    first.tspec.receiver =
-                        second.tspec.receiver =
+                    first.tspec.receiver = second.tspec.receiver =
                         BWLAddrByControl(second.cntrl);
                 }
             }
@@ -1996,29 +2050,50 @@ AGAIN:
             goto finish;
         }
 
-	/* Check if the requested tester is available at both servers. */
-	common_testers = first.avail_testers & second.avail_testers;
-	if (!(first.tspec.tester & common_testers)){
-            I2ErrLog(eh,"Requested tester (%x) not supported by both servers "
-		     "(%x %x).",
-		     first.tspec.tester,
-		     first.avail_testers,second.avail_testers);
-	    /* Try to fall-back to iperf. */
-	    /* We assume those servers that say they do not support any
-	       tester are old versions and should support iperf. */
-	    if((!first.avail_testers || 
-	       (first.avail_testers & BWL_TESTER_IPERF)) &&
-	       (!second.avail_testers ||
-	       (second.avail_testers & BWL_TESTER_IPERF))) {
-		I2ErrLog(eh,"Falling-back to iperf.");
-		first.tspec.tester = second.tspec.tester = BWL_TESTER_IPERF;
-	    }
-	    else{
-		I2ErrLog(eh,"Falling-back to iperf was not possible.");
-		exit_val = 1;
-		goto finish;
-	    }
-	}
+        /* Pick tool */
+
+        /* Check if the requested tool is available at both servers. */
+        common_tools = first.avail_tools & second.avail_tools;
+        if (!(first.tspec.tool_id & common_tools)){
+            uint32_t    tid;
+            char        tname[BWL_MAX_TOOLNAME];
+            const char  *req_name = BWLToolGetNameByID(ctx,first.tspec.tool_id);
+
+            if(!req_name){
+                sprintf(tname,"unknown(id=%x)",tid);
+                req_name = tname;
+            }
+            I2ErrLog(eh,"Requested tool \"%s\" not supported by both servers",
+                    req_name);
+
+            /*
+             * Print out 'common' tools.
+             */
+            tid = 1;
+            while(common_tools){
+
+                if(tid & common_tools){
+                    req_name = BWLToolGetNameByID(ctx,tid);
+
+                    if(!req_name){
+                        sprintf(tname,"unknown tool(id=%x)",tid);
+                        req_name = tname;
+                    }
+
+                    I2ErrLog(eh,"Available in-common: %s",req_name);
+                }
+
+                /*
+                 * remove tid from common mask, and bump tid to next bit
+                 */
+                common_tools &= ~tid;
+                tid <<= 1;
+            }
+
+            exit_val = 1;
+            goto finish;
+
+        }
 
         /*
          * Query first time error and update round-trip bound.
@@ -2088,13 +2163,13 @@ AGAIN:
          * server two server rtt can be estimated as the sum of
          * the client->first and client->second rtts. So, we would
          * expect the amount of time required to setup a test to
-         * be (rtt(c->first)+rtt(c->second))x5.
+         * be (rtt(c->first)+rtt(c->second))x7.
          *
          */
         /* initialize */
         req_time.tstamp = BWLNum64Mult(
                 BWLNum64Add(first.rttbound,second.rttbound),
-                BWLULongToNum64(5));
+                BWLULongToNum64(7));
         /*
          * Add a small constant value to this... Will need to experiment
          * to find the right number. All the previous values were
@@ -2111,19 +2186,18 @@ AGAIN:
          * TODO: Come up with a *real* value here!
          * (Actually - make this an option?)
          */
-        req_time.tstamp = BWLNum64Add(req_time.tstamp,
-                BWLULongToNum64(1));
+        req_time.tstamp = BWLNum64Add(req_time.tstamp,BWLDoubleToNum64(.25));
 
         /*
          * Wait this long after a test should be complete before
          * poking the servers. It should be long enough to allow
          * the servers to declare the session complete before the
          * client does.
-         * (Again 2 seconds is just a guess - I'm making a lot of
+         * (Again 1 seconds is just a guess - I'm making a lot of
          * guesses due to time constrants. If these values cause
          * problems they can be revisited.)
          */
-        fuzz64 = BWLNum64Add(BWLULongToNum64(2),
+        fuzz64 = BWLNum64Add(BWLULongToNum64(1),
                 BWLNum64Max(first.rttbound,second.rttbound));
 
         /*
@@ -2152,10 +2226,14 @@ AGAIN:
         s[1]->tspec.req_time.tstamp = zero64;
         memset(sid,0,sizeof(sid));
         recv_port = 0;
-#if    NOT
-        I2ErrLog(eh,"ReqInitial: %24.10f",BWLNum64ToDouble(req_time.tstamp));
-        I2ErrLog(eh,"LastTime: %24.10f",BWLNum64ToDouble(s[0]->tspec.latest_time));
-#endif
+        if(app.opt.verbose > 1){
+            I2ErrLog(eh,"CurrTime: %24.10f",
+                    BWLNum64ToDouble(currtime.tstamp));
+            I2ErrLog(eh,"ReqInitial: %24.10f",
+                    BWLNum64ToDouble(req_time.tstamp));
+            I2ErrLog(eh,"LastTime: %24.10f",
+                    BWLNum64ToDouble(s[0]->tspec.latest_time));
+        }
 
         p=0;q=0;
         while(1){
@@ -2198,8 +2276,7 @@ AGAIN:
                          * and proceed to next session
                          * interval.
                          */
-                        I2ErrLog(eh,
-                                "SessionRequest: %s busy. (Try -L flag)",
+                        I2ErrLog(eh,"SessionRequest: %s busy. (Try -L flag)",
                                 s[p]->host);
                     }
                     else{
@@ -2207,8 +2284,7 @@ AGAIN:
                          * Don't know why it was
                          * denied.
                          */
-                        I2ErrLog(eh,
-                                "SessionRequest: Denied by %s",
+                        I2ErrLog(eh,"SessionRequest: Denied by %s",
                                 s[p]->host);
                     }
 
@@ -2248,7 +2324,7 @@ sess_req_err:
                      */
                     CloseSessions();
                     I2ErrLog(eh,
-                            "SessionRequest Control connection failure for \'%s\'. Skipping.",
+                            "SessionRequest Control connection failure for \'%s\'. Skipping...",
                             s[p]->host);
                 }
                 goto next_test;
@@ -2257,10 +2333,11 @@ sess_req_err:
                 exit_val = 1;
                 goto finish;
             }
-#if    NOT
-            I2ErrLog(eh,"Res(%s): %24.10f",s[p]->host,BWLNum64ToDouble(req_time.tstamp));
-#endif
-	    
+            if(app.opt.verbose > 1){
+                I2ErrLog(eh,"Res(%s): %24.10f",s[p]->host,
+                        BWLNum64ToDouble(req_time.tstamp));
+            }
+
             if(BWLNum64Cmp(req_time.tstamp,
                         s[p]->tspec.latest_time) > 0){
                 I2ErrLog(eh,
@@ -2372,17 +2449,23 @@ sess_req_err:
                 goto finish;
             }
             if(stop || (BWLNum64Cmp(currtime.tstamp,endtime) > 0)){
+                BWLAcceptType   atype;
+
                 /*
                  * Send TerminateSession
                  */
                 if(recvfp == stdout){
                     fprintf(stdout,"\nRECEIVER START\n");
                 }
+                atype = BWL_CNTRL_ACCEPT;
                 if( (err_ret =BWLEndSession(s[0]->cntrl,
-                                &ip_intr,recvfp))
+                                &ip_intr,&atype,recvfp))
                         < BWLErrWARNING){
                     CloseSessions();
                     goto next_test;
+                }
+                if(atype != BWL_CNTRL_ACCEPT){
+                    fprintf(recvfp,"bwctl: Session ended abnormally\n");
                 }
                 if(recvfp == stdout){
                     fprintf(stdout,"\nRECEIVER END\n");
@@ -2403,11 +2486,15 @@ sess_req_err:
                 if(sendfp == stdout){
                     fprintf(stdout,"\nSENDER START\n");
                 }
+                atype = BWL_CNTRL_ACCEPT;
                 if( (err_ret = BWLEndSession(s[1]->cntrl,
-                                &ip_intr,sendfp))
+                                &ip_intr,&atype,sendfp))
                         < BWLErrWARNING){
                     CloseSessions();
                     goto next_test;
+                }
+                if(atype != BWL_CNTRL_ACCEPT){
+                    fprintf(sendfp,"bwctl: Session ended abnormally\n");
                 }
                 if(sendfp == stdout){
                     fprintf(stdout,"\nSENDER END\n");
@@ -2488,6 +2575,9 @@ next_test:
 
 finish:
     CloseSessions();
+
+    BWLContextFree(ctx);
+    ctx = NULL;
 
     exit(exit_val);
 }

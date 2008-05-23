@@ -2,12 +2,12 @@
  *      $Id$
  */
 /************************************************************************
-*									*
-*			     Copyright (C)  2003			*
-*				Internet2				*
-*			     All Rights Reserved			*
-*									*
-************************************************************************/
+ *									*
+ *			     Copyright (C)  2003			*
+ *				Internet2				*
+ *			     All Rights Reserved			*
+ *									*
+ ************************************************************************/
 /*
  *	File:		policy.h
  *
@@ -42,7 +42,7 @@
  * type: (owp_policy_data*) - defined in access.h
  * location: Context Config
  */
-#define BWLDPOLICY	"BWLDPOLICY"
+#define BWLDPOLICY	"V.BWLDPOLICY"
 
 /*
  * Holds the identifying "node" from the policy tree that contains the
@@ -51,7 +51,7 @@
  * type: (owp_tree_node_ptr) - defined in access.h
  * location: Control Config
  */
-#define BWLDPOLICY_NODE	"BWLDPOLICY_NODE"
+#define BWLDPOLICY_NODE	"V.BWLDPOLICY_NODE"
 
 /*
  * Types used by policy functions
@@ -63,30 +63,31 @@ typedef struct BWLDPolicyNodeRec BWLDPolicyNodeRec, *BWLDPolicyNode;
 typedef struct BWLDPolicyKeyRec BWLDPolicyKeyRec, *BWLDPolicyKey;
 
 struct BWLDPolicyRec{
-	BWLContext		ctx;
+    BWLContext	    ctx;
 
-	int			fd;	/* socket to parent. */
-	char			*datadir;
+    int		    fd;	/* socket to parent. */
 
-	int			*retn_on_intr;	/* If one, exit I/O on sigs */
+    int		    *retn_on_intr;	/* If one, exit I/O on sigs */
 
-	BWLDPolicyNode		root;
+    BWLDPolicyNode  root;
 
-	/* limits:
-	 * 	key = char* (classname from "limit" lines)
-	 * 	val = BWLDPolicyNode
-	 */
-	I2Table			limits;
-	/* idents:
-	 * 	key = BWLDPid
-	 * 	val = BWLDPolicyNode
-	 */
-	I2Table			idents;
-	/* keys:
-	 * 	key = uint8_t[16]	(username from bwlib protocol)
-	 * 	val = BWLKey
-	 */
-	I2Table			keys;
+    /* limits:
+     * 	key = char* (classname from "limit" lines)
+     * 	val = BWLDPolicyNode
+     */
+    I2Table	    limits;
+
+    /* idents:
+     * 	key = BWLDPid
+     * 	val = BWLDPolicyNode
+     */
+    I2Table	    idents;
+
+    /* keys:
+     * 	key = uint8_t[16]	(username from bwlib protocol)
+     * 	val = BWLKey
+     */
+    I2Table	    keys;
 
 };
 
@@ -94,8 +95,8 @@ typedef I2numT      BWLDLimitT;		/* values */
 typedef uint32_t    BWLDMesgT;
 
 typedef struct BWLDLimRec{
-	BWLDMesgT	limit;
-	BWLDLimitT	value;
+    BWLDMesgT	limit;
+    BWLDLimitT	value;
 } BWLDLimRec;
 
 /* parent		cname		*/
@@ -110,39 +111,40 @@ typedef struct BWLDLimRec{
 #define	BWLDLimAllowOpenMode	5
 #define	BWLDLimAllowTCP		6
 #define	BWLDLimAllowUDP		7
+#define	BWLDLimMaxTimeError	8
 
 struct BWLDPolicyNodeRec{
-	BWLDPolicy		policy;
-	char			*nodename;
-	BWLDPolicyNode		parent;
-	size_t			ilim;
-	BWLDLimRec		*limits;
-	BWLDLimRec		*used;
+    BWLDPolicy	    policy;
+    char	    *nodename;
+    BWLDPolicyNode  parent;
+    size_t	    ilim;
+    BWLDLimRec	    *limits;
+    BWLDLimRec	    *used;
 };
 
 typedef enum{
-	BWLDPidInvalid=0,
-	BWLDPidDefaultType,
-	BWLDPidNetmaskType,
-	BWLDPidUserType
+    BWLDPidInvalid=0,
+    BWLDPidDefaultType,
+    BWLDPidNetmaskType,
+    BWLDPidUserType
 } BWLDPidType;
 
 typedef struct{
-	BWLDPidType	id_type;
-	uint8_t	mask_len;
-	size_t		addrsize;
-	uint8_t	addrval[16];
+    BWLDPidType	id_type;
+    uint8_t	mask_len;
+    size_t	addrsize;
+    uint8_t	addrval[16];
 } BWLDPidNetmask;
 
 typedef struct{
-	BWLDPidType	id_type;
-	BWLUserID	userid;
+    BWLDPidType	id_type;
+    BWLUserID	userid;
 } BWLDPidUser;
 
 typedef union BWLDPidUnion{
-	BWLDPidType	id_type;
-	BWLDPidNetmask	net;
-	BWLDPidUser	user;
+    BWLDPidType	    id_type;
+    BWLDPidNetmask  net;
+    BWLDPidUser	    user;
 } BWLDPidRec, *BWLDPid;
 
 /*
@@ -239,70 +241,72 @@ typedef union BWLDPidUnion{
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  *
- * Parent responses to the previous two messages are of the format:
- *
- * 	   0                   1                   2                   3
- * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                      BWLDMESGMARK                             |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                BWLDMESGOK|BWLDMESGDENIED                      |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                      BWLDMESGMARK                             |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * This is a child message format that is used to request reservations.
- *
- * 	   0                   1                   2                   3
- * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                         BWLDMESGMARK                          |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                      BWLDMESGRESERVATION                      |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                                                               |
- *	12|                              SID                              |
- *	16|                                                               |
- *	20|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	24|                        Request Time                           |
- *	28|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	32|                           Fuzz TIME                           |
- *	36|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	40|                          Latest Time                          |
- *	44|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	48|                            Duration                           |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	52|                           RTT TIME                            |
- *	56|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	60|           Recv Port             |                             |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	64|                          BWLDMESGMARK                         |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- * Parent responses to the reservation request are of the format:
- *
- * 	   0                   1                   2                   3
- * 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	00|                          BWLDMESGMARK                         |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	04|                   BWLDMESGOK|BWLDMESGDENIED                   |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	08|                        Request Time                           |
- *	12|                                                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	16|           Recv Port             |                             |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *	20|                          BWLDMESGMARK                         |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *
- *
- */
+* Parent responses to the previous two messages are of the format:
+*
+* 	   0                   1                   2                   3
+* 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	00|                      BWLDMESGMARK                             |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	04|                BWLDMESGOK|BWLDMESGDENIED                      |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	08|                      BWLDMESGMARK                             |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*
+* This is a child message format that is used to request reservations.
+*
+* 	   0                   1                   2                   3
+* 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	00|                         BWLDMESGMARK                          |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	04|                      BWLDMESGRESERVATION                      |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	08|                                                               |
+*	12|                              SID                              |
+*	16|                                                               |
+*	20|                                                               |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	24|                        Request Time                           |
+*	28|                                                               |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	32|                           Fuzz TIME                           |
+*	36|                                                               |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	40|                          Latest Time                          |
+*	44|                                                               |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	48|                            Duration                           |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	52|                           RTT TIME                            |
+*	56|                                                               |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	60|           Recv Port           |             Unused            |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	64|                            Tool_id                            |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	68|                          BWLDMESGMARK                         |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*
+* Parent responses to the reservation request are of the format:
+*
+* 	   0                   1                   2                   3
+* 	   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	00|                          BWLDMESGMARK                         |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	04|                   BWLDMESGOK|BWLDMESGDENIED                   |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	08|                        Request Time                           |
+*	12|                                                               |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	16|           Recv Port             |            Unused           |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*	20|                          BWLDMESGMARK                         |
+*	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+*
+*
+*/
 
 /*
  * The following api convienence functions are defined to make the child/parent
@@ -312,71 +316,72 @@ typedef union BWLDPidUnion{
 
 extern BWLDPolicyNode
 BWLDReadClass(
-	BWLDPolicy	policy,
-	int		fd,
-	int		*retn_on_intr,
-	int		*err
-	);
+        BWLDPolicy	policy,
+        int		fd,
+        int		*retn_on_intr,
+        int		*err
+        );
 
 /*
  * Returns the request type or 0.
  */
 extern int
 BWLDReadReqType(
-		int	fd,
-		int	*retn_on_intr,
-		int	*err);
+        int	fd,
+        int	*retn_on_intr,
+        int	*err);
 /*
  * returns True on success - query/lim_ret will contain request
  * err will be non-zero on error. 0 on empty read.
  */
 extern BWLBoolean
 BWLDReadQuery(
-	int		fd,
-	int		*retn_on_intr,
-	BWLDMesgT	*query,
-	BWLDLimRec	*lim_ret,
-	int		*err
-	);
+        int		fd,
+        int		*retn_on_intr,
+        BWLDMesgT	*query,
+        BWLDLimRec	*lim_ret,
+        int		*err
+        );
 
 extern BWLBoolean
 BWLDReadReservationQuery(
-	int		fd,
-	int		*retn_on_intr,
-	BWLSID		sid,
-	BWLNum64	*req_time,
-	BWLNum64	*fuzz_time,
-	BWLNum64	*last_time,
-	uint32_t	*duration,
-	BWLNum64	*rtt_time,
-	uint16_t	*port,
-	int		*err
-	);
+        int		fd,
+        int		*retn_on_intr,
+        BWLSID		sid,
+        BWLNum64	*req_time,
+        BWLNum64	*fuzz_time,
+        BWLNum64	*last_time,
+        uint32_t	*duration,
+        BWLNum64	*rtt_time,
+        uint16_t	*toolport,
+        BWLToolType     *tool_id,
+        int		*err
+        );
 
 extern BWLBoolean
 BWLDReadTestComplete(
-	int		fd,
-	int		*retn_on_intr,
-	BWLSID		sid,
-	BWLAcceptType	*aval,
-	int		*err
-	);
+        int		fd,
+        int		*retn_on_intr,
+        BWLSID		sid,
+        BWLAcceptType	*aval,
+        int		*err
+        );
 
 extern int
 BWLDSendResponse(
-	int		fd,
-	int		*retn_on_intr,
-	BWLDMesgT	mesg
-	);
+        int		fd,
+        int		*retn_on_intr,
+        BWLDMesgT	mesg
+        );
 
 extern int
 BWLDSendReservationResponse(
-		int		fd,
-		int		*retn_on_intr,
-		BWLDMesgT	mesg,
-		BWLNum64	reservation,
-		uint16_t	port
-		);
+        int		fd,
+        int		*retn_on_intr,
+        BWLDMesgT	mesg,
+        BWLNum64	reservation,
+        uint16_t	toolport
+        );
 
 /*
  * This function is used to add/subtract resource allocations from the
@@ -386,10 +391,10 @@ BWLDSendReservationResponse(
  */
 extern BWLBoolean
 BWLDResourceDemand(
-		BWLDPolicyNode	node,
-		BWLDMesgT	query,
-		BWLDLimRec	lim
-		);
+        BWLDPolicyNode	node,
+        BWLDMesgT	query,
+        BWLDLimRec	lim
+        );
 
 /*
  * This function is used to return the "fixed" limit defined for a
@@ -399,10 +404,10 @@ BWLDResourceDemand(
  */
 extern BWLBoolean
 BWLDGetFixedLimit(
-		BWLDPolicyNode	node,
-		BWLDMesgT	limname,
-		BWLDLimitT	*ret_val
-		);
+        BWLDPolicyNode	node,
+        BWLDMesgT	limname,
+        BWLDLimitT	*ret_val
+        );
 /*
  * Functions called directly from bwctld regarding "policy" decisions
  * (If false, check err_ret to determine if it is an "error" condition,
@@ -410,66 +415,62 @@ BWLDGetFixedLimit(
  */
 extern BWLBoolean
 BWLDAllowOpenMode(
-	BWLDPolicy	policy,
-	struct sockaddr	*peer_addr,
-	BWLErrSeverity	*err_ret
-	);
+        BWLDPolicy	policy,
+        struct sockaddr	*peer_addr,
+        BWLErrSeverity	*err_ret
+        );
 
 /*
  * Functions actually used to install policy hooks into libbwlib.
  */
 extern BWLBoolean
 BWLDGetAESKey(
-	BWLContext	ctx,
-	const BWLUserID	userid,
-	uint8_t	*key_ret,
-	BWLErrSeverity	*err_ret
-	);
+        BWLContext	ctx,
+        const BWLUserID	userid,
+        uint8_t	*key_ret,
+        BWLErrSeverity	*err_ret
+        );
 
 extern BWLBoolean
 BWLDCheckControlPolicy(
-	BWLControl	cntrl,
-	BWLSessionMode	mode,
-	const BWLUserID	userid,
-	struct sockaddr	*local_saddr,
-	struct sockaddr	*remote_saddr,
-	BWLErrSeverity	*err_ret
-	);
+        BWLControl	cntrl,
+        BWLSessionMode	mode,
+        const BWLUserID	userid,
+        struct sockaddr	*local_saddr,
+        struct sockaddr	*remote_saddr,
+        BWLErrSeverity	*err_ret
+        );
 
 extern BWLBoolean
 BWLDCheckTestPolicy(
-	BWLControl	cntrl,
-	BWLSID		sid,
-	BWLBoolean	local_sender,
-	struct sockaddr	*local_saddr,
-	struct sockaddr	*remote_saddr,
-	socklen_t	sa_len,
-	BWLTestSpec	*tspec,
-	BWLNum64	fuzz_time,
-	BWLNum64	*reservation_ret,
-	uint16_t	*port_ret,
-	void		**closure,
-	BWLErrSeverity	*err_ret
-	);
+        BWLControl	cntrl,
+        BWLSID		sid,
+        BWLBoolean	local_sender,
+        struct sockaddr	*local_saddr,
+        struct sockaddr	*remote_saddr,
+        socklen_t	sa_len,
+        BWLTestSpec	*tspec,
+        BWLNum64	fuzz_time,
+        BWLNum64	*reservation_ret,
+        uint16_t	*tool_port_ret,
+        void		**closure,
+        BWLErrSeverity	*err_ret
+        );
 
 extern void
 BWLDTestComplete(
-	BWLControl	cntrl,
-	void		*closure,
-	BWLAcceptType	aval
-	);
+        BWLControl	cntrl,
+        void		*closure,
+        BWLAcceptType	aval
+        );
 
 extern BWLDPolicy
 BWLDPolicyInstall(
-	BWLContext	ctx,
-	char		*datadir,	/* root dir for datafiles	*/
-	char		*confdir,	/* conf dir for policy		*/
-	char		*tester,	/* iperf/thrulay        	*/
-	char		*testercmd,	/* iperf/thrulay exec path	*/
-	uint64_t	*bottleneckcapacity,
-	int		*retn_on_intr,
-	char		**lbuf,
-	size_t		*lbuf_max
-	);
+        BWLContext	ctx,
+        char		*confdir,	/* conf dir for policy		*/
+        int		*retn_on_intr,
+        char		**lbuf,
+        size_t		*lbuf_max
+        );
 
 #endif	/*	_BWL_DEFAULTS_H	*/

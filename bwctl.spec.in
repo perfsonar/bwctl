@@ -1,0 +1,99 @@
+Name: bwctl
+Summary: bwctl - network throughput tester
+Version: @VERSION@
+Release: 1
+License: Internet2 License (modified BSD-like)
+Group: *Development/Libraries*
+URL: http://www.internet2.edu/~shalunov/thrulay/
+Source: %{name}-%{version}.tar.gz
+Packager: Federico Montesino Pouzols <fedemp@altern.org>
+BuildRequires: libtool, thrulay-libthrulay
+Requires: bwctl-client, bwctl-server
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
+
+%description
+BWCTL is a command line client application and a scheduling and policy daemon
+that wraps Iperf, Thrulay or nuttcp.
+
+%files
+
+
+%package client
+Summary: bwctl client
+Group: Applications/Network
+Requires: thrulay-libthrulay
+%description client
+bwctl command line tool for scheduling bandwidth measurements with a bwctl
+server.
+
+%package server
+Summary: bwctl server
+Group: Applications/Network
+Requires: thrulay-libthrulay
+%description server
+bwctl server
+
+%package devel
+Group: Development/Libraries
+Summary: bwctl library headers.
+%description devel
+This package includes header files, and static link libraries for building
+applications that use the bwctl library.
+
+
+%prep
+%setup -q
+
+%build
+#%configure
+./configure --prefix=$RPM_BUILD_ROOT/usr --with-thrulay --enable-NUTTCP=no
+make
+
+%install
+%makeinstall
+%{__install} -D -p -m 0755 conf/bwctld.init %{buildroot}%{_sysconfdir}/rc.d/init.d/bwctld
+%{__install} -D -p -m 0755 conf/bwctld.limits.default %{buildroot}%{_sysconfdir}/bwctld/bwctld.limits
+%{__install} -D -p -m 0755 conf/bwctld.conf %{buildroot}%{_sysconfdir}/bwctld/bwctld.conf
+
+%clean
+rm -rf $RPM_BUILD_ROOT 
+
+%post server
+/sbin/chkconfig --add bwctld
+/usr/sbin/useradd -r -s /bin/nologin -d /tmp bwctl || :
+
+%preun server
+if [ $1 -eq 0 ]; then
+    /sbin/chkconfig --del bwctld
+    /sbin/service bwctld stop
+fi
+
+%postun server
+/usr/sbin/userdel bwctl || :
+if [ $1 -ge 1 ]; then
+    /sbin/service bwctld stop
+fi
+
+%files client
+%defattr(-,root,root,0755)
+%doc README
+%{_bindir}/bwctl
+%{_mandir}/man1/*
+
+%files server
+%defattr(-,root,root,0755)
+%doc README
+%{_bindir}/bwctld
+%{_mandir}/man5/*
+%{_mandir}/man8/*
+%{_sysconfdir}/rc.d/init.d/bwctld
+%config(noreplace) %{_sysconfdir}/bwctld/*
+
+%files devel
+%defattr(-,root,root,0755)
+%{_libdir}/libbwlib.a
+%{_includedir}/bwctl/*
+
+%changelog
+* Fri Jan 11 2008 aaron@internet2.edu 1.0-1
+- Initial RPM

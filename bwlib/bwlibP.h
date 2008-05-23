@@ -35,6 +35,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/param.h>
+#include <sys/wait.h>
 #include <netinet/in.h>
 
 #ifndef MAXHOSTNAMELEN
@@ -108,58 +109,136 @@
 /*
  * other useful constants.
  */
+#define _BWL_DEFAULT_ACCESSPRIO BWLErrINFO
+#define _BWL_DEFAULT_ERRORMASK  BWLErrOK
 #define _BWL_DEFAULT_TMPDIR "/tmp"
 #define _BWL_DEV_NULL       "/dev/null"
-#define _BWL_IPERF_CMD      "iperf"
-#define _BWL_NUTTCP_CMD     "nuttcp"
 #define _BWL_ERR_MAXSTRING  (1024)
 #define _BWL_PATH_SEPARATOR "/"
-#define _BWL_TMPFILEFMT     "iperfc.XXXXXX"
-#define _BWL_MAX_IPERFARGS  (36)
+#define _BWL_TMPFILEFMT     "bwctl-tmp.XXXXXX"
+#define _BWL_MAX_TOOLARGS  (36)
+
+typedef struct BWLTestSessionRec BWLTestSessionRec, *BWLTestSession;
 
 /*
- * Data structures
+ * Tool Data structures. The ToolRec is used to keep track of the actual
+ * tools compiled into the given binary. (An array of these is allocated
+ * as part of the BWLContext.
  */
+typedef struct BWLToolRec{
+    BWLToolType         id; /* what bits define this tool in the protocol? */
+    BWLToolDefinition   tool;
+} BWLToolRec, *BWLTool;
+
+/*
+ * This function is used to parse config file options specific to the tool.
+ * The 'context' hash is expected to hold the values from the config file.
+ */
+typedef int  (*BWLToolParseArgFunc)(
+        BWLContext                  ctx,
+        BWLToolDefinition           tool,
+        const char                  *key,
+        const char                  *val
+        );
+
+/*
+ * This function is used to initialize a tool.
+ *
+ * Minimally, it should determine if the tool is available. If there
+ * is any one-time initialization that should happen for all test instances
+ * that tool might run, it can do those here as well.
+ */
+typedef BWLBoolean  (*BWLToolAvailableFunc)(
+        BWLContext          ctx,
+        BWLToolDefinition   tool
+        );
+
+/*
+ * This function is used to initialize a test at the resource-broker
+ * portion of the daemon. It is called once for each new 'test session' -
+ * but it is called in the global portion of the daemon, not from the
+ * child 'handlers' so it should not do 'real' resource allocations.
+ * This is for simple sanity checking and for deciding what 'port'
+ * should be used since that needs to be 'global' state.
+ */
+typedef BWLErrSeverity  (*BWLToolInitTestFunc)(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        uint16_t            *toolport
+        );
+
+/*
+ * This function is used to do any test initialization needed before
+ * running. This is done so the 'run' function can do as little as
+ * possible when it is run. (Basically just the exec in the iperf
+ * case.) Returns a 'closure' pointer that if NULL indicates failure.
+ * If non-NULL, this 'closure' is passed on to the 'run' function.
+ */
+typedef void * (*BWLToolPreRunTestFunc)(
+        BWLContext          ctx,
+        BWLTestSession      tsess
+        );
+
+/*
+ * This function is used to actually run the test. In the iperf case,
+ * this is just the exec.
+ */
+typedef BWLBoolean  (*BWLToolRunTestFunc)(
+        BWLContext          ctx,
+        BWLTestSession      tsess,
+        void                *closure
+        );
+
+/*
+ * Structure to hold complete 'tool' description
+ */
+
+/*
+ * This structure is used to actually define the 'Tool' abstraction
+ */
+struct BWLToolDefinitionRec{
+    char                    name[BWL_MAX_TOOLNAME];
+    char                    *def_cmd;
+    char                    *def_server_cmd;
+    uint16_t                def_port;
+    BWLToolParseArgFunc     parse;
+    BWLToolAvailableFunc    tool_avail;
+    BWLToolInitTestFunc     init_test;
+    BWLToolPreRunTestFunc   pre_run;
+    BWLToolRunTestFunc      run;
+};
+
+
 typedef struct BWLContextRec BWLContextRec;
-typedef struct BWLAddrRec BWLAddrRec;
 typedef struct BWLControlRec BWLControlRec;
 
 #define _BWL_CONTEXT_TABLE_SIZE    64
 #define _BWL_CONTEXT_MAX_KEYLEN    64
 
+#define _BWL_CONTEXT_FLIST_SIZE 20
+
+typedef struct BWLContextFreeList BWLContextFreeList;
+struct BWLContextFreeList{
+    uint32_t            len;
+    void                *list[_BWL_CONTEXT_FLIST_SIZE];
+    BWLContextFreeList  *next;
+};
+
 struct BWLContextRec{
-    BWLBoolean      lib_eh;
-    I2ErrHandle     eh;
-    int             access_prio;
-    I2Table         table;
-    I2RandomSource  rand_src;
-    char            tmpdir[PATH_MAX+1];
-    BWLControlRec   *cntrl_list;
+    BWLBoolean          valid;
+    BWLBoolean          lib_eh;
+    I2ErrHandle         eh;
+    uint32_t            errmaskprio;
+    I2Table             table;
+    I2RandomSource      rand_src;
+    char                tmpdir[PATH_MAX+1];
+    BWLControlRec       *cntrl_list;
+    uint32_t            tool_list_size;
+    BWLToolRec          *tool_list;
+    BWLToolAvailability tool_avail;
+    BWLContextFreeList  *flist;
 };
 
-struct BWLAddrRec{
-    BWLContext      ctx;
-
-    BWLBoolean      node_set;
-    char            node[MAXHOSTNAMELEN+1];
-
-    BWLBoolean      port_set;
-    char            port[MAXHOSTNAMELEN+1];
-
-    BWLBoolean      ai_free;    /* free ai list directly...*/
-    struct addrinfo *ai;
-
-    struct sockaddr *saddr;
-    socklen_t       saddrlen;
-    int             so_type;    /* socktype saddr works with    */
-    int             so_protocol;    /* protocol saddr works with    */
-    BWLBoolean      passive;
-
-    BWLBoolean      fd_user;
-    int             fd;
-};
-
-typedef struct BWLTestSessionRec BWLTestSessionRec, *BWLTestSession;
 struct BWLControlRec{
     /*
      * Application configuration information.
@@ -177,7 +256,7 @@ struct BWLControlRec{
     BWLBoolean              server;    /* this record represents server */
     int                     state;    /* current state of connection */
     BWLSessionMode          mode;
-    BWLTesterNegotiationVersion tester_negotiation_version;
+    BWLToolNegotiationVersion tool_negotiation_version;
 
     /*
      * Very rough upper bound estimate of
@@ -203,8 +282,8 @@ struct BWLControlRec{
      * Address specification and "network" information.
      * (Control socket addr information)
      */
-    BWLAddr                 remote_addr;
-    BWLAddr                 local_addr;
+    I2Addr                 remote_addr;
+    I2Addr                 local_addr;
     int                     sockfd;
 
     /*
@@ -237,61 +316,47 @@ typedef struct BWLEndpointRec{
     BWLAcceptType   acceptval;
     pid_t           child;
     int             wopts;
+    uint8_t         exit_status;
     BWLBoolean      dont_kill;
+    BWLBoolean      killed;
 } BWLEndpointRec, *BWLEndpoint;
 
 struct BWLTestSessionRec{
-    BWLControl      cntrl;
-    BWLSID          sid;
-    BWLTimeStamp    localtime;
-    BWLNum64        reserve_time;
-    BWLNum64        fuzz;
-    uint16_t        recv_port;
+    BWLControl          cntrl;
+    BWLSID              sid;
+    BWLTimeStamp        localtime;
+    BWLNum64            reserve_time;
+    BWLNum64            fuzz;
+    BWLToolDefinition   tool;
+    uint16_t            tool_port;
 
-    BWLBoolean      conf_sender;
-    BWLBoolean      conf_receiver;
-    BWLTestSpec     test_spec;
-    BWLTesterAvailability avail_testers;
+    BWLBoolean          conf_sender;
+    BWLBoolean          conf_receiver;
+    BWLTestSpec         test_spec;
 
-    FILE            *localfp;
-    FILE            *remotefp;
+    FILE                *localfp;
+    FILE                *remotefp;
 
-    void            *closure; /* per/test app data */
+    void                *closure; /* per/test app data */
 
-    BWLEndpoint     endpoint;
+    BWLEndpoint         endpoint;
 };
 
 /*
  * Private api.c prototypes
  */
-extern BWLAddr
-_BWLAddrAlloc(
-        BWLContext  ctx
-        );
-
-extern BWLAddr
-_BWLAddrCopy(
-        BWLAddr     from
-        );
-
-extern socklen_t
-_BWLAddrSAddr(
-        BWLAddr         from,
-        struct sockaddr **saddr_ret
-        );
-
-extern BWLBoolean
-_BWLAddrSetFD(
-        BWLAddr addr,
-        int     close_on_free
+extern BWLAcceptType
+_BWLGetAcceptType(
+        BWLControl  cntrl,
+        uint8_t     val
         );
 
 extern BWLTestSession
 _BWLTestSessionAlloc(
         BWLControl  cntrl,
         BWLBoolean  send,
-        BWLAddr     sender,
-        BWLAddr     receiver,
+        I2Addr      sender,
+        I2Addr      receiver,
         uint16_t   recv_port,
         BWLTestSpec *test_spec
         );
@@ -384,14 +449,14 @@ _BWLMakeKey(
         );
 
 extern int
-BWLEncryptToken(
+_BWLEncryptToken(
         uint8_t    *binKey,
         uint8_t    *token_in,
         uint8_t    *token_out
         );
 
 extern int
-BWLDecryptToken(
+_BWLDecryptToken(
         uint8_t    *binKey,
         uint8_t    *token_in,
         uint8_t    *token_out
@@ -436,7 +501,7 @@ _BWLWriteServerOK(
 	BWLControl      	cntrl,
 	BWLAcceptType   	code,
 	BWLNum64        	uptime,
-	BWLTesterAvailability	avail_testers,
+	BWLToolAvailability	avail_tools,
 	int		*retn_on_intr
         );
 
@@ -444,7 +509,7 @@ extern BWLErrSeverity
 _BWLReadServerOK(
 	BWLControl	        cntrl,
 	BWLAcceptType	        *acceptval,	/* ret	*/
-	BWLTesterAvailability	*avail  	/* ret	*/
+	BWLToolAvailability	*avail  	/* ret	*/
         );
 
 extern BWLErrSeverity
@@ -615,6 +680,52 @@ _BWLCallCloseFile(
         void            *closure,
         FILE            *fp,
         BWLAcceptType   aval
+        );
+
+/* tools.c */
+
+extern BWLBoolean
+_BWLToolInitialize(
+        BWLContext  ctx
+        );
+
+extern BWLBoolean
+_BWLToolLookForTesters(
+        BWLContext  ctx
+        );
+
+extern BWLToolDefinition
+_BWLToolGetDefinition(
+        BWLContext  ctx,
+        BWLToolType id
+        );
+
+extern void *
+_BWLToolPreRunTest(
+        BWLContext      ctx,
+        BWLTestSession  tsess
+        );
+
+extern void
+_BWLToolRunTest(
+        BWLContext      ctx,
+        BWLTestSession  tsess,
+        void            *closure
+        );
+
+extern int
+_BWLToolGenericParse(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        const char          *key,
+        const char          *val
+        );
+
+extern BWLErrSeverity
+_BWLToolGenericInitTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        uint16_t            *toolport
         );
 
 

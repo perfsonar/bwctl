@@ -1,6 +1,14 @@
 Multi-cast support
-thrulay integration
-(other tools?)
+thrulay integration (other tools?)
+    Update man pages
 meta-scheduler daemon
 Authorization Logging
     Currently just logs integer limit req/resp - should log all resource reqs.
+I2Addr usage
+    - single host test configuration (documentation as well)
+Better peer connection problem detection
+More simple user/passwd config file setup
+    - notice key changes without restart?
+tool specific output flags
+    csv output from iperf
+    nmwg output?
