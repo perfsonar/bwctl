@@ -173,11 +173,15 @@ IperfAvailable(
             /* iperf found! */
             return True;
         }
-    }
 
-    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+        /* This is what we exit with if the exec fails so it likely means the tool isn't installed. */
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+            "IperfAvailable(): We were unable to verify that iperf is working. Likely you do not have it installed. exit status: 1: output: %s", buf);
+    } else {
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
             "IperfAvailable(): iperf invalid: exit status %d: output:\n%s",
             WEXITSTATUS(status),buf);
+    }
 
     return False;
 }

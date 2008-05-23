@@ -253,7 +253,7 @@ _BWLToolLookForTesters(
         }
         else{
             BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-                    "Unable to initialize tool: \"%s\"",
+                    "Couldn't initialize tool \"%s\". Disabling it.",
                     ctx->tool_list[i].tool->name);
         }
     }

@@ -107,7 +107,7 @@ NuttcpAvailable(
 
         execlp(cmd,cmd,"-V",NULL);
         buf[buf_size-1] = '\0';
-        snprintf(buf,buf_size-1,"NuttcpAvailable(): exec(%s)",cmd);
+        snprintf(buf,buf_size-1,"exec(%s)",cmd);
         perror(buf);
         exit(1);
     }
@@ -170,11 +170,15 @@ NuttcpAvailable(
             /* nuttcp found! */
             return True;
         }
-    }
-
-    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+    } else if (WEXITSTATUS(status) == 1) {
+        /* This is what we exit with if the exec fails so it likely means the tool isn't installed. */
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+            "NuttcpAvailable(): We were unable to verify that nuttcp is working. Likely you do not have it installed. exit status: 1: output: %s", buf);
+    } else {
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
             "NuttcpAvailable(): nuttcp invalid: exit status %d: output:\n%s",
             WEXITSTATUS(status),buf);
+    }
 
     return False;
 }
@@ -227,6 +231,16 @@ NuttcpPreRunTest(
     if(!hlen){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "NuttcpPreRunTest: Invalid receiver I2Addr");
+        return NULL;
+    }
+
+    /*
+     * TODO: Fix this to allow UDP Nuttcp tests.
+     */
+    if(tsess->test_spec.udp){
+        fprintf(tsess->localfp, "bwctl: Server does not currently support Nuttcp UDP connections\n");
+        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+                "NuttcpPreRunTest: Do not support Nuttcp UDP connections");
         return NULL;
     }
 
