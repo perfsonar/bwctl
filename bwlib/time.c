@@ -55,6 +55,7 @@ static struct timeval   timeoffset;
 static int              sign_timeoffset = 0;
 static int              ntpsyscall_fails; /* initialized in InitNTP */
 static int              allow_unsync = 0;
+static int              ntp_unsync = 1;
 
 /*
  * Function:	_BWLInitNTP
@@ -97,7 +98,6 @@ _BWLInitNTP(
         )
 {
     char    *toffstr=NULL;
-    int     ntp_unsync = 1;
 
     ntpsyscall_fails = 1;
 
@@ -257,8 +257,13 @@ _BWLGetTimespec(
             /*
              * Report the unsync state - but only at level "info".
              * This is reported at level "warning" at initialization.
+             * (Only report if this is a state change.)
              */
-            BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"NTP: Status UNSYNC");
+            if(!ntp_unsync){
+                BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"NTP: Status UNSYNC");
+                ntp_unsync = 1;
+            }
+
             if( !allow_unsync){
                 BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                         "allow_unsync is not set, failing.");
@@ -267,6 +272,11 @@ _BWLGetTimespec(
         }
         else{
             long    sec;
+
+            if(ntp_unsync){
+                BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"NTP: Status SYNC (recovered)");
+                ntp_unsync = 0;
+            }
 
             *sync = 1;
             /*
