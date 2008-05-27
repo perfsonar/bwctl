@@ -97,6 +97,7 @@ _BWLInitNTP(
         )
 {
     char    *toffstr=NULL;
+    int     ntp_unsync = 1;
 
     ntpsyscall_fails = 1;
 
@@ -122,6 +123,9 @@ _BWLInitNTP(
             BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                     "NTP: Status UNSYNC (clock offset problems likely)");
         }
+        else{
+            ntp_unsync = 0;
+        }
 
 #ifdef	STA_NANO
         if( !(ntp_conf.status & STA_NANO)){
@@ -133,13 +137,20 @@ _BWLInitNTP(
     }
 NOADJTIME:
 #endif
-    if(ntpsyscall_fails){
-        if( (BWLContextConfigGetV(ctx,BWLAllowUnsync))){
-            allow_unsync = 1;
-        }
-        else{
+    if( (BWLContextConfigGetV(ctx,BWLAllowUnsync))){
+        allow_unsync = 1;
+    }
+
+    if(!allow_unsync){
+        if(ntpsyscall_fails){
             BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                     "NTP: Status *unknown* (ntp syscalls unavailable)");
+            allow_unsync = 1;
+        }
+        else if(ntp_unsync){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "NTP: Unsynchronized. Failing (Set allow_unsync to run anyway)");
+            return 1;
         }
     }
 
