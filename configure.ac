@@ -200,8 +200,8 @@ AM_CONDITIONAL(USE_SYS_THRULAY, test x$use_sys_thrulay = xtrue)
 AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throughput tool])
 AM_CONDITIONAL(TOOL_THRULAY, test x$do_thrulay = xtrue)
 
-AC_ARG_ENABLE(IPERF,
-              AC_HELP_STRING([--enable-IPERF], [- IPERF throughput tool]),
+AC_ARG_ENABLE(iperf,
+              AC_HELP_STRING([--enable-iperf], [- IPERF throughput tool]),
               [tool_ok=$enableval], [tool_ok=yes])
 if test "$tool_ok" = "yes"; then
     AC_DEFINE(TOOL_IPERF, 1, [IPERF throuphput tool])
@@ -209,8 +209,8 @@ if test "$tool_ok" = "yes"; then
 fi
 AM_CONDITIONAL(TOOL_IPERF, test x$do_iperf = xtrue)
 
-AC_ARG_ENABLE(NUTTCP,
-              AC_HELP_STRING([--enable-NUTTCP], [- NUTTCP throughput tool]),
+AC_ARG_ENABLE(nuttcp,
+              AC_HELP_STRING([--enable-nuttcp], [- NUTTCP throughput tool]),
               [tool_ok=$enableval], [tool_ok=yes])
 if test "$tool_ok" = "yes"; then
     AC_DEFINE(TOOL_NUTTCP, 1, [NUTTCP throuphput tool])
