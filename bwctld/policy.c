@@ -1377,28 +1377,29 @@ BWLDResourceDemand(
     }
 
     if(limkind == LIMNOT){
-        return False;
+        ret = False;
     }
     else if(limkind == LIMBOOL){
         if(query == BWLDMESGRELEASE){
-            return True;
+            ret = True;
         }
         val = GetLimit(node,lim.limit);
-        return (val == lim.value);
+        ret = (val == lim.value);
     }
     else if(limkind == LIMFIXEDINT){
         if(query == BWLDMESGRELEASE){
-            return True;
+            ret = True;
         }
         /* fallthrough to IntegerResourceDemand */
     }
     else if(limkind != LIMINT){
         BWLError(node->policy->ctx,BWLErrFATAL,BWLErrINVALID,
                 "BWLDResourceDemand: Invalid limit kind.");
-        return False;
+        ret = False;
     }
-
-    ret = IntegerResourceDemand(node,query,lim,limkind);
+    else{
+        ret = IntegerResourceDemand(node,query,lim,limkind);
+    }
 
     /*
      * These messages are printed to DEBUG so they can be selected
