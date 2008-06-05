@@ -2256,7 +2256,7 @@ BWLDCheckTestPolicy(
         lim.value = tspec->bandwidth;
         if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
             BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
-                    "BWLDCheckTestPolicy: UDP bandwidth requst exceeds limits");
+                    "BWLDCheckTestPolicy: UDP bandwidth request exceeds limits");
             goto done;
         }
     }
