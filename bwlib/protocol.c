@@ -1329,6 +1329,9 @@ _BWLReadTestRequest(
             bandwidth_exp = buf[109];
             tspec.bandwidth <<= bandwidth_exp;
         }
+        else{
+            tspec.tool_id = BWL_TOOL_IPERF;
+        }
 
         /*
          * Allocate a record for this test.
