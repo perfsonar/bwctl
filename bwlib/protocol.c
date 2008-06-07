@@ -1020,7 +1020,7 @@ _BWLWriteTestRequest(
                 "Legacy server does not support -y option");
         return BWLErrFATAL;
     }
-    else if(bandwidth_exp > 1){
+    else if(bandwidth_exp > 0){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -b greater than 4.3g");
         return BWLErrFATAL;
