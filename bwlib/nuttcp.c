@@ -288,7 +288,7 @@ NuttcpPreRunTest(
         if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
             NuttcpArgs[a++] = "-R";
             /* nuttcp expects a number of Kbytes. */
-            NuttcpArgs[a++] = BWLUInt32Dup(ctx,
+            NuttcpArgs[a++] = BWLUInt64Dup(ctx,
                     tsess->test_spec.bandwidth / 1024);
         }
     }

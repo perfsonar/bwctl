@@ -57,7 +57,7 @@ limit root with \
 # send hackers and bad nets here
 limit jail with parent=root, \
 	bandwidth=1, \
-	duration=1, \
+	duration=100, \
 	allow_udp=off, \
 	allow_tcp=off, \
 	allow_open_mode=off

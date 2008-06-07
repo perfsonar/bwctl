@@ -179,6 +179,10 @@ BWLULongToNum64(
         uint32_t    from
         );
 
+extern BWLNum64
+BWLI2numTToNum64(
+        I2numT      from
+        );
 
 extern void
 BWLNum64ToTimeval(
@@ -310,7 +314,7 @@ typedef struct{
     uint32_t        duration;
     BWLBoolean      udp;
     uint8_t         tos;
-    uint32_t        bandwidth;
+    uint64_t        bandwidth;
     uint32_t        window_size;
     uint32_t        len_buffer;
     uint16_t        report_interval;
@@ -656,7 +660,7 @@ extern BWLBoolean
 BWLContextConfigGetU32(
         BWLContext  ctx,
         const char  *key,
-        uint32_t    *u32
+        uint32_t    *ui32
         );
 
 extern BWLBoolean
@@ -707,7 +711,7 @@ extern BWLBoolean
 BWLControlConfigGetU32(
         BWLControl    cntrl,
         const char  *key,
-        uint32_t    *u32
+        uint32_t    *ui32
         );
 
 extern BWLBoolean
@@ -1355,6 +1359,12 @@ BWLPortsSetI(
  * How long is the range?
  */
 #define BWLPortsRange(prange)   (prange->high - prange->low)
+
+extern char *
+BWLUInt64Dup(
+        BWLContext  ctx,
+        uint64_t    n
+        );
 
 extern char *
 BWLUInt32Dup(

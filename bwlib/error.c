@@ -42,7 +42,7 @@ BWLError_(
     va_start(ap,fmt);
 
     if(ctx && ctx->eh){
-        I2ErrLogVT(ctx->eh,(int)severity,etype,fmt,ap);
+        I2ErrLogVT(ctx->eh,(int)severity,(int)etype,fmt,ap);
     }
     else{
         char		buff[_BWL_ERR_MAXSTRING];

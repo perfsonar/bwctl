@@ -812,8 +812,8 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     100|                                                               |
  *     104|                            Unused                             |
- *	  +-+-+-+-+-+-+-+-+                               +-+-+-+-+-+-+-+-+
- *     108|    Out Fmt    |                               |     Units     |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+
+ *     108|    Out Fmt    | bandwidth-exp |               |     Units     |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     112|                                                               |
  *     116|                Integrity Zero Padding (16 octets)             |
@@ -851,6 +851,9 @@ _BWLWriteTestRequest(
     uint32_t	    message_len;
     int	            blocks;
     BWLBoolean	    tool_negotiation;
+    uint64_t        bandwidth;
+    uint8_t         bandwidth_exp = 0;
+
 
     /*
      * Ensure cntrl is in correct state.
@@ -976,7 +979,12 @@ _BWLWriteTestRequest(
     }
 
     memcpy(&buf[60],tsession->sid,16);
-    *(uint32_t*)&buf[76] = htonl(tspec->bandwidth);
+    bandwidth = tspec->bandwidth;
+    while(bandwidth > 0xFFFFFFFFULL){
+        bandwidth_exp++;
+        bandwidth >>= 1;
+    }
+    *(uint32_t*)&buf[76] = htonl((uint32_t)(bandwidth & 0xFFFFFFFFULL));
     *(uint32_t*)&buf[80] = htonl(tspec->len_buffer);
     *(uint32_t*)&buf[84] = htonl(tspec->window_size);
     *(uint32_t*)&buf[88] = htonl(tspec->report_interval);
@@ -995,6 +1003,7 @@ _BWLWriteTestRequest(
         *(uint32_t*)&buf[96] = htonl(tspec->tool_id);
         buf[111] = tspec->units;
         buf[108] = tspec->outformat;
+        buf[109] = bandwidth_exp;
     }
     else if(tspec->parallel_streams){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
@@ -1009,6 +1018,11 @@ _BWLWriteTestRequest(
     else if(tspec->outformat){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -y option");
+        return BWLErrFATAL;
+    }
+    else if(bandwidth_exp > 1){
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support -b greater than 4.3g");
         return BWLErrFATAL;
     }
 
@@ -1295,6 +1309,8 @@ _BWLReadTestRequest(
 
 
         if(tool_negotiation){
+            uint8_t bandwidth_exp;
+
             tspec.parallel_streams = buf[94];
             tspec.outformat = buf[108];
             tspec.units = buf[111];
@@ -1309,6 +1325,9 @@ _BWLReadTestRequest(
                 *accept_ret = BWL_CNTRL_FAILURE;
                 goto error;
             }
+
+            bandwidth_exp = buf[109];
+            tspec.bandwidth <<= bandwidth_exp;
         }
 
         /*
@@ -1775,19 +1794,19 @@ _BWLWriteStopSession(
         /*
          * Find out how much data we need to send.
          */
-        if(fstat(fileno(fp),&sbuf) || fseeko(fp,0,SEEK_SET)){
+        if(fstat(fileno(fp),&sbuf) || fseeko(fp,(off_t)0,SEEK_SET)){
             acceptval = BWL_CNTRL_FAILURE;
             goto datadone;
         }
-        fsize = sbuf.st_size;
+        fsize = (uint32_t)sbuf.st_size;
 
         /*
          * check for overflow.
          */
         if(sbuf.st_size != (off_t)fsize){
             fsize = 0;
-            BWLError(cntrl->ctx,BWLErrWARNING,BWLErrUNKNOWN,
-                    "_BWLWriteStopSession: Invalid data file");
+            BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "_BWLWriteStopSession: Data file size too large, failure.");
             acceptval = BWL_CNTRL_FAILURE;
             goto datadone;
         }

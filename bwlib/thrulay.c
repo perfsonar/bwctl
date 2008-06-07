@@ -221,7 +221,7 @@ ThrulayRunTest(
          * Now run thrulay server!
          */
         rc = thrulay_server_listen(tsess->tool_port,
-                tsess->test_spec.window_size);
+                (int)tsess->test_spec.window_size);
         if (rc < 0){
             BWLError(ctx,BWLErrINFO,errno,"Thrulay server listen: %s", 
                     thrulay_server_strerror(rc));

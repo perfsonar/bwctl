@@ -388,8 +388,8 @@ BWLControlAccept(
         BWLError(cntrl->ctx,access_prio,BWLErrPOLICY,
                 "Control request to (%s:%s) denied from (%s:%s): mode not offered (%u)",
                 localnode,localserv,remotenode,remoteserv,cntrl->mode);
-        if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr)) <
-                BWLErrOK){
+        if( (rc = _BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,(BWLNum64)0,
+                        0,intr)) < BWLErrOK){
             *err_ret = (BWLErrSeverity)rc;
         }
         goto error;
@@ -408,7 +408,7 @@ BWLControlAccept(
         getkey_success = _BWLCallGetAESKey(cntrl->ctx,
                 cntrl->userid_buffer,binKey,err_ret);
         if(!getkey_success && (*err_ret != BWLErrOK)){
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,0,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,(BWLNum64)0,0,intr);
             goto error;
         }
 
@@ -417,7 +417,7 @@ BWLControlAccept(
                     BWLErrUNKNOWN,
                     "Encryption state problem?!?!");
             (void)_BWLWriteServerOK(cntrl,
-                                    BWL_CNTRL_FAILURE,0,0,intr);
+                                    BWL_CNTRL_FAILURE,(BWLNum64)0,0,intr);
             *err_ret = BWLErrFATAL;
             goto error;
         }
@@ -434,7 +434,7 @@ BWLControlAccept(
                         "Control request to (%s:%s) denied from (%s:%s):Invalid challenge encryption",
                         localnode,localserv,remotenode,remoteserv);
             }
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,(BWLNum64)0,0,intr);
             goto error;
         }
 
@@ -443,7 +443,7 @@ BWLControlAccept(
         if(I2RandomBytes(cntrl->ctx->rand_src,cntrl->writeIV,16) != 0){
             BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
                     "Unable to fetch randomness...");
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,0,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,(BWLNum64)0,0,intr);
             goto error;
         }
         memcpy(cntrl->session_key,&token[16],16);
@@ -462,12 +462,12 @@ BWLControlAccept(
             /*
              * send mode of 0 to client, and then close.
              */
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,0,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_REJECT,(BWLNum64)0,0,intr);
         }
         else{
             BWLError(ctx,*err_ret,BWLErrUNKNOWN,
                     "Policy function failed.");
-            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,0,0,intr);
+            (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,(BWLNum64)0,0,intr);
         }
         goto error;
     }
@@ -681,7 +681,7 @@ BWLProcessStartSession(
 
     if(!_BWLEndpointStart(cntrl->tests,&peerport,&err)){
         (void)_BWLWriteStartAck(cntrl,intr,0,BWL_CNTRL_FAILURE);
-        return _BWLFailControlSession(cntrl,err);
+        return _BWLFailControlSession(cntrl,(int)err);
     }
 
     if( (rc = _BWLWriteStartAck(cntrl,intr,peerport,BWL_CNTRL_ACCEPT))
@@ -816,7 +816,7 @@ BWLStopSession(
 
     if( (err = _BWLReadStopSession(cntrl,acceptval,intr,
                     cntrl->tests->remotefp)) != BWLErrOK){
-        return _BWLFailControlSession(cntrl,err);
+        return _BWLFailControlSession(cntrl,(int)err);
     }
     err2 = MIN(err,err2);
 
@@ -962,7 +962,7 @@ AGAIN:
     *err_ret = _BWLReadStopSession(cntrl,intr,acceptval,
             cntrl->tests->remotefp);
     if(*err_ret != BWLErrOK){
-        *err_ret = _BWLFailControlSession(cntrl,*err_ret);
+        *err_ret = _BWLFailControlSession(cntrl,(int)*err_ret);
         return -1;
     }
 
@@ -990,7 +990,7 @@ AGAIN:
 
     if( (err2 = _BWLWriteStopSession(cntrl,intr,*acceptval,fp)) !=
             BWLErrOK){
-        (void)_BWLFailControlSession(cntrl,err2);
+        (void)_BWLFailControlSession(cntrl,(int)err2);
     }
     *err_ret = MIN(*err_ret,err2);
 

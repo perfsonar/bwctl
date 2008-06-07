@@ -84,12 +84,12 @@ BWLNum64Mult(
         k = 0;
         for (i = 0; ; ) {
             t = k + (xdec[i]*ydec[j]) + w[i + j];
-            w[i + j] = t%EXP2POW32;
+            w[i + j] = (uint32_t)MASK32(t%EXP2POW32);
             k = t/EXP2POW32;
             if (++i < 2)
                 continue;
             else {
-                w[j + 2] = k;
+                w[j + 2] = (uint32_t)MASK32(k);
                 break;
             }
         }
@@ -120,10 +120,30 @@ BWLNum64Mult(
  * Returns:	
  * Side Effect:	
  */
-    BWLNum64
+BWLNum64
 BWLULongToNum64(uint32_t a)
 {
     return ((uint64_t)a << 32);
+}
+
+/*
+ * Function:	BWLI2numTToNum64
+ *
+ * Description:	
+ *	Convert an unsigned 64-bit integer into a BWLNum64 struct..
+ *
+ * In Args:	
+ *
+ * Out Args:	
+ *
+ * Scope:	
+ * Returns:	
+ * Side Effect:	
+ */
+BWLNum64
+BWLI2numTToNum64(I2numT a)
+{
+    return (a << 32);
 }
 
 
@@ -155,14 +175,14 @@ BWLNum64ToTimespec(
     /*
      * MS 32 bits represent seconds
      */
-    to->tv_sec = MASK32(from >> 32);
+    to->tv_sec = (long)MASK32(from >> 32);
 
     /*
      * LS 32 bits represent fractional seconds, normalize them to nsecs:
      * frac/2^32 == nano/(10^9), so
      * nano = frac * 10^9 / 2^32
      */
-    to->tv_nsec = MASK32((MASK32(from)*BILLION) >> 32);
+    to->tv_nsec = (long)MASK32((MASK32(from)*BILLION) >> 32);
 
     while(to->tv_nsec >= (long)BILLION){
         to->tv_sec++;
@@ -248,14 +268,14 @@ BWLNum64ToTimeval(
     /*
      * MS 32 bits represent seconds
      */
-    to->tv_sec = MASK32(from >> 32);
+    to->tv_sec = (long)MASK32(from >> 32);
 
     /*
      * LS 32 bits represent fractional seconds, normalize them to usecs:
      * frac/2^32 == micro/(10^6), so
      * nano = frac * 10^6 / 2^32
      */
-    to->tv_usec = MASK32((MASK32(from)*MILLION) >> 32);
+    to->tv_usec = (long)MASK32((MASK32(from)*MILLION) >> 32);
 
     while(to->tv_usec >= (long)MILLION){
         to->tv_sec++;

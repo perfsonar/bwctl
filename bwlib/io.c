@@ -34,8 +34,8 @@ _BWLSendBlocksIntr(
 	if (cntrl->mode & BWL_MODE_DOCIPHER)
 		_BWLEncryptBlocks(cntrl, buf, num_blocks, buf);
 
-	n = I2Writeni(cntrl->sockfd,buf,num_blocks*_BWL_RIJNDAEL_BLOCK_SIZE,
-			retn_on_intr);
+	n = I2Writeni(cntrl->sockfd,buf,
+                (unsigned)num_blocks*_BWL_RIJNDAEL_BLOCK_SIZE,retn_on_intr);
 	if(n < 0){
 		if(!*retn_on_intr || (errno != EINTR)){
 			BWLError(cntrl->ctx,BWLErrFATAL,errno,
@@ -57,8 +57,8 @@ _BWLReceiveBlocksIntr(
 {
 	ssize_t	n;
 
-	n = I2Readni(cntrl->sockfd,buf,num_blocks*_BWL_RIJNDAEL_BLOCK_SIZE,
-								retn_on_intr);
+	n = I2Readni(cntrl->sockfd,buf,
+                (unsigned)num_blocks*_BWL_RIJNDAEL_BLOCK_SIZE,retn_on_intr);
 	if(n < 0){
 		if(!*retn_on_intr || (errno != EINTR)){
 			BWLError(cntrl->ctx,BWLErrFATAL,errno,"I2Readni(): %M");

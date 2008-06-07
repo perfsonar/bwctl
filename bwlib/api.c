@@ -234,7 +234,7 @@ _BWLFailControlSession(
 BWLTestSession
 _BWLTestSessionAlloc(
         BWLControl  cntrl,
-        BWLBoolean  send,
+        BWLBoolean  send_local,
         I2Addr      sender,
         I2Addr      receiver,
         uint16_t    tool_port,
@@ -270,10 +270,10 @@ _BWLTestSessionAlloc(
     test->test_spec.sender = sender;
     test->test_spec.receiver = receiver;
 
-    test->conf_receiver = !send;
+    test->conf_receiver = !send_local;
     test->conf_sender = !test->conf_receiver;
 
-    if(send){
+    if(send_local){
         test->conf_sender = True;
         test->tool_port = tool_port;
     }
@@ -408,64 +408,4 @@ _BWLCreateSID(
     }
 
     return 0;
-}
-
-BWLPacketSizeT
-BWLTestPayloadSize(
-        BWLSessionMode    mode, 
-        uint32_t    padding
-        )
-{
-    BWLPacketSizeT msg_size;
-
-    switch (mode) {
-        case BWL_MODE_OPEN:
-            msg_size = 14;
-            break;
-        case BWL_MODE_AUTHENTICATED:
-        case BWL_MODE_ENCRYPTED:
-            msg_size = 32;
-            break;
-        default:
-            return 0;
-            /* UNREACHED */
-    }
-
-    return msg_size + padding;
-}
-
-/* These lengths assume no IP options. */
-#define BWL_IP4_HDR_SIZE    20    /* rfc 791 */
-#define BWL_IP6_HDR_SIZE    40    /* rfc 2460 */
-#define BWL_UDP_HDR_SIZE    8    /* rfc 768 */
-
-/*
- ** Given the protocol family, OWAMP mode and packet padding,
- ** compute the size of resulting full IP packet.
- */
-BWLPacketSizeT
-BWLTestPacketSize(
-        int             af,    /* AF_INET, AF_INET6 */
-        BWLSessionMode  mode, 
-        uint32_t       padding
-        )
-{
-    BWLPacketSizeT payload_size, header_size;
-
-    switch (af) {
-        case AF_INET:
-            header_size = BWL_IP4_HDR_SIZE + BWL_UDP_HDR_SIZE;
-            break;
-        case AF_INET6:
-            header_size = BWL_IP6_HDR_SIZE + BWL_UDP_HDR_SIZE;
-            break;
-        default:
-            return 0;
-            /* UNREACHED */
-    }
-
-    if(!(payload_size = BWLTestPayloadSize(mode,padding)))
-        return 0;
-
-    return payload_size + header_size;
 }

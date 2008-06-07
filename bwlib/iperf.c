@@ -377,7 +377,7 @@ IperfPreRunTest(
         if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
             IperfArgs[a++] = "-b";
             if( !(IperfArgs[a++] =
-                        BWLUInt32Dup(ctx,tsess->test_spec.bandwidth))){
+                        BWLUInt64Dup(ctx,tsess->test_spec.bandwidth))){
                 return NULL;
             }
         }

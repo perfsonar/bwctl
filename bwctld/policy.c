@@ -427,14 +427,13 @@ override:
                  * is valid to further restrict in the
                  * child.
                  */
-                if(tnode.parent->limits[i].value >
-                        limtemp[j].limit)
+                if(tnode.parent->limits[i].value > limtemp[j].value)
                     break;
                 BWLError(policy->ctx,BWLErrWARNING,
                         BWLErrUNKNOWN,
                         "WARNING: %s: Using parents more restrictive limits for %s.",
                         cname,limkeys[k].lname);
-                limtemp[j].limit =
+                limtemp[j].value =
                     tnode.parent->limits[i].value;
             }
         }
@@ -1208,7 +1207,7 @@ IntegerResourceDemand(
         enum limtype	limkind
         )
 {
-    float	fudge = 1.0;
+    float	fudge = (float)1.0;
     size_t	i;
 
     /*
@@ -1613,13 +1612,13 @@ BWLDSendClass(
     memcpy(&buf[4],&mesg,4);
     len = strlen(node->nodename);
     len++;
-    strncpy((char*)&buf[8],node->nodename,len);
+    strncpy((char*)&buf[8],node->nodename,(size_t)len);
     len += 8;
     mesg = BWLDMESGMARK;
     memcpy(&buf[len],&mesg,4);
     len += 4;
 
-    if(I2Writeni(policy->fd,buf,len,intr) != len){
+    if(I2Writeni(policy->fd,buf,(size_t)len,intr) != len){
         BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "BWLDCheckControlPolicy: Unable to contact parent");
         return BWLDMESGINVALID;
@@ -2028,7 +2027,7 @@ BWLDAllowOpenMode(
         return False;
     }
 
-    return GetLimit(node,BWLDLimAllowOpenMode);
+    return (GetLimit(node,BWLDLimAllowOpenMode) != 0);
 }
 
 /*
@@ -2167,6 +2166,7 @@ BWLDCheckTestPolicy(
     BWLDLimRec	        lim;
     BWLToolAvailability allowed_tools;
     uint16_t	        tool_port_loc = *tool_port_ret;
+    double              td;
 
     *err_ret = BWLErrOK;
 
@@ -2225,7 +2225,8 @@ BWLDCheckTestPolicy(
      * Make sure clocks are synchronized to within max_time_error
      */
     lim.limit = BWLDLimMaxTimeError;
-    lim.value = (uint32_t)ceil(BWLNum64ToDouble(fuzz_time));
+    td = ceil(BWLNum64ToDouble(fuzz_time));
+    lim.value = (BWLDLimitT)td;
     if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
         BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: Clock synchronization not sufficient: %f",

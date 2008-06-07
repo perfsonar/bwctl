@@ -24,6 +24,7 @@
 #ifndef    IPCNTRLP_H
 #define    IPCNTRLP_H
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -354,10 +355,10 @@ _BWLGetAcceptType(
 extern BWLTestSession
 _BWLTestSessionAlloc(
         BWLControl  cntrl,
-        BWLBoolean  send,
+        BWLBoolean  sender_local,
         I2Addr      sender,
         I2Addr      receiver,
-        uint16_t   recv_port,
+        uint16_t    recv_port,
         BWLTestSpec *test_spec
         );
 
@@ -816,8 +817,8 @@ extern struct timespec *
 _BWLGetTimespec(
         BWLContext      ctx,
         struct timespec *ts,
-        uint32_t       *esterr,
-        int             *sync
+        uint32_t        *esterr,
+        int             *synchronized
         );
 
 #endif    /* IPCNTRLP_H */

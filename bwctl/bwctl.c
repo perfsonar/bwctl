@@ -51,7 +51,7 @@ int optreset;
  */
 static    ipapp_trec    app;
 static    I2ErrHandle   eh;
-static    uint32_t     file_offset,ext_offset;
+static    uint32_t      file_offset,ext_offset;
 static    int           ip_intr = 0;
 static    int           ip_chld = 0;
 static    int           ip_reset = 0;
@@ -66,14 +66,15 @@ static    aeskey_auth   current_auth=NULL;
 static    BWLNum64      zero64;
 static    BWLNum64      fuzz64;
 static    BWLSID        sid;
-static    uint16_t     recv_port;
-static    ipsess_t      s[2];    /* receiver == 0, sender == 1 */
+static    uint16_t      recv_port;
+static    ipsess_t      sess[2];    /* receiver == 0, sender == 1 */
 static    BWLBoolean    fake_daemon = False;
 static    pid_t         fake_pid = -1;
 static    int           fake_fd = -1;
 
 static void
 print_conn_args(
+        void
         )
 {
     fprintf(stderr,"              [Connection Args]\n\n"
@@ -90,6 +91,7 @@ print_conn_args(
 
 static void
 print_test_args(
+        void
         )
 {
     uint32_t    i,n;
@@ -131,6 +133,7 @@ print_test_args(
 
 static void
 print_output_args(
+        void
         )
 {
     fprintf(stderr,
@@ -162,7 +165,9 @@ print_output_args(
 }
 
 static void
-version()
+version(
+        void
+        )
 {
     fprintf(stderr,"\nVersion: %s\n",PACKAGE_VERSION);
 
@@ -193,7 +198,7 @@ usage(
 
 static BWLBoolean
 getclientkey(
-        BWLContext      ctx __attribute__((unused)),
+        BWLContext      lctx,
         const BWLUserID userid,
         BWLKey          key_ret,
         BWLErrSeverity  *err_ret
@@ -203,7 +208,7 @@ getclientkey(
         /*
          * Function shouldn't be called if identity wasn't passed in...
          */
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+        BWLError(lctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "GetKey: auth method unknown");
         *err_ret = BWLErrFATAL;
         return False;
@@ -213,7 +218,7 @@ getclientkey(
         /*
          * If identity doesn't match, there are auth problems...
          */
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+        BWLError(lctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "GetKey: auth identity mismatch");
         *err_ret = BWLErrFATAL;
         return False;
@@ -245,7 +250,7 @@ getclientkey(
  */
 static int
 parse_auth_args(
-        I2ErrHandle eh,
+        I2ErrHandle leh,
         char        **argv,
         int         argc,
         char        *hostref,
@@ -301,7 +306,7 @@ parse_auth_args(
     optind++;
 
     if(!(auth = (aeskey_auth)calloc(1,sizeof(aeskey_auth_rec)))){
-        I2ErrLog(eh,"malloc:%M");
+        I2ErrLog(leh,"malloc:%M");
         return 1;
     }
     *auth_ret = auth;
@@ -332,12 +337,12 @@ parse_auth_args(
      * The remainder of this function pulls AESKEY scheme options out.
      */
     if(optind >= argc){
-        I2ErrLog(eh,"Invalid AESKEY schemeopts");
+        I2ErrLog(leh,"Invalid AESKEY schemeopts");
         return 1;
     }
 
     if(!(auth->identity = strdup(argv[optind]))){
-        I2ErrLog(eh,"malloc: %m");
+        I2ErrLog(leh,"malloc: %m");
         return 1;
     }
     optind++;
@@ -349,7 +354,7 @@ parse_auth_args(
         s = argv[optind];
         if(s[0] != '-'){
             if(!(auth->keyfile = strdup(argv[optind]))){
-                I2ErrLog(eh,"malloc: %m");
+                I2ErrLog(leh,"malloc: %m");
                 return 1;
             }
             optind++;
@@ -361,11 +366,11 @@ parse_auth_args(
      */
     if(auth->keyfile){
         if(!(fp = fopen(auth->keyfile,"r"))){
-            I2ErrLog(eh,"Unable to open %s: %M",auth->keyfile);
+            I2ErrLog(leh,"Unable to open %s: %M",auth->keyfile);
             return 1;
         }
 
-        rc = I2ParseKeyFile(eh,fp,0,&lbuf,&lbuf_max,NULL,
+        rc = I2ParseKeyFile(leh,fp,0,&lbuf,&lbuf_max,NULL,
                 auth->identity,NULL,auth->aesbuff);
         if(lbuf){
             free(lbuf);
@@ -375,7 +380,7 @@ parse_auth_args(
         fclose(fp);
 
         if(rc <= 0){
-            I2ErrLog(eh,
+            I2ErrLog(leh,
                     "Unable to find key for id=\"%s\" from keyfile=\"%s\"",
                     auth->identity,auth->keyfile);
             return 1;
@@ -395,13 +400,13 @@ parse_auth_args(
         if(snprintf(prompt,MAX_PASSPROMPT,
                     "Enter passphrase for host '%s', identity '%s': ",
                     hostref,auth->identity) >= MAX_PASSPROMPT){
-            I2ErrLog(eh,"Invalid identity");
+            I2ErrLog(leh,"Invalid identity");
             return 1;
         }
 
         if(!(passphrase = I2ReadPassPhrase(prompt,ppbuf,
                         sizeof(ppbuf),I2RPP_ECHO_OFF))){
-            I2ErrLog(eh,"I2ReadPassPhrase(): %M");
+            I2ErrLog(leh,"I2ReadPassPhrase(): %M");
             return 1;
         }
         pplen = strlen(passphrase);
@@ -417,6 +422,7 @@ parse_auth_args(
 
 static void
 CloseSessions(
+        void
         )
 {
     struct itimerval    itval;
@@ -516,6 +522,7 @@ sig_catch(
 
 static int
 sig_check(
+        void
         )
 {
     if(ip_error != SIGCONT){
@@ -540,146 +547,6 @@ sig_check(
     }
 
     return 0;
-}
-
-static int
-str2num(
-        uint32_t   *num_ret,
-        char        *str
-       )
-{
-    size_t      silen = 0;
-    size_t      len;
-    char        *endptr;
-    uint32_t   npart, mult=1;
-
-    while(isdigit((int)str[silen])){
-        silen++;
-    }
-
-    len = strlen(str);
-
-    if(len != silen){
-        /*
-         * Only one non-digit is allowed and it must be the last char
-         */
-        if((len - silen) > 1){
-            return -1;
-        }
-
-        switch(tolower(str[silen])){
-#if    NOT
-            /*
-             * Don't need these until we use something larger
-             * than uint32_t to hold the value!
-             */
-            case 'z':
-                mult *= 1000;
-            case 'e':
-                mult *= 1000;
-            case 'p':
-                mult *= 1000;
-            case 't':
-                mult *= 1000;
-#endif
-            case 'g':
-                mult *= 1000;
-            case 'm':
-                mult *= 1000;
-            case 'k':
-                mult *= 1000;
-                break;
-            default:
-                return -1;
-        }
-        str[silen] = '\0';
-    }
-
-    npart = strtoul(str,&endptr,10);
-    if(endptr != &str[silen]){
-        return -1;
-    }
-
-    if(npart == 0){
-        *num_ret = 0;
-        return 0;
-    }
-
-    /*
-     * check for overflow
-     */
-    *num_ret = npart * mult;
-    return ((*num_ret < npart) || (*num_ret < mult))? (-1): 0;
-}
-
-static int
-str2bytenum(
-        uint32_t   *num_ret,
-        char        *str
-        )
-{
-    size_t      silen = 0;
-    size_t      len;
-    char        *endptr;
-    uint32_t   npart, mult=1;
-
-    while(isdigit((int)str[silen])){
-        silen++;
-    }
-
-    len = strlen(str);
-
-    if(len != silen){
-        /*
-         * Only one non-digit is allowed and it must be the last char
-         */
-        if((len - silen) > 1){
-            return -1;
-        }
-
-        switch(tolower(str[silen])){
-#if    NOT
-            /*
-             * Don't need these until we use something larger
-             * than uint32_t to hold the value!
-             */
-            case 'z':
-                mult <<= 10;
-            case 'e':
-                mult <<= 10;
-            case 'p':
-                mult <<= 10;
-            case 't':
-                mult <<= 10;
-#endif
-            case 'g':
-                mult <<= 10;
-            case 'm':
-                mult <<= 10;
-            case 'k':
-                mult <<= 10;
-                break;
-            default:
-                return -1;
-        }
-        str[silen] = '\0';
-    }
-
-    npart = strtoul(str,&endptr,10);
-    if(endptr != &str[silen]){
-        return -1;
-    }
-
-    if(npart == 0){
-        *num_ret = 0;
-        return 0;
-    }
-
-    /*
-     * check for overflow
-     */
-    *num_ret = npart * mult;
-    return ((*num_ret < npart) || (*num_ret < mult))? (-1): 0;
 }
 
 /*
@@ -747,7 +614,7 @@ next_start(
 static BWLBoolean
 CheckTestPolicy(
         BWLControl      cntrl,
-        BWLSID          sid __attribute__((unused)),
+        BWLSID          lsid __attribute__((unused)),
         BWLBoolean      local_sender,
         struct sockaddr *local_sa_addr    __attribute__((unused)),
         struct sockaddr *remote_sa_addr __attribute__((unused)),
@@ -760,7 +627,7 @@ CheckTestPolicy(
         BWLErrSeverity  *err_ret
         )
 {
-    BWLContext      ctx = BWLGetContext(cntrl);
+    BWLContext      lctx = BWLGetContext(cntrl);
     BWLTimeStamp    currtime;
     BWLNum64        start;
     BWLNum64        minstart;
@@ -768,8 +635,8 @@ CheckTestPolicy(
 
     *err_ret = BWLErrOK;
 
-    if(!BWLGetTimeStamp(ctx,&currtime)){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"BWLGetTimeStamp(): %M");
+    if(!BWLGetTimeStamp(lctx,&currtime)){
+        BWLError(lctx,BWLErrFATAL,BWLErrUNKNOWN,"BWLGetTimeStamp(): %M");
         *err_ret = BWLErrFATAL;
         return False;
     }
@@ -810,8 +677,8 @@ CheckTestPolicy(
     if(!*closure){
         if( BWLErrOK !=
                 (*err_ret =
-                 BWLToolInitTest(ctx,tspec->tool_id,&tool_port_loc))){
-            BWLError(ctx,*err_ret,BWLErrINVALID,
+                 BWLToolInitTest(lctx,tspec->tool_id,&tool_port_loc))){
+            BWLError(lctx,*err_ret,BWLErrINVALID,
                     "CheckTestPolicy(): Tool initialization failed");
             return False;
         }
@@ -830,7 +697,7 @@ CheckTestPolicy(
 
 static BWLControl
 SpawnLocalServer(
-        BWLContext          ctx,
+        BWLContext          lctx,
         BWLToolAvailability *avail_tools
         )
 {
@@ -864,7 +731,6 @@ SpawnLocalServer(
 
     /* parent */
     if(pid > 0){
-        BWLControl  cntrl;
         I2Addr      servaddr;
 
         while((close(new_pipe[1]) < 0) && (errno == EINTR));
@@ -874,7 +740,7 @@ SpawnLocalServer(
             return NULL;
         }
 
-        cntrl = BWLControlOpen(ctx,NULL,servaddr,
+        cntrl = BWLControlOpen(lctx,NULL,servaddr,
                 BWL_MODE_OPEN,NULL,NULL,avail_tools,&err);
 
         if(!cntrl){
@@ -897,18 +763,18 @@ SpawnLocalServer(
      * Make access log stuff be quiet in child server if !verbose.
      */
     if(!app.opt.verbose){
-        if(!BWLContextConfigSet(ctx,BWLAccessPriority,BWLErrOK)){
+        if(!BWLContextConfigSet(lctx,BWLAccessPriority,BWLErrOK)){
             I2ErrLog(eh,"BWLContextconfigSet(BWLAccessPriority,BWLErrOK): %M");
             _exit(1);
         }
 
-        BWLContextSetErrMask(ctx,BWLErrWARNING);
+        BWLContextSetErrMask(lctx,BWLErrWARNING);
     }
 
     /*
      * Wait for the debugger?
      */
-    if( (childwait = BWLContextConfigGetV(ctx,BWLChildWait))){
+    if( (childwait = BWLContextConfigGetV(lctx,BWLChildWait))){
         I2ErrLog(eh,"Waiting for Debugger(%d)",getpid());
         while(childwait);
         /*
@@ -916,18 +782,18 @@ SpawnLocalServer(
          * executing the next line to make sub children 'wait'
          * as well.
          */
-        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)childwait)){
+        if( !BWLContextConfigSet(lctx,BWLChildWait,(void*)childwait)){
             I2ErrLog(eh,"BWLContextConfigSet(ChildWait): %M");
             _exit(1);
         }
     }
 
-    if(!BWLContextConfigSet(ctx,BWLCheckTestPolicy,CheckTestPolicy)){
+    if(!BWLContextConfigSet(lctx,BWLCheckTestPolicy,CheckTestPolicy)){
         I2ErrLog(eh,"BWLContextConfigSet(\"CheckTestPolicy\")");
         _exit(1);
     }
 
-    if( !BWLContextFindTools(ctx)){
+    if( !BWLContextFindTools(lctx)){
         I2ErrLog(eh,"BWLContextFindTools failed.");
         _exit(1);
     }
@@ -945,7 +811,7 @@ SpawnLocalServer(
     /*
      * Get current time for server greeting.
      */
-    if(!BWLGetTimeStamp(ctx,&currtime)){
+    if(!BWLGetTimeStamp(lctx,&currtime)){
         I2ErrLog(eh,"BWLGetTimeStamp: %M");
         _exit(1);
     }
@@ -953,11 +819,11 @@ SpawnLocalServer(
     /*
      * Accept connection and send server greeting.
      */
-    cntrl = BWLControlAccept(ctx,new_pipe[1],NULL,0,BWL_MODE_OPEN,
+    cntrl = BWLControlAccept(lctx,new_pipe[1],NULL,0,BWL_MODE_OPEN,
             currtime.tstamp,&ip_exit,&err);
     if(!cntrl){
         I2ErrLog(eh,"BWLControlAccept() failed");
-        _exit(err);
+        _exit((int)err);
     }
 
     /*
@@ -1076,7 +942,7 @@ done:
 
 static BWLBoolean
 LoadConfig(
-        BWLContext  ctx
+        BWLContext  lctx
         )
 {
     FILE    *conf;
@@ -1097,7 +963,7 @@ LoadConfig(
             struct passwd   *pw;
 
             if( !(pw = getpwuid(getuid()))){
-                BWLError(ctx,BWLErrFATAL,errno,"LoadConfig: getpwuid(): %M");
+                BWLError(lctx,BWLErrFATAL,errno,"LoadConfig: getpwuid(): %M");
                 return False;
             }
 
@@ -1108,7 +974,7 @@ LoadConfig(
             strlen(BWCTL_DEFAULT_RCNAME);
 
         if(rc > MAXPATHLEN){
-            BWLError(ctx,BWLErrFATAL,errno,"strlen(BWCTLRC) > MAXPATHLEN");
+            BWLError(lctx,BWLErrFATAL,errno,"strlen(BWCTLRC) > MAXPATHLEN");
             return False;
         }
 
@@ -1145,14 +1011,14 @@ LoadConfig(
         /*
          * Now, daemon functionality
          */
-        if( (dc = BWLDaemonParseArg(ctx,key,val))){
+        if( (dc = BWLDaemonParseArg(lctx,key,val))){
             if(dc < 0){
                 rc = -rc;
                 break;
             }
         }
         else{
-            BWLError(ctx,BWLErrFATAL,BWLErrINVALID,"Unknown key=%s",key);
+            BWLError(lctx,BWLErrFATAL,BWLErrINVALID,"Unknown key=%s",key);
             rc = -rc;
             break;
         }
@@ -1168,7 +1034,7 @@ LoadConfig(
     lbuf_max = 0;
 
     if(rc < 0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"%s:%d Problem parsing config file",conf_file,-rc);
+        BWLError(lctx,BWLErrFATAL,BWLErrUNKNOWN,"%s:%d Problem parsing config file",conf_file,-rc);
         return False;
     }
 
@@ -1493,7 +1359,7 @@ main(
                 }
                 break;
             case 'l':
-                if(str2bytenum(&app.opt.lenBuffer,optarg) != 0){
+                if(I2StrToByte(&app.opt.lenBuffer,optarg) != 0){
                     usage(progname, 
                             "Invalid value. (-l) positive integer expected");
                     exit(1);
@@ -1511,7 +1377,7 @@ main(
                     exit(1);
                 }
                 app.opt.winset++;
-                if(str2bytenum(&app.opt.windowSize,optarg) != 0){
+                if(I2StrToByte(&app.opt.windowSize,optarg) != 0){
                     usage(progname, 
                             "Invalid value. (-w/-W) positive integer expected");
                     exit(1);
@@ -1535,7 +1401,7 @@ main(
                 }
                 break;
             case 'b':
-                if(str2num(&app.opt.bandWidth,optarg) != 0){
+                if(I2StrToNum(&app.opt.bandWidth,optarg) != 0){
                     usage(progname, 
                             "Invalid value. (-b) Positive integer expected");
                     exit(1);
@@ -1691,7 +1557,7 @@ main(
          * gone.
          */
         if(!app.opt.seriesWindow){
-            app.opt.seriesWindow = MIN(
+            app.opt.seriesWindow = (uint32_t)MIN(
                     app.opt.seriesInterval-app.opt.timeDuration,
                     app.opt.seriesInterval * 0.5);
         }
@@ -1775,9 +1641,19 @@ main(
     if(first.tspec.udp){
         first.tspec.bandwidth = app.opt.bandWidth;
     }
-    first.tspec.window_size = app.opt.windowSize;
+    first.tspec.window_size = (uint32_t)app.opt.windowSize;
+    if(app.opt.windowSize != (I2numT)first.tspec.window_size){
+        first.tspec.window_size = (uint32_t)~0;
+        I2ErrLog(eh,"Requested -w/-W option (%llu) too large: max supported size: (%llu)",app.opt.windowSize,first.tspec.window_size);
+        exit(1);
+    }
     first.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
-    first.tspec.len_buffer = app.opt.lenBuffer;
+    first.tspec.len_buffer = (uint32_t)app.opt.lenBuffer;
+    if(app.opt.lenBuffer != (I2numT)first.tspec.len_buffer){
+        first.tspec.len_buffer = (uint32_t)~0;
+        I2ErrLog(eh,"Requested -l option (%llu) too large: max supported size: (%llu)",app.opt.lenBuffer,first.tspec.len_buffer);
+        exit(1);
+    }
     first.tspec.report_interval = app.opt.reportInterval;
     first.tspec.units = app.opt.units;
     first.tspec.outformat = app.opt.outformat;
@@ -1789,9 +1665,9 @@ main(
     memcpy(&second.tspec,&first.tspec,sizeof(first.tspec));
 
 
-    /* s[0] == reciever, s[1] == sender */
-    s[0] = app.recv_sess;
-    s[1] = app.send_sess;
+    /* sess[0] == reciever, sess[1] == sender */
+    sess[0] = app.recv_sess;
+    sess[1] = app.send_sess;
 
     /*
      * setup sighandlers
@@ -2227,9 +2103,9 @@ AGAIN:
          *     keep querying each server in turn until satisfied,
          *     or denied.
          */
-        s[0]->tspec.latest_time = s[1]->tspec.latest_time =
+        sess[0]->tspec.latest_time = sess[1]->tspec.latest_time =
             BWLNum64Add(req_time.tstamp, latest64);
-        s[1]->tspec.req_time.tstamp = zero64;
+        sess[1]->tspec.req_time.tstamp = zero64;
         memset(sid,0,sizeof(sid));
         recv_port = 0;
         if(app.opt.verbose > 1){
@@ -2238,7 +2114,7 @@ AGAIN:
             I2ErrLog(eh,"ReqInitial: %24.10f",
                     BWLNum64ToDouble(req_time.tstamp));
             I2ErrLog(eh,"LastTime: %24.10f",
-                    BWLNum64ToDouble(s[0]->tspec.latest_time));
+                    BWLNum64ToDouble(sess[0]->tspec.latest_time));
         }
 
         p=0;q=0;
@@ -2254,13 +2130,13 @@ AGAIN:
             p = q++;
             q %= 2;
 
-            s[p]->tspec.req_time.tstamp = req_time.tstamp;
+            sess[p]->tspec.req_time.tstamp = req_time.tstamp;
 
             /*
              * Make the request
              */
-            if(!BWLSessionRequest(s[p]->cntrl,s[p]->send,
-                        &s[p]->tspec,&req_time,&recv_port,
+            if(!BWLSessionRequest(sess[p]->cntrl,sess[p]->send,
+                        &sess[p]->tspec,&req_time,&recv_port,
                         sid,&err_ret)){
                 /*
                  * Session was not accepted.
@@ -2283,7 +2159,7 @@ AGAIN:
                          * interval.
                          */
                         I2ErrLog(eh,"SessionRequest: %s busy. (Try -L flag)",
-                                s[p]->host);
+                                sess[p]->host);
                     }
                     else{
                         /*
@@ -2291,25 +2167,25 @@ AGAIN:
                          * denied.
                          */
                         I2ErrLog(eh,"SessionRequest: Denied by %s",
-                                s[p]->host);
+                                sess[p]->host);
                     }
 
                     /*
                      * Reset other servers reservation if
                      * needed.
                      */
-                    if(s[q]->tspec.req_time.tstamp !=
+                    if(sess[q]->tspec.req_time.tstamp !=
                             zero64){
                         /*
                          * zero request time is a
                          * reservation cancellation.
                          */
-                        s[q]->tspec.req_time.tstamp =
+                        sess[q]->tspec.req_time.tstamp =
                             zero64;
                         if(!BWLSessionRequest(
-                                    s[q]->cntrl,
-                                    s[q]->send,
-                                    &s[q]->tspec,
+                                    sess[q]->cntrl,
+                                    sess[q]->send,
+                                    &sess[q]->tspec,
                                     &req_time,
                                     &recv_port,
                                     sid,
@@ -2318,7 +2194,7 @@ AGAIN:
                             CloseSessions();
                             I2ErrLog(eh,
                                     "SessionRequest Control connection failure for \'%s\'. Skipping.",
-                                    s[q]->host);
+                                    sess[q]->host);
                         }
                     }
                 }
@@ -2331,7 +2207,7 @@ sess_req_err:
                     CloseSessions();
                     I2ErrLog(eh,
                             "SessionRequest Control connection failure for \'%s\'. Skipping...",
-                            s[p]->host);
+                            sess[p]->host);
                 }
                 goto next_test;
             }
@@ -2340,33 +2216,33 @@ sess_req_err:
                 goto finish;
             }
             if(app.opt.verbose > 1){
-                I2ErrLog(eh,"Res(%s): %24.10f",s[p]->host,
+                I2ErrLog(eh,"Res(%s): %24.10f",sess[p]->host,
                         BWLNum64ToDouble(req_time.tstamp));
             }
 
             if(BWLNum64Cmp(req_time.tstamp,
-                        s[p]->tspec.latest_time) > 0){
+                        sess[p]->tspec.latest_time) > 0){
                 I2ErrLog(eh,
                         "SessionRequest: \'%s\' returned bad reservation time!",
-                        s[p]->host);
+                        sess[p]->host);
                 CloseSessions();
                 goto next_test;
             }
 
             /* save new time for res */
-            s[p]->tspec.req_time.tstamp = req_time.tstamp;
+            sess[p]->tspec.req_time.tstamp = req_time.tstamp;
 
             /*
              * Do we have a meeting?
              */
-            if(BWLNum64Cmp(s[p]->tspec.req_time.tstamp,
-                        s[q]->tspec.req_time.tstamp) == 0){
+            if(BWLNum64Cmp(sess[p]->tspec.req_time.tstamp,
+                        sess[q]->tspec.req_time.tstamp) == 0){
                 break;
             }
         }
 
         /* Start receiver */
-        if(BWLStartSession(s[0]->cntrl,&dataport) < BWLErrINFO){
+        if(BWLStartSession(sess[0]->cntrl,&dataport) < BWLErrINFO){
             I2ErrLog(eh,"BWLStartSessions: Failed");
             CloseSessions();
             goto next_test;
@@ -2377,7 +2253,7 @@ sess_req_err:
         }
 
         /* Start sender */
-        if(BWLStartSession(s[1]->cntrl,&dataport) < BWLErrINFO){
+        if(BWLStartSession(sess[1]->cntrl,&dataport) < BWLErrINFO){
             I2ErrLog(eh,"BWLStartSessions: Failed");
             CloseSessions();
             goto next_test;
@@ -2446,7 +2322,6 @@ sess_req_err:
         }
         while(1){
             struct timeval  reltime;
-            int             rc;
             fd_set          readfds,exceptfds;
 
             if(!BWLGetTimeStamp(ctx,&currtime)){
@@ -2464,7 +2339,7 @@ sess_req_err:
                     fprintf(stdout,"\nRECEIVER START\n");
                 }
                 atype = BWL_CNTRL_ACCEPT;
-                if( (err_ret =BWLEndSession(s[0]->cntrl,
+                if( (err_ret =BWLEndSession(sess[0]->cntrl,
                                 &ip_intr,&atype,recvfp))
                         < BWLErrWARNING){
                     CloseSessions();
@@ -2493,7 +2368,7 @@ sess_req_err:
                     fprintf(stdout,"\nSENDER START\n");
                 }
                 atype = BWL_CNTRL_ACCEPT;
-                if( (err_ret = BWLEndSession(s[1]->cntrl,
+                if( (err_ret = BWLEndSession(sess[1]->cntrl,
                                 &ip_intr,&atype,sendfp))
                         < BWLErrWARNING){
                     CloseSessions();

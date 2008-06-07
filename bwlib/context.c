@@ -478,7 +478,7 @@ static BWLBoolean
 ConfigGetU32(
         I2Table     table,
         const char  *key,
-        uint32_t    *u32
+        uint32_t    *ui32
         )
 {
     _BWLContextHashValue    val;
@@ -492,7 +492,7 @@ ConfigGetU32(
         return False;
     }
 
-    *u32 = val.u32;
+    *ui32 = val.u32;
 
     return True;
 }
@@ -869,12 +869,12 @@ BWLBoolean
 BWLContextConfigGetU32(
         BWLContext  ctx,
         const char  *key,
-        uint32_t    *u32
+        uint32_t    *ui32
         )
 {
     assert(ctx);
 
-    return ConfigGetU32(ctx->table,key,u32);
+    return ConfigGetU32(ctx->table,key,ui32);
 }
 
 BWLBoolean
@@ -970,12 +970,12 @@ BWLBoolean
 BWLControlConfigGetU32(
         BWLControl  cntrl,
         const char  *key,
-        uint32_t    *u32
+        uint32_t    *ui32
         )
 {
     assert(cntrl);
 
-    return ConfigGetU32(cntrl->table,key,u32);
+    return ConfigGetU32(cntrl->table,key,ui32);
 }
 
 BWLBoolean

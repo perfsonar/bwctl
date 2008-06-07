@@ -182,9 +182,9 @@ BWLPortsNext(
 }
 
 char *
-BWLUInt32Dup(
+BWLUInt64Dup(
         BWLContext  ctx,
-        uint32_t    n
+        uint64_t    n
         )
  {
     char    nbuf[100];
@@ -204,3 +204,12 @@ BWLUInt32Dup(
     BWLError(ctx,BWLErrFATAL,errno,"strdup(): %M");
     return NULL;
  }
+
+char *
+BWLUInt32Dup(
+        BWLContext  ctx,
+        uint32_t    n
+        )
+{
+    return BWLUInt64Dup(ctx,(uint64_t)n);
+}

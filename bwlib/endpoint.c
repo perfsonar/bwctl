@@ -246,7 +246,7 @@ epssock(
     if((portrange = (BWLPortRange)BWLContextConfigGetV(tsess->cntrl->ctx,
                     BWLPeerPortRange))){
         /* Initialize port range with 'random' value in range */
-        BWLPortsSetI(tsess->cntrl->ctx,portrange,0);
+        BWLPortsSetI(tsess->cntrl->ctx,portrange,(uint16_t)0);
         p = port = BWLPortsNext(portrange);
     }
     else{
@@ -747,7 +747,7 @@ _BWLEndpointStart(
 
     reltime = BWLNum64Sub(tsess->reserve_time,currtime.tstamp);
 
-#if	NOT
+#if	defined NOT
     BWLError(ctx,BWLErrDEBUG,BWLErrINVALID,
             "currtime = %f, reservation = %f, reltime = %f",
             BWLNum64ToDouble(currtime.tstamp),
@@ -917,7 +917,13 @@ ACCEPT:
             double  dbnc = (double)bnc;
             double  rtt = BWLNum64ToDouble(BWLGetRTTBound(ep->rcntrl));
 
-            tsess->test_spec.window_size = dbnc * rtt / 8 * 1.1;
+            dbnc *= rtt / 8 * 1.1;
+
+            /*
+             * Don't worry about overflow... We wouldn't want a window
+             * larger than can be represented as a 32bit int anyway...
+             */
+            tsess->test_spec.window_size = (uint32_t)dbnc;
         }
     }
 

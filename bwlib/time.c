@@ -46,7 +46,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <bwlib/bwlib.h>
+#include <bwlib/bwlibP.h>
 #ifdef  HAVE_SYS_TIMEX_H
 #include <sys/timex.h>
 #endif
@@ -160,6 +160,7 @@ NOADJTIME:
     }
     else{
         double  td;
+        double  td2;
         char    *estr=NULL;
 
         td = strtod(toffstr,&estr);
@@ -181,10 +182,19 @@ NOADJTIME:
                 td = -td;
             }
 
-            timeoffset.tv_sec = trunc(td);
-            td -= timeoffset.tv_sec;
+            /*
+             * remove seconds from td and assign to tv_sec
+             */
+            td2 = trunc(td);
+            timeoffset.tv_sec = (long int)td2;
+            td -= td2;
+
+            /*
+             * convert fractional seconds from td into usec
+             */
             td *= 1000000;
-            timeoffset.tv_usec = trunc(td);
+            td2 = trunc(td);
+            timeoffset.tv_usec = (long int)td2;
 
             BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
                     "BWCTL_DEBUG_TIMEOFFSET: sec=%c%lu, usec=%lu",
@@ -196,12 +206,12 @@ NOADJTIME:
     return 0;
 }
 
-static struct timespec *
+struct timespec *
 _BWLGetTimespec(
         BWLContext	ctx,
         struct timespec	*ts,
         uint32_t	*esterr,
-        int		*sync
+        int		*synchronized
         )
 {
     struct timeval      tod;
@@ -213,7 +223,7 @@ _BWLGetTimespec(
      * By default, assume the clock is unsynchronized, but that it
      * is still acurate to within .1 second (1000000 usec's).
      */
-    *sync = 0;
+    *synchronized = 0;
     maxerr = (uint32_t)100000;
 
     if(gettimeofday(&tod,NULL) != 0){
@@ -278,7 +288,7 @@ _BWLGetTimespec(
                 ntp_unsync = 0;
             }
 
-            *sync = 1;
+            *synchronized = 1;
             /*
              * Apply ntp "offset"
              */
@@ -331,7 +341,7 @@ _BWLGetTimespec(
              * BWLSyncFuzz is specified as a double (sec)
              * ntp errors are long (usec) convert.
              */
-            syncfuzz = tdbl * 1000000;
+            syncfuzz = (long int) (tdbl * 1000000);
         }
         check_fuzz=True;
     }
@@ -360,15 +370,15 @@ BWLGetTimeStamp(
 {
     struct timespec ts;
     uint32_t	    errest;
-    int		    sync;
+    int		    synchronized;
 
     if(!tstamp)
         return NULL;
 
-    if(!_BWLGetTimespec(ctx,&ts,&errest,&sync))
+    if(!_BWLGetTimespec(ctx,&ts,&errest,&synchronized))
         return NULL;
 
-    tstamp->sync = sync;
+    tstamp->sync = synchronized;
 
     /* type conversion */
     return BWLTimespecToTimeStamp(tstamp,&ts,&errest,NULL);
@@ -407,7 +417,8 @@ _BWLEncodeTimeStamp(
      * host byte order. Set t32 to this value in network byte order,
      * then copy them to bytes 0-4 in buf.
      */
-    t32 = htonl((tstamp->tstamp >> 32) & 0xFFFFFFFF);
+    t32 = (uint32_t)((tstamp->tstamp >> 32) & 0xFFFFFFFF);
+    t32 = htonl(t32);
     memcpy(&buf[0],&t32,4);
 
     /*
@@ -415,7 +426,8 @@ _BWLEncodeTimeStamp(
      * seconds in host byte order. Set t32 to this value in network
      * byte order, then copy them to bytes 5-8 in buf.
      */
-    t32 = htonl(tstamp->tstamp & 0xFFFFFFFF);
+    t32 = (uint32_t)(tstamp->tstamp & 0xFFFFFFFF);
+    t32 = htonl(t32);
     memcpy(&buf[4],&t32,4);
 
     return;

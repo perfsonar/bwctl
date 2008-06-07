@@ -713,7 +713,7 @@ _BWLClientRequestTestReadResponse(
 BWLBoolean
 BWLSessionRequest(
         BWLControl	cntrl,
-        BWLBoolean	send,
+        BWLBoolean	send_local,
         BWLTestSpec	*test_spec,
         BWLTimeStamp	*avail_time_ret,
         uint16_t	*tool_port,
@@ -869,7 +869,7 @@ foundaddr:
          * Create a structure to store the stuff we need to keep for
          * later calls.
          */
-        if( !(tsession = _BWLTestSessionAlloc(cntrl,send,sender,
+        if( !(tsession = _BWLTestSessionAlloc(cntrl,send_local,sender,
                         receiver,*tool_port,test_spec)))
             goto error;
     }
@@ -1032,7 +1032,7 @@ BWLEndSession(
 
     if( (rc = _BWLWriteStopSession(cntrl,intr,*aptr,NULL)) < BWLErrOK){
         *aptr = BWL_CNTRL_FAILURE;
-        return _BWLFailControlSession(cntrl,rc);
+        return _BWLFailControlSession(cntrl,(int)rc);
     }
 
     msgtype = BWLReadRequestType(cntrl,intr);
@@ -1047,32 +1047,8 @@ BWLEndSession(
         return _BWLFailControlSession(cntrl,BWLErrFATAL);
     }
     if( (rc = _BWLReadStopSession(cntrl,intr,aptr,fp)) < BWLErrOK){
-        return _BWLFailControlSession(cntrl,rc);
+        return _BWLFailControlSession(cntrl,(int)rc);
     }
 
     return _BWLTestSessionFree(cntrl->tests,*aptr);
-}
-
-/*
- * Function:	BWLDelay
- *
- * Description:	
- * 	Compute delay between two timestamps.
- *
- * In Args:	
- *
- * Out Args:	
- *
- * Scope:	
- * Returns:	
- * Side Effect:	
- */
-double
-BWLDelay(
-        BWLTimeStamp	*send_time,
-        BWLTimeStamp	*recv_time
-        )
-{
-    return BWLNum64ToDouble(recv_time->tstamp) -
-        BWLNum64ToDouble(send_time->tstamp);
 }

@@ -132,12 +132,12 @@ typedef	struct {
         uint32_t	tool_id;   	/* -T iperf/nuttcp/thrulay */
 
         uint32_t	reportInterval;	/* -i (seconds) */
-        uint32_t	lenBuffer;	/* -l (bytes)	*/
+        I2numT  	lenBuffer;	/* -l (bytes)	*/
         I2Boolean	udpTest;	/* -u	*/
         I2Boolean	winset;		/* -w/-W specified */
-        uint32_t	windowSize;	/* -w 	*/
+        I2numT  	windowSize;	/* -w 	*/
         I2Boolean	dynamicWindowSize;	/* -W used for -w */
-        uint32_t	bandWidth;	/* -b (bits/sec) */
+        I2numT  	bandWidth;	/* -b (bits/sec) */
         uint32_t	timeDuration;	/* -t (secs) */
         uint8_t	        units;          /* -f	*/
         uint8_t	        outformat;      /* -y	*/

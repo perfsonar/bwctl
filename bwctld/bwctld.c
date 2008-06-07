@@ -63,7 +63,7 @@ int optreset;
 #endif
 
 static void
-version(){
+version(void){
     fprintf(stderr, "\nVersion: %s\n\n", PACKAGE_VERSION);
     return;
 }
@@ -377,7 +377,7 @@ ChldReservationDemand(
      */
     if(hsecs){
         ltime = BWLNum64Min(ltime,BWLNum64Add(currtime.tstamp,
-                    BWLULongToNum64(hsecs)));
+                    BWLI2numTToNum64(hsecs)));
     }
 
     /*
@@ -950,7 +950,7 @@ ACCEPT:
                 !BWLDAllowOpenMode(policy,
                     (struct sockaddr *)&sbuff,&out)){
             if(out != BWLErrOK){
-                exit(out);
+                exit((int)out);
             }
             mode &= ~BWL_MODE_OPEN;
         }
@@ -968,7 +968,7 @@ ACCEPT:
          * session not accepted.
          */
         if(!cntrl){
-            exit(out);    
+            exit((int)out);    
         }
 
         /*
