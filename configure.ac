@@ -63,7 +63,7 @@ AC_SEARCH_LIBS(trunc, m)
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([errno.h netdb.h stdlib.h sys/param.h sys/socket.h sys/time.h sys/timex.h])
+AC_CHECK_HEADERS([errno.h netdb.h stdlib.h tgmath.h sys/param.h sys/socket.h sys/time.h sys/timex.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 I2_C___ATTRIBUTE__
@@ -74,7 +74,7 @@ AC_CHECK_MEMBERS([struct sockaddr.sa_len], , ,
 	#include <sys/socket.h>])
 
 # Checks for library functions.
-AC_CHECK_FUNCS([memset socket getaddrinfo mergesort])
+AC_CHECK_FUNCS([memset socket getaddrinfo mergesort trunc])
 
 # Checks for variable/function declarations.
 AC_CHECK_DECLS([optreset])

@@ -1404,7 +1404,7 @@ BWLDResourceDemand(
      * These messages are printed to DEBUG so they can be selected
      * as non-interesting.
      */
-    for(;!ret && node;node = node->parent){
+    for(;node;node = node->parent){
         BWLError(node->policy->ctx,BWLErrDEBUG,BWLErrPOLICY,
                 "ResReq %s: %s:%s:%s = %llu (result = %llu, limit = %llu)",
                 (ret)?"ALLOWED":"DENIED",
