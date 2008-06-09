@@ -169,6 +169,16 @@ ThrulayPreRunTest(
         /* Multicast options not used too. */
 
         /*
+         * TODO: Fix this to allow UDP Thrulay tests.
+         */
+        if(tsess->test_spec.udp){
+            fprintf(tsess->localfp,
+                "bwctl: There are some known problems with using Thrulay and UDP. Only run this if you're debugging the problem.\n");
+            BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+                "ThrulayPreRunTest: There are some known problems with using Thrulay and UDP. Only run this if you're debugging the problem.\n");
+        }
+
+        /*
          * XXX: Make a more informative 'info' message indicating the
          * test that is being done.
          */

@@ -41,6 +41,9 @@ This package includes header files, and static link libraries for building
 applications that use the bwctl library.
 
 
+# Thrulay and I2Util get installed, but really, shouldn't be instaled.
+%define _unpackaged_files_terminate_build      0
+
 %prep
 %setup -q
 
