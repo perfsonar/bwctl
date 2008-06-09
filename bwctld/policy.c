@@ -1389,7 +1389,8 @@ BWLDResourceDemand(
         if(query == BWLDMESGRELEASE){
             ret = True;
         }
-        /* fallthrough to IntegerResourceDemand */
+
+        ret = IntegerResourceDemand(node,query,lim,limkind);
     }
     else if(limkind != LIMINT){
         BWLError(node->policy->ctx,BWLErrFATAL,BWLErrINVALID,
