@@ -51,13 +51,13 @@ limit root with \
 	allow_udp=on, \
 	allow_tcp=on, \
 	allow_open_mode=off, \
-        max_time_error=7
+        max_time_error=20
 
 # minimal everything
 # send hackers and bad nets here
 limit jail with parent=root, \
 	bandwidth=1, \
-	duration=100, \
+	duration=1, \
 	allow_udp=off, \
 	allow_tcp=off, \
 	allow_open_mode=off

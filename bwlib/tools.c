@@ -80,9 +80,9 @@ extern BWLToolDefinitionRec BWLToolThrulay;
 #endif
 
 BWLToolRec tool_list[] = {
-    {BWL_TOOL_THRULAY, &BWLToolThrulay},
-    {BWL_TOOL_NUTTCP, &BWLToolNuttcp},
     {BWL_TOOL_IPERF, &BWLToolIperf},
+    {BWL_TOOL_NUTTCP, &BWLToolNuttcp},
+    {BWL_TOOL_THRULAY, &BWLToolThrulay},
     {BWL_TOOL_UNDEFINED, &BWLToolNone}
 };
 

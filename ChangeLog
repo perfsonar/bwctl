@@ -1,4 +1,133 @@
 ------------------------------------------------------------------------
+r463 | boote | 2008-06-07 02:16:10 -0400 (Sat, 07 Jun 2008) | 4 lines
+
+Add the 2 lines of code to the server to allow legacy clients to work
+with new servers. (Need to select the IPERF tool by default.)
+
+
+------------------------------------------------------------------------
+r462 | boote | 2008-06-07 01:02:51 -0400 (Sat, 07 Jun 2008) | 6 lines
+
+policy.c: modified to report successful allocations as well as denied ones.
+
+configure.ac: attempt to test for 'trunc' - packrat complains about no
+prototype for trunc(). No idea why - I spent too long on it already.
+
+
+------------------------------------------------------------------------
+r461 | boote | 2008-06-06 21:12:35 -0400 (Fri, 06 Jun 2008) | 4 lines
+
+Fix the error message for bandwidth requsts to servers that don't support
+the larger limits.
+
+
+------------------------------------------------------------------------
+r460 | boote | 2008-06-06 21:10:18 -0400 (Fri, 06 Jun 2008) | 20 lines
+
+Added lots of numeric conversion warning flags to GCC compile lines, and then
+went through and removed 99% of the warnings. (htons gives bogus warnings on
+OS X so I couldn't remove them.)
+
+Modified the protocol to support bandwidth limits for UDP of greater than
+4.3gbps. I did this by adding an 'exponent' byte into the test request
+message - if the server supports the later protocol version, then this
+value indicates the number of bits the existing bandwidth word should
+be shifted to get the 'real' value requested. (As part of this, added
+some better error checking to see if limits that are larger than can
+be handled will be detected and reported as an error instead of being
+munged by overflow.
+
+Fixed what must have been a long-standing bug in the policy code. Due to
+a mistake, child limit definitions have been able to specify larger limits
+for things like bandwidth than the parent specified. This bug has now
+been fixed - if a parent limit is more restrictive it will be used in
+place of less restrictive limits specified in child limit definitions.
+
+
+------------------------------------------------------------------------
+r459 | boote | 2008-06-05 18:38:11 -0400 (Thu, 05 Jun 2008) | 3 lines
+
+Make successful request log as well as unsuccessful ones.
+
+
+------------------------------------------------------------------------
+r458 | boote | 2008-06-05 17:47:36 -0400 (Thu, 05 Jun 2008) | 3 lines
+
+Fix typo in limits exceeded message.
+
+
+------------------------------------------------------------------------
+r457 | boote | 2008-05-27 18:10:40 -0400 (Tue, 27 May 2008) | 4 lines
+
+Track NTP sync state changes and print out sync/unsync messages when state
+changes.
+
+
+------------------------------------------------------------------------
+r456 | boote | 2008-05-27 15:55:46 -0400 (Tue, 27 May 2008) | 3 lines
+
+Fix to make allow_unsync actually work on systems that have ntp syscalls.
+
+
+------------------------------------------------------------------------
+r455 | aaron | 2008-05-27 13:19:15 -0400 (Tue, 27 May 2008) | 3 lines
+
+configure should now accept --disable-nuttcp/--disable-iperf instead of requiring --disable-NUTTCP
+
+
+------------------------------------------------------------------------
+r454 | aaron | 2008-05-23 18:01:01 -0400 (Fri, 23 May 2008) | 4 lines
+
+Disable Nuttcp UDP tests since they're currently not working
+Improve the error messages for when iperf or nuttcp aren't found to allay fears that something catastrophic happened.
+
+
+------------------------------------------------------------------------
+r453 | aaron | 2008-05-23 16:48:50 -0400 (Fri, 23 May 2008) | 10 lines
+
+A series of fixes from jeff's tree:
+
+1. Fixed UDP test bug (socket abstraction was copying the socket type in addition to the address so the peer connection was failing)
+2. Added comments into the protocol description comments in the code.
+3. Corrected the client protocol handling code so that it implicitly recognizes that a pre 1.3 daemon has support for the iperf tool.
+4. Added better diagnostic messages for peer connection failures. (Messages now go into the returned sender/receiver results.)
+5. Better client error message when two servers don't support the same tools.
+6. Bump the version number to 1.3rc2
+
+
+------------------------------------------------------------------------
+r452 | aaron | 2008-05-23 16:34:56 -0400 (Fri, 23 May 2008) | 3 lines
+
+Move the BWCTL_1_3rc1 branch to be the new trunk
+
+
+------------------------------------------------------------------------
+r449 | boote | 2008-04-21 12:23:54 -0400 (Mon, 21 Apr 2008) | 3 lines
+
+log of all changes - prepare for release.
+
+
+------------------------------------------------------------------------
+r448 | boote | 2008-04-21 12:21:27 -0400 (Mon, 21 Apr 2008) | 10 lines
+
+time.c:
+    Fix logic error for ntp system call check. Also made it more clear
+    from error messages when a host is unsynchronized vs not having ntp
+    system calls.
+
+configure.ac:
+    Added AC_DEFINE for the TOOL thrulay stuff. (Accidentily removed it
+    when setting up the one-source tree build method.)
+
+
+------------------------------------------------------------------------
+r447 | boote | 2008-04-21 11:04:32 -0400 (Mon, 21 Apr 2008) | 4 lines
+
+Check headers needs to happen to define the thrulay header constants
+no matter how thrulay is included...
+
+
+------------------------------------------------------------------------
 r446 | boote | 2008-04-21 00:07:15 -0400 (Mon, 21 Apr 2008) | 3 lines
 
 Attempting to force static compile...

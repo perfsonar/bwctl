@@ -6,6 +6,14 @@ seen in ChangeLog. The section from just the latest release
 can be seen in the main index.html bwctl documentation page in
 the doc dir.
 
+version 1.3rc2
+* Enable legacy clients to work with new servers
+* Enable 1.3 clients to work with legacy servers
+* Report on the server end what limits caused the failure
+* Enable bandwidth limits of higher than 4.3Gbps (Note, this
+only works with 1.3 clients and servers).
+* Numerous minor bugfixes and cleanups
+
 version 1.3rc1
 * This documentation is not complete...
 * time/scheduling related changes to make it more robust

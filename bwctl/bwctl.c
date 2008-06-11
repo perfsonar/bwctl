@@ -1633,7 +1633,7 @@ main(
     }
     else{
         /* Default to thrulay */
-        first.tspec.tool_id = second.tspec.tool_id = BWL_TOOL_THRULAY;
+        first.tspec.tool_id = second.tspec.tool_id = BWL_TOOL_UNDEFINED;
     }
     first.tspec.duration = app.opt.timeDuration;
     first.tspec.udp = app.opt.udpTest;
@@ -1930,7 +1930,40 @@ AGAIN:
 
         /* Check if the requested tool is available at both servers. */
         common_tools = first.avail_tools & second.avail_tools;
-        if (!(first.tspec.tool_id & common_tools)){
+        if(!common_tools){
+            I2ErrLog(eh,"No tools in common");
+            exit_val = 1;
+            goto finish;
+        }
+
+        if (first.tspec.tool_id == BWL_TOOL_UNDEFINED){
+            uint32_t    tid;
+            BWLToolAvailability remaining_tools;
+            const char  *req_name;
+
+             /*
+             * Find the common tool to use
+             */
+            tid = 1;
+            remaining_tools = common_tools;
+            while(remaining_tools){
+
+                if(tid & remaining_tools){
+                    first.tspec.tool_id = tid;
+                    break;
+                }
+
+                /*
+                 * remove tid from common mask, and bump tid to next bit
+                 */
+                remaining_tools &= ~tid;
+                tid <<= 1;
+            }
+
+            req_name = BWLToolGetNameByID(ctx,first.tspec.tool_id);
+
+            I2ErrLog(eh,"Using tool: %s", req_name);
+        }else if (!(first.tspec.tool_id & common_tools)){
             uint32_t    tid;
             char        tname[BWL_MAX_TOOLNAME];
             const char  *req_name = BWLToolGetNameByID(ctx,first.tspec.tool_id);
@@ -1941,12 +1974,6 @@ AGAIN:
             }
             I2ErrLog(eh,"Requested tool \"%s\" not supported by both servers. "
                     "See the \'-T\' option", req_name);
-
-            if(!common_tools){
-                I2ErrLog(eh,"No tools in common");
-                exit_val = 1;
-                goto finish;
-            }
 
             /*
              * Print out 'common' tools.

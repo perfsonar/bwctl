@@ -7,7 +7,7 @@ Group: *Development/Libraries*
 URL: http://www.internet2.edu/~shalunov/thrulay/
 Source: %{name}-%{version}.tar.gz
 Packager: Federico Montesino Pouzols <fedemp@altern.org>
-BuildRequires: libtool, thrulay-libthrulay
+BuildRequires: libtool
 Requires: bwctl-client, bwctl-server
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
@@ -21,7 +21,7 @@ that wraps Iperf, Thrulay or nuttcp.
 %package client
 Summary: bwctl client
 Group: Applications/Network
-Requires: thrulay-libthrulay
+#Requires: thrulay-libthrulay
 %description client
 bwctl command line tool for scheduling bandwidth measurements with a bwctl
 server.
@@ -29,7 +29,7 @@ server.
 %package server
 Summary: bwctl server
 Group: Applications/Network
-Requires: thrulay-libthrulay
+#Requires: thrulay-libthrulay
 %description server
 bwctl server
 
