@@ -1076,6 +1076,18 @@ ACCEPT:
     }
 
     /*
+     * We ran into an issue where the sender would finish and send a
+     * StopSession message before the receiver was finished (The race condition
+     * described in comments below). The idea with the subsequent sleep is to
+     * pause for (hopefully) long enough for iperf to finish up. 
+     *
+     * FIXME: we need a more elegant way to do this
+     */
+    if (rc > 0) {
+        sleep(tsess->fuzz);
+    }
+
+    /*
      * Get current time
      */
     BWLGetTimeStamp(ctx,&currtime);
