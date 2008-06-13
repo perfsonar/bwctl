@@ -1391,8 +1391,13 @@ _BWLEndpointStop(
      * If child already exited, kill will come back with ESRCH
      */
     if(!ep->dont_kill){
-        if((kill(ep->child,SIGTERM) != 0) && (errno != ESRCH)){
-            goto error;
+        if(kill(ep->child,SIGTERM) != 0){
+            if(errno != ESRCH){
+                goto error;
+            }
+        }
+        else{
+            fprintf(tsess->localfp,"bwctl: kill(%lu,TERM): tester\n",ep->child);
         }
         ep->killed = True;
     }
