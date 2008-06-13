@@ -1950,6 +1950,7 @@ AGAIN:
 
                 if(tid & remaining_tools){
                     first.tspec.tool_id = tid;
+                    second.tspec.tool_id = tid;
                     break;
                 }
 
