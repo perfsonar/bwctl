@@ -1083,8 +1083,12 @@ ACCEPT:
      *
      * FIXME: we need a more elegant way to do this
      */
-    if (rc > 0) {
-        sleep(tsess->fuzz);
+    if(rc > 0){
+        struct timeval tv;
+
+        BWLNum64ToTimeval(&tv, tsess->fuzz);
+
+        sleep(tv.tv_sec);
     }
 
     /*
