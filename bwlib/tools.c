@@ -497,7 +497,7 @@ _BWLToolGenericInitTest(
     strcpy(optname,"V.");
     strncpy(&optname[2],tool->name,sizeof(optname)-2);
     len = strlen(optname);
-    strncpy(&optname[len],"_ports",sizeof(optname)-len);
+    strncpy(&optname[len],"_port",sizeof(optname)-len);
 
     if( (prange = (BWLPortRange)BWLContextConfigGetV(ctx,optname))){
         *toolport = BWLPortsNext(prange);

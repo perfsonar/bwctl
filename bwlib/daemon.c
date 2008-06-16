@@ -66,8 +66,7 @@ BWLDaemonParseArg(
         return 1;
     }
 
-    if(!strncasecmp(key,"peerports",10) ||
-            !strncasecmp(key,"peer_ports",11)){
+    if(!strncasecmp(key,"peer_port",10)){
         BWLPortRange    pports;
 
         if( !(pports = calloc(1,sizeof(BWLPortRangeRec)))){
@@ -76,7 +75,7 @@ BWLDaemonParseArg(
         }
         if( !BWLPortsParse(ctx,val,pports) ||
                 !BWLContextConfigSet(ctx,BWLPeerPortRange,pports)){
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Unable to set peer_ports");
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Unable to set peer_port");
             return -1;
         }
 

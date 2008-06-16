@@ -1088,7 +1088,8 @@ ACCEPT:
 
         BWLNum64ToTimeval(&tv, tsess->fuzz);
 
-        sleep(tv.tv_sec);
+        assert(tv.tv_sec >= 0);
+        sleep((unsigned)tv.tv_sec);
     }
 
     /*
@@ -1401,7 +1402,7 @@ _BWLEndpointStop(
             }
         }
         else{
-            fprintf(tsess->localfp,"bwctl: kill(%lu,TERM): tester\n",ep->child);
+            fprintf(tsess->localfp,"bwctl: kill(%d,TERM): tester\n",ep->child);
         }
         ep->killed = True;
     }
