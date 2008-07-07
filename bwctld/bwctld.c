@@ -41,6 +41,7 @@
 
 #include <I2util/util.h>
 #include <bwlib/bwlib.h>
+#include <bwlib/bwlibP.h>
 
 #include "bwctldP.h"
 #include "policy.h"
@@ -1134,6 +1135,160 @@ FindMaxFD(
 }
 
 static void
+BWLDExecPostHookScript(
+        char *script,
+        BWLControl ctrl,
+        BWLBoolean is_sender,
+        BWLTestSpec *test_spec,
+        FILE *sendfp,
+        FILE *recvfp
+        )
+{
+    pid_t               pid;
+    int                 pipe_fds[2];
+    char                buf[1024];
+    int                 n;
+    FILE                *pipe_fp;
+    int                 status;
+    int                 buflen;
+    int                 times = 0;
+    struct sigaction    act;
+
+    /*
+     * Do NOT exit on SIGPIPE. To defeat this in the least intrusive
+     * way only set SIG_IGN if SIGPIPE is currently set to SIG_DFL.
+     * Presumably if someone actually set a SIGPIPE handler, they
+     * knew what they were doing...
+     */
+    sigemptyset(&act.sa_mask);
+    act.sa_handler = SIG_DFL;
+    act.sa_flags = 0;
+    if(sigaction(SIGPIPE,NULL,&act) != 0){
+        BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
+        return;
+    }
+    if(act.sa_handler == SIG_DFL){
+        act.sa_handler = SIG_IGN;
+        if(sigaction(SIGPIPE,&act,NULL) != 0){
+            BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN, "sigaction(): %M");
+            return;
+        }
+    }
+
+    pipe(pipe_fds);
+
+    pid = fork();
+    if (pid < 0) {
+        BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,"fork(): %M");
+        (void)close(pipe_fds[0]);
+        (void)close(pipe_fds[1]);
+        return;
+    }
+
+    if (pid == 0) {
+        /*
+         * set the read end of the pipe to be the new stdin
+         */
+        dup2(pipe_fds[0], 0);
+
+        /*
+         * close the write end along with the duplicate of the read end of the pipe.
+         * if either are interrupted, try again
+         */
+        while((close(pipe_fds[0]) < 0) && (errno == EINTR));
+        while((close(pipe_fds[1]) < 0) && (errno == EINTR));
+
+        execl(script, script, NULL);
+        BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN, "Couldn't execute script \'%s\'", script);
+        exit(-1);
+    }
+
+    /*
+     * we don't close the read side of the pipe on our end so that if we do the
+     * subsequent writing, we won't get a sigpipe.
+     */
+    pipe_fp = fdopen(pipe_fds[1], "w");
+    if (!pipe_fp) {
+        BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN, "fdopen failed");
+        goto error_out;
+    }
+
+    fprintf(pipe_fp, "<TEST_CONFIG>\n");
+    fprintf(pipe_fp, "tool: %s\n", BWLToolGetNameByID(ctrl->ctx,test_spec->tool_id));
+    fprintf(pipe_fp, "user: %s\n", ctrl->userid_buffer);
+    fprintf(pipe_fp, "is_host_sender: %s\n", (is_sender)?"YES":"NO");
+    buflen = sizeof(buf);
+    fprintf(pipe_fp, "sender: %s\n", I2AddrNodeName(test_spec->sender, buf, &buflen));
+    buflen = sizeof(buf);
+    fprintf(pipe_fp, "receiver: %s\n", I2AddrNodeName(test_spec->receiver, buf, &buflen));
+    fprintf(pipe_fp, "duration: %lu\n", test_spec->duration);
+    fprintf(pipe_fp, "use_udp: %s\n", (test_spec->udp)?"YES":"NO");
+    fprintf(pipe_fp, "bandwidth: %llu\n", test_spec->bandwidth);
+    fprintf(pipe_fp, "window: %lu\n", test_spec->window_size);
+    fprintf(pipe_fp, "len_buffer: %lu\n", test_spec->len_buffer);
+    fprintf(pipe_fp, "report_interval: %u\n", test_spec->report_interval);
+    fprintf(pipe_fp, "parallel_streams: %u\n", test_spec->parallel_streams);
+    fprintf(pipe_fp, "units: %c\n", test_spec->units);
+    fprintf(pipe_fp, "output_format: %c\n", test_spec->outformat);
+    fprintf(pipe_fp, "use_dynamic_window_sizing: %s\n", (test_spec->dynamic_window_size)?"YES":"NO");
+    fprintf(pipe_fp, "</TEST_CONFIG>\n");
+
+    /*
+     *  seek to the beginning of the file and copy it all to the pipe
+     */
+    fseek(recvfp, SEEK_SET, 0);
+    fprintf(pipe_fp, "<RECV_OUTPUT>\n");
+    do {
+        n = fread(buf, 1, sizeof(buf), recvfp);
+        if (n > 0)  {
+            fwrite(buf, 1, n, pipe_fp);
+        }
+    } while (n > 0);
+    fprintf(pipe_fp, "</RECV_OUTPUT>\n");
+
+    /*
+     *  seek to the beginning of the file and copy it all to the pipe
+     */
+    fseek(sendfp, SEEK_SET, 0);
+    fprintf(pipe_fp, "<SEND_OUTPUT>\n");
+    do {
+        n = fread(buf, 1, sizeof(buf), sendfp);
+        if (n > 0)  {
+            fwrite(buf, 1, n, pipe_fp);
+        }
+    } while (n > 0);
+    fprintf(pipe_fp, "</SEND_OUTPUT>\n");
+
+    fclose(pipe_fp);
+    close(pipe_fds[0]);
+    close(pipe_fds[1]);
+
+    waitpid(pid, &status, 0);
+
+    return;
+
+error_out:
+    kill(pid, SIGKILL);
+}
+
+
+static BWLErrSeverity
+BWLDProcessResults(
+        BWLControl ctrl,
+        BWLBoolean is_sender,
+        BWLTestSpec *test_spec,
+        FILE *sendfp,
+        FILE *recvfp
+)
+{
+    int i;
+
+    for(i = 0; i < opts.posthook_count; i++) {
+        BWLDExecPostHookScript(opts.posthook[i], ctrl, is_sender, test_spec, sendfp, recvfp);
+    }
+}
+
+static void
 LoadErrConfig(
         char    **lbuf,
         size_t  *lbuf_max
@@ -1348,6 +1503,34 @@ LoadConfig(
                 break;
             }
             opts.dieby = tlng;
+        }
+        else if (!strncasecmp(key,"posthook",8) ||
+                 !strncasecmp(key,"post_hook",9)) {
+            char **new_posthook;
+
+            new_posthook = realloc(opts.posthook, sizeof(char *) * (opts.posthook_count + 1));
+            if (!new_posthook) {
+                I2ErrLog(errhand,"realloc(): %M");
+                rc = -rc;
+                break;
+            }
+
+            new_posthook[opts.posthook_count] = strdup(val);
+            if (!new_posthook[opts.posthook_count]) {
+                I2ErrLog(errhand,"strdup(): %M");
+                rc=-rc;
+                break;
+            }
+
+            opts.posthook_count++;
+            opts.posthook = new_posthook;
+
+                /* just non-null */
+            if( !BWLContextConfigSet(ctx,BWLProcessResults,(void*)BWLDProcessResults)){
+                I2ErrLog(errhand,
+                        "ContextConfigSet(): Unable to set BWLChildWait");
+                exit(1);
+            }
         }
         else if( (dc = BWLDaemonParseArg(ctx,key,val))){
             if(dc < 0){

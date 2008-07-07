@@ -50,6 +50,8 @@ typedef struct {
     uint32_t	    controltimeout;
     I2Boolean	    daemon;
 
+    char            **posthook;
+    int             posthook_count;
 } bwctld_opts;
 
 #endif	/*	_BWCTLDP_H_	*/

@@ -275,10 +275,12 @@ _BWLTestSessionAlloc(
 
     if(send_local){
         test->conf_sender = True;
+        test->conf_receiver = False;
         test->tool_port = tool_port;
     }
     else{
         test->conf_receiver = True;
+        test->conf_sender = False;
         test->tool_port = 0;
     }
 
