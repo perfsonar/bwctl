@@ -1152,28 +1152,6 @@ BWLDExecPostHookScript(
     int                 status;
     int                 buflen;
     int                 times = 0;
-    struct sigaction    act;
-
-    /*
-     * Do NOT exit on SIGPIPE. To defeat this in the least intrusive
-     * way only set SIG_IGN if SIGPIPE is currently set to SIG_DFL.
-     * Presumably if someone actually set a SIGPIPE handler, they
-     * knew what they were doing...
-     */
-    sigemptyset(&act.sa_mask);
-    act.sa_handler = SIG_DFL;
-    act.sa_flags = 0;
-    if(sigaction(SIGPIPE,NULL,&act) != 0){
-        BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,"sigaction(): %M");
-        return;
-    }
-    if(act.sa_handler == SIG_DFL){
-        act.sa_handler = SIG_IGN;
-        if(sigaction(SIGPIPE,&act,NULL) != 0){
-            BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN, "sigaction(): %M");
-            return;
-        }
-    }
 
     pipe(pipe_fds);
 
@@ -1189,7 +1167,7 @@ BWLDExecPostHookScript(
         /*
          * set the read end of the pipe to be the new stdin
          */
-        dup2(pipe_fds[0], 0);
+        dup2(pipe_fds[0], STDIN_FILENO);
 
         /*
          * close the write end along with the duplicate of the read end of the pipe.
@@ -1204,12 +1182,19 @@ BWLDExecPostHookScript(
     }
 
     /*
-     * we don't close the read side of the pipe on our end so that if we do the
-     * subsequent writing, we won't get a sigpipe.
+     * Close the read side to ensure that the pipe writes fail instead of
+     * filling up the pipe and possibly blocking.
      */
+    close(pipe_fds[0]);
+
+    if (fcntl(pipe_fds[1], F_SETFL, O_NONBLOCK) == -1) {
+        BWLError(ctrl->ctx,BWLErrFATAL,errno, "fcntl() failed");
+        goto error_out;
+    }
+
     pipe_fp = fdopen(pipe_fds[1], "w");
     if (!pipe_fp) {
-        BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN, "fdopen failed");
+        BWLError(ctrl->ctx,BWLErrFATAL,errno, "fdopen() failed");
         goto error_out;
     }
 
@@ -1260,7 +1245,6 @@ BWLDExecPostHookScript(
     fprintf(pipe_fp, "</SEND_OUTPUT>\n");
 
     fclose(pipe_fp);
-    close(pipe_fds[0]);
     close(pipe_fds[1]);
 
     waitpid(pid, &status, 0);
@@ -1268,17 +1252,18 @@ BWLDExecPostHookScript(
     return;
 
 error_out:
+    close(pipe_fds[0]);
+    close(pipe_fds[1]);
     kill(pid, SIGKILL);
 }
 
-
 static BWLErrSeverity
 BWLDProcessResults(
-        BWLControl ctrl,
-        BWLBoolean is_sender,
-        BWLTestSpec *test_spec,
-        FILE *sendfp,
-        FILE *recvfp
+        BWLControl   ctrl,
+        BWLBoolean   is_sender,
+        BWLTestSpec  *test_spec,
+        FILE         *sendfp,
+        FILE         *recvfp
 )
 {
     int i;
@@ -1286,6 +1271,122 @@ BWLDProcessResults(
     for(i = 0; i < opts.posthook_count; i++) {
         BWLDExecPostHookScript(opts.posthook[i], ctrl, is_sender, test_spec, sendfp, recvfp);
     }
+}
+
+static BWLBoolean
+PostHookAvailable(
+        BWLContext          ctx,
+        const char          *script
+        )
+{
+    int             len;
+    char            *cmd;
+    int             fdpipe[2];
+    pid_t           pid;
+    int             status;
+    int             rc;
+                    /* Post-hook scripts must print out "Status: OK" to stdout */
+    char            *pattern = "Status: OK"; /* Expected begin of stdout */
+    char            buf[1024];
+    const uint32_t  buf_size = I2Number(buf);
+
+    if(socketpair(AF_UNIX,SOCK_STREAM,0,fdpipe) < 0){
+        BWLError(ctx,BWLErrFATAL,errno,"PostHookAvailable():socketpair(): %M");
+        return False;
+    }
+
+    pid = fork();
+
+    /* fork error */
+    if(pid < 0){
+        BWLError(ctx,BWLErrFATAL,errno,"PostHookAvailable():fork(): %M");
+        return False;
+    }
+
+    /*
+     * child:
+     *
+     * Redirect stdout to pipe - then exec the script with the --validate. The
+     * script can then perform any internal checks it wants and sends back
+     * "Status: OK" via the pipe if everything is fine. 
+     */
+    if(0 == pid){
+        dup2(fdpipe[1],STDOUT_FILENO);
+        close(fdpipe[0]);
+        close(fdpipe[1]);
+
+        execlp(script,script,"--validate",NULL);
+        buf[buf_size-1] = '\0';
+        snprintf(buf,buf_size-1,"exec(%s)",cmd);
+        perror(buf);
+        exit(1);
+    }
+
+    /*
+     * parent:
+     *
+     * Wait for child to exit, then read the output from the
+     * child.
+     *
+     * XXX: This solution depends on the pipe buffer being large enough
+     * to hold the complete output of the script. (Otherwise
+     * it will block...) This has not been a problem in practice, but
+     * a more thourough solution would make sure SIGCHLD will be sent,
+     * and wait for either that signal or I/O using select(2).
+     */
+
+    close(fdpipe[1]);
+    while(((rc = waitpid(pid,&status,0)) == -1) && errno == EINTR);
+    if(rc < 0){
+        BWLError(ctx,BWLErrFATAL,errno,
+                "PostHookAvailable(): waitpid(), rc = %d: %M",rc);
+        return False;
+    }
+
+    /*
+     * If the script did not even exit...
+     */
+    if(!WIFEXITED(status)){
+        if(WIFSIGNALED(status)){
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "PostHookAvailable(): script %s exited due to signal=%d",
+                    script, WTERMSIG(status));
+        }
+        BWLError(ctx,BWLErrWARNING,errno,"PostHookAvailable(): script %s unusable", script);
+        return False;
+    }
+
+    /*
+     * Read any output from the child
+     */
+    buf[0] = '\0';
+    if( (rc = read(fdpipe[0],buf,buf_size-1)) > 0){
+        /* unsure the string is nul terminated */
+        for(len=buf_size;len>rc;len--){
+            buf[len-1] = '\0';
+        }
+    }
+    close(fdpipe[0]);
+
+    /*
+     * If it exited as expected, check the return string.
+     */
+    if(WEXITSTATUS(status) == 0){
+        if(0 == strncmp(buf,pattern,strlen(pattern))){
+            /* script validated */
+            return True;
+        } else {
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "PostHookAvailable(): There was an error validating posthook script %s: script output:\n%s",
+                    script,buf);
+        }
+    } else {
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+            "PostHookAvailable(): There was an error validating posthook script %s: exit status %d: output:\n%s",
+            script,WEXITSTATUS(status),buf);
+    }
+
+    return False;
 }
 
 static void
@@ -1508,6 +1609,12 @@ LoadConfig(
                  !strncasecmp(key,"post_hook",9)) {
             char **new_posthook;
 
+            if (!PostHookAvailable(ctx, val)) {
+                I2ErrLog(errhand,
+                        "Can't use posthook %s", val);
+                exit(1);
+            }
+
             new_posthook = realloc(opts.posthook, sizeof(char *) * (opts.posthook_count + 1));
             if (!new_posthook) {
                 I2ErrLog(errhand,"realloc(): %M");
@@ -1528,7 +1635,7 @@ LoadConfig(
                 /* just non-null */
             if( !BWLContextConfigSet(ctx,BWLProcessResults,(void*)BWLDProcessResults)){
                 I2ErrLog(errhand,
-                        "ContextConfigSet(): Unable to set BWLChildWait");
+                        "Unable to set BWLProcessResults");
                 exit(1);
             }
         }

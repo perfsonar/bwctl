@@ -5,6 +5,14 @@ use warnings;
 
 use Data::Dumper;
 
+my $arg = shift;
+
+if ($arg and $arg eq "--validate") {
+	print "Status: OK\n";
+#	print "Status: Failed\n";
+	exit(0);
+}
+
 my %test = ();
 my %recv_results = ();
 my %send_results = ();
@@ -15,6 +23,8 @@ my $in_recv_output = 0;
 
 while(<>) {
 	chomp;
+
+	print $_;
 
 	my $line = $_;
 
@@ -113,7 +123,7 @@ sub parse_thrulay_output_line {
 
 	# Grab the bandwidth acheived and convert the Mbps
 	if ($line =~ /throughput = (\d+\.\d+)Mb\/s/) {
-		$results->{"throughput"} = $1 * 1000 * 1000;
+		$results->{"bandwidth"} = $1 * 1000 * 1000;
 	}
 }
 
