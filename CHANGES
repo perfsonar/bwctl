@@ -1,10 +1,19 @@
 $Id$
 
 A "functional" summary of changes to the code base are placed in
-this file. The complete set of change logs from CVS can be
-seen in ChangeLog. The section from just the latest release
+this file. The complete set of change logs from Subversion can
+be seen in ChangeLog. The section from just the latest release
 can be seen in the main index.html bwctl documentation page in
 the doc dir.
+
+version 1.3rc4
+* Auto-choose a common tool if none is specified by the user
+* The ability to have a script execute after the daemon has finished
+a session.
+* Minor bugfixes and cleanups
+
+version 1.3rc3
+* Bugfix to handle a tool being killed too early
 
 version 1.3rc2
 * Enable legacy clients to work with new servers

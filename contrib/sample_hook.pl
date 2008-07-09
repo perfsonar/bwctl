@@ -5,9 +5,16 @@
 # resulting output or simply as a guide for how one might parse the output from
 # the bwctl server.
 
+my $facility = "daemon";
+
+##########################
+#  End of Configuration
+##########################
+
 use strict;
 use warnings;
 
+use Sys::Syslog;
 use Data::Dumper;
 
 my $arg = shift;
@@ -30,16 +37,37 @@ my ($test, $recv_results, $send_results) = parse_input(\@input);
 # Display the structure of the returned elements.
 print "Test: ";
 print Dumper($test);
-print "Send: ";
-print Dumper($send_results);
-print "Recv: ";
-print Dumper($recv_results);
+#print "Send: ";
+#print Dumper($send_results);
+#print "Recv: ";
+#print Dumper($recv_results);
 
-# Create a summary of the test results for the user
+# Create a summary of the test results for syslog
 my $user;
 my $bandwidth;
 my $direction;
 my $duration;
+my $protocol;
+my $sender;
+my $receiver;
+my $client;
+my $limit_class;
+my $start_time;
+my $streams;
+
+$limit_class = $test->{"limit_class"};
+$start_time = $test->{"start_time"};
+$receiver = $test->{"receiver"};
+$sender = $test->{"sender"};
+$protocol = ($test->{"use_udp"} eq "YES")?"UDP":"TCP";
+$sender = $test->{"sender"};
+$receiver = $test->{"receiver"};
+$client = $test->{"client"};
+
+$streams = $test->{"parallel_streams"};
+if ($streams == 0) {
+	$streams = 1;
+}
 
 # If the user field is unset, the user was anonymous
 if (not $test->{"user"}) {
@@ -60,7 +88,11 @@ if ($test->{"is_host_sender"} eq "YES") {
 	$duration = $recv_results->{"duration"};
 }
 
-print "User '$user' used $bandwidth Mbps of $direction bandwidth for $duration second(s)\n";
+my $res = "USER=$user LIMIT_CLASS=$limit_class BANDWIDTH=$bandwidth DIRECTION=$direction DURATION=$duration PROTOCOL=$protocol START_TIME=$start_time SENDER=$sender RECEIVER=$receiver CLIENT=$client STREAMS=$streams";
+#print $res."\n";
+openlog('bwctld','',$facility);
+syslog('info', $res);
+closelog;
 
 exit 0;
 

@@ -1152,6 +1152,9 @@ BWLDExecPostHookScript(
     int                 status;
     int                 buflen;
     int                 times = 0;
+    BWLDPolicyNode      node;
+    char                *limit_class;
+    struct timespec     ts;
 
     pipe(pipe_fds);
 
@@ -1198,10 +1201,27 @@ BWLDExecPostHookScript(
         goto error_out;
     }
 
+    /*
+     * Fetch the "user class" for this connection.
+     */
+    node = (BWLDPolicyNode)BWLControlConfigGetV(ctrl, BWLDPOLICY_NODE);
+    if(!node) {
+        limit_class = "unknown";
+    } else {
+        limit_class = node->nodename;
+    }
+
+    BWLTimeStampToTimespec(&ts, &test_spec->req_time);
+
     fprintf(pipe_fp, "<TEST_CONFIG>\n");
     fprintf(pipe_fp, "tool: %s\n", BWLToolGetNameByID(ctrl->ctx,test_spec->tool_id));
     fprintf(pipe_fp, "user: %s\n", ctrl->userid_buffer);
+    fprintf(pipe_fp, "limit_class: %s\n", limit_class);
+    fprintf(pipe_fp, "start_time: %lu\n", ts.tv_sec);
     fprintf(pipe_fp, "is_host_sender: %s\n", (is_sender)?"YES":"NO");
+    fprintf(pipe_fp, "tos: %d\n", test_spec->tos);
+    buflen = sizeof(buf);
+    fprintf(pipe_fp, "client: %s\n", I2AddrNodeName(ctrl->remote_addr, buf, &buflen));
     buflen = sizeof(buf);
     fprintf(pipe_fp, "sender: %s\n", I2AddrNodeName(test_spec->sender, buf, &buflen));
     buflen = sizeof(buf);
