@@ -1176,7 +1176,7 @@ BWLDExecPostHookScript(
         while((close(pipe_fds[0]) < 0) && (errno == EINTR));
         while((close(pipe_fds[1]) < 0) && (errno == EINTR));
 
-        execl(script, script, NULL);
+        execlp(script, script, NULL);
         BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN, "Couldn't execute script \'%s\'", script);
         exit(-1);
     }
