@@ -35,8 +35,8 @@ my ($test, $recv_results, $send_results) = parse_input(\@input);
 # syslog, email the results somewhere or store them in a database.
 
 # Display the structure of the returned elements.
-print "Test: ";
-print Dumper($test);
+#print "Test: ";
+#print Dumper($test);
 #print "Send: ";
 #print Dumper($send_results);
 #print "Recv: ";

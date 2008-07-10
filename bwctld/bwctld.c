@@ -1291,6 +1291,8 @@ BWLDProcessResults(
     for(i = 0; i < opts.posthook_count; i++) {
         BWLDExecPostHookScript(opts.posthook[i], ctrl, is_sender, test_spec, sendfp, recvfp);
     }
+
+    return BWLErrOK;
 }
 
 static BWLBoolean
