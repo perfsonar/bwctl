@@ -655,6 +655,8 @@ BWLTimeStampToTimeval(
         BWLTimeStamp	*tstamp
         )
 {
+    BWLNum64 tmp;
+
     if(!tval || !tstamp)
         return NULL;
 
@@ -663,9 +665,9 @@ BWLTimeStampToTimeval(
      * of overflow since time_t is a 32bit signed quantity instead of
      * unsigned.
      */
-    tstamp->tstamp = BWLNum64Sub(tstamp->tstamp,
+    tmp = BWLNum64Sub(tstamp->tstamp,
             BWLULongToNum64(BWLJAN_1970));
-    BWLNum64ToTimeval(tval,tstamp->tstamp);
+    BWLNum64ToTimeval(tval,tmp);
 
     return tval;
 }
@@ -865,6 +867,8 @@ BWLTimeStampToTimespec(
         BWLTimeStamp	*tstamp
         )
 {
+    BWLNum64 tmp;
+
     if(!tval || !tstamp)
         return NULL;
 
@@ -873,9 +877,9 @@ BWLTimeStampToTimespec(
      * of overflow since time_t is a 32bit signed quantity instead of
      * unsigned.
      */
-    tstamp->tstamp = BWLNum64Sub(tstamp->tstamp,
+    tmp = BWLNum64Sub(tstamp->tstamp,
             BWLULongToNum64(BWLJAN_1970));
-    BWLNum64ToTimespec(tval,tstamp->tstamp);
+    BWLNum64ToTimespec(tval,tmp);
 
     return tval;
 }

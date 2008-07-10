@@ -126,6 +126,8 @@ sub parse_input {
 	my $in_recv_output = 0;
 
 	foreach my $line (@$lines) {
+		chomp $line;
+
 		if ($line =~ /<TEST_CONFIG>/) {
 			$in_test_config = 1;
 			next;
@@ -209,7 +211,7 @@ sub parse_thrulay_output_line {
 sub parse_iperf_output_line {
 	my ($test, $results, $line) = @_;
 
-	if ($line =~ /0.0-(\d+.\d).*(\d+) ([M|G|K]?)Bytes.*(\d+) ([M|G|K]?)Bits\/sec/) {
+	if ($line =~ /0.0- ?(\d+.\d+) .*(\d+) ([M|G|K]?)Bytes *(\d+) ([M|G|K]?)[B|b]its\/sec/) {
 		# Grab the duration
 		$results->{"duration"} = $1;
 
