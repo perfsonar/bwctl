@@ -1,4 +1,36 @@
 ------------------------------------------------------------------------
+r479 | aaron | 2008-07-10 10:56:45 -0400 (Thu, 10 Jul 2008) | 4 lines
+
+Change the BWLTimeStampToTimespec and BWLTimeStampToTimeval to not modify the BWLTimeStamp argument
+Modify the sample hook to better handle iperf lines
+
+
+------------------------------------------------------------------------
+r478 | aaron | 2008-07-10 10:16:55 -0400 (Thu, 10 Jul 2008) | 4 lines
+
+Fix the "abnormal termination" error
+Remove the Dumper printing in the sample hook
+
+
+------------------------------------------------------------------------
+r477 | aaron | 2008-07-09 17:20:15 -0400 (Wed, 09 Jul 2008) | 7 lines
+
+Document the posthook option in the example .conf file
+Add more data to the output
+ - start time, tos, client ip
+Update changes, changelog
+Have the sample hook script call to syslog
+
+
+------------------------------------------------------------------------
+r476 | aaron | 2008-07-09 14:53:30 -0400 (Wed, 09 Jul 2008) | 5 lines
+
+Move sample hook to the contrib directory
+Properly order the tools when unspecified (iperf, nuttcp, thrulay)
+Use execlp instead of execl when exec'ing the scripts
+
+
+------------------------------------------------------------------------
 r475 | aaron | 2008-07-09 13:28:37 -0400 (Wed, 09 Jul 2008) | 6 lines
 
 Try to validate the posthook script by running it with a --validate flag on

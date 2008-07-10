@@ -18,7 +18,7 @@
 #
 #	Description:	toplevel build for bwctl
 #
-SUBDIRS = @TOP_BUILD_DIRS@ bwlib bwctld bwctl conf doc
+SUBDIRS = @TOP_BUILD_DIRS@ bwlib bwctld bwctl conf doc contrib
 
 # uncomment this when we stop using broken automake 1.5
 # (then remove from DIST_EXTRA in subdir)

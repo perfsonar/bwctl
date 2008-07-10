@@ -234,5 +234,5 @@ AC_SUBST(TOP_BUILD_DIRS)
 # AC_CONFIG_FILES([Makefile owamp/Makefile])
 
 AC_SUBST(ac_aux_dir)
-AC_OUTPUT([Makefile bwlib/Makefile bwctld/Makefile bwctl/Makefile conf/Makefile doc/Makefile bwctl.spec],
+AC_OUTPUT([Makefile bwlib/Makefile bwctld/Makefile bwctl/Makefile conf/Makefile contrib/Makefile doc/Makefile bwctl.spec],
 	[test -z "$CONFIG_HEADERS" || echo timestamp > bwlib/stamp-h.in])

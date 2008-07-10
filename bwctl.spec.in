@@ -49,7 +49,7 @@ applications that use the bwctl library.
 
 %build
 #%configure
-./configure --prefix=$RPM_BUILD_ROOT/usr --with-thrulay --enable-NUTTCP=no
+./configure --prefix=$RPM_BUILD_ROOT/usr --with-thrulay
 make
 
 %install
@@ -85,7 +85,7 @@ fi
 
 %files server
 %defattr(-,root,root,0755)
-%doc README
+%doc README contrib/sample_hook.pl
 %{_bindir}/bwctld
 %{_mandir}/man5/*
 %{_mandir}/man8/*
