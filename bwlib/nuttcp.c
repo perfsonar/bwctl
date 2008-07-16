@@ -61,7 +61,8 @@ NuttcpAvailable(
     /*
      * Build conf-key name that is used to store the tool cmd
      */
-    strncpy(confkey,tool->name,sizeof(confkey));
+    strcpy(confkey,"V.");
+    strncat(confkey,tool->name,sizeof(confkey));
     len = strlen(confkey);
     strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
 
@@ -69,6 +70,9 @@ NuttcpAvailable(
      * Fetch 'tool' name
      */
     if( !(cmd = (char *)BWLContextConfigGetV(ctx,confkey))){
+        BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
+                "NuttcpAvailable(): %s unset, using \"%s\"",
+                confkey,tool->def_cmd);
         cmd = tool->def_cmd;
     }
 
@@ -247,7 +251,8 @@ NuttcpPreRunTest(
     /*
      * Build conf-key name that is used to store the tool cmd
      */
-    strncpy(confkey,tsess->tool->name,sizeof(confkey));
+    strcpy(confkey,"V.");
+    strncat(confkey,tsess->tool->name,sizeof(confkey));
     len = strlen(confkey);
     strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
 

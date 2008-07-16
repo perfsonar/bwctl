@@ -71,8 +71,8 @@ IperfAvailable(
      */
     if( !(cmd = (char *)BWLContextConfigGetV(ctx,confkey))){
         BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
-                "IperfAvailable(): iperf_cmd unset, using \"%s\"",
-                tool->def_cmd);
+                "IperfAvailable(): %s unset, using \"%s\"",
+                confkey,tool->def_cmd);
         cmd = tool->def_cmd;
     }
 
@@ -251,7 +251,8 @@ IperfPreRunTest(
     /*
      * Build conf-key name that is used to store the tool cmd
      */
-    strncpy(confkey,tsess->tool->name,sizeof(confkey));
+    strcpy(confkey,"V.");
+    strncat(confkey,tsess->tool->name,sizeof(confkey));
     len = strlen(confkey);
     strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
 
