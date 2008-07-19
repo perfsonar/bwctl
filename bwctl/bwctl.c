@@ -2373,7 +2373,7 @@ sess_req_err:
                     CloseSessions();
                     goto next_test;
                 }
-                if(atype != BWL_CNTRL_ACCEPT){
+                if(recvfp && (atype != BWL_CNTRL_ACCEPT)){
                     fprintf(recvfp,"bwctl: Session ended abnormally\n");
                 }
                 if(recvfp == stdout){
@@ -2402,7 +2402,7 @@ sess_req_err:
                     CloseSessions();
                     goto next_test;
                 }
-                if(atype != BWL_CNTRL_ACCEPT){
+                if(sendfp && (atype != BWL_CNTRL_ACCEPT)){
                     fprintf(sendfp,"bwctl: Session ended abnormally\n");
                 }
                 if(sendfp == stdout){
