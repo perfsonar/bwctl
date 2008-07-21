@@ -1147,11 +1147,10 @@ BWLDExecPostHookScript(
     pid_t               pid;
     int                 pipe_fds[2];
     char                buf[1024];
-    int                 n;
+    size_t              n;
     FILE                *pipe_fp;
     int                 status;
-    int                 buflen;
-    int                 times = 0;
+    size_t              buflen;
     BWLDPolicyNode      node;
     char                *limit_class;
     struct timespec     ts;
@@ -1226,11 +1225,11 @@ BWLDExecPostHookScript(
     fprintf(pipe_fp, "sender: %s\n", I2AddrNodeName(test_spec->sender, buf, &buflen));
     buflen = sizeof(buf);
     fprintf(pipe_fp, "receiver: %s\n", I2AddrNodeName(test_spec->receiver, buf, &buflen));
-    fprintf(pipe_fp, "duration: %lu\n", test_spec->duration);
+    fprintf(pipe_fp, "duration: %i\n", test_spec->duration);
     fprintf(pipe_fp, "use_udp: %s\n", (test_spec->udp)?"YES":"NO");
     fprintf(pipe_fp, "bandwidth: %llu\n", test_spec->bandwidth);
-    fprintf(pipe_fp, "window: %lu\n", test_spec->window_size);
-    fprintf(pipe_fp, "len_buffer: %lu\n", test_spec->len_buffer);
+    fprintf(pipe_fp, "window: %i\n", test_spec->window_size);
+    fprintf(pipe_fp, "len_buffer: %i\n", test_spec->len_buffer);
     fprintf(pipe_fp, "report_interval: %u\n", test_spec->report_interval);
     fprintf(pipe_fp, "parallel_streams: %u\n", test_spec->parallel_streams);
     fprintf(pipe_fp, "units: %c\n", test_spec->units);
