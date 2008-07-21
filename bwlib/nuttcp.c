@@ -72,7 +72,7 @@ NuttcpAvailable(
     if( !(cmd = (char *)BWLContextConfigGetV(ctx,confkey))){
         BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
                 "NuttcpAvailable(): %s unset, using \"%s\"",
-                confkey,tool->def_cmd);
+                "nuttcp_cmd",tool->def_cmd);
         cmd = tool->def_cmd;
     }
 
