@@ -195,15 +195,23 @@ sub parse_tool_output_line {
 sub parse_thrulay_output_line {
 	my ($test, $results, $line) = @_;
 
-	# Grab the duration
-	if ($line =~ /duration = (\d+\.\d+)s/) {
-		$results->{"duration"} = $1;
-	}
+        # Grab the duration. There may be multiple "final" lines if a
+        # multistream test occurred so grab the longest duration.
+        if ($line =~ /duration = (\d+\.\d+)s/) {
+                if (not $results->{"duration"} or $1 > $results->{"duration"}) {
+                        $results->{"duration"} = $1;
+                }
+        }
 
-	# Grab the bandwidth acheived and convert the Mbps
-	if ($line =~ /throughput = (\d+\.\d+)Mb\/s/) {
-		$results->{"bandwidth"} = $1 * 1000 * 1000;
-	}
+        # Grab the bandwidth acheived and convert the Mbps. There may be
+        # multiple "final" lines if a multistream test occurred.
+        if ($line =~ /throughput = (\d+\.\d+)Mb\/s/) {
+                if (not $results->{"bandwidth"}) {
+                        $results->{"bandwidth"} = 0;
+                }
+
+                $results->{"bandwidth"} += $1;
+        }
 }
 
 # The parse_iperf_output_line parses the lines for the send/recv iperf output.

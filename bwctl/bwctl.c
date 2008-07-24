@@ -108,7 +108,7 @@ print_test_args(
     fprintf(stderr,
             "  -i interval    report interval (seconds)\n"
             "  -l len         length of read/write buffers (bytes)\n"
-            "  -P nThreads    number of concurrent connections (ENOTSUPPORTED)\n"
+            "  -P nThreads    number of concurrent connections\n"
             "  -s sendhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 sendhost will run thrulay/nuttcp/iperf client \n"
             "            AUTHMETHODS: (See -A argument)\n"
