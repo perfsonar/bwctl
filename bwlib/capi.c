@@ -337,6 +337,7 @@ BWLControlOpen(
     int		    rc;
     BWLControl	    cntrl;
     uint32_t	    mode_avail;
+    uint32_t	    mode_avail_orig;
     uint32_t	    do_mode;
     uint8_t	    key_value[16];
     uint8_t	    challenge[16];
@@ -408,6 +409,8 @@ BWLControlOpen(
         goto error;
     }
 
+    mode_avail_orig = mode_avail;
+
     /*
      * Select mode wanted...
      */
@@ -475,9 +478,20 @@ BWLControlOpen(
     }
 
     if(*err_ret != BWLErrOK){
-	BWLError(ctx,BWLErrFATAL,errno, "No mode available");
+	BWLError(ctx,BWLErrFATAL,errno, "No authentication mode available");
         goto error;
-    } else{
+    }else{
+        char buf[255];
+        buf[0] = '\0';
+        if (mode_avail_orig & BWL_MODE_OPEN)
+		strncat(buf, " open", sizeof(buf));
+        if (mode_avail_orig & BWL_MODE_AUTHENTICATED)
+		strncat(buf, " authenticated", sizeof(buf));
+        if (mode_avail_orig & BWL_MODE_ENCRYPTED)
+		strncat(buf, " encrypted", sizeof(buf));
+
+        BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,
+                "Server denied access. No authentication modes in common. Modes available: %s", buf);
         errno = EACCES;
         goto denied;
     }
