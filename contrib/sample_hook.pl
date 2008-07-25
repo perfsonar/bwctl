@@ -80,8 +80,15 @@ if (not $test->{"user"}) {
 # the bwctl instance executing the posthook was the sender.
 if ($test->{"is_host_sender"} eq "YES") {
 	$direction = "outgoing";
-	$bandwidth = $send_results->{"bandwidth"};
-	$duration = $send_results->{"duration"};
+
+	if ($test->{tool} eq "thrulay") {
+		# thrulay is a special case since no final result gets displayed on the send side
+		$bandwidth = $recv_results->{"bandwidth"};
+		$duration = $recv_results->{"duration"};
+	} else {
+		$bandwidth = $send_results->{"bandwidth"};
+		$duration = $send_results->{"duration"};
+	}
 } else {
 	$direction = "incoming";
 	$bandwidth = $recv_results->{"bandwidth"};
@@ -151,9 +158,9 @@ sub parse_input {
 		if ($in_test_config) {
 			parse_test_config_line(\%test, $line);
 		} elsif ($in_send_output) {
-			parse_tool_output_line(\%test, \%recv_results, $line);
-		} elsif ($in_recv_output) {
 			parse_tool_output_line(\%test, \%send_results, $line);
+		} elsif ($in_recv_output) {
+			parse_tool_output_line(\%test, \%recv_results, $line);
 		}
 	}
 
