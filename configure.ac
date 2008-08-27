@@ -125,7 +125,7 @@ AC_ARG_WITH(I2util,
                            [defaults to using sub-dir if avail, otherwise installed. If <path> specified, attempts to use that.]),
                            with_I2util=$withval, with_I2util=yes)
 
-if test \( -z "$with_I2util" -o "$with_I2util" == "yes" \) -a -d I2util; then
+if test \( -z "$with_I2util" -o "$with_I2util" = "yes" \) -a -d I2util; then
     # Use local I2util? - just setup LDFLAGS/CFLAGS so libtool can find
     # it from the Makefile.am during build.
     AC_MSG_WARN([Using local I2util])
@@ -165,7 +165,7 @@ AC_ARG_WITH(thrulay,
                            [defaults to using sub-dir if avail, otherwise installed. If <path> specified, attempts to use that.]),
                            with_thrulay=$withval, with_thrulay=yes)
 
-if test \( -z "$with_thrulay" -o "$with_thrulay" == "yes" \) -a -d thrulay; then
+if test \( -z "$with_thrulay" -o "$with_thrulay" = "yes" \) -a -d thrulay; then
     # Use local thrulay? - just setup LDFLAGS/CFLAGS so libtool can find
     # it from the Makefile.am during build.
     AC_MSG_WARN([Using local thrulay])
