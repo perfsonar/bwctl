@@ -1359,11 +1359,17 @@ main(
                 }
                 break;
             case 'l':
-                if(I2StrToByte(&app.opt.lenBuffer,optarg) != 0){
+                if( !(tstr = strdup(optarg))){
+                    I2ErrLog(eh, "strdup(): %M");
+                    exit(1);
+                }
+                if(I2StrToByte(&app.opt.lenBuffer,tstr) != 0){
                     usage(progname, 
                             "Invalid value. (-l) positive integer expected");
                     exit(1);
                 }
+                free(tstr);
+                tstr = NULL;
                 break;
             case 'u':
                 app.opt.udpTest = True;
@@ -1377,11 +1383,17 @@ main(
                     exit(1);
                 }
                 app.opt.winset++;
-                if(I2StrToByte(&app.opt.windowSize,optarg) != 0){
+                if( !(tstr = strdup(optarg))){
+                    I2ErrLog(eh, "strdup(): %M");
+                    exit(1);
+                }
+                if(I2StrToByte(&app.opt.windowSize,tstr) != 0){
                     usage(progname, 
                             "Invalid value. (-w/-W) positive integer expected");
                     exit(1);
                 }
+                free(tstr);
+                tstr = NULL;
                 break;
             case 'P':
                 app.opt.parallel =strtoul(optarg, &tstr, 10);
@@ -1401,11 +1413,17 @@ main(
                 }
                 break;
             case 'b':
-                if(I2StrToNum(&app.opt.bandWidth,optarg) != 0){
+                if( !(tstr = strdup(optarg))){
+                    I2ErrLog(eh, "strdup(): %M");
+                    exit(1);
+                }
+                if(I2StrToNum(&app.opt.bandWidth,tstr) != 0){
                     usage(progname, 
                             "Invalid value. (-b) Positive integer expected");
                     exit(1);
                 }
+                free(tstr);
+                tstr = NULL;
                 break;
             case 't':
                 app.opt.timeDuration = strtoul(optarg, &tstr, 10);
