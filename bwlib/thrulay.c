@@ -174,7 +174,7 @@ ThrulayPreRunTest(
         if(tsess->test_spec.udp){
             fprintf(tsess->localfp,
                 "bwctl: There are some known problems with using Thrulay and UDP. Only run this if you're debugging the problem.\n");
-            BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+            BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
                 "ThrulayPreRunTest: There are some known problems with using Thrulay and UDP. Only run this if you're debugging the problem.\n");
         }
 

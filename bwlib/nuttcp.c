@@ -243,7 +243,7 @@ NuttcpPreRunTest(
      */
     if(tsess->test_spec.udp){
         fprintf(tsess->localfp, "bwctl: Server does not currently support Nuttcp UDP connections\n");
-        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+        BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
                 "NuttcpPreRunTest: Do not support Nuttcp UDP connections");
         return NULL;
     }

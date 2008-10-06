@@ -1352,7 +1352,7 @@ extern void
 BWLPortsSetI(
         BWLContext      ctx,
         BWLPortRange    prange,
-        u_int16_t       i
+        uint16_t       i
         );
 
 /*

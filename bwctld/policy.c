@@ -2216,7 +2216,7 @@ BWLDCheckTestPolicy(
     lim.limit = BWLDLimDuration;
     lim.value = tspec->duration;
     if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
-        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+        BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: Requested test duration denied");
         goto done;
     }
@@ -2229,7 +2229,7 @@ BWLDCheckTestPolicy(
     td = ceil(BWLNum64ToDouble(fuzz_time));
     lim.value = (BWLDLimitT)td;
     if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
-        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+        BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: Clock synchronization not sufficient: %f",
                 BWLNum64ToDouble(fuzz_time));
         goto done;
@@ -2251,14 +2251,14 @@ BWLDCheckTestPolicy(
         lim.limit = BWLDLimAllowUDP;
         lim.value = True;
         if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
-            BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+            BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
                     "BWLDCheckTestPolicy: UDP test not allowed");
             goto done;
         }
         lim.limit = BWLDLimBandwidth;
         lim.value = tspec->bandwidth;
         if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
-            BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+            BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
                     "BWLDCheckTestPolicy: UDP bandwidth request exceeds limits");
             goto done;
         }
@@ -2267,7 +2267,7 @@ BWLDCheckTestPolicy(
         lim.limit = BWLDLimAllowTCP;
         lim.value = True;
         if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
-            BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+            BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
                     "BWLDCheckTestPolicy: TCP test not allowed");
             goto done;
         }
@@ -2280,7 +2280,7 @@ BWLDCheckTestPolicy(
     tinfo->res[0].value = 1;
     if((ret = BWLDQuery(node->policy,BWLDMESGREQUEST,tinfo->res[0]))
             != BWLDMESGOK){
-        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+        BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: Too many outstanding reservations for group");
         goto done;
     }
@@ -2296,7 +2296,7 @@ reservation:
                     BWLGetRTTBound(cntrl),
                     reservation_ret,&tool_port_loc,tspec->tool_id))
             != BWLDMESGOK){
-        BWLError(ctx,BWLErrUNKNOWN,BWLErrPOLICY,
+        BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: No reservation time available");
         goto done;
     }
