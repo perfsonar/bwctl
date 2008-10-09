@@ -126,15 +126,6 @@ a new control connection for each new test it requests.
 7200 (Picked to be the same as the default for TCP keepalive)
 .RE
 .TP
-.BI data_dir " datadir"
-Directory path where output data files will be placed. (\fBbwctld\fR
-does not currently save the results of the \fBIperf\fR tests. This
-option is a place holder for when it does.)
-.RS
-.IP Default:
-Current directory
-.RE
-.TP
 .BI die_by " dieby"
 Number of seconds to wait for child processes to gracefully terminate
 before killing them with \fBSIGKILL\fR. This is in response to the master
@@ -214,6 +205,12 @@ and both numbers must be valid port values. (16 bit unsigned integer values)
 .IP Default:
 0
 .RE
+.TP
+.BI post_hook " /path/to/script"
+Specifies a script to run after each bwctl session has finished. These hooks
+can be used to save the results into a database, track usage or any number of
+other tasks. You can specify as many hooks as you want by including multiple
+post_hook entries.
 .TP
 .BI priority " priority"
 Syslog \fIpriority\fR to log error messages.
