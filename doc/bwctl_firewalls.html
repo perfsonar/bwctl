@@ -6,10 +6,9 @@
     <li>Main daemon listening port for control connection (<em>Default: TCP/4823</em>)</li>
     <br>
     <dl>
-        <dt>Defined using the <em>port</em> portion of the <em>src_node</em>
+        Defined using the <em>port</em> portion of the <em>src_node</em>
         configuration option from
-        <a href="file://localhost/Users/boote/Desktop/bwctld.conf.man.html">bwctld.conf</a></dt>
-        <dd>
+        <a href="bwctld.conf.man.html">bwctld.conf</a>
         <p>For example, to enable this on a typical RHEL 4 system,
         you would need to add the following line to /etc/sysconfig/iptables:</p>
 <pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 4823 -j ACCEPT
@@ -21,16 +20,14 @@
         (Note that this does not use the system-config-securitylevel script from
         Redhat. I have not been able to get that to do all the things I needed.)
         </p>
-        </dd>
     </dl>
 
     <li>bwctld peer connections (<em>Default: TCP/ephemeral range</em>)</li>
     <br>
     <dl>
-        <dt>Defined using the <em>peer_ports</em> configuration option from
-        <a href="file://localhost/Users/boote/Desktop/bwctld.conf.man.html">bwctld.conf</a></dt>
-        <dd>
-        <p>If you specified <em>peer_ports</em> as
+        Defined using the <em>peer_port</em> configuration option from
+        <a href="bwctld.conf.man.html">bwctld.conf</a>
+        <p>If you specified <em>peer_port</em> as
         9910-9950, you could would then need to enable this range in your
         firewall configuration. (If you do not specify a range, bwctl will
         only work reliably if you have open access for the entire ephemeral
@@ -47,27 +44,30 @@
         (Note that this does not use the system-config-securitylevel script from
         Redhat. I have not been able to get that to do all the things I needed.)
         </p>
-        </dd>
     </dl>
 
-    <li>iperf test connections (<em>Default: TCP/5001 and UDP/5001</em>)</li>
+    <li>Test Connections (<em>Default: Tool Specific</em>)</li>
     <br>
     <dl>
-        <dt>Defined using the <em>iperf_port</em> configuration option from
-        <a href="file://localhost/Users/boote/Desktop/bwctld.conf.man.html">bwctld.conf</a></dt>
-        <dd>
+        Each throughput tester can have its own port defined in <a
+        href="bwctld.conf.man.html">bwctld.conf</a>. The configuration option
+        for each tester takes the form testername_port. For example, to set the
+        thrulay port, you would use the option thrulay_port. The following
+        example would apply to any of the testers, just changing the
+        appropriate configuration option.
+
         <p>If you specified <em>iperf_port</em> as
         5001-5004, you could would then need to enable this range in your
         firewall configuration. If you allow UDP tests (in your
-        <a href="file://localhost/Users/boote/Desktop/bwctld.limits.man.html">bwctld.limits</a> file)
+        <a href="bwctld.limits.man.html">bwctld.limits</a> file)
         then you will need to open up the UDP ports. Likewise for TCP.
         The default is 5001 for TCP and UDP tests, and you will only be
         able to test if you open the ports specified.</p>
         <p>On a typical RHEL 4 system,
         you would need to add the following lines to /etc/sysconfig/iptables
         given this range:</p>
-<pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 5001 -j ACCEPT
--A RH-Firewall-1-INPUT -m udp -p ucp --dport 5001 -j ACCEPT
+<pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 5001:5004 -j ACCEPT
+-A RH-Firewall-1-INPUT -m udp -p ucp --dport 5001:5004 -j ACCEPT
 </pre>
         <p>
         This should be added somewhere *after* the line that allows
@@ -76,7 +76,6 @@
         (Note that this does not use the system-config-securitylevel script from
         Redhat. I have not been able to get that to do all the things I needed.)
         </p>
-        </dd>
     </dl>
 </ol>
 <h3>Example RHEL 4 /etc/sysconfig/iptables file</h3>
