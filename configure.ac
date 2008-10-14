@@ -28,11 +28,11 @@
 #	Options:
 # Process this file with autoconf to produce a configure script.
 PACKAGE=bwctl
-VERSION="1.3rc4"
+VERSION="1.3rc5"
 
-AC_INIT(bwctl, 1.3rc4, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.3rc5, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.3rc4, [no-define])
+AM_INIT_AUTOMAKE(bwctl, 1.3rc5, [no-define])
 
 
 AC_CONFIG_SRCDIR(bwlib/context.c)

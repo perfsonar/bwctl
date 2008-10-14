@@ -31,8 +31,6 @@ bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
 ] [
 .BI \-c " conf_dir"
 ] [
-.BI \-d " data_dir"
-] [
 .BI \-e " facility"
 ] [
 .BI \-f
@@ -51,8 +49,8 @@ bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
 ]
 .SH DESCRIPTION
 .B bwctld
-is a server program designed to schedule and run \fBIperf\fR throughput
-tests.
+is a server program designed to schedule and run \fBIperf\fR, \fBThrulay\fR or
+\fBNuttcp\fR throughput tests.
 .TP
 From the \fBIperf\fR web site:
 \fBIperf\fR is a tool to measure
@@ -60,7 +58,7 @@ maximum TCP bandwidth, allowing the tuning of various parameters
 and UDP characteristics. \fBIperf\fR reports bandwidth, delay jitter,
 datagram loss.
 .PP
-Aside from actually running \fBIperf\fR tests, the main function of
+Aside from actually running throughput tests, the main function of
 \fBbwctld\fR is to determine which tests are allowable based upon
 the policy restrictions configured by the system administrator.
 .PP
@@ -100,15 +98,6 @@ Specify the directory that holds the \fBbwctld\fR configuration files.
 Current working directory.
 .RE
 .TP
-.BI \-d " data_dir"
-Specify the directory that holds the output data files. (\fBbwctld\fR does
-not currently save the results of the \fBIperf\fR tests. This option is a place
-holder for when it does.)
-.RS
-.IP Default:
-Current working directory.
-.RE
-.TP
 .BI \-e " facility"
 Syslog \fIfacility\fR to which messages are logged.
 .RS
@@ -117,55 +106,10 @@ LOG_DAEMON
 .RE
 .TP
 .B \-f
-Disables the checks that disable \fBbwctld\fR if it is configured to
-run with \fIroot\fR permissions. There are legitimate reasons to run
-\fBbwctld\fR as root, but it is risky. Forcing this additional option will
-make it less likely root permissions are accidently used.
-.TP
-.B \-Z
-Run the master \fBbwctld\fR process in the foreground. In this mode, error
-messages are printed to stderr as well as being sent to syslog. Also, normal
-terminal controls are available. (i.e., <Cntr\-C> will cause the daemon to
-kill it's child processes and exit.) This is useful for debugging.
-.SH REQUIREMENTS
-The \fBbwctld\fR daemon prefers a reasonably synchronized clock. It is
-scheduling tests and needs to be sure it has the same idea of when a test
-should take place as does the peer test system.
-Therefore, \fBbwctld\fR attempts to use NTP specific system calls to determine
-the accuracy of the localclock. If those system calls are unavailable, or
-the administrator has set the \fIallow_unsync\fR option in the \fBbwctld.conf\fR
-file, then \fBbwctld\fR will blindly accept tests assuming the clock is
-synchronized to within the \fIsync_fuzz\fR value that is also defined
-in the \fBbwctld.conf\fR file. If this assumption does not hold true, then
-the test will eventually fail. Unfortunately, because the time offset
-is not detected early, this test will have taken up a schedule slot.
-.SH FILES
-bwctld.pid
-.br
-bwctld.conf
-.br
-bwctld.limits
-.br
-bwctld.keys
-.SH SEE ALSO
-There are more details on configuring the \fBbwctld\fR daemon in the
-bwctld.conf(5) manual page. Details on configuring the policy
-is in the bwctld.limits(5) and bwctld.keys(5) manual pages.
-Information on the client is in the bwctl(1) manual page.
-For more of an overview of the full functionality and architecture see
-the \%http://e2epi.internet2.edu/bwctl/ web site.
-.PP
-For details on \fBIperf\fR, see the \%http://dast.nlanr.net/Projects/Iperf/
-web site.
-.SH ACKNOWLEDGMENTS
-This material is based in part on work supported by the National Science
-Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
-conclusions or recommendations expressed in this material are those of
-the author(s) and do not necessarily reflect the views of the NSF.
-.RS
-.IP Default:
-LOG_DAEMON
-.RE
+Enables the \fBbwctld\fR daemon to run with \fIroot\fR permissions. There are
+legitimate reasons to run \fBbwctld\fR as root, but it is risky. Forcing this
+additional option will make it less likely root permissions are accidently
+used.
 .TP
 .BI \-G " group"
 Specify the gid for the \fBbwctld\fR process. \fIgroup\fR can
@@ -206,15 +150,19 @@ Run the master \fBbwctld\fR process in the foreground. In this mode, error
 messages are printed to stderr as well as being sent to syslog. Also, normal
 terminal controls are available. (i.e., <Cntr\-C> will cause the daemon to
 kill it's child processes and exit.) This is useful for debugging.
+
 .SH REQUIREMENTS
-The \fBbwctld\fR daemon requires a reasonably synchronized clock. It is
+The \fBbwctld\fR daemon prefers a reasonably synchronized clock. It is
 scheduling tests and needs to be sure it has the same idea of when a test
-should take place as does the peer system with which the test is being done.
-Therefore, \fBbwctld\fR requires that \fBNTP\fR be running to synchronize
-the system clock. This means that \fBNTP\fR needs to be setup correctly
-on the system so that \fBNTP\fR can actually calculate a reasonable
-estimate of the time error. For the \fBNTP\fR algorithms to work correctly,
-ntpd \fBMUST\fR be configured with no fewer than 4 clocks.
+should take place as does the peer test system.
+Therefore, \fBbwctld\fR attempts to use NTP specific system calls to determine
+the accuracy of the localclock. If those system calls are unavailable, or
+the administrator has set the \fIallow_unsync\fR option in the \fBbwctld.conf\fR
+file, then \fBbwctld\fR will blindly accept tests assuming the clock is
+synchronized to within the \fIsync_fuzz\fR value that is also defined
+in the \fBbwctld.conf\fR file. If this assumption does not hold true, then
+the test will eventually fail. Unfortunately, because the time offset
+is not detected early, this test will have taken up a schedule slot.
 .SH FILES
 bwctld.pid
 .br
@@ -223,15 +171,6 @@ bwctld.conf
 bwctld.limits
 .br
 bwctld.keys
-.SH ENVIRONMENT VARIABLES
-\fBBWCTL\fR uses environment variables for some debugging options.
-.TS
-lb lb
-_ _
-lb li .
-BWCTL Environment Variable	Description
-BWCTL_DEBUG_TIMEOFFSET	Offset time by this amount (seconds)
-.TE
 .SH SEE ALSO
 There are more details on configuring the \fBbwctld\fR daemon in the
 bwctld.conf(5) manual page. Details on configuring the policy
@@ -241,6 +180,10 @@ For more of an overview of the full functionality and architecture see
 the \%http://e2epi.internet2.edu/bwctl/ web site.
 .PP
 For details on \fBIperf\fR, see the \%http://dast.nlanr.net/Projects/Iperf/
+web site.
+For details on \fBThrulay\fR, see the \%http://thrulay-hd.sourceforge.net/
+web site.
+For details on \fBNuttcp\fR, see the \%http://www.lcp.nrl.navy.mil/nuttcp/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

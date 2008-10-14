@@ -84,14 +84,13 @@ multiple administrators. These hurdles have made this kind of testing
 difficult in practice. 
 .PP
 \fBBWCTL\fR was designed to help with this problem. It allows an
-administrator to configure a given host as an \fBIperf\fR endpoint.
-The endpoint can be a packet sender (e.g. \fBIperf\fR client) or a 
-packet receiver (e.g. \fBIperf\fR server). It can be shared by multiple
-users without concern that those
-users will interfere with each other. Specific policy limits can be
-applied to specific users, and individual tests are scheduled so they
-will not interfere with each other. Additionally, full user accounts
-are not required for the users running the tests.
+administrator to configure a given host as an \fBIperf\fR, \fBThrulay\fR, or
+\fBNuttcp\fR endpoint.  The endpoint can be a packet sender (e.g. \fBIperf\fR
+client) or a packet receiver (e.g. \fBIperf\fR server). It can be shared by
+multiple users without concern that those users will interfere with each other.
+Specific policy limits can be applied to specific users, and individual tests
+are scheduled so they will not interfere with each other. Additionally, full
+user accounts are not required for the users running the tests.
 .PP
 \fBBWCTL\fR allows the administrator to classify incoming connections
 based upon a user name and AES key combination or, alternatively, based
