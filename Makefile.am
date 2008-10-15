@@ -27,3 +27,5 @@ SUBDIRS = @TOP_BUILD_DIRS@ bwlib bwctld bwctl conf doc contrib
 #EXTRA_DIST	=		bootstrap
 #MAINTAINERCLEANFILES	=	aclocal.m4 Makefile.in configure config.log \
 #				config.status
+
+EXTRA_DIST	=		LICENSE
