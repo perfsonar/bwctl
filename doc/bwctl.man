@@ -36,7 +36,7 @@ bwctl \- Client application to request throughput tests.
 \fBbwctl\fR is a command line client application that is used to
 initiate throughput tests.
 .TP
-This versio of \fBbwctl\fR is capable of initiating \fBIperf\fR,
+This version of \fBbwctl\fR is capable of initiating \fBIperf\fR,
 \fBnuttcp\fR, and \fBthrulay\fR tests.
 .PP
 .B bwctl
@@ -99,6 +99,16 @@ Once the connection is classified, the \fBbwctld\fR can determine the
 exact type and intensities of througput tests that will be allowed.
 More information on the policy controls can be found in the bwctld(8)
 man page.
+.PP
+\fBBWCTL\fR makes use of a distributed scheduling algorithm. Each host
+maintains a schedule independently. As a client requests a test, the two
+endpoints are contacted and each bwctld server responds with the first
+available open schedule slot. This enables on-demand tests to co-exist
+with regularly scheduled tests since regularly scheduled tests are implemented
+by having the client request tests on regular intervals. Different
+priorities can be implemented using the \fIevent_horizon\fR configuration
+directive to bwctld. (By allowing clients that implement regularly scheduled
+tests to reserve their time slots further into the future.)
 .SH ARGUMENTS
 .SS Connection/Authentication Arguments:
 .TP
@@ -361,7 +371,8 @@ be reported depending upon the value of the \fI\-e\fR flag.
 When calculating the time errors, this value will be aded in to account for the
 difference. The maximum time offset can be bounded on the server side, using
 the max_time_error directive, to prevent a denial of service attack. If set,
-the server will reject any requests with a time with too high an error.
+the server will reject any requests to test with a peer that has too high a
+timestamp error.
 .IP Default:
 Unset (Defaults to Set for systems without the \fBNTP\fR system calls.)
 .RE
