@@ -27,11 +27,10 @@ EXTRA_DIST = index.html architecture.html bwctl_arch.png
 
 # TODO
 # Build html versions of man pages and include them in dist?
-# SUFFIXES = .man .man.html
-# .man.man.html:
-#	man2html -blah_args 
-# dist-hook:
+if HAVE_MAN2HTML
 SUFFIXES = .man .man.html
-
 .man.man.html:
-	cp $< $@
+	man2html -r $< > $@
+
+EXTRA_DIST += bwctl.man.html bwctld.conf.man.html bwctld.limits.man.html bwctld.keys.man.html bwctld.man.html
+endif

@@ -1,4 +1,144 @@
 ------------------------------------------------------------------------
+r498 | aaron | 2008-10-15 08:28:32 -0400 (Wed, 15 Oct 2008) | 3 lines
+
+Include the LICENSE file when a make dist is done
+
+
+------------------------------------------------------------------------
+r497 | aaron | 2008-10-14 17:16:49 -0400 (Tue, 14 Oct 2008) | 3 lines
+
+A quick edit pass updating the "index.html" documentation. 
+
+
+------------------------------------------------------------------------
+r496 | aaron | 2008-10-14 16:42:28 -0400 (Tue, 14 Oct 2008) | 3 lines
+
+Update the documentation to use Susan Topol's fancy architecture pictures
+
+
+------------------------------------------------------------------------
+r495 | aaron | 2008-10-14 16:20:18 -0400 (Tue, 14 Oct 2008) | 5 lines
+
+Some minor documentation updates
+Bump the version number to 1.3rc5
+Include a license file and include that license in all the .c and .h files
+
+
+------------------------------------------------------------------------
+r494 | aaron | 2008-10-09 13:08:56 -0400 (Thu, 09 Oct 2008) | 3 lines
+
+Update the included firewall documentation.
+
+
+------------------------------------------------------------------------
+r493 | aaron | 2008-10-09 12:27:47 -0400 (Thu, 09 Oct 2008) | 11 lines
+
+Some bwctl manpage updates:
+
+bwctl.man
+ describes -T/-y/-f options
+ includes a reference to max_time_error in -a documentation
+
+bwctld.conf.man
+ removes 'datadir' from bwctld.conf manpage
+ adds post_hook directive documentation
+
+
+------------------------------------------------------------------------
+r492 | aaron | 2008-10-07 14:54:22 -0400 (Tue, 07 Oct 2008) | 4 lines
+
+Use the access_priority configuration option for the error messages specifying
+why access was denied.
+
+
+------------------------------------------------------------------------
+r491 | aaron | 2008-10-06 10:23:28 -0400 (Mon, 06 Oct 2008) | 4 lines
+
+Minor fixes to some 'unknown' error messages to debug. This keeps messages from
+accidently being put in the syslog 'emergency' category.
+
+
+------------------------------------------------------------------------
+r490 | boote | 2008-10-02 03:12:46 -0400 (Thu, 02 Oct 2008) | 7 lines
+
+Fixed cosmetic issue effecting 'ps' listings...
+StrToByte function was modifying the string passed in by terminating
+the string at the 'units' char. (It so happened that the string passed
+in was in the argv list, so someone looking at 'ps' would then think
+that the 'units' for the -w or -W or -l flag was incorrect somehow.
+
+
+------------------------------------------------------------------------
+r489 | boote | 2008-08-27 15:56:28 -0400 (Wed, 27 Aug 2008) | 5 lines
+
+Fix bash syntax for string compare in configure.ac.
+
+jeff
+
+
+------------------------------------------------------------------------
+r488 | aaron | 2008-07-25 11:23:35 -0400 (Fri, 25 Jul 2008) | 4 lines
+
+Display an error when there isn't a common 'security' (authentication?) mode
+(usually when the bwctl server requires authentication).
+
+
+------------------------------------------------------------------------
+r487 | aaron | 2008-07-25 09:44:38 -0400 (Fri, 25 Jul 2008) | 3 lines
+
+Have the sample hook handle thrulay output as best it can when it's the sender.
+
+
+------------------------------------------------------------------------
+r486 | aaron | 2008-07-24 15:06:03 -0400 (Thu, 24 Jul 2008) | 6 lines
+
+Update the sample configuration to include examples for nuttcp/thrulay ports/cmds
+Update the sample hook to handle multistream thrulay properly
+Update the client help screen to show that the -P is no longer ENOTSUPPORT
+Move the default externals to point to anonsvn
+
+
+------------------------------------------------------------------------
+r485 | aaron | 2008-07-21 18:55:50 -0400 (Mon, 21 Jul 2008) | 4 lines
+
+Minor compile warning fixes
+Update the externals to anonsvn
+
+
+------------------------------------------------------------------------
+r484 | aaron | 2008-07-21 16:07:47 -0400 (Mon, 21 Jul 2008) | 3 lines
+
+Clean up some compile-time warnings 
+
+
+------------------------------------------------------------------------
+r483 | boote | 2008-07-19 10:59:53 -0400 (Sat, 19 Jul 2008) | 4 lines
+
+Only print out the warning message if the fp is non-null. (This helps keep
+core files from collecting on your sytem.)
+
+
+------------------------------------------------------------------------
+r482 | aaron | 2008-07-16 16:39:29 -0400 (Wed, 16 Jul 2008) | 3 lines
+
+Use the configured nuttcp/iperf locations when the option is set in the configuration
+
+
+------------------------------------------------------------------------
+r481 | boote | 2008-07-16 13:27:27 -0400 (Wed, 16 Jul 2008) | 2 lines
+
+fix syntax warning...
+
+------------------------------------------------------------------------
+r480 | aaron | 2008-07-10 11:26:42 -0400 (Thu, 10 Jul 2008) | 6 lines
+
+Minor changes for the RPM
+- have it install the sample hook
+- remove the --enable-NUTTCP=no from the configure line
+- install pfstore and aespasswd
+
+
+------------------------------------------------------------------------
 r479 | aaron | 2008-07-10 10:56:45 -0400 (Thu, 10 Jul 2008) | 4 lines
 
 Change the BWLTimeStampToTimespec and BWLTimeStampToTimeval to not modify the BWLTimeStamp argument

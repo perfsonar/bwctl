@@ -196,7 +196,6 @@ AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_ERROR([Couldn't fi
 AC_DEFINE(USE_SYS_THRULAY, 1, [Use system installed thrulay library])
 AM_CONDITIONAL(USE_SYS_THRULAY, test x$use_sys_thrulay = xtrue)
 
-
 AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throughput tool])
 AM_CONDITIONAL(TOOL_THRULAY, test x$do_thrulay = xtrue)
 
@@ -218,6 +217,14 @@ if test "$tool_ok" = "yes"; then
 fi
 AM_CONDITIONAL(TOOL_NUTTCP, test x$do_nuttcp = xtrue)
 
+# Check for MAN2HTML. The manpages will be compiled to html files if it's
+# found.
+AC_CHECK_PROGS([MAN2HTML], [man2html])
+if test -n "${MAN2HTML}"; then
+    AC_DEFINE(MAN2HTML, 1, [MAN2HTML man-page converter])
+    do_man2html=true
+fi
+AM_CONDITIONAL([HAVE_MAN2HTML], test x$do_man2html = xtrue)
 
 #BWLINCS='-I${ac_top_srcdir}'
 
