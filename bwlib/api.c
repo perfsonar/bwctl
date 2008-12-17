@@ -146,6 +146,54 @@ BWLControlFD(
 }
 
 /*
+ * Function:    BWLControlLocalAddr
+ *
+ * Description:    
+ *              Returns a pointer to the address of the local end of the
+ *              control connection in an I2Addr struct. Does not make a copy of
+ *              the struct.
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+I2Addr
+BWLControlLocalAddr(
+        BWLControl  cntrl
+        )
+{
+    return cntrl->local_addr;
+}
+
+/*
+ * Function:    BWLControlRemoteAddr
+ *
+ * Description:    
+ *              Returns a pointer to the address of the remote end of the
+ *              control connection in an I2Addr struct. Does not make a copy of
+ *              the struct.
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
+ */
+I2Addr
+BWLControlRemoteAddr(
+        BWLControl  cntrl
+        )
+{
+    return cntrl->remote_addr;
+}
+
+/*
  * Function:    BWLAddrByControl
  *
  * Description:    

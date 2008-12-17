@@ -1999,7 +1999,7 @@ AGAIN:
             }
         }
 
-        if (I2AddrIsLoopback(BWLAddrByControl(first.cntrl)) && !I2AddrIsLoopback(BWLAddrByControl(second.cntrl))) {
+        if (I2AddrIsLoopback(BWLControlRemoteAddr(first.cntrl)) && !I2AddrIsLoopback(BWLControlRemoteAddr(second.cntrl))) {
             char        buf[NI_MAXHOST+1];
             size_t      buflen = sizeof(buf);
             I2Addr new_addr = BWLAddrByLocalControl(second.cntrl);
@@ -2015,7 +2015,7 @@ AGAIN:
 
             I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", first.host, I2AddrNodeName(new_addr,buf,&buflen));
         }
-        else if (!I2AddrIsLoopback(BWLAddrByControl(first.cntrl)) && I2AddrIsLoopback(BWLAddrByControl(second.cntrl))) {
+        else if (!I2AddrIsLoopback(BWLControlRemoteAddr(first.cntrl)) && I2AddrIsLoopback(BWLControlRemoteAddr(second.cntrl))) {
             char        buf[NI_MAXHOST+1];
             size_t      buflen = sizeof(buf);
             I2Addr new_addr = BWLAddrByLocalControl(first.cntrl);

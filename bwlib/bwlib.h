@@ -780,8 +780,18 @@ BWLAddrByControl(
         BWLControl  cntrl
         );
 
+extern int
+BWLControlFD(
+        BWLControl  cntrl
+        );
+
 extern I2Addr
 BWLAddrByLocalControl(
+        BWLControl  cntrl
+        );
+
+extern I2Addr
+BWLControlRemoteAddr(
         BWLControl  cntrl
         );
 
