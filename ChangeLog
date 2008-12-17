@@ -1,4 +1,22 @@
 ------------------------------------------------------------------------
+r500 | aaron | 2008-10-29 14:16:19 -0400 (Wed, 29 Oct 2008) | 4 lines
+
+Minor changes to the release todo
+Update configure.ac and doc/Makefile.am to support converting the man pages to html if man2html is found.
+
+
+------------------------------------------------------------------------
+r499 | boote | 2008-10-20 20:38:02 -0400 (Mon, 20 Oct 2008) | 8 lines
+
+bwctl.man
+    Tried to clarify max_time_error 'a little'.
+    typos
+
+index.html
+    Added Chris Tracy to 'thanks' section.
+
+
+------------------------------------------------------------------------
 r498 | aaron | 2008-10-15 08:28:32 -0400 (Wed, 15 Oct 2008) | 3 lines
 
 Include the LICENSE file when a make dist is done

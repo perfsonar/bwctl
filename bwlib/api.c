@@ -457,3 +457,61 @@ _BWLCreateSID(
 
     return 0;
 }
+
+/*
+ * Function:    BWLControlIsLoopback
+ *
+ * Description:    
+ *     Check whether a control connection is a loopback connection.
+ *
+ * In Args:    
+ *
+ * Out Args:    
+ *
+ * Scope:    
+ * Returns:    
+ *     1 if true, 0 if false
+ * Side Effect:    
+ */
+int
+BWLControlIsLoopback(
+        BWLControl  cntrl
+        )
+{
+    struct sockaddr *saddr;
+    socklen_t       saddrlen;
+
+    if(!cntrl->remote_addr ||
+            !(saddr = I2AddrSAddr(cntrl->remote_addr,&saddrlen))){
+        return 0;
+    }
+
+    switch(saddr->sa_family){
+        struct sockaddr_in    *s4;
+#ifdef    AF_INET6
+        struct sockaddr_in6    *s6;
+
+        case AF_INET6:
+            s6 = (struct sockaddr_in6*)saddr;
+            return (IN6_IS_ADDR_LOOPBACK(&s6->sin6_addr));
+        break;
+#endif
+
+        case AF_INET:
+            s4 = (struct sockaddr_in*)saddr;
+            return (ntohl(s4->sin_addr.s_addr) == 0x7f000001);
+        break;
+
+#ifdef AF_LOCAL
+        case AF_LOCAL:
+            return 1;
+        break;
+#endif
+
+        default:
+            BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED, "BWLAddrIsLoopback: Unknown address family");
+        break;
+    }
+
+    return 0;
+}

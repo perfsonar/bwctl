@@ -1865,19 +1865,34 @@ AGAIN:
              */
             first.sockfd = BWLControlFD(first.cntrl);
 
-            /*
-             * Need to get a clean I2Addr that is basically a copy of
-             * the control connection (but unconnected).
-             */
-            if(first.send){
-                first.tspec.sender = second.tspec.sender =
-                    BWLAddrByControl(first.cntrl);
+            if (second_set){
+                /*
+                 * When doing a third-party connection, the hostname needs to
+                 * be passed to the underlying functions, not the IP address.
+                 */
+                if(first.send){
+                    first.tspec.sender = second.tspec.sender =
+                        I2AddrByNode(eh, first.host);
+                }
+                else{
+                    first.tspec.receiver = second.tspec.receiver =
+                        I2AddrByNode(eh, first.host);
+                }
             }
-            else{
-                first.tspec.receiver = second.tspec.receiver =
-                    BWLAddrByControl(first.cntrl);
+            else {
+                /*
+                 * Need to get a clean I2Addr that is basically a copy of
+                 * the control connection (but unconnected).
+                 */
+                if(first.send){
+                    first.tspec.sender = second.tspec.sender =
+                        BWLAddrByControl(first.cntrl);
+                }
+                else{
+                    first.tspec.receiver = second.tspec.receiver =
+                        BWLAddrByControl(first.cntrl);
+                }
             }
-
         }
 
         /* Open second connection */
@@ -1962,7 +1977,17 @@ AGAIN:
                         BWLAddrByLocalControl(first.cntrl);
                 }
             }
-            else{
+            else if (second_set){
+                if(second.send){
+                    first.tspec.sender = second.tspec.sender =
+                        I2AddrByNode(eh, second.host);
+                }
+                else{
+                    first.tspec.receiver = second.tspec.receiver =
+                        I2AddrByNode(eh, second.host);
+                }
+            }
+            else {
                 if(second.send){
                     first.tspec.sender = second.tspec.sender =
                         BWLAddrByControl(second.cntrl);
@@ -1972,6 +1997,39 @@ AGAIN:
                         BWLAddrByControl(second.cntrl);
                 }
             }
+        }
+
+        if (BWLControlIsLoopback(first.cntrl) && !BWLControlIsLoopback(second.cntrl)) {
+            char        buf[NI_MAXHOST+1];
+            size_t      buflen = sizeof(buf);
+            I2Addr new_addr = BWLAddrByLocalControl(second.cntrl);
+
+            if (first.send) {
+                I2AddrFree(first.tspec.sender);
+                first.tspec.sender = second.tspec.sender = new_addr;
+            }
+            else{
+                I2AddrFree(first.tspec.receiver);
+                first.tspec.receiver = second.tspec.receiver = new_addr;
+            }
+
+            I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", first.host, I2AddrNodeName(new_addr,buf,&buflen));
+        }
+        else if (!BWLControlIsLoopback(first.cntrl) && BWLControlIsLoopback(second.cntrl)) {
+            char        buf[NI_MAXHOST+1];
+            size_t      buflen = sizeof(buf);
+            I2Addr new_addr = BWLAddrByLocalControl(first.cntrl);
+
+            if (second.send) {
+                I2AddrFree(first.tspec.sender);
+                 first.tspec.sender = second.tspec.sender = new_addr;
+            }
+            else{
+                I2AddrFree(first.tspec.receiver);
+                first.tspec.receiver = second.tspec.receiver = new_addr;
+            }
+
+            I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", second.host, I2AddrNodeName(new_addr,buf,&buflen));
         }
 
         if(!first.tspec.sender){

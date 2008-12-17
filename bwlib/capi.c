@@ -877,19 +877,47 @@ BWLSessionRequest(
         for(rai = frai;rai;rai = rai->ai_next){
             if(rai->ai_family != AF_INET6) continue;
             for(sai = fsai;sai;sai = sai->ai_next){
+				struct sockaddr_in6 s_srec;
+				struct sockaddr_in6 r_srec;
+
                 if(rai->ai_family != sai->ai_family) continue;
                 if(rai->ai_socktype != sai->ai_socktype)
                     continue;
+
+		        memcpy(&s_srec,sai->ai_addr,sizeof(s_srec));
+		        memcpy(&r_srec,rai->ai_addr,sizeof(r_srec));
+
+		        if(IN6_IS_ADDR_LOOPBACK(&s_srec.sin6_addr) && !IN6_IS_ADDR_LOOPBACK(&r_srec.sin6_addr))
+					continue;
+
+		        if(!IN6_IS_ADDR_LOOPBACK(&s_srec.sin6_addr) && IN6_IS_ADDR_LOOPBACK(&r_srec.sin6_addr))
+					continue;
+
                 goto foundaddr;
             }
         }
 #endif
         for(rai = frai;rai;rai = rai->ai_next){
+
             if(rai->ai_family != AF_INET) continue;
+
             for(sai = fsai;sai;sai = sai->ai_next){
+				struct sockaddr_in s_saddr4;
+				struct sockaddr_in r_saddr4;
+
                 if(rai->ai_family != sai->ai_family) continue;
                 if(rai->ai_socktype != sai->ai_socktype)
                     continue;
+
+				memcpy(&s_saddr4,sai->ai_addr,sizeof(s_saddr4));
+				memcpy(&r_saddr4,rai->ai_addr,sizeof(r_saddr4));
+
+		        if(s_saddr4.sin_addr.s_addr == INADDR_LOOPBACK && r_saddr4.sin_addr.s_addr != INADDR_LOOPBACK)
+					continue;
+
+		        if(s_saddr4.sin_addr.s_addr != INADDR_LOOPBACK && r_saddr4.sin_addr.s_addr == INADDR_LOOPBACK)
+					continue;
+
                 goto foundaddr;
             }
         }

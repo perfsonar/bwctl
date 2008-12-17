@@ -25,8 +25,6 @@ dist_man8_MANS = bwctld.man
 # EXTRA_DIST = $(man1_MANS) $(man5_MANS) $(man8_MANS)
 EXTRA_DIST = index.html architecture.html bwctl_arch.png
 
-# TODO
-# Build html versions of man pages and include them in dist?
 if HAVE_MAN2HTML
 SUFFIXES = .man .man.html
 .man.man.html:
