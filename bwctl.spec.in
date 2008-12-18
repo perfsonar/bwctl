@@ -4,9 +4,9 @@ Version: @VERSION@
 Release: 1
 License: Internet2 License (modified BSD-like)
 Group: *Development/Libraries*
-URL: http://www.internet2.edu/~shalunov/thrulay/
+URL: http://e2epi.internet2.edu/bwctl/
 Source: %{name}-%{version}.tar.gz
-Packager: Federico Montesino Pouzols <fedemp@altern.org>
+Packager: Aaron Brown <aaron@internet2.edu>
 BuildRequires: libtool
 Requires: bwctl-client, bwctl-server
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
@@ -80,7 +80,7 @@ fi
 %defattr(-,root,root,0755)
 %doc README
 %{_bindir}/bwctl
-%{_mandir}/man1/*
+%{_mandir}/man1/bwctl.1.gz
 
 %files server
 %defattr(-,root,root,0755)
