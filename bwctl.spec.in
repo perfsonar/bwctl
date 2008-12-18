@@ -21,7 +21,6 @@ that wraps Iperf, Thrulay or nuttcp.
 %package client
 Summary: bwctl client
 Group: Applications/Network
-#Requires: thrulay-libthrulay
 %description client
 bwctl command line tool for scheduling bandwidth measurements with a bwctl
 server.
@@ -29,7 +28,7 @@ server.
 %package server
 Summary: bwctl server
 Group: Applications/Network
-#Requires: thrulay-libthrulay
+Requires: I2util
 %description server
 bwctl server
 

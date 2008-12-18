@@ -1,6 +1,4 @@
 Multi-cast support
-thrulay integration (other tools?)
-    Update man pages
 meta-scheduler daemon
 Authorization Logging
     Currently just logs integer limit req/resp - should log all resource reqs.
@@ -12,3 +10,4 @@ More simple user/passwd config file setup
 tool specific output flags
     csv output from iperf
     nmwg output?
+separate common pieces from man-pages similar to owamp
