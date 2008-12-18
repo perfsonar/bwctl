@@ -1563,9 +1563,11 @@ main(
         BWLContextSetErrMask(ctx,BWLErrINFO);
     }
 
-    if( !BWLContextConfigSet(ctx,BWLAllowUnsync,(syncfuzz != 0.0))){
-        I2ErrLog(eh,"BWLContextconfigSet(AllowUnsync): %M");
-        exit(1);
+    if( !BWLContextConfigGetV(ctx,BWLAllowUnsync)){
+        if( !BWLContextConfigSet(ctx,BWLAllowUnsync,(syncfuzz != 0.0))){
+            I2ErrLog(eh,"BWLContextconfigSet(AllowUnsync): %M");
+            exit(1);
+        }
     }
 
     if((syncfuzz != 0.0) &&
@@ -1999,37 +2001,39 @@ AGAIN:
             }
         }
 
-        if (I2AddrIsLoopback(BWLControlRemoteAddr(first.cntrl)) && !I2AddrIsLoopback(BWLControlRemoteAddr(second.cntrl))) {
-            char        buf[NI_MAXHOST+1];
-            size_t      buflen = sizeof(buf);
-            I2Addr new_addr = BWLAddrByLocalControl(second.cntrl);
+        if (!fake_daemon) {
+            if (I2AddrIsLoopback(BWLControlRemoteAddr(first.cntrl)) && !I2AddrIsLoopback(BWLControlRemoteAddr(second.cntrl))) {
+                char        buf[NI_MAXHOST+1];
+                size_t      buflen = sizeof(buf);
+                I2Addr new_addr = BWLAddrByLocalControl(second.cntrl);
 
-            if (first.send) {
-                I2AddrFree(first.tspec.sender);
-                first.tspec.sender = second.tspec.sender = new_addr;
-            }
-            else{
-                I2AddrFree(first.tspec.receiver);
-                first.tspec.receiver = second.tspec.receiver = new_addr;
-            }
+                if (first.send) {
+                    I2AddrFree(first.tspec.sender);
+                    first.tspec.sender = second.tspec.sender = new_addr;
+                }
+                else{
+                    I2AddrFree(first.tspec.receiver);
+                    first.tspec.receiver = second.tspec.receiver = new_addr;
+                }
 
-            I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", first.host, I2AddrNodeName(new_addr,buf,&buflen));
-        }
-        else if (!I2AddrIsLoopback(BWLControlRemoteAddr(first.cntrl)) && I2AddrIsLoopback(BWLControlRemoteAddr(second.cntrl))) {
-            char        buf[NI_MAXHOST+1];
-            size_t      buflen = sizeof(buf);
-            I2Addr new_addr = BWLAddrByLocalControl(first.cntrl);
-
-            if (second.send) {
-                I2AddrFree(first.tspec.sender);
-                 first.tspec.sender = second.tspec.sender = new_addr;
+                I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", first.host, I2AddrNodeName(new_addr,buf,&buflen));
             }
-            else{
-                I2AddrFree(first.tspec.receiver);
-                first.tspec.receiver = second.tspec.receiver = new_addr;
-            }
+            else if (!I2AddrIsLoopback(BWLControlRemoteAddr(first.cntrl)) && I2AddrIsLoopback(BWLControlRemoteAddr(second.cntrl))) {
+                char        buf[NI_MAXHOST+1];
+                size_t      buflen = sizeof(buf);
+                I2Addr new_addr = BWLAddrByLocalControl(first.cntrl);
 
-            I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", second.host, I2AddrNodeName(new_addr,buf,&buflen));
+                if (second.send) {
+                    I2AddrFree(first.tspec.sender);
+                     first.tspec.sender = second.tspec.sender = new_addr;
+                }
+                else{
+                    I2AddrFree(first.tspec.receiver);
+                    first.tspec.receiver = second.tspec.receiver = new_addr;
+                }
+
+                I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", second.host, I2AddrNodeName(new_addr,buf,&buflen));
+            }
         }
 
         if(!first.tspec.sender){
