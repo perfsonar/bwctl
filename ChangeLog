@@ -1,4 +1,24 @@
 ------------------------------------------------------------------------
+r502 | aaron | 2008-12-17 15:28:31 -0500 (Wed, 17 Dec 2008) | 3 lines
+
+Use the recently added convenience function I2AddrIsLoopback instead of rolling my own.
+
+
+------------------------------------------------------------------------
+r501 | aaron | 2008-12-17 14:13:49 -0500 (Wed, 17 Dec 2008) | 11 lines
+
+Fix for when a client is doing a third party test to an ipv6/ipv4 enabled host
+and an ipv4 enabled host. The client would forget the ipv6 host's ipv4 address,
+leading to a connect failure when it tried to coordinate addresses for the
+other servers to use.
+
+Enable users to do a third party test in which one of the specified hosts is on the local machine.
+e.g. "bwctl -c localhost:1234 -s nms-rthr2.chic.net.internet2.edu" should now work.
+
+Minor other changes
+
+
+------------------------------------------------------------------------
 r500 | aaron | 2008-10-29 14:16:19 -0400 (Wed, 29 Oct 2008) | 4 lines
 
 Minor changes to the release todo

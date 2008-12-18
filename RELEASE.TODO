@@ -8,9 +8,9 @@ To make a new release of bwctl:
     4.6) check-in doc/milestones
     4.7) svn log > ChangeLog
     5) check-in ChangeLog
-    6) tag release ex. "cvs tag BWCTL_1_3rc1"
+    6) tag release ex. "svn cp trunk tags/BWCTL_1_3"
     7) make dist (builds spec file in tree)
         a) sudo cp [tarball] /usr/src/redhat/SOURCES/
         b) sudo rpmbuild -ba [spec-file]
-    8) copy tarball to dist area of website
+    8) copy tarball and RPMs from /usr/src/redhat/RPMS/i386 to dist area of website
     9) update webpages
