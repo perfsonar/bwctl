@@ -1,8 +1,8 @@
-.lf 1 bwctld.conf.ms
+.lf 1 bwctlrc.ms
 ." The first line of this file must contain the '"[e][r][t][v] line
 ." to tell man to run the appropriate filter "t" for table.
 ."
-."	$Id$
+."	$Id: bwctlrc.man 493 2008-10-09 16:27:47Z aaron $
 ."
 ."######################################################################
 ."#									#
@@ -12,34 +12,36 @@
 ."#									#
 ."######################################################################
 ."
-."	File:		bwctld.8
+."	File:		bwctlrc.8
 ."
-."	Author:		Jeff Boote
-."			Internet2
+."	Author:		Jeff Boote and Aaron Brown
+."			    Internet2
 ."
-."	Date:		Thu Feb 12 15:44:09 MST 2004
+."	Date:		Tue Jan 06 07:44:09 EST 2009
 ."
 ."	Description:	
 ."
-.TH bwctld.conf 5 "$Date$"
+.TH bwctlrc 5 "$Date: 2008-10-09 12:27:47 -0400 (Thu, 09 Oct 2008) $"
 .SH NAME
-bwctld.conf \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
-\fBd\fRaemon configuration file
+bwctlrc \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR configuration file
 .SH DESCRIPTION
-The \fBbwctld.conf\fR file is the configuration file for the bwctld(8)
-program. It is used to configure the basic operation of the server. For
-example, what addresses and ports it should listen on, where it should
-send error messages, and where it should save files.
+The \fBbwctlrc\fR file is a configuration file for the bwctl(8) program.
+If a test is requested using bwctl, and there is not a local bwctld(8)
+running, bwctl will spawn its own copy of bwctld. This configuration file is
+used to configure the basic operation of the automatically spawned server. For
+example, it can be used to configure whether to allow the local clock to be
+unsynchroznied, or where the iperf command is located.
 .PP
-The policy rules for \fBbwctld\fR are configured using the \fBbwctld.limits\fR
-file; the details for configuring those policies are described in
-the bwctld.limits(5) manual page.
+This file can be placed in ~/.bwctlrc, where it will be automatically read by
+bwctl when it spawns off a bwctld. If the file is put elsewhere, the BWCTLRC
+environmental variable can be set to the path to the file and bwctl will read
+it.
 .PP
 .lf 1 bwctld_conf_opts.man
 ." The first line of this file must contain the '"[e][r][t][v] line
 ." to tell man to run the appropriate filter "t" for table.
 ."
-."	$Id$
+."	$Id: bwctlrc.man 493 2008-10-09 16:27:47Z aaron $
 ."
 ."######################################################################
 ."#									#
@@ -337,8 +339,7 @@ Directory path where the bwctld.pid file will be placed.
 .IP Default:
 Current directory
 .RE
-.lf 38 bwctld.conf.ms
-.RE
+.lf 40 bwctlrc.ms
 .SH SEE ALSO
 bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5),
 and the \%http://e2epi.internet2.edu/bwctl/ web site.

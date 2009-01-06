@@ -298,9 +298,19 @@ mapped to a class by the <b>bwctld.limits</b> file. For a more detailed
 description, see the
 <a href="bwctld.keys.man.html">bwctld.keys(8)</a>
 manual page.
-<h3>
 
-<hr WIDTH="100%">Running <i>bwctld</i></h3>
+<hr WIDTH="100%"><h3>Configuring firewalls</h3>
+If a firewall is enabled on the machine running bwctld, it will need to be
+configured to allow incoming clients and tests. Use
+<a href="bwctl_firewalls.html">this set of directions</a> to configure the
+firewall.
+
+<hr WIDTH="100%"><h3>Configuring NTP</h3>
+To ensure that tests can be run, the machine running bwctld should have its
+clock synchronized using NTP.  Use <a href="bwctld_firewalls.html">this set of
+directions</a> to configure the firewall.
+
+<hr WIDTH="100%"><h3>Running <i>bwctld</i></h3>
 The normal command-line to start the daemon is:
 <blockquote>
 <pre>&nbsp;% bwctld -c /inst/root/etc</pre>

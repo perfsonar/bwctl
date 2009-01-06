@@ -19,16 +19,23 @@
 #	Description:
 
 dist_man1_MANS = bwctl.man
-dist_man5_MANS = bwctld.conf.man bwctld.limits.man bwctld.keys.man
+dist_man5_MANS = bwctlrc.man bwctld.conf.man bwctld.limits.man bwctld.keys.man
 dist_man8_MANS = bwctld.man
 
+SOELIM=soelim
+
+SUFFIXES = .man .ms
+
+.ms.man:
+	$(SOELIM) $< > $@
+
 # EXTRA_DIST = $(man1_MANS) $(man5_MANS) $(man8_MANS)
-EXTRA_DIST = index.html architecture.html bwctl_arch.png
+EXTRA_DIST = index.html architecture.html bwctl_arch.png bwctld.conf.ms bwctlrc.ms
 
 if HAVE_MAN2HTML
-SUFFIXES = .man .man.html
+SUFFIXES += .man.html
 .man.man.html:
 	man2html -r $< > $@
 
-EXTRA_DIST += bwctl.man.html bwctld.conf.man.html bwctld.limits.man.html bwctld.keys.man.html bwctld.man.html
+EXTRA_DIST += bwctl.man.html bwctlrc.man.html bwctld.conf.man.html bwctld.limits.man.html bwctld.keys.man.html bwctld.man.html
 endif
