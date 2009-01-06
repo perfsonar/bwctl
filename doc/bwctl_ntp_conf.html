@@ -2,7 +2,7 @@
 
 <h2>Time Synchronization</h2>
 
-<p>BWCTL works best when the clocks of the clients and servers are synchronized. If the hosts are not synchronized, they might try to start begin tests at different times.</p>
+<p>BWCTL works best when the clocks of the clients and servers are synchronized. If the hosts are not synchronized, they might try to begin tests at different times.</p>
 
 <p>
 <a href="http://www.ntp.org/">NTP</a> is a protocol used to synchronize a
@@ -12,19 +12,23 @@ systems use the reference implementation of the software, and the example
 included with this howto is geared to that version. 
 </p>
 <p>
-Your NTP configuration should include between 4 and 7 NTP that it tries to
-synchronize with. By including a number of servers, the NTP software can make
-better decisions about which clocks are accurate and who it should trust for
-time data. The hosts should be close to you, though this is not a hard
-requirement. Ideally, the network paths to the servers should differ as much as
-possible from each other.
+ntp.org has some <a href="http://twiki.ntp.org/bin/view/Support/SelectingOffsiteNTPServers">advice</a>
+for selecting NTP servers. However, there are some general rules of thumb to
+follow for NTP configuration. The NTP configuration should include between 4
+and 7 NTP that it tries to synchronize with. By including this number of
+servers, the NTP software can make better decisions about which clocks are
+accurate and who it should trust for time data. The NTP servers should be in
+close proximity to the host, though this is not a hard requirement. Ideally,
+the network paths to the servers should differ as much as possible from each
+other.
 </p>
 <p>
-There are a large number of public NTP servers that you can connect to. You can
-find a list at <a
-href="http://support.ntp.org/bin/view/Servers/WebHome">ntp.org</a>. Internet2
-maintains a set of NTP servers that you can use as well if you are connected to
-the Internet2 network.
+There are a large number of public NTP servers. There's a list available at <a
+href="http://support.ntp.org/bin/view/Servers/WebHome">http://support.ntp.org/bin/view/Servers/WebHome">ntp.org</a>.
+</p>
+<p>
+Internet2 maintains a set of NTP servers that can be used if the host is
+connected to the Internet2 network.
 <ul>
 	<li>nms-rlat.atla.net.internet2.edu - Atlanta, GA</li>
 	<li>nms-rlat.chic.net.internet2.edu - Chicago, IL</li>
