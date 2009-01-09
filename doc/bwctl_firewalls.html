@@ -9,7 +9,7 @@
         Defined using the <em>port</em> portion of the <em>src_node</em>
         configuration option from
         <a href="bwctld.conf.man.html">bwctld.conf</a>
-        <p>For example, to enable this on a typical RHEL 4 system,
+        <p>For example, to enable this on a typical Red Hat Enterprise Linux system,
         you would need to add the following line to /etc/sysconfig/iptables:</p>
 <pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 4823 -j ACCEPT
 </pre>
@@ -32,7 +32,7 @@
         firewall configuration. (If you do not specify a range, bwctl will
         only work reliably if you have open access for the entire ephemeral
         port range.)</p>
-        <p>On a typical RHEL 4 system,
+        <p>On a typical Red Hat Enterprise Linux system,
         you would need to add the following line to /etc/sysconfig/iptables
         given this range:</p>
 <pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 9910:9950 -j ACCEPT
@@ -63,7 +63,7 @@
         then you will need to open up the UDP ports. Likewise for TCP.
         The default is 5001 for TCP and UDP tests, and you will only be
         able to test if you open the ports specified.</p>
-        <p>On a typical RHEL 4 system,
+        <p>On a typical Red Hat Enterprise Linux system,
         you would need to add the following lines to /etc/sysconfig/iptables
         given this range:</p>
 <pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 5001:5004 -j ACCEPT
