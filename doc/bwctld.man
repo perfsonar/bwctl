@@ -50,13 +50,9 @@ bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
 .SH DESCRIPTION
 .B bwctld
 is a server program designed to schedule and run \fBIperf\fR, \fBThrulay\fR or
-\fBNuttcp\fR throughput tests.
-.TP
-From the \fBIperf\fR web site:
-\fBIperf\fR is a tool to measure
-maximum TCP bandwidth, allowing the tuning of various parameters
-and UDP characteristics. \fBIperf\fR reports bandwidth, delay jitter,
-datagram loss.
+\fBNuttcp\fR throughput tests. These tests can measure
+maximum TCP bandwidth, with various tunable options available, or, by doing a
+UDP test, he delay, jitter and datagram loss of a network.
 .PP
 Aside from actually running throughput tests, the main function of
 \fBbwctld\fR is to determine which tests are allowable based upon
@@ -156,7 +152,7 @@ The \fBbwctld\fR daemon prefers a reasonably synchronized clock. It is
 scheduling tests and needs to be sure it has the same idea of when a test
 should take place as does the peer test system.
 Therefore, \fBbwctld\fR attempts to use NTP specific system calls to determine
-the accuracy of the localclock. If those system calls are unavailable, or
+the accuracy of the local clock. If those system calls are unavailable, or
 the administrator has set the \fIallow_unsync\fR option in the \fBbwctld.conf\fR
 file, then \fBbwctld\fR will blindly accept tests assuming the clock is
 synchronized to within the \fIsync_fuzz\fR value that is also defined
@@ -181,9 +177,11 @@ the \%http://e2epi.internet2.edu/bwctl/ web site.
 .PP
 For details on \fBIperf\fR, see the \%http://dast.nlanr.net/Projects/Iperf/
 web site.
-For details on \fBThrulay\fR, see the \%http://thrulay-hd.sourceforge.net/
+.PP
+For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
 web site.
-For details on \fBNuttcp\fR, see the \%http://www.lcp.nrl.navy.mil/nuttcp/
+.PP
+For details on \fBThrulay\fR, see the \%http://shlang.com/thrulay/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

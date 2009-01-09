@@ -93,6 +93,7 @@ value to apply to this \fIuserclass\fR. The available settings for
 li li li
 _ _ _
 li l l .
+
 limtype	valid values	default
 allow_open_mode	on/off	on
 allow_tcp	on/off	on
@@ -325,6 +326,12 @@ bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5),
 and the \%http://e2epi.internet2.edu/bwctl/ web site.
 .PP
 For details on \fBIperf\fR, see the \%http://dast.nlanr.net/Projects/Iperf/
+web site.
+.PP
+For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
+web site.
+.PP
+For details on \fBThrulay\fR, see the \%http://shlang.com/thrulay/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

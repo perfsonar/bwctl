@@ -36,8 +36,7 @@ bwctl \- Client application to request throughput tests.
 \fBbwctl\fR is a command line client application that is used to
 initiate throughput tests.
 .TP
-This version of \fBbwctl\fR is capable of initiating \fBIperf\fR,
-\fBnuttcp\fR, and \fBthrulay\fR tests.
+This version of \fBbwctl\fR is capable of initiating \fBIperf\fR, \fBNuttcp\fR, and \fBThrulay\fR tests.
 .PP
 .B bwctl
 works by
@@ -54,7 +53,7 @@ the local host does not require policy controls and will execute the
 If cases where \fBbwctl\fR is directly running the throughput test
 on the host, there are several configuration options that are shared
 with \fBbwctld\fR. Those configuration options
-can be set using the .bwctlrc(5) configuration file in a way very similar
+can be set using the bwctlrc(5) configuration file in a way very similar
 to the way they are specified in the bwctld.conf(5) file.
 .PP
 The \fBbwctl\fR client is used to request the type of throughput
@@ -497,6 +496,7 @@ lb lb lb
 _ _ _
 lb li li .
 bwctl Environment Variable	use	default
+
 BWCTLRC	Config file	~/.bwctlrc
 BWCTL_DEBUG_TIMEOFFSET	Offset	0.0(seconds)
 .TE
@@ -538,8 +538,16 @@ Run the default 10 second TCP test. Authenticate using
 the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a passphrase
 that will be used to create an AES key.
 .SH SEE ALSO
-bwctld(8) and the \%http://e2epi.internet2.edu/bwctl/
-and \%http://dast.nlanr.net/Projects/Iperf/ web sites.
+bwctld(8) and the \%http://e2epi.internet2.edu/bwctl/ web site.
+.PP
+For details on \fBIperf\fR, see the \%http://dast.nlanr.net/Projects/Iperf/
+web site.
+.PP
+For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
+web site.
+.PP
+For details on \fBThrulay\fR, see the \%http://shlang.com/thrulay/
+web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
 Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
