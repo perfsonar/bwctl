@@ -47,7 +47,7 @@ web site.
 For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
 web site.
 .PP
-For details on \fBThrulay\fR, see the \%http://shlang.com/thrulay/
+For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
