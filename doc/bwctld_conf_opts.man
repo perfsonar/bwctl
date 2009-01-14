@@ -156,6 +156,14 @@ port numbers with the '-' character separating them. Whitespace is
 not allowed within the \fIiperf_port\fR. For example, \fB"5001-5004"\fR would
 be valid, but \fB"5001 - 5004"\fR would be invalid.
 .RS
+.PP
+This value should be set to a range because it can take a few minutes for a
+port to become free after a test has run. If the port is not free when the next
+test starts, the test will fail. If set to a range, the daemon will cycle
+through them when starting tests, decreasing the chance that a port will still
+be open when the test starts. For best results, ensure that this range is
+different from that of nuttcp_port and thrulay_port.
+.PP
 .IP Default:
 5001
 .RE
@@ -187,6 +195,14 @@ port numbers with the '-' character separating them. Whitespace is
 not allowed within the \fInuttcp_port\fR. For example, \fB"5001-5004"\fR would
 be valid, but \fB"5001 - 5004"\fR would be invalid.
 .RS
+.PP
+This value should be set to a range because it can take a few minutes for a
+port to become free after a test has run. If the port is not free when the next
+test starts, the test will fail. If set to a range, the daemon will cycle
+through them when starting tests, decreasing the chance that a port will still
+be open when the test starts. For best results, ensure that this range is
+different from that of iperf_port and thrulay_port.
+.PP
 .IP Default:
 5001
 .RE
@@ -278,6 +294,14 @@ port numbers with the '-' character separating them. Whitespace is
 not allowed within the \fIthrulay_port\fR. For example, \fB"5001-5004"\fR would
 be valid, but \fB"5001 - 5004"\fR would be invalid.
 .RS
+.PP
+This value should be set to a range because it can take a few minutes for a
+port to become free after a test has run. If the port is not free when the next
+test starts, the test will fail. If set to a range, the daemon will cycle
+through them when starting tests, decreasing the chance that a port will still
+be open when the test starts. For best results, ensure that this range is
+different from that of iperf_port and nuttcp_port.
+.PP
 .IP Default:
 5003
 .RE
