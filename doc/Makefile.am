@@ -30,7 +30,7 @@ SUFFIXES = .man .ms
 	$(SOELIM) $< > $@
 
 # EXTRA_DIST = $(man1_MANS) $(man5_MANS) $(man8_MANS)
-EXTRA_DIST = index.html architecture.html bwctl_arch.png bwctld.conf.ms bwctlrc.ms bwctl_infosheet.pdf
+EXTRA_DIST = index.html architecture.html bwctl_arch.png bwctl_arch_servless.png bwctld.conf.ms bwctlrc.ms bwctl_infosheet.pdf bwctl_ntp_conf.html bwctl_firewalls.html
 
 if HAVE_MAN2HTML
 SUFFIXES += .man.html
