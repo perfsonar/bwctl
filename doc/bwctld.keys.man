@@ -34,7 +34,7 @@ must be named \fBbwctld.keys\fR.
 \fBbwctld\fR uses symmetric AES keys for authentication. Therefore, the
 \fBbwctl\fR client will have to have access to the exact same AES key
 for authentication by AES to work. Most likely, the user will simply
-just know the passphrase that generated the AES key in the first place.
+know the passphrase that generated the AES key in the first place.
 Additionally, it is important that the system administrator and end user
 ensure the key is not compromised.
 .PP
@@ -52,6 +52,6 @@ aespasswd(1), bwctl(1), bwctld(8), bwctld.limits(5),
 and the \%http://e2epi.internet2.edu/bwctl/ web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
-Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
+Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings, and
 conclusions or recommendations expressed in this material are those of
 the author(s) and do not necessarily reflect the views of the NSF.

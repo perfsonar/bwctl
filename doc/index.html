@@ -41,23 +41,21 @@ $Date$</h5></center>
 BWCTL is a command line client application and a scheduling and policy
 daemon that wraps the throughput testing tools <b><a
 href="http://dast.nlanr.net/Projects/Iperf/">Iperf</a></b>, <b><a
-href="http://e2epi.internet2.edu/thrulay/">Thrulay</a></b> and <b><a
+href="http://e2epi.internet2.edu/thrulay/">Thrulay</a></b>, and <b><a
 href="http://www.lcp.nrl.navy.mil/nuttcp/">Nuttcp</a></b>. These tests can measure
-maximum TCP bandwidth, with various tunable options available, or, by doing a
-UDP test, he delay, jitter and datagram loss of a network.
+maximum TCP bandwidth, with various tuning options available, or, by doing a
+UDP test, the delay, jitter, and datagram loss of a network.
 <p>
 The <b>bwctl</b> client application works by contacting a <b>bwctld</b> process
 on the two test endpoint systems.  BWCTL will work as a 3-party application.
 The client can arrange a test between two servers on two different systems. If
-the local system is intended to be one of the endpoints of the test a local
-<b>bwctld</b> is not required, <b>bwctl</b>
-will detect whether a local server is running and execute the required <b>bwctld
-</b> functionality
-directly if not. <b>bwctld</b> manages and schedules the resources of the host
+the local system is intended to be one of the endpoints of the test, <b>bwctl</b>
+will detect whether a local <b>bwctld</b> is running and will handle the required server
+functionality if needed. <b>bwctld</b> manages and schedules the resources of the host
 on which it runs. A more detailed description of the architecture is available
 in the <a href="architecture.html">architecture documentation</a>.
 <p>The <b>bwctl</b> client is used to request the type of throughput
-test wanted. Furthermore, it requests when the test should be executed. <b>bwctld</b>
+test wanted. Furthermore, it requests <i>when</i> the test should be executed. <b>bwctld</b>
 either responds with a tentative reservation or a test denied message.
 Once <b>bwctl</b> is able to get a matching reservation from both <b>bwctld</b>
 processes (one for each host involved in the test), it confirms the reservation.
@@ -65,7 +63,7 @@ Then, the <b>bwctld</b> processes run the test and return the results.
 The results are returned to the client from both sides of the test. Additionally,
 the <b>bwctld</b> processes share the results from their respective sides
 of the test with each other.
-<p>BWCTL is used to enable non-specific througput tests to a host without
+<p>BWCTL is used to enable non-specific throughput tests to a host without
 having to give full user accounts on the given system. Users want the ability
 to run throughput tests to determine the achievable or available bandwidth
 between a pair of hosts. It is often useful to test to multiple points
@@ -93,33 +91,30 @@ manual page.)
 <hr WIDTH="100%">What's Changed Since Version 1.2a</h3>
 
 <ul>
-    <li>Allow for different throughput testing tools. Currently supported are <b><a href="http://dast.nlanr.net/Projects/Iperf/">Iperf</a></b>, <b><a href="http://thrulay-hd.sourceforge.net/">Thrulay</a></b> and <b><a
-href="http://www.lcp.nrl.navy.mil/nuttcp/">Nuttcp</a></b>. Use the -T option on bwctl to specify which throughput testing tool to use. Use bwctl -h to see which are supported</li>
-    <li>Allow throughput tests to use multiple, parallel streams. This can be specified with the -P option in the bwctl client</li>
-    <li>Allow for UDP tests with bandwidth limits of higher than 4.3Gbps (Note, this only works with 1.3 clients and servers)</li>
-    <li>Allow for comma-separated value output for iperf. Add "-y c" to the bwctl command-line client to use it.</li>
-    <li>Allow administrators to define scripts to run at the completion of each test, allowing for results to be stored in a database, accounting tracking or any number of other tasks </li>
-    <li>Improve robustness of time/scheduling</li>
-    <li>Improve error handling of iperf children processes</li>
-    <li>Improve error messages for failure conditions</li>
+    <li>Allows for different throughput testing tools. Currently supported are <b><a href="http://dast.nlanr.net/Projects/Iperf/">Iperf</a></b>, <b><a href="http://thrulay-hd.sourceforge.net/">Thrulay</a></b> and <b><a
+href="http://www.lcp.nrl.navy.mil/nuttcp/">Nuttcp</a></b>. Use the -T option on bwctl to specify which throughput testing tool to use. Use bwctl -h to see which are supported.</li>
+    <li>Allows throughput tests to use multiple, parallel streams. This can be specified with the -P option in the bwctl client.</li>
+    <li>Allows for UDP tests with bandwidth limits of higher than 4.3Gbps. This only works with 1.3 clients and servers.</li>
+    <li>Allows for comma-separated value output for <i>Iperf</i>. Add "-y c" to the bwctl command line client to use it.</li>
+    <li>Allows administrators to define scripts to run at the completion of each test, allowing for results to be stored in a database, accounting tracking or any number of other tasks.</li>
+    <li>Improves robustness of time/scheduling.</li>
+    <li>Improves error handling of <i>Iperf</i> children processes.</li>
+    <li>Improves error messages for failure conditions.</li>
 </ul>
 
 <hr WIDTH="100%">What's Changed Since Version 1.1b</h3>
 
 <ul>
     <li>Added -f option to bwctld to allow it to run with root permissions.</li>
-    <li>Added better usage() messages and more information to several user
-    prompts.</li>
-    <li>Fixed bug that caused all server side errors to be reported incorrectly
-    be the client.</li>
+    <li>Added better usage() messages and more information to several user prompts.</li>
+    <li>Fixed bug that caused all server side errors to be reported incorrectly be the client.</li>
     <li>Fixed bwctld bug that disabled srcnode option.</li>
     <li>Ported to Solaris.</li>
     <li>Ported to OS X.</li>
-    <li>Removed NTP system call dependency. Added allow_unsync options</li>
+    <li>Removed NTP system call dependency. Added allow_unsync options.</li>
     <li>Increased default -L value for bwctl.</li>
-    <li>Added messages to data output to indicate if iperf was killed.</li>
-    <li>Modified all config options to have '_' between words.
-    (old versions are supported as well for now.)</li>
+    <li>Added messages to data output to indicate if <i>Iperf</i> was killed.</li>
+    <li>Modified all config options to have '_' between words.</li>
 </ul>
 
 <h3>
@@ -151,8 +146,8 @@ of the test endpoint hosts.</li>
 
 <li>
 A local <b>bwctld</b> is not required. <b>bwctl</b> will detect if there
-is a local <b>bwctld</b> and use it if it is there, and mimic the functionality
-if it is not.</li>
+is a local <b>bwctld</b> and use it if it is there; <b>bwctl</b> will mimic the
+missing functionality if needed.</li>
 
 <li>
 Port ranges for the <b>bwctld</b> peer connections can be specified to
@@ -179,7 +174,7 @@ determined using techniques such as packet dispersion.)</li>
 <hr WIDTH="100%">Requirements</h3>
 
 <ul>
-<li>BWCTL includes the thrulay tester, but it would be best if <b>Iperf</b> 2.0.x is installed on the system.</li>
+<li>BWCTL includes the <b>Thrulay</b> tester, but it would be best if <b>Iperf</b> 2.0.x is installed on the system.</li>
 
 <li>
 The <b>bwctld</b> daemon prefers an NTP synchronized system clock to ensure the
@@ -201,7 +196,7 @@ for more details.)</font></li>
 <a href="#Build">Building the Application</a>).</li>
 
 <li>
-To get good results, the end hosts will almost certainly need to be well
+To get good results, the endpoints will need to be well
 tuned. See <a href="http://www.psc.edu/networking/projects/tcptune/">http://www.psc.edu/networking/projects/tcptune/</a>
 and <a href="http://www-didc.lbl.gov/TCP-tuning/buffers.html">http://www-didc.lbl.gov/TCP-tuning/buffers.html</a>
 for some excellent tips in that regard.</li>
@@ -246,7 +241,7 @@ SysConnect Gigabit Ethernet SK-9843 SX</dd>
 The BWCTL software uses the <i>gnu autoconf</i> tools to configure the
 build process. BWCTL is distributed with a pre-built <b>configure</b> script
 so the actual <i>autoconf</i> tools should not be needed on the target
-system. (Although, <b>gnumake</b> may be required...) The
+system. (Although, <b>gnumake</b> may be required.) The
 <b>configure</b>
 script can be run with the <i>--help</i> option to determine the full set
 of configurable options.
@@ -270,12 +265,12 @@ and, optionally, a <a href="bwctld.limits.man.html">bwctld.limits</a> file
 and a
 <a href="bwctld.keys.man.html">bwctld.keys</a> file. These files
 need to be installed in the same directory that is specified with the <b>-c</b>
-option to <b>bwctld</b>.. The recommended directory is <i>/install/root/etc</i>.
+option to <b>bwctld</b>. The recommended directory is <i>/install/root/etc</i>.
 (The <i>etc</i> directory below your install root.) There are examples
 of these files in the <i>bwctl-$VERS/conf&nbsp;</i> sub directory of the
 distribution.
 <p><b>bwctld.conf:</b>
-<br>Used to configure basic operation of the daemon such as server listening
+<br>Used to configure basic operation of the daemon, such as server listening
 port, the path for <b>Iperf</b>, and error logging. For a detailed description
 of the options available, see the <a href="bwctld.conf.man.html">bwctld.conf(8)</a>
 manual page.
@@ -307,18 +302,18 @@ clock synchronized using NTP.  Use <a href="bwctl_ntp_conf.html">this set of
 directions</a> to configure NTP.
 
 <hr WIDTH="100%"><h3>Running <i>bwctld</i></h3>
-The normal command-line to start the daemon is:
+The normal command line to start the daemon is:
 <blockquote>
 <pre>&nbsp;% bwctld -c /install/root/etc</pre>
 </blockquote>
 It is possible to run the daemon without a config file directory if enough
-command-line options are specified, but it is easier to use a config file.
+command line options are specified, but it is easier to use a config file.
 <p>To see all the available options:
 <blockquote>
 <pre>&nbsp;% bwctld -h</pre>
 </blockquote>
 More details on running the daemon, as well as a complete description of
-the command-line options, is available from the <a href="bwctld.man.html">bwctld</a>
+the command line options, is available from the <a href="bwctld.man.html">bwctld</a>
 manual page.
 <h3>
 
@@ -333,13 +328,13 @@ server (think packet <b>c</b>atcher). The <i>-s</i> option indicates the
 <i>sendhost</i>
 should be an <b>Iperf</b> client (think packet <b>s</b>ender). At least
 one of the -c/-s options must be specified. If only one of these options
-is specified, the local host is assumed to be the other test end point.
+is specified, the local host is assumed to be the other test endpoint.
 <p>To see a list of available options:
 <blockquote>
 <pre>% bwctl -h</pre>
 </blockquote>
 More details on running the client application, with a complete description
-of all command-line options, is available from the <a href="bwctl.man.html">bwctl</a>
+of all command line options, is available from the <a href="bwctl.man.html">bwctl</a>
 manual page.
 <h3>
 
@@ -350,14 +345,15 @@ There are two email lists to support this software:
 <b>bwctl-users</b></dt>
 
 <dd>
-A general discussion list for users to discuss problems. I will monitor
-this list as I expect bug reports to be sent here.</dd>
+This is a general discussion list for users to discuss problems. 
+This list is monitored as bug reports should be sent here.
+</dd>
 
 <dt>
 <b>bwctl-announce</b></dt>
 
 <dd>
-This list will be used to announce new versions or significant developments
+This list is used to announce new versions or significant developments
 with regard to the software.</dd>
 </dl>
 Information about these lists, including links to subscribe, is at
@@ -374,7 +370,7 @@ Aaron Brown
 <br>Internet2
 
 <h3><hr WIDTH="100%">Acknowledgments</h3>
-The following individuals have greatly aided in the development, testing or
+The following individuals have greatly aided in the development, testing, or
 debugging of BWCTL:
 <ul>
 <li>Shumon Huque (UPenn)</li>

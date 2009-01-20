@@ -1,6 +1,6 @@
 <html><head></head><body><h2>BWCTL TCP/UDP Port Usage and Firewall Configuration</h2>
 
-<p>bwctl uses 3 different sets of ports:</p>
+<p>BWCTL uses three different sets of ports:</p>
 
 <ol>
     <li>Main daemon listening port for control connection (<em>Default: TCP/4823</em>)</li>
@@ -14,11 +14,11 @@
 <pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 4823 -j ACCEPT
 </pre>
         <p>
-        This should be added somewhere *after* the line that allows
+        This should be added somewhere <b>after</b> the line that allows
         ESTABLISHED and RELATED connections through.</p>
         <p>
-        (Note that this does not use the system-config-securitylevel script from
-        Redhat. I have not been able to get that to do all the things I needed.)
+        This does not use the system-config-securitylevel script from
+        Redhat. I have not been able to get that to do all the things I needed.
         </p>
     </dl>
 
@@ -28,8 +28,8 @@
         Defined using the <em>peer_port</em> configuration option from
         <a href="bwctld.conf.man.html">bwctld.conf</a>
         <p>If you specified <em>peer_port</em> as
-        9910-9950, you could would then need to enable this range in your
-        firewall configuration. (If you do not specify a range, bwctl will
+        9910-9950, you would then need to enable this range in your
+        firewall configuration. (If you do not specify a range, BWCTL will
         only work reliably if you have open access for the entire ephemeral
         port range.)</p>
         <p>On a typical Red Hat Enterprise Linux system,
@@ -38,11 +38,11 @@
 <pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 9910:9950 -j ACCEPT
 </pre>
         <p>
-        This should be added somewhere *after* the line that allows
+        This should be added somewhere <b>after</b> the line that allows
         ESTABLISHED and RELATED connections through.</p>
         <p>
-        (Note that this does not use the system-config-securitylevel script from
-        Redhat. I have not been able to get that to do all the things I needed.)
+        This does not use the system-config-securitylevel script from
+        Redhat. I have not been able to get that to do all the things I needed.
         </p>
     </dl>
 
@@ -52,15 +52,15 @@
         Each throughput tester can have its own port defined in <a
         href="bwctld.conf.man.html">bwctld.conf</a>. The configuration option
         for each tester takes the form testername_port. For example, to set the
-        thrulay port, you would use the option thrulay_port. The following
+        <b>Thrulay</b> port, you would use the option thrulay_port. The following
         example would apply to any of the testers, just changing the
         appropriate configuration option.
 
         <p>If you specified <em>iperf_port</em> as
-        5001-5004, you could would then need to enable this range in your
+        5001-5004, you would then need to enable this range in your
         firewall configuration. If you allow UDP tests (in your
-        <a href="bwctld.limits.man.html">bwctld.limits</a> file)
-        then you will need to open up the UDP ports. Likewise for TCP.
+        <a href="bwctld.limits.man.html">bwctld.limits</a> file),
+        you will need to open up the UDP ports. Likewise for TCP.
         The default is 5001 for TCP and UDP tests, and you will only be
         able to test if you open the ports specified.</p>
         <p>On a typical Red Hat Enterprise Linux system,
@@ -70,11 +70,11 @@
 -A RH-Firewall-1-INPUT -m udp -p ucp --dport 5001:5004 -j ACCEPT
 </pre>
         <p>
-        This should be added somewhere *after* the line that allows
+        This should be added somewhere <b>after</b> the line that allows
         ESTABLISHED and RELATED connections through.</p>
         <p>
-        (Note that this does not use the system-config-securitylevel script from
-        Redhat. I have not been able to get that to do all the things I needed.)
+        This does not use the system-config-securitylevel script from
+        Redhat. I have not been able to get that to do all the things I needed.
         </p>
     </dl>
 </ol>

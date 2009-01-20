@@ -44,7 +44,7 @@ contacting a \fBbwctld\fR daemon on both the receiving host and
 the sending host. \fBbwctld\fR manages and schedules the resources
 of the host it runs on.
 In the case where only one of the receiving host or
-sending host is specified \fBbwctl\fR assumes the local host is the
+sending host is specified, \fBbwctl\fR assumes the local host is the
 other endpoint. \fBbwctl\fR will attempt to contact a local \fBbwctld\fR
 if it can. If there is no local \fBbwctld\fR running, \fBbwctl\fR assumes
 the local host does not require policy controls and will execute the
@@ -56,10 +56,10 @@ with \fBbwctld\fR. Those configuration options
 can be set using the bwctlrc(5) configuration file in a way very similar
 to the way they are specified in the bwctld.conf(5) file.
 .PP
-The \fBbwctl\fR client is used to request the type of throughput
-test wanted. Furthermore, it requests when the test is wanted.
-\fBbwctld\fR on each endpoint host either responds with a tentative
-reservation or a test denied message. Once \fBbwctl\fR is able to get
+The \fBbwctl\fR client is used to request the desired type of throughput
+test. Furthermore, it requests \fIwhen\fR the test is wanted.
+\fBbwctld\fR on each endpoint either responds with a tentative
+reservation or a \fBtest denied\fR message. Once \fBbwctl\fR is able to get
 a matching reservation from both \fBbwctld\fR processes (one for each
 host involved in the test), it confirms the
 reservation. Then, the \fBbwctld\fR processes run the test and return the
@@ -74,9 +74,9 @@ to hosts without having to give full user accounts on the given systems.
 Users want the ability to run throughput tests to determine the achievable
 or available bandwidth between a pair of hosts. It is often useful to test
 to multiple points along a network path to determine the network
-characteristics along that path. Typically, users that want to do this path
+characteristics along that path. Typically, users who want to do this path
 decomposition have to directly contact the network/system administrators
-that control the hosts along the path. The administrator needs to either
+who control the hosts along the path. The administrator needs to either
 run half of the test for the user or give them a user account on the host.
 Also, network paths of interest are typically controlled by
 multiple administrators. These hurdles have made this kind of testing
@@ -101,12 +101,12 @@ man page.
 .PP
 \fBBWCTL\fR makes use of a distributed scheduling algorithm. Each host
 maintains a schedule independently. As a client requests a test, the two
-endpoints are contacted and each bwctld server responds with the first
+endpoints are contacted and each \fBbwctld\fR server responds with the first
 available open schedule slot. This enables on-demand tests to co-exist
 with regularly scheduled tests since regularly scheduled tests are implemented
 by having the client request tests on regular intervals. Different
 priorities can be implemented using the \fIevent_horizon\fR configuration
-directive to bwctld. (By allowing clients that implement regularly scheduled
+directive to \fBbwctld\fR. (By allowing clients that implement regularly scheduled
 tests to reserve their time slots further into the future.)
 .SH ARGUMENTS
 .SS Connection/Authentication Arguments:
@@ -153,7 +153,7 @@ The client can specify all the modes with which it is willing to communicate.
 The most strict mode that both the server and the client are willing to use
 will be selected.
 .IP Default:
-"AEO".
+"AEO"
 .RE
 .TP
 \fIauthscheme schemeopts\fR
@@ -172,7 +172,7 @@ from. If \fIkeyfile\fR is not specified, the user will be prompted for a
 \fIpassphrase\fR. \fIkeyfile\fR can be generated using the aespasswd(1)
 application.
 .IP "Default:"
-Unauthenticated.
+Unauthenticated
 .RE
 .PP
 \fIauthscheme\fR and \fIschemeopts\fR are only needed if authenticated
@@ -190,7 +190,7 @@ Unspecified (wild-card address selection).
 .RE
 .TP
 \fB\-c\fR \fIrecvhost[:port] [authmethod]\fR
-Specifies the host that will run the \fBIperf\fR, \fBthrulay\fR or \fBnuttcp\fR server.
+Specifies the host that will run the \fBIperf\fR, \fBThrulay\fR or \fBNuttcp\fR server.
 The :port suffix is optional
 and is only needed if \fBbwctld\fR is being run on a non-default
 port number. If an IPv6 address is being specified, note that the accepted
@@ -201,7 +201,7 @@ is not needed if the :port suffix is not being used.
 .RS
 .PP
 At least one of the \fB\-c\fR or \fB\-s\fR options must be specified. If
-one of them is not specified, it is assumed to be the localhost.
+one of them is not specified, it is assumed to be the local host.
 .PP
 \fIauthmethod\fR is a specifically ordered list of keywords that
 is only needed if authenticated communication is wanted with \fIrecvhost\fR.
@@ -223,15 +223,16 @@ methods are described with the \fB\-A\fR argument.
 .TP
 \fB\-k\fR
 .br
-This option has been deprecated. It was used to specify the
+This option has been deprecated. Originally, it was used to specify the
 keyfile for authentication.
 All authentication options can now be specified
 using the \fB\-A\fR argument.
 For the next several versions this option will
-report an error. Eventually it may be reclaimed for another purpose.
+report an error. Eventually, it may be reclaimed for another purpose.
+.RE
 .TP
 \fB\-s\fR \fIsendhost[:port] [authmethod]\fR
-Specifies the host that will run the \fBIperf\fR, \fBthrulay\fR or \fBnuttcp\fR client.
+Specifies the host that will run the \fBIperf\fR, \fBThrulay\fR or \fBNuttcp\fR client.
 The :port suffix is optional
 and is only needed if \fBbwctld\fR is being run on a non-default
 port number. If an IPv6 address is being specified, note that the accepted
@@ -242,7 +243,7 @@ is not needed if the :port suffix is not being used.
 .RS
 .PP
 At least one of the \fB\-c\fR or \fB\-s\fR options must be specified. If
-one of them is not specified, it is assumed to be the localhost.
+one of them is not specified, it is assumed to be the \fIlocal\fR.
 .PP
 \fIauthmethod\fR is a specifically ordered list of keywords that
 is only needed if authenticated communication is wanted with \fIsendhost\fR.
@@ -264,18 +265,18 @@ methods are described with the \fB\-A\fR argument.
 .TP
 \fB\-U\fR
 .br
-This option has been deprecated. It was used to specify the username
+This option has been deprecated. Originally, it was used to specify the username
 to identify the AES key for authentication.
 All authentication options can now be specified
 using the \fB\-A\fR argument.
 For the next several versions this option will
-report an error. Eventually it may be reclaimed for another purpose.
+report an error. Eventually, it may be reclaimed for another purpose.
 .SS Throughput Test Arguments:
 (These arguments were named to match their counterparts in \fBIperf\fR
 as closely as possible.)
 .TP
 \fB\-T\fR
-Specify which throughput tester to use
+Specify which throughput tester to use:
 .RS
 .IP \fBiperf\fR
 .IP \fBthrulay\fR
@@ -288,21 +289,21 @@ None. Selects a tool that the client and server have in common
 Limit UDP send rate to \fIbandwidth\fR (bits/sec).
 .RS
 .IP Default:
-1 Mb.
+1 Mb
 .RE
 .TP
 \fB\-i\fR \fIinterval\fR
 Report interval (seconds).
 .RS
 .IP Default:
-unset (no intervals reported).
+unset (no intervals reported)
 .RE
 .TP
 \fB\-l\fR \fIlen\fR
 length of read/write buffers (bytes).
 .RS
 .IP Default:
-8 KB TCP, 1470 bytes UDP.
+8 KB TCP, 1470 bytes UDP
 .RE
 .TP
 \fB\-P\fR \fInStreams\fR
@@ -320,7 +321,7 @@ Set the TOS (See RFC 1349) byte in packets.
 Duration of test (seconds).
 .RS
 .IP Default:
-10.
+10
 .RE
 .TP
 \fB\-u\fR
@@ -328,7 +329,7 @@ Duration of test (seconds).
 UDP test.
 .RS
 .IP Default:
-TCP test.
+TCP test
 .RE
 .TP
 \fB\-W\fR \fIwindow\fR
@@ -338,7 +339,7 @@ RTT information gathered from the control socket. If \fBbwctl\fR is unable
 to dynamically determine a window, the value \fIwindow\fR will be used.
 .RS
 .IP Default:
-Unset (system defaults).
+Unset (system defaults)
 .RE
 .TP
 \fB\-w\fR \fIwindow\fR
@@ -346,7 +347,7 @@ Socket buffer sizes (bytes). For TCP, this sets the TCP window size. For UDP,
 this sets the socket receive buffer size.
 .RS
 .IP Default:
-Unset (system defaults).
+Unset (system defaults)
 .RE
 .SS Scheduling Arguments:
 .TP
@@ -373,11 +374,11 @@ the max_time_error directive, to prevent a denial of service attack. If set,
 the server will reject any requests to test with a peer that has too high a
 timestamp error.
 .IP Default:
-Unset (Defaults to Set for systems without the \fBNTP\fR system calls.)
+Unset (Defaults to Set for systems without the \fBNTP\fR system calls)
 .RE
 .TP
 \fB\-I\fR \fIinterval\fR
-Specifies that \fBbwctl\fR should attempt to run a througput test every
+Specifies that \fBbwctl\fR should attempt to run a throughput test every
 \fIinterval\fR seconds.
 .RS
 .IP Default:
@@ -395,14 +396,14 @@ The \fIlongest\fR time is specified as a number of seconds.
 .IP Default:
 If \fIinterval\fR is set, the default is 50% of \fIinterval\fR. Otherwise,
 the default is twice the test duration \fItime\fR but no smaller than
-5 minutes. (See \fB\-t\fR).
+5 minutes. (See \fB\-t\fR.)
 .RE
 .TP
 \fB\-n\fR \fInIntervals\fR
 Number of tests to perform if the \fB\-I\fR option is set.
 .RS
 .IP Default:
-Continuous.
+Continuous
 .RE
 .TP
 \fB\-R\fR \fIalpha\fR
@@ -414,7 +415,7 @@ set to 10 percent, then \fBbwctl\fR will attempt to run a test every
 270\-330 seconds. This option is only useful with the \fB\-I\fR option.
 .RS
 .IP Default:
-0 (no randomness).
+0 (no randomness)
 .RE
 .SS Output Arguments:
 .TP
@@ -425,11 +426,11 @@ Specifies directory for results files if the \fB\-p\fR option is set.
 Syslog \fIfacility\fR to log messages to.
 .RS
 .IP Default:
-LOG_USER.
+LOG_USER
 .RE
 .TP
 \fB\-f\fR \fIunits\fR
-Specify the units for the tool to output using. The accepted values for \fIunits\fR are tool specific.
+Specify the units for the tool to use when displaying the results. The accepted values for \fIunits\fR are tool specific.
 .RS
 .IP Iperf:
 .RS
@@ -507,7 +508,7 @@ Only tested with versions 1.7.0 and 2.0.b of \fBIperf\fR.
 \fBbwctl -c somehost.example.com\fR
 .IP
 Run a default 10 second TCP test as soon as possible with
-localhost as the sender and somehost.example.com as the receiver, using
+\fIlocal\fR as the sender and somehost.example.com as the receiver, using
 whichever tools they have in common. Return the results from the receive side
 of the test.
 .LP
@@ -519,18 +520,18 @@ side of the test.
 \fBbwctl -x -c somehost.example.com -s otherhost.example.com\fR
 .IP
 Like the previous test, but with otherhost.example.com as the
-sender instead of localhost.
+sender instead of \fIlocal\fR.
 .LP
 \fBbwctl -t 30 -T iperf -s somehost.example.com\fR
 .IP
 Run a 30 second TCP \fBIperf\fR test with somehost.example.com as the sender
-and localhost as the receiver.
+and \fIlocal\fR as the receiver.
 .LP
 \fBbwctl -I 3600 -R 10 -t 10 -u -b 10m -s somehost.example.com\fR
 .IP
 Run a 10 second UDP test about every hour (3600 +/- 360 seconds) with
 the sender rate limited to 10 Mbits per second from somehost.example.com to
-localhost.
+\fIlocal\fR.
 .LP
 \fBbwctl -s somehost.example.com AE AESKEY someuser\fR
 .IP
@@ -550,6 +551,6 @@ For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
-Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
+Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings, and
 conclusions or recommendations expressed in this material are those of
 the author(s) and do not necessarily reflect the views of the NSF.

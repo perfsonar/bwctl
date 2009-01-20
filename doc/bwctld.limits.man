@@ -203,7 +203,7 @@ IP address of the connection. If the client connection is in authenticated or
 encrypted mode, the daemon does not do any filtering based upon the
 source address of the connection. (See the \fB\-A\fR option to \fBbwctl\fR
 and the \fIauthmode\fR option in \fBbwctld.conf\fR.)
-In these modes \fBbwctld\fR simply uses the \fIidentity\fR of the
+In these modes, \fBbwctld\fR simply uses the \fIidentity\fR of the
 connection to determine the \fIuserclass\fR limits. If the connection
 is made in open mode,  then \fBbwctld\fR first uses the source address to
 determine if \fBbwctld\fR should allow an open mode connection from
@@ -335,6 +335,6 @@ For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
-Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
+Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings, and
 conclusions or recommendations expressed in this material are those of
 the author(s) and do not necessarily reflect the views of the NSF.

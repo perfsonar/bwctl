@@ -61,7 +61,7 @@ it.
 ."	Description:	
 ."
 .PP
-The format of this file is as follows:
+The format of this file is:
 .RS
 .IP \(bu
 Comment lines are any line where the first non-whitespace character is '#'.
@@ -97,8 +97,8 @@ systems that either do not have the NTP system calls, or prefer not
 to configure NTP.
 .RS
 .PP
-Note, if the difference between the system clocks on the two endpoints
-is too great the eventual throughput test will fail when the
+Note: if the difference between the system clocks on the two endpoints
+is too great, the eventual throughput test will fail when the
 endpoints attempt to run the test at different times. The threshold
 for this difference is controlled using the \fIsync_fuzz\fR option.
 (If you set allow_unsync, you should set \fIsync_fuzz\fR to a reasonable
@@ -255,17 +255,17 @@ servers. These connections are used to verify clock timing between the
 servers and to exchange test results. This is a required part of the
 protocol used by
 .B BWCTL
-to run tests. However, this option at least allows system administrators
-to limit these connections to a specific port range which should allow
+to run tests. However, this option allows system administrators
+to limit these connections to a specific port range, which should allow
 .B BWCTL
 to work in a firewall environment. This option can be specified in two
-ways. First, as a 0 which would indicate that
+ways. First, as a 0, which would indicate that
 .B bwctld
 should allow the system to pick the port (ephemeral). Second, as a range.
 .I lowport
 must be a smaller value than
 .I highport
-and both numbers must be valid port values. (16 bit unsigned integer values)
+and both numbers must be valid port values. (16-bit unsigned integer values)
 .RS
 .IP Default:
 0
@@ -295,7 +295,7 @@ unset
 .RE
 .TP
 .BI src_node " nodename:port"
-Specify the address and port that \fBbwctld\fR will listen for requests on.
+Specify the address and port on which \fBbwctld\fR will listen for requests.
 \fInodename\fR can be specified using a DNS name or using the textual
 representation of the address. It is possible to set the source address
 without setting the \fIport\fR by simply leaving off the ':' and \fIport\fR
@@ -306,12 +306,12 @@ ensures the port number is distinct from the address specification.
 .IP Default:
 \fInodename\fR is wildcarded as any currently available address
 .br
-\fIport\fR is 4823.
+\fIport\fR is 4823
 .RE
 .TP
 .BI sync_fuzz " syncfuzz"
 This value is added to the NTP error estimates to increase the tolerance
-of bwctld to incomplete NTP configurations, or if the NTP system calls
+of \fBbwctld\fR to incomplete NTP configurations, or if the NTP system calls
 are not available. If NTP is unavailable to \fBbwctld\fR it assumes the
 clock is accurate to within one second plus the value of \fIsync_fuzz\fR.
 This option is specified as a floating point number
@@ -378,6 +378,6 @@ For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
-Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings and
+Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings, and
 conclusions or recommendations expressed in this material are those of
 the author(s) and do not necessarily reflect the views of the NSF.
