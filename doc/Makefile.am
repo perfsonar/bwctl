@@ -35,7 +35,7 @@ EXTRA_DIST = index.html architecture.html bwctl_arch.png bwctl_arch_servless.png
 if HAVE_MAN2HTML
 SUFFIXES += .man.html
 .man.man.html:
-	man2html -r $< > $@
+	man2html -r $< | grep -v Content-type | sed -e 's/..\/man[0-9]\///g' | sed -e 's/\.[0-9]\.html/.man.html/g' > $@
 
 EXTRA_DIST += bwctl.man.html bwctlrc.man.html bwctld.conf.man.html bwctld.limits.man.html bwctld.keys.man.html bwctld.man.html
 endif
