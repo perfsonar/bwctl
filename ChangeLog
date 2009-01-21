@@ -1,4 +1,112 @@
 ------------------------------------------------------------------------
+r518 | aaron | 2009-01-20 16:55:31 -0500 (Tue, 20 Jan 2009) | 3 lines
+
+Update the man2html part of the Makefile and point the externals.txt to the new location.
+
+
+------------------------------------------------------------------------
+r517 | aaron | 2009-01-20 09:36:51 -0500 (Tue, 20 Jan 2009) | 3 lines
+
+Update the documentation with Susan's edits.
+
+
+------------------------------------------------------------------------
+r516 | aaron | 2009-01-20 08:02:10 -0500 (Tue, 20 Jan 2009) | 8 lines
+
+Truncate the PID file before printing the PID to it. This fixes an issue where a high PID process would get restarted and the new instance would have with a low PID. The pid file would then look like:
+
+283
+8
+
+This would not work all that well.
+
+
+------------------------------------------------------------------------
+r515 | aaron | 2009-01-14 13:56:55 -0500 (Wed, 14 Jan 2009) | 3 lines
+
+Make sure all the documentation is included.
+
+
+------------------------------------------------------------------------
+r514 | aaron | 2009-01-14 08:53:46 -0500 (Wed, 14 Jan 2009) | 3 lines
+
+Document that the various _port configuration options should be set to a range.
+
+
+------------------------------------------------------------------------
+r513 | aaron | 2009-01-12 07:48:33 -0500 (Mon, 12 Jan 2009) | 3 lines
+
+Add the bwctl infosheet PDF to the doc directory
+
+
+------------------------------------------------------------------------
+r512 | aaron | 2009-01-12 07:40:03 -0500 (Mon, 12 Jan 2009) | 3 lines
+
+Update the thrulay website in the documentation
+
+
+------------------------------------------------------------------------
+r511 | aaron | 2009-01-09 13:03:28 -0500 (Fri, 09 Jan 2009) | 3 lines
+
+Minor documentation updates.
+
+
+------------------------------------------------------------------------
+r510 | aaron | 2009-01-09 11:39:06 -0500 (Fri, 09 Jan 2009) | 3 lines
+
+Minor updates for the man pages.
+
+
+------------------------------------------------------------------------
+r509 | aaron | 2009-01-06 10:24:01 -0500 (Tue, 06 Jan 2009) | 3 lines
+
+Minor wording fixes in the ntp description
+
+
+------------------------------------------------------------------------
+r508 | aaron | 2009-01-06 09:56:34 -0500 (Tue, 06 Jan 2009) | 5 lines
+
+Add a bwctlrc man page and convert the bwctld.conf to share the configuration options section with bwctlrc
+Add a brief thing on NTP configuration
+Have the index.html link to the firewalls html page
+
+
+------------------------------------------------------------------------
+r507 | aaron | 2008-12-18 15:07:59 -0500 (Thu, 18 Dec 2008) | 3 lines
+
+Minor spec file updates
+
+
+------------------------------------------------------------------------
+r506 | aaron | 2008-12-18 13:27:51 -0500 (Thu, 18 Dec 2008) | 4 lines
+
+Update the release todo slightly
+Update the changes, merging all the rc*s into a single 1.3
+
+
+------------------------------------------------------------------------
+r505 | aaron | 2008-12-18 13:01:26 -0500 (Thu, 18 Dec 2008) | 5 lines
+
+Update the TODO
+Swap the version # to 1.3 instead of 1.3rc6
+Make the RPM server depend on the I2util rpm since it has some tools we need
+
+
+------------------------------------------------------------------------
+r504 | aaron | 2008-12-18 10:42:02 -0500 (Thu, 18 Dec 2008) | 5 lines
+
+For the bwctl client, only set the AllowUnsync variable if it's not already set to true. This prevents it from overriding a user configured "allow_unsync" with false if they haven't specified a sync fuzz. 
+
+Only warn about swapping 'localhost' for a different address in the case where a fake daemon isn't being used.
+
+
+------------------------------------------------------------------------
+r503 | aaron | 2008-12-17 16:17:06 -0500 (Wed, 17 Dec 2008) | 3 lines
+
+Add some helper functions to avoid copying the I2Addr unnecessarily when doing the loopback checks in bwctl.c
+
+
+------------------------------------------------------------------------
 r502 | aaron | 2008-12-17 15:28:31 -0500 (Wed, 17 Dec 2008) | 3 lines
 
 Use the recently added convenience function I2AddrIsLoopback instead of rolling my own.
