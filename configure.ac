@@ -151,6 +151,8 @@ else
     AC_CHECK_HEADERS([I2util/util.h I2util/conf.h], ,AC_MSG_ERROR([Couldn't find I2util header files]), [AC_INCLUDES_DEFAULT])
 fi
 
+uname=`uname`
+
 #
 # --with-thrulay:
 # If not specified, or is 'yes' then:
@@ -165,38 +167,49 @@ AC_ARG_WITH(thrulay,
                            [defaults to using sub-dir if avail, otherwise installed. If <path> specified, attempts to use that.]),
                            with_thrulay=$withval, with_thrulay=yes)
 
-if test \( -z "$with_thrulay" -o "$with_thrulay" = "yes" \) -a -d thrulay; then
-    # Use local thrulay? - just setup LDFLAGS/CFLAGS so libtool can find
-    # it from the Makefile.am during build.
-    AC_MSG_WARN([Using local thrulay])
-    AC_CONFIG_SUBDIRS(thrulay)
-    TOP_BUILD_DIRS="thrulay $TOP_BUILD_DIRS"
-    thrulay_dir="`pwd`/thrulay"
-    LDFLAGS="-L$thrulay_dir/thrulay $LDFLAGS"
-    CFLAGS="-I$thrulay_dir $CFLAGS"
+case $uname in
+	SunOS*) 
+		with_thrulay=no
+	;;
+esac
+
+if test "$with_thrulay" = "no"; then
+	AC_MSG_WARN([Disabling thrulay support])
+	do_thrulay=false
 else
-    # else - libthrulay must already be built. If <path>, then add to
-    # LDFLAGS/CFLAGS - but ultimately, AC_SEARCH_LIBS and AC_CHECK_HEADERS
-    # must succeed.
-    if test -n "$with_thrulay" -a -d "$with_thrulay"; then
-        thrulay_dir=`dirname $with_thrulay`
-        case $thrulay_dir in
-            /*) ;; # already an absolute path
-            *) thrulay_dir="`pwd`/$thrulay_dir" ;;
-        esac
-        LDFLAGS="-L$with_thrulay/lib $LDFLAGS"
-        CFLAGS="-I$thrulay_dir/include $CFLAGS"
-    fi
-    AC_SEARCH_LIBS([thrulay_client_init],thrulay, ,AC_MSG_ERROR([Couldn't find thrulay library]))
-    use_sys_thrulay="true"
+	if test \( -z "$with_thrulay" -o "$with_thrulay" = "yes" \) -a -d thrulay; then
+	    # Use local thrulay? - just setup LDFLAGS/CFLAGS so libtool can find
+	    # it from the Makefile.am during build.
+	    AC_MSG_WARN([Using local thrulay])
+	    AC_CONFIG_SUBDIRS(thrulay)
+	    TOP_BUILD_DIRS="thrulay $TOP_BUILD_DIRS"
+	    thrulay_dir="`pwd`/thrulay"
+	    LDFLAGS="-L$thrulay_dir/thrulay $LDFLAGS"
+	    CFLAGS="-I$thrulay_dir $CFLAGS"
+	else
+	    # else - libthrulay must already be built. If <path>, then add to
+	    # LDFLAGS/CFLAGS - but ultimately, AC_SEARCH_LIBS and AC_CHECK_HEADERS
+	    # must succeed.
+	    if test -n "$with_thrulay" -a -d "$with_thrulay"; then
+	        thrulay_dir=`dirname $with_thrulay`
+	        case $thrulay_dir in
+	            /*) ;; # already an absolute path
+	            *) thrulay_dir="`pwd`/$thrulay_dir" ;;
+	        esac
+	        LDFLAGS="-L$with_thrulay/lib $LDFLAGS"
+	        CFLAGS="-I$thrulay_dir/include $CFLAGS"
+	    fi
+	    AC_SEARCH_LIBS([thrulay_client_init],thrulay, ,AC_MSG_ERROR([Couldn't find thrulay library]))
+	    use_sys_thrulay="true"
+		AC_DEFINE(USE_SYS_THRULAY, 1, [Use system installed thrulay library])
+	fi
+
+	AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_ERROR([Couldn't find thrulay header files]), [AC_INCLUDES_DEFAULT])
+	do_thrulay=true
+	AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throughput tool])
 fi
-do_thrulay=true
-AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_ERROR([Couldn't find thrulay header files]), [AC_INCLUDES_DEFAULT])
 
-AC_DEFINE(USE_SYS_THRULAY, 1, [Use system installed thrulay library])
 AM_CONDITIONAL(USE_SYS_THRULAY, test x$use_sys_thrulay = xtrue)
-
-AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throughput tool])
 AM_CONDITIONAL(TOOL_THRULAY, test x$do_thrulay = xtrue)
 
 AC_ARG_ENABLE(iperf,

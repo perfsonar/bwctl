@@ -22,10 +22,14 @@ bin_PROGRAMS	= bwctl
 bwctl_SOURCES	= bwctl.c bwctlP.h
 bwctl_CFLAGS	= -I..
 
+if TOOL_THRULAY
 if USE_SYS_THRULAY
-BWLIBTHRULAY	= -lthrulay
+BWLIBTHRULAY = -lthrulay
 else
-BWLIBTHRULAY	= ../thrulay/thrulay/libthrulay.la
+BWLIBTHRULAY = ../thrulay/thrulay/libthrulay.la
+endif
+else
+BWLIBTHRULAY =
 endif
 
 bwctl_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) -lI2util
