@@ -272,8 +272,12 @@ using the \fB\-A\fR argument.
 For the next several versions this option will
 report an error. Eventually, it may be reclaimed for another purpose.
 .SS Throughput Test Arguments:
-(These arguments were named to match their counterparts in \fBIperf\fR
-as closely as possible.)
+The arguments were named to match their counterparts in \fBIperf\fR
+as closely as possible.
+.PP
+Some of the options are not available for some of the
+throughput testers. BWCTL does not support UDP tests, changing the output format or
+changing the output units for either \fBNuttcp\fR or \fBThrulay\fR.
 .TP
 \fB\-T\fR
 Specify which throughput tester to use:

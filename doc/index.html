@@ -93,6 +93,9 @@ manual page.)
 <ul>
     <li>Allows for different throughput testing tools. Currently supported are <b><a href="http://dast.nlanr.net/Projects/Iperf/">Iperf</a></b>, <b><a href="http://thrulay-hd.sourceforge.net/">Thrulay</a></b> and <b><a
 href="http://www.lcp.nrl.navy.mil/nuttcp/">Nuttcp</a></b>. Use the -T option on bwctl to specify which throughput testing tool to use. Use bwctl -h to see which are supported.</li>
+    <ul>
+        <li>NOTE: Some of the throughput test options are not available for some of the testers. BWCTL does not support UDP tests, changing the output format or changing the output units with either <b>Nuttcp</b> or <b>Thrulay</b>.</li>
+    </ul>
     <li>Allows throughput tests to use multiple, parallel streams. This can be specified with the -P option in the bwctl client.</li>
     <li>Allows for UDP tests with bandwidth limits of higher than 4.3Gbps. This only works with 1.3 clients and servers.</li>
     <li>Allows for comma-separated value output for <i>Iperf</i>. Add "-y c" to the bwctl command line client to use it.</li>
