@@ -175,7 +175,7 @@ Information on the client is in the bwctl(1) manual page.
 For more of an overview of the full functionality and architecture see
 the \%http://e2epi.internet2.edu/bwctl/ web site.
 .PP
-For details on \fBIperf\fR, see the \%http://dast.nlanr.net/Projects/Iperf/
+For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
 .PP
 For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
