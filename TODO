@@ -11,3 +11,10 @@ tool specific output flags
     csv output from iperf
     nmwg output?
 separate common pieces from man-pages similar to owamp
+-----
+And one other minor request: Could it try iperf first, before nuttcp, so we dont see this nuttcp warnings every time?
+
+That is from the client spawning off the server... It is trying all the tools to see what is available to it, then the client contacts it to find out what the server supports. (This is what I mean by a more complicated mode...)
+
+There may be a way to disable nuttcp using the .bwctlrc file... Or there may at least be an easy way to add that there.
+-----
