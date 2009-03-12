@@ -371,7 +371,7 @@ _BWLWriteServerOK(
 
     if(!_BWLStateIsSetup(cntrl)){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-                "_BWLWriteServerOK:called in wrong state.");
+                "_BWLWriteServerOK: called in wrong state.");
         return BWLErrFATAL;
     }
 
@@ -386,9 +386,8 @@ _BWLWriteServerOK(
     *(uint8_t *)&buf[15] = code & 0xff;
     memcpy(&buf[16],cntrl->writeIV,16);
     if((len = I2Writeni(cntrl->sockfd,buf,32,intr)) != 32){
-        if((len < 0) && *intr && (errno == EINTR)){
-            return BWLErrFATAL;
-        }
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "_BWLWriteServerOK: Unable to write ServerOK message");
         return BWLErrFATAL;
     }
 
@@ -401,9 +400,8 @@ _BWLWriteServerOK(
         _BWLEncodeTimeStamp(&buf[0],&tstamp);
         memset(&buf[8],0,8);
         if(_BWLSendBlocksIntr(cntrl,buf,1,intr) != 1){
-            if((len < 0) && *intr && (errno == EINTR)){
-                return BWLErrFATAL;
-            }
+            BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "_BWLWriteServerOK: Unable to write ServerOK message");
             return BWLErrFATAL;
         }
         cntrl->state = _BWLStateRequest;
@@ -412,9 +410,8 @@ _BWLWriteServerOK(
         cntrl->state = _BWLStateInvalid;
         memset(&buf[0],0,16);
         if((len = I2Writeni(cntrl->sockfd,buf,16,intr)) != 16){
-            if((len < 0) && *intr && (errno == EINTR)){
-                return BWLErrFATAL;
-            }
+            BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "_BWLWriteServerOK: Unable to write ServerOK message");
             return BWLErrFATAL;
         }
     }
@@ -545,6 +542,8 @@ BWLReadRequestType(
     if(n != 1){
         cntrl->state = _BWLStateInvalid;
         if((n < 0) && *intr && (errno == EINTR)){
+            BWLError(cntrl->ctx,BWLErrDEBUG,BWLErrUNKNOWN,
+                    "BWLReadRequestType: Read interrupted by signal.");
             return BWLReqInvalid;
         }
         return BWLReqSockClose;
@@ -560,7 +559,7 @@ BWLReadRequestType(
             (!_BWLStateIs(_BWLStateTest,cntrl) && (msgtype == 3))){
         cntrl->state = _BWLStateInvalid;
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-                "BWLReadRequestType: Invalid request.");
+                "BWLReadRequestType: Invalid request type received.");
         return BWLReqInvalid;
     }
 

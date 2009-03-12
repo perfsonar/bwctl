@@ -311,8 +311,11 @@ BWLControlAccept(
 
     (void)BWLContextConfigGetU32(ctx,BWLAccessPriority,&access_prio);
 
-    if(connfd < 0)
+    if(connfd < 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                "BWLControlAccept: Invalid socket fd");
         return NULL;
+    }
 
     if(retn_on_intr){
         intr = retn_on_intr;
@@ -386,6 +389,7 @@ BWLControlAccept(
 
     /* generate 16 random bytes of challenge and save them away. */
     if(I2RandomBytes(ctx->rand_src,challenge, 16) != 0){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"I2RandomBytes(): %M");
         *err_ret = BWLErrFATAL;
         goto error;
     }
@@ -398,6 +402,8 @@ BWLControlAccept(
     if( (rc = _BWLWriteServerGreeting(cntrl,mode_offered,
                     challenge,intr)) < BWLErrOK){
         *err_ret = (BWLErrSeverity)rc;
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "BWLControlAccept(): Unable to write ServerGreeting message");
         goto error;
     }
 
@@ -415,6 +421,8 @@ BWLControlAccept(
     if((rc = _BWLReadClientGreeting(cntrl,&cntrl->mode,rawtoken,
                     cntrl->readIV,intr)) < BWLErrOK){
         *err_ret = (BWLErrSeverity)rc;
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                "BWLControlAccept(): Unable to read ClientGreeting message");
         goto error;
     }
     if(!BWLGetTimeStamp(ctx,&timeend)){
@@ -425,9 +433,11 @@ BWLControlAccept(
     cntrl->rtt_bound = BWLNum64Sub(timeend.tstamp,timestart.tstamp);
 
     /* insure that exactly one mode is chosen */
-    if(    (cntrl->mode != BWL_MODE_OPEN) &&
-            (cntrl->mode != BWL_MODE_AUTHENTICATED) &&
-            (cntrl->mode != BWL_MODE_ENCRYPTED)){
+    if(    (cntrl->mode == BWL_MODE_OPEN) ||
+            (cntrl->mode == BWL_MODE_AUTHENTICATED) ||
+            (cntrl->mode == BWL_MODE_ENCRYPTED)){
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                "BWLControlAccept(): Invalid mode(%d) in request.",cntrl->mode);
         *err_ret = BWLErrFATAL;
         goto error;
     }
@@ -453,8 +463,10 @@ BWLControlAccept(
          * getkey fails to find username to minimize vulnerability
          * to timing attacks.
          */
-        getkey_success = _BWLCallGetAESKey(cntrl->ctx,
-                cntrl->userid_buffer,binKey,err_ret);
+        getkey_success = _BWLCallGetAESKey(cntrl->ctx,cntrl->userid_buffer,
+                binKey,err_ret);
+
+        /* CallGetAESKey failed due to invalid program state */
         if(!getkey_success && (*err_ret != BWLErrOK)){
             (void)_BWLWriteServerOK(cntrl,BWL_CNTRL_FAILURE,(BWLNum64)0,0,intr);
             goto error;

@@ -607,7 +607,7 @@ run_tool(
 BWLBoolean
 _BWLEndpointStart(
         BWLTestSession  tsess,
-        uint16_t       *peerport,
+        uint16_t        *peerport,
         BWLErrSeverity  *err_ret
         )
 {
@@ -631,6 +631,8 @@ _BWLEndpointStart(
     BWLRequestType      msgtype = BWLReqInvalid;
     uint32_t            mode;
     int                 dead_child;
+    char                nambuf[MAXHOSTNAMELEN+8]; /* 8 chars for '[]:port\0' */
+    size_t              nambuflen = sizeof(nambuf);
 
 
     if( !(tsess->localfp = tfile(tsess)) ||
@@ -858,9 +860,13 @@ ACCEPT:
                 goto ACCEPT;
             }
             BWLError(ctx,BWLErrFATAL,errno,
-                    "Unable to accept() endpoint cntrl: %M");
+                    "Endpoint peer connection could not accept(): listening at port(%d) : %M",
+                    *peerport);
             fprintf(tsess->localfp,
-                    "bwctl: Remote \'sender\' never initiated handshake - canceling");
+                    "bwctl: Remote \'sender\' (%s) never initiated handshake: listening at port(%d) - canceling\n",
+                    I2AddrNodeName(tsess->test_spec.sender,nambuf,&nambuflen),
+                    *peerport
+                   );
             if(ipf_intr){
                 BWLError(tsess->cntrl->ctx,BWLErrFATAL,
                         BWLErrINVALID,
@@ -927,22 +933,24 @@ ACCEPT:
 
         ep->rcntrl = BWLControlOpen(ctx,local,remote,mode,"endpoint",NULL,
                 &tavail,err_ret);
-    }
 
-    if(!ep->rcntrl){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
-                "Endpoint: Unable to connect to Peer!: %M");
-        fprintf(tsess->localfp,
-                    "bwctl: Unable to initiate peer handshake - canceling");
-        if(ipf_intr){
-            BWLError(tsess->cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-                    "Endpoint: Signal = %d",signo_caught);
+        if(!ep->rcntrl){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
+                    "Endpoint: Unable to connect to Peer(%s): %M",
+                    I2AddrNodeServName(remote,nambuf,&nambuflen)
+                    );
+            nambuflen=sizeof(nambuf);
+            fprintf(tsess->localfp,
+                    "bwctl: Unable to initiate peer handshake with %s - canceling\n",
+                    I2AddrNodeServName(remote,nambuf,&nambuflen)
+                    );
+            nambuflen=sizeof(nambuf);
         }
-        goto end;
     }
 
-    if(ipf_term || ipf_alrm)
+    if(!ep->rcntrl || ipf_term || ipf_alrm){
         goto end;
+    }
 
     /*
      * Setup dynamic window if tcp test.
