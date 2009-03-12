@@ -207,7 +207,7 @@ different from that of iperf_port and thrulay_port.
 5001
 .RE
 .TP
-.BI peer_ports " 0 | lowport-highport"
+.BI peer_port " 0 | lowport-highport"
 Specify the port range that will be used on the local host for peer
 connections to other
 .B bwctld

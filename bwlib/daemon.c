@@ -121,7 +121,7 @@ BWLDaemonParseArg(
         }
 
         if( !BWLContextRegisterMemory(ctx,pports)){
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Failed to \"register\" peer_ports cleanup");
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Failed to \"register\" peer_port cleanup");
             return -1;
         }
 

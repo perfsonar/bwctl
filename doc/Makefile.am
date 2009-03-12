@@ -24,6 +24,8 @@ dist_man8_MANS = bwctld.man
 
 SOELIM=soelim
 
+CLEANFILES	= bwctlrc.man bwctld.conf.man
+
 SUFFIXES = .man .ms
 
 .ms.man:
