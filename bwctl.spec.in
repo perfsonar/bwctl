@@ -61,20 +61,30 @@ make
 rm -rf $RPM_BUILD_ROOT 
 
 %post server
-/sbin/chkconfig --add bwctld
-/usr/sbin/useradd -r -s /bin/nologin -d /tmp bwctl || :
+if [ "$1" = "1" ]; then
+    # If this is a first time install, add the users and enable it by default
+	/sbin/chkconfig --add bwctld
+	/usr/sbin/useradd -r -s /bin/nologin -d /tmp bwctl || :
+fi
 
 %preun server
-if [ $1 -eq 0 ]; then
+if [ "$1" = "0" ]; then
+    # If this is an actual uninstall, stop the service and remove its links
     /sbin/chkconfig --del bwctld
     /sbin/service bwctld stop
 fi
 
 %postun server
-/usr/sbin/userdel bwctl || :
-if [ $1 -ge 1 ]; then
-    /sbin/service bwctld stop
+if [ "$1" = "0" ]; then
+    # If this is an actual uninstall, delete the user after the software has been removed
+	/usr/sbin/userdel bwctl || :
 fi
+
+if [ "$1" = "1" ]; then
+    # If this is an upgrade, restart the service
+    /sbin/service bwctld restart
+fi
+
 
 %files client
 %defattr(-,root,root,0755)
