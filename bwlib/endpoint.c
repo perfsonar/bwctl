@@ -631,6 +631,7 @@ _BWLEndpointStart(
     BWLRequestType      msgtype = BWLReqInvalid;
     uint32_t            mode;
     int                 dead_child;
+    int                 alarm_set;
     char                nambuf[MAXHOSTNAMELEN+8]; /* 8 chars for '[]:port\0' */
     size_t              nambuflen = sizeof(nambuf);
 
@@ -1132,6 +1133,11 @@ ACCEPT:
     }
 
     /*
+     * Did alarm go off? (Is the test hung?)
+     */
+    alarm_set = ipf_alrm;
+
+    /*
      * We ran into an issue where the sender would finish and send a
      * StopSession message before the receiver was finished (The race condition
      * described in comments below). The idea with the subsequent sleep is to
@@ -1285,6 +1291,14 @@ ACCEPT:
             fprintf(tsess->localfp,"bwctl: remote peer cancelled test\n");
         }
 
+    }
+
+    /*
+     * Report if the local test had to be killed.
+     */
+    if(alarm_set){
+            fprintf(tsess->localfp,
+                    "bwctl: local tool did not complete in allocated time frame and was killed\n");
     }
 
     /*

@@ -18,14 +18,8 @@
  *			architecture dependant things in this file. And
  *			hopefully to minimize the impact of any changes
  *			to the actual protocol message formats.
- 
- *			The message templates are here for convienent
- *			reference for byte offsets in the code - for
- *			explainations of the fields please see the
- *			relevant specification document.
- *			(currently draft-ietf-ippm-owdp-03.txt)
  *
- *			(ease of referenceing byte offsets is also why
+ *			(ease of referenceing byte offsets is why
  *			the &buf[BYTE] notation is being used.)
  *
  *    License:

@@ -3,11 +3,11 @@
  *      $Id$
  */
 /************************************************************************
- *                                                                        *
- *                          Copyright (C)  2003                            *
+ *                                                                      *
+ *                          Copyright (C)  2003                         *
  *                              Internet2                               *
  *                          All Rights Reserved                         *
- *                                                                        *
+ *                                                                      *
  ************************************************************************/
 /*
  *    File:            sapi.c
@@ -433,9 +433,9 @@ BWLControlAccept(
     cntrl->rtt_bound = BWLNum64Sub(timeend.tstamp,timestart.tstamp);
 
     /* insure that exactly one mode is chosen */
-    if(    (cntrl->mode == BWL_MODE_OPEN) ||
-            (cntrl->mode == BWL_MODE_AUTHENTICATED) ||
-            (cntrl->mode == BWL_MODE_ENCRYPTED)){
+    if(    (cntrl->mode != BWL_MODE_OPEN) &&
+            (cntrl->mode != BWL_MODE_AUTHENTICATED) &&
+            (cntrl->mode != BWL_MODE_ENCRYPTED)){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                 "BWLControlAccept(): Invalid mode(%d) in request.",cntrl->mode);
         *err_ret = BWLErrFATAL;
