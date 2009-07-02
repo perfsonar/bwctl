@@ -144,7 +144,11 @@ IperfAvailable(
      * an identifying version string into the pipe.
      */
     if(0 == pid){
-        /* Redirect stderr from iperf into fdpipe[1]*/
+        /*
+         * Redirect stdout/stderr from iperf into fdpipe[1]. iperf by default
+         * outputs to stderr, but debian patches it to output to stdout.
+         */
+        dup2(fdpipe[1],STDOUT_FILENO);
         dup2(fdpipe[1],STDERR_FILENO);
         close(fdpipe[0]);
         close(fdpipe[1]);
