@@ -2059,10 +2059,13 @@ main(int argc, char *argv[])
             }
             else if(opts.group[0] == '-'){
                 setgroup = strtoul(&opts.group[1],NULL,10);
-                if(errno || !getgrgid(setgroup))
-                    setgroup = 0;
+                if(errno || !getgrgid(setgroup)) {
+                    I2ErrLog(errhand,"Invalid user/-G option: %s",
+                        opts.group);
+                    exit(1);
+                }
             }
-            if(!setgroup){
+            else {
                 I2ErrLog(errhand,"Invalid user/-G option: %s",
                         opts.group);
                 exit(1);
