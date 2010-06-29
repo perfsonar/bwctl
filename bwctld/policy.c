@@ -853,9 +853,9 @@ parselimits(
  *
  * 	The main reason for defining the policy in the bwlib library
  * 	like this was that it made it possible to share the policy
- * 	code between client/server applications such as owping and
+ * 	code between client/server applications such as bwctl and
  * 	bwctld. Also, it is a good example of how this can be done for
- * 	custom appliations (such as powstream).
+ * 	custom appliations.
  *
  * In Args:	
  *
