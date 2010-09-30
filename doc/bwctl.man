@@ -289,6 +289,70 @@ Specify which throughput tester to use:
 None. Selects a tool that the client and server have in common
 .RE
 .TP
+\fB\-S\fR \fITOS\fR
+.br
+Set the TOS byte in the sending packets.
+.IP Default:
+None.
+.RE
+.TP
+\fB\-D\fR \fIDSCP\fR
+.br
+Set an RFC 2474 style DSCP value for the TOS byte in the sending packets. This
+can be set using a 6-bit numeric value in decimal, hex, or octal. Additionally,
+the following set of symbolic
+\fBDSCP\fR name constants are understood. (Example applications are taken
+from RFC 4594.)
+.RE
+.RE
+.TS
+box;
+cb	|	cb	|	cb	|	cb
+=	|	=	|	=	|	=
+lb	|	l	|	c	|	c	.
+Name	Value	Service Class	Examples
+NONE	000000	Standard	Undifferentiated
+DEFAULT	\^	\^	\^
+DF	\^	\^	\^
+CS0	\^	\^	\^
+_
+CS1	001000	Low-Priority Data	No BW assurance
+_
+AF11	001010	High-Throughput Data	Store and forward
+AF12	001100	\^	\^
+AF13	001110	\^	\^
+_
+CS2	010000	OAM	OAM&P
+_
+AF21	010010	Low-Latency Data	Web-based ordering
+AF22	010100	\^	\^
+AF23	010110	\^	\^
+_
+CS3	011000	Broadcast Video	TV & live events
+_
+AF31	011010	Multimedia Streaming	Streaming video and audio
+AF32	011100	\^	\^
+AF33	011110	\^	\^
+_
+CS4	100000	Real-Time Interactive	Video conf and gaming
+_
+AF41	100010	Multimedia Conferencing	H.323 video conferencing
+AF42	100100	\^	\^
+AF43	100110	\^	\^
+_
+CS5	101000	Signaling	Video conf and gaming
+_
+EF	101110	Telephony	IP Telephony bearer
+_
+CS6	110000	Network Control	Network routing
+_
+CS7	111000
+.TE
+.RS
+.IP Default:
+Unset.
+.RE
+.TP
 \fB\-b\fR \fIbandwidth\fR
 Limit UDP send rate to \fIbandwidth\fR (bits/sec).
 .RS

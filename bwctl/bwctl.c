@@ -63,6 +63,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -78,6 +79,7 @@
 #include <sys/wait.h>
 #include <pwd.h>
 
+#include <I2util/addr.h>
 #include <bwlib/bwlib.h>
 
 
@@ -156,6 +158,7 @@ print_test_args(
             "             [MUST SPECIFY AT LEAST ONE OF -c/-s]\n"
            );
     fprintf(stderr,
+            "  -D DSCP        RFC 2474 style DSCP value for TOS byte\n"
             "  -S TOS         type-of-service for outgoing packets\n"
            );
     fprintf(stderr,
@@ -1082,6 +1085,213 @@ LoadConfig(
     return True;
 }
 
+static BWLBoolean
+parse_typeP(
+        char        *tspec
+        )
+{
+    char            *tstr,*endptr;
+    unsigned long   tlng;
+    uint8_t         tosbyte = 0;
+
+    if(!tspec) return False;
+
+    tstr = tspec;
+    endptr = NULL;
+    while(isspace((int)*tstr)) tstr++;
+    tlng = strtoul(optarg,&endptr,0);
+
+    /*
+     * Try interpreting as hex DSCP value.
+     * Verify user only sets
+     * last 6 bits (DSCP must fit in 6 bits - RFC 2474.)
+     */
+    if((*endptr == '\0') && !(tlng & (unsigned)~0x3F)){
+        /* save in tosbyte - uses high-order 6 bits instead of low */
+        tosbyte = tlng << 2;
+        tstr = endptr;
+    }
+
+    /*
+     * It is useful to define some symbolic constants for the -D (DSCP)
+     * value. RFC 4594 seemed a reasonable collection of these useful
+     * constants.
+     *
+     * Table of constants from RFC 4594:
+     *
+     *
+   *********************************************************************
+
+    ------------------------------------------------------------------
+   |   Service     |  DSCP   |    DSCP     |       Application        |
+   |  Class Name   |  Name   |    Value    |        Examples          |
+   |===============+=========+=============+==========================|
+   |Network Control|  CS6    |   110000    | Network routing          |
+   |---------------+---------+-------------+--------------------------|
+   | Telephony     |   EF    |   101110    | IP Telephony bearer      |
+   |---------------+---------+-------------+--------------------------|
+   |  Signaling    |  CS5    |   101000    | IP Telephony signaling   |
+   |---------------+---------+-------------+--------------------------|
+   | Multimedia    |AF41,AF42|100010,100100|   H.323/V2 video         |
+   | Conferencing  |  AF43   |   100110    |  conferencing (adaptive) |
+   |---------------+---------+-------------+--------------------------|
+   |  Real-Time    |  CS4    |   100000    | Video conferencing and   |
+   |  Interactive  |         |             | Interactive gaming       |
+   |---------------+---------+-------------+--------------------------|
+   | Multimedia    |AF31,AF32|011010,011100| Streaming video and      |
+   | Streaming     |  AF33   |   011110    |   audio on demand        |
+   |---------------+---------+-------------+--------------------------|
+   |Broadcast Video|  CS3    |   011000    |Broadcast TV & live events|
+   |---------------+---------+-------------+--------------------------|
+   | Low-Latency   |AF21,AF22|010010,010100|Client/server transactions|
+   |   Data        |  AF23   |   010110    | Web-based ordering       |
+   |---------------+---------+-------------+--------------------------|
+   |     OAM       |  CS2    |   010000    |         OAM&P            |
+   |---------------+---------+-------------+--------------------------|
+   |High-Throughput|AF11,AF12|001010,001100|  Store and forward       |
+   |    Data       |  AF13   |   001110    |     applications         |
+   |---------------+---------+-------------+--------------------------|
+   |    Standard   | DF (CS0)|   000000    | Undifferentiated         |
+   |               |         |             | applications             |
+   |---------------+---------+-------------+--------------------------|
+   | Low-Priority  |  CS1    |   001000    | Any flow that has no BW  |
+   |     Data      |         |             | assurance                |
+    ------------------------------------------------------------------
+
+                Figure 3. DSCP to Service Class Mapping
+   *********************************************************************
+     *
+     * Mapping this to the full binary tos byte, and including CS? and
+     * EF symbolic names...
+     *
+     *
+     * Symbolic constants           6-bit DSCP
+     *
+     * none/default/CS0             000 000
+     * CS1                          001 000
+     * AF11                         001 010
+     * AF12                         001 100
+     * AF13                         001 110
+     * CS2                          010 000
+     * AF21                         010 010
+     * AF22                         010 100
+     * AF23                         010 110
+     * CS3                          011 000
+     * AF31                         011 010
+     * AF32                         011 100
+     * AF33                         011 110
+     * CS4                          100 000
+     * AF41                         100 010
+     * AF42                         100 100
+     * AF43                         100 110
+     * CS5                          101 000
+     * EF                           101 110
+     * CS6                          110 000
+     * CS7                          111 000
+     */
+
+    else if(!strncasecmp(tstr,"none",5)){
+        /* standard */
+        tstr += 4;
+    }
+    else if(!strncasecmp(tstr,"default",8)){
+        /* standard */
+        tstr += 7;
+    }
+    else if(!strncasecmp(tstr,"df",3)){
+        /* standard */
+        tstr += 2;
+    }
+    else if(!strncasecmp(tstr,"ef",3)){
+        /* Expedited Forwarding */
+        tosbyte = 0xB8;
+        tstr += 2;
+    }
+    else if((toupper(tstr[0]) == 'C') && (toupper(tstr[1]) == 'S')){
+        switch(tstr[2]){
+            case '0':
+                break;
+            case '1':
+                tosbyte = 0x20;
+                break;
+            case '2':
+                tosbyte = 0x40;
+                break;
+            case '3':
+                tosbyte = 0x60;
+                break;
+            case '4':
+                tosbyte = 0x80;
+                break;
+            case '5':
+                tosbyte = 0xA0;
+                break;
+            case '6':
+                tosbyte = 0xC0;
+                break;
+            case '7':
+                tosbyte = 0xE0;
+                break;
+            default:
+                goto FAILED;
+                break;
+        }
+        /* forward tstr to end of accepted pattern */
+        tstr += 3;
+    }
+    else if(toupper(tstr[0] == 'A') && (toupper(tstr[1]) == 'F')){
+        switch(tstr[2]){
+            case '1':
+                tosbyte = 0x20;
+                break;
+            case '2':
+                tosbyte = 0x40;
+                break;
+            case '3':
+                tosbyte = 0x60;
+                break;
+            case '4':
+                tosbyte = 0x80;
+                break;
+            default:
+                goto FAILED;
+                break;
+        }
+        switch(tstr[3]){
+            case '1':
+                tosbyte |= 0x08;
+                break;
+            case '2':
+                tosbyte |= 0x10;
+                break;
+            case '3':
+                tosbyte |= 0x18;
+                break;
+            default:
+                goto FAILED;
+                break;
+        }
+        /* forward tstr to end of accepted pattern */
+        tstr += 4;
+    }
+
+    /*
+     * Forward past any whitespace and make sure arg is clean.
+     */
+    while(isspace((int)*tstr)) tstr++;
+    if(*tstr != '\0'){
+        goto FAILED;
+    }
+
+    app.opt.tos = tosbyte;
+
+    return True;
+
+FAILED:
+    I2ErrLogP(eh,EINVAL,"Invalid DSCP value (-D): %M");
+    return False;
+}
+
 int
 main(
         int    argc,
@@ -1101,7 +1311,7 @@ main(
     char                optstring[128];
     static char         *conn_opts = "a:AB:";
     static char         *out_opts = "d:e:f:I:L:n:pqrR:vVxy:";
-    static char         *test_opts = "ab:c:i:l:P:s:S:t:T:uw:W:";
+    static char         *test_opts = "ab:c:D:i:l:P:s:S:t:T:uw:W:";
     static char         *gen_opts = "hW";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
@@ -1382,12 +1592,26 @@ main(
                 break;
 
                 /* TEST OPTIONS */
-            case 'T':
-                if( (app.opt.tool_id = BWLToolGetID(ctx,optarg)) ==
-                        BWL_TOOL_UNDEFINED){
-                    char    buf[BWL_MAX_TOOLNAME + 20];
-                    snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",optarg);
-                    usage(progname,buf);
+            case 'b':
+                if( !(tstr = strdup(optarg))){
+                    I2ErrLog(eh, "strdup(): %M");
+                    exit(1);
+                }
+                if(I2StrToNum(&app.opt.bandWidth,tstr) != 0){
+                    usage(progname, 
+                            "Invalid value. (-b) Positive integer expected");
+                    exit(1);
+                }
+                free(tstr);
+                tstr = NULL;
+                break;
+            case 'D':
+                if(app.opt.tos){
+                    usage(progname,
+                            "Invalid option \'-D\'. TOS byte already specified");
+                    exit(1);
+                }
+                if(!parse_typeP(optarg)){
                     exit(1);
                 }
                 break;
@@ -1412,6 +1636,45 @@ main(
                 free(tstr);
                 tstr = NULL;
                 break;
+            case 'P':
+                app.opt.parallel =strtoul(optarg, &tstr, 10);
+                if (*tstr != '\0') {
+                    usage(progname, 
+                            "Invalid value. Positive integer expected");
+                    exit(1);
+                }
+                break;
+            case 'S':
+                if(app.opt.tos){
+                    usage(progname,
+                            "Invalid option \'-S\'. TOS byte already specified");
+                    exit(1);
+                }
+                app.opt.tos = strtoul(optarg, &tstr, 0);
+                if((*tstr != '\0') || (app.opt.tos > 0xff) ||
+                        (app.opt.tos & 0x01)){
+                    usage(progname,
+                            "Invalid value for TOS. (-S)");
+                    exit(1);
+                }
+                break;
+            case 'T':
+                if( (app.opt.tool_id = BWLToolGetID(ctx,optarg)) ==
+                        BWL_TOOL_UNDEFINED){
+                    char    buf[BWL_MAX_TOOLNAME + 20];
+                    snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",optarg);
+                    usage(progname,buf);
+                    exit(1);
+                }
+                break;
+            case 't':
+                app.opt.timeDuration = strtoul(optarg, &tstr, 10);
+                if((*tstr != '\0') || (app.opt.timeDuration == 0)){
+                    usage(progname, 
+                            "Invalid value \'-t\'. Positive integer expected");
+                    exit(1);
+                }
+                break;
             case 'u':
                 app.opt.udpTest = True;
                 break;
@@ -1435,44 +1698,6 @@ main(
                 }
                 free(tstr);
                 tstr = NULL;
-                break;
-            case 'P':
-                app.opt.parallel =strtoul(optarg, &tstr, 10);
-                if (*tstr != '\0') {
-                    usage(progname, 
-                            "Invalid value. Positive integer expected");
-                    exit(1);
-                }
-                break;
-            case 'S':
-                app.opt.tos = strtoul(optarg, &tstr, 0);
-                if((*tstr != '\0') || (app.opt.tos > 0xff) ||
-                        (app.opt.tos & 0x01)){
-                    usage(progname,
-                            "Invalid value for TOS. (-S)");
-                    exit(1);
-                }
-                break;
-            case 'b':
-                if( !(tstr = strdup(optarg))){
-                    I2ErrLog(eh, "strdup(): %M");
-                    exit(1);
-                }
-                if(I2StrToNum(&app.opt.bandWidth,tstr) != 0){
-                    usage(progname, 
-                            "Invalid value. (-b) Positive integer expected");
-                    exit(1);
-                }
-                free(tstr);
-                tstr = NULL;
-                break;
-            case 't':
-                app.opt.timeDuration = strtoul(optarg, &tstr, 10);
-                if((*tstr != '\0') || (app.opt.timeDuration == 0)){
-                    usage(progname, 
-                            "Invalid value \'-t\'. Positive integer expected");
-                    exit(1);
-                }
                 break;
                 /* Generic options.*/
             case 'a':
@@ -1928,7 +2153,7 @@ AGAIN:
                  * Try "localhost" server.
                  */
                 I2Addr laddr = BWLAddrByLocalControl(first.cntrl);
-                if(!I2AddrSetPort(laddr,BWL_CONTROL_SERVICE_NUMBER)){
+                if(!I2AddrSetPort(laddr,(uint16_t)BWL_CONTROL_SERVICE_NUMBER)){
                     if(laddr) I2AddrFree(laddr);
                     I2ErrLog(eh,"Unable to determine address for local server");
                     exit_val = 1;
