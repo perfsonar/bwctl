@@ -49,7 +49,7 @@ limit root with \
 	duration=30, \
 	allow_udp=on, \
 	allow_tcp=on, \
-	allow_open_mode=off
+	allow_open_mode=on
 
 # minimal everything
 # send hackers and bad nets here
