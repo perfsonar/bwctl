@@ -468,7 +468,7 @@ override:
                  * is valid to further restrict in the
                  * child.
                  */
-                if(tnode.parent->limits[i].value > limtemp[j].value)
+                if(tnode.parent->limits[i].value >= limtemp[j].value)
                     break;
                 BWLError(policy->ctx,BWLErrWARNING,
                         BWLErrUNKNOWN,
