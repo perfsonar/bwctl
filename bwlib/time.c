@@ -178,8 +178,7 @@ _BWLInitNTP(
 #ifdef	STA_NANO
         if( !(ntp_conf.status & STA_NANO)){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "NTP: STA_NANO must be set! - try \"ntptime -N\"");
-            return 1;
+                    "NTP: STA_NANO should be set. Make sure ntpd is running, and your NTP configuration is good.");
         }
 #endif	/*  STA_NANO */
     }
@@ -341,7 +340,10 @@ _BWLGetTimespec(
              * Apply ntp "offset"
              */
 #ifdef	STA_NANO
-            sec = 1000000000;
+            if(ntp_conf.status & STA_NANO)
+                sec = 1000000000;
+            else
+                sec = 1000000;
 #else
             sec = 1000000;
 #endif
@@ -362,7 +364,10 @@ _BWLGetTimespec(
                 ntp_conf.offset -= sec;
             }
 
-#ifndef	STA_NANO
+#ifdef        STA_NANO
+            if(!(ntp_conf.status & STA_NANO))
+                ntp_conf.offset *= 1000;
+#else
             ntp_conf.offset *= 1000;
 #endif
             ts->tv_nsec += ntp_conf.offset;
