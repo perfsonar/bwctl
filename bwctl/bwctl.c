@@ -121,6 +121,8 @@ print_conn_args(
         )
 {
     fprintf(stderr,"              [Connection Args]\n\n"
+            "  -4             Use IPv4 only\n"
+            "  -6             Use IPv6 only\n"
             "  -A authmode [AUTHMETHOD [AUTHOPTS]]\n"
             "            authmodes:\n"
             "                 [A]uthenticated, [E]ncrypted, [O]pen\n"
@@ -1309,7 +1311,7 @@ main(
     int                 ch;
     char                *tstr = NULL;
     char                optstring[128];
-    static char         *conn_opts = "a:AB:";
+    static char         *conn_opts = "46a:AB:";
     static char         *out_opts = "d:e:f:I:L:n:pqrR:vVxy:";
     static char         *test_opts = "ab:c:D:i:l:P:s:S:t:T:uw:W:";
     static char         *gen_opts = "hW";
@@ -1455,6 +1457,12 @@ main(
     while ((ch = getopt(argc, argv, optstring)) != -1){
         switch (ch) {
             /* Connection options. */
+            case '4':
+                app.opt.v4only = True;
+                break;
+            case '6':
+                app.opt.v6only = True;
+                break;
             case 'A':
                 /* parse auth */
                 if((parse_auth_args(eh,argv,argc,"BOTH",&app.def_auth) != 0) ||
@@ -1739,6 +1747,26 @@ main(
     app.send_sess->send = True;
     if(!second_set && !(second.host = strdup("localhost"))){
         I2ErrLog(eh,"malloc:%M");
+        exit(1);
+    }
+
+    /*
+     * -4/-6 sanity check
+     */
+    if(app.opt.v4only && app.opt.v6only){
+        I2ErrLog(eh,"-4 and -6 flags cannot be set together.");
+        exit(1);
+    }
+
+    if((app.opt.v4only) &&
+            !BWLContextConfigSet(ctx,BWLIPv4Only,(void*)True)){
+        I2ErrLog(eh,"BWLContextconfigSet(IPv4Only): %M");
+        exit(1);
+    }
+
+    if((app.opt.v6only) &&
+            !BWLContextConfigSet(ctx,BWLIPv6Only,(void*)True)){
+        I2ErrLog(eh,"BWLContextconfigSet(IPv6Only): %M");
         exit(1);
     }
 

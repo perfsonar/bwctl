@@ -623,6 +623,17 @@ typedef BWLErrSeverity (*BWLProcessResultsFunc)(
 #define    BWLChildWait    "V.BWLChildWait"
 #endif
 
+/*
+ * This value is used to indicate only IPv4 addresses should be used.
+ */
+#define BWLIPv4Only  "V.BWLIPv4Only"
+
+/*
+ * This value is used to indicate only IPv6 addresses should be used.
+ */
+#define BWLIPv6Only  "V.BWLIPv6Only"
+
+
 extern BWLContext
 BWLContextCreate(
         I2ErrHandle    eh,

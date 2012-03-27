@@ -111,6 +111,20 @@ tests to reserve their time slots further into the future.)
 .SH ARGUMENTS
 .SS Connection/Authentication Arguments:
 .TP
+\fB\-4\fR
+Forces bwctl to use IPv4 addresses only.
+.RS
+.IP Default:
+Unspecified (IPv6 is preferred).
+.RE
+.TP
+\fB\-6\fR
+Forces bwctl to use IPv6 addresses only.
+.RS
+.IP Default:
+Unspecified (IPv6 is preferred).
+.RE
+.TP
 \fB\-A\fR \fIauthmethod\fB
 \fIauthmethod\fR is used to specify the authentication method the
 \fBbwctl\fR client is willing to use for communication with the \fBbwctld\fR

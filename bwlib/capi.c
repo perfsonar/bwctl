@@ -297,49 +297,54 @@ _BWLClientConnect(
      * Also check policy for allowed connection before calling
      * connect.
      */
+    if( !BWLContextConfigGetV(cntrl->ctx,BWLIPv4Only)){
 #ifdef	AF_INET6
-    for(ai=fai;ai;ai=ai->ai_next){
-        struct sockaddr_in6 srec;
+        for(ai=fai;ai;ai=ai->ai_next){
+            struct sockaddr_in6 srec;
 
-        if(ai->ai_family != AF_INET6) continue;
+            if(ai->ai_family != AF_INET6) continue;
 
-        /* avoid type punning by using memcpy instead of casting ai_addr */
-        memcpy(&srec,ai->ai_addr,sizeof(srec));
-        if(IN6_IS_ADDR_LOOPBACK(&srec.sin6_addr)){
-            BWLError(cntrl->ctx,BWLErrWARNING,errno,
-                    "Server(%s): Loopback is probably not a valid test address",
-                    I2AddrNodeServName(server_addr,buf,&buflen));
+            /* avoid type punning by using memcpy instead of casting ai_addr */
+            memcpy(&srec,ai->ai_addr,sizeof(srec));
+            if(IN6_IS_ADDR_LOOPBACK(&srec.sin6_addr)){
+                BWLError(cntrl->ctx,BWLErrWARNING,errno,
+                        "Server(%s): Loopback is probably not a valid test address",
+                        I2AddrNodeServName(server_addr,buf,&buflen));
+            }
+
+            if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
+                return 0;
+            if(rc < 0) {
+                BWLError(cntrl->ctx,BWLErrFATAL,errno, "TryAddr(in6) failed");
+                goto error;
+            }
         }
-
-        if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
-            return 0;
-        if(rc < 0) {
-	    BWLError(cntrl->ctx,BWLErrFATAL,errno, "TryAddr(in6) failed");
-            goto error;
-        }
-    }
 #endif
+    }
+
     /*
      * Now try IPv4 addresses.
      */
-    for(ai=fai;ai;ai=ai->ai_next){
-        struct sockaddr_in saddr4;
+    if( !BWLContextConfigGetV(cntrl->ctx,BWLIPv6Only)){
+        for(ai=fai;ai;ai=ai->ai_next){
+            struct sockaddr_in saddr4;
 
-        if(ai->ai_family != AF_INET) continue;
+            if(ai->ai_family != AF_INET) continue;
 
-        /* avoid type punning by using memcpy instead of casting ai_addr */
-        memcpy(&saddr4,ai->ai_addr,sizeof(saddr4));
-        if(saddr4.sin_addr.s_addr == INADDR_LOOPBACK){
-            BWLError(cntrl->ctx,BWLErrWARNING,errno,
-                    "Server(%s): Loopback is probably not a valid test address",
-                    I2AddrNodeServName(server_addr,buf,&buflen));
-        }
+            /* avoid type punning by using memcpy instead of casting ai_addr */
+            memcpy(&saddr4,ai->ai_addr,sizeof(saddr4));
+            if(saddr4.sin_addr.s_addr == INADDR_LOOPBACK){
+                BWLError(cntrl->ctx,BWLErrWARNING,errno,
+                        "Server(%s): Loopback is probably not a valid test address",
+                        I2AddrNodeServName(server_addr,buf,&buflen));
+            }
 
-        if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
-            return 0;
-        if(rc < 0) {
-	    BWLError(cntrl->ctx,BWLErrFATAL,errno, "TryAddr() failed");
-            goto error;
+            if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
+                return 0;
+            if(rc < 0) {
+                BWLError(cntrl->ctx,BWLErrFATAL,errno, "TryAddr() failed");
+                goto error;
+            }
         }
     }
 
@@ -873,52 +878,57 @@ BWLSessionRequest(
          * (We prefer IPV6 over others, so loop over IPv6 addrs
          * first...) Only supports AF_INET and AF_INET6.
          */
+        if( !BWLContextConfigGetV(cntrl->ctx,BWLIPv4Only)){
 #ifdef	AF_INET6
-        for(rai = frai;rai;rai = rai->ai_next){
-            if(rai->ai_family != AF_INET6) continue;
-            for(sai = fsai;sai;sai = sai->ai_next){
-				struct sockaddr_in6 s_srec;
-				struct sockaddr_in6 r_srec;
+            for(rai = frai;rai;rai = rai->ai_next){
+                if(rai->ai_family != AF_INET6) continue;
+                for(sai = fsai;sai;sai = sai->ai_next){
+                    struct sockaddr_in6 s_srec;
+                    struct sockaddr_in6 r_srec;
 
-                if(rai->ai_family != sai->ai_family) continue;
-                if(rai->ai_socktype != sai->ai_socktype)
-                    continue;
+                    if(rai->ai_family != sai->ai_family) continue;
+                    if(rai->ai_socktype != sai->ai_socktype)
+                        continue;
 
-		        memcpy(&s_srec,sai->ai_addr,sizeof(s_srec));
-		        memcpy(&r_srec,rai->ai_addr,sizeof(r_srec));
+                    memcpy(&s_srec,sai->ai_addr,sizeof(s_srec));
+                    memcpy(&r_srec,rai->ai_addr,sizeof(r_srec));
 
-		        if(IN6_IS_ADDR_LOOPBACK(&s_srec.sin6_addr) && !IN6_IS_ADDR_LOOPBACK(&r_srec.sin6_addr))
-					continue;
+                    if(IN6_IS_ADDR_LOOPBACK(&s_srec.sin6_addr) && !IN6_IS_ADDR_LOOPBACK(&r_srec.sin6_addr))
+                        continue;
 
-		        if(!IN6_IS_ADDR_LOOPBACK(&s_srec.sin6_addr) && IN6_IS_ADDR_LOOPBACK(&r_srec.sin6_addr))
-					continue;
+                    if(!IN6_IS_ADDR_LOOPBACK(&s_srec.sin6_addr) && IN6_IS_ADDR_LOOPBACK(&r_srec.sin6_addr))
+                        continue;
 
-                goto foundaddr;
+                    goto foundaddr;
+                }
             }
-        }
 #endif
-        for(rai = frai;rai;rai = rai->ai_next){
+        }
 
-            if(rai->ai_family != AF_INET) continue;
+        if( !BWLContextConfigGetV(cntrl->ctx,BWLIPv6Only)){
+            for(rai = frai;rai;rai = rai->ai_next){
 
-            for(sai = fsai;sai;sai = sai->ai_next){
-				struct sockaddr_in s_saddr4;
-				struct sockaddr_in r_saddr4;
+                if(rai->ai_family != AF_INET) continue;
 
-                if(rai->ai_family != sai->ai_family) continue;
-                if(rai->ai_socktype != sai->ai_socktype)
-                    continue;
+                for(sai = fsai;sai;sai = sai->ai_next){
+                    struct sockaddr_in s_saddr4;
+                    struct sockaddr_in r_saddr4;
 
-				memcpy(&s_saddr4,sai->ai_addr,sizeof(s_saddr4));
-				memcpy(&r_saddr4,rai->ai_addr,sizeof(r_saddr4));
+                    if(rai->ai_family != sai->ai_family) continue;
+                    if(rai->ai_socktype != sai->ai_socktype)
+                        continue;
 
-		        if(s_saddr4.sin_addr.s_addr == INADDR_LOOPBACK && r_saddr4.sin_addr.s_addr != INADDR_LOOPBACK)
-					continue;
+                    memcpy(&s_saddr4,sai->ai_addr,sizeof(s_saddr4));
+                    memcpy(&r_saddr4,rai->ai_addr,sizeof(r_saddr4));
 
-		        if(s_saddr4.sin_addr.s_addr != INADDR_LOOPBACK && r_saddr4.sin_addr.s_addr == INADDR_LOOPBACK)
-					continue;
+                    if(s_saddr4.sin_addr.s_addr == INADDR_LOOPBACK && r_saddr4.sin_addr.s_addr != INADDR_LOOPBACK)
+                        continue;
 
-                goto foundaddr;
+                    if(s_saddr4.sin_addr.s_addr != INADDR_LOOPBACK && r_saddr4.sin_addr.s_addr == INADDR_LOOPBACK)
+                        continue;
+
+                    goto foundaddr;
+                }
             }
         }
 

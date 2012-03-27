@@ -144,6 +144,8 @@ typedef	struct {
         I2Boolean	childwait;	/* -W */
 #endif
 
+        I2Boolean	v4only;	        /* -4 */
+        I2Boolean	v6only;	        /* -6 */
         I2Boolean	printfiles;	/* -p */
         I2Boolean	sender_results;	/* -x (xmit)*/
         char		*savedir;	/* -d */
