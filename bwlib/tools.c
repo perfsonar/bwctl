@@ -507,6 +507,20 @@ _BWLToolGenericInitTest(
     len = strlen(optname);
     strncpy(&optname[len],"_port",sizeof(optname)-len);
 
+    prange = (BWLPortRange)BWLContextConfigGetV(ctx,optname);
+
+    // If nothing has been specified for this tool, initialize it to a range of
+    // 100 ports, starting with the tool's default port. This keeps it from
+    // reusing the same port for every request, and potentially colliding.
+    if( !prange ) {
+        if( prange = calloc(1,sizeof(BWLPortRangeRec))) {
+            prange->low  = tool->def_port - 1;
+            prange->high = tool->def_port + 100;
+            BWLPortsSetI(ctx,prange,tool->def_port);
+            BWLContextConfigSet(ctx,optname,prange);
+        }
+    }
+
     if( (prange = (BWLPortRange)BWLContextConfigGetV(ctx,optname))){
         *toolport = BWLPortsNext(prange);
     }
