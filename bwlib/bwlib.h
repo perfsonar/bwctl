@@ -284,7 +284,8 @@ typedef enum{
     BWL_TOOL_UNDEFINED=0,
     BWL_TOOL_IPERF=0x1,
     BWL_TOOL_NUTTCP=0x2,
-    BWL_TOOL_THRULAY=0x4
+    BWL_TOOL_THRULAY=0x4,
+    BWL_TOOL_IPERF3=0x8
 } BWLToolType;
 
 typedef uint32_t   BWLBoolean;

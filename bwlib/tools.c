@@ -69,10 +69,17 @@ static BWLToolDefinitionRec BWLToolNone = {
 };
 
 /* autoconf seletion of tools here... */
+
 #ifdef  TOOL_IPERF
 extern BWLToolDefinitionRec BWLToolIperf;
 #else
 #define BWLToolIperf    BWLToolNone
+#endif
+
+#ifdef  TOOL_IPERF3
+extern BWLToolDefinitionRec BWLToolIperf3;
+#else
+#define BWLToolIperf3    BWLToolNone
 #endif
 
 #ifdef  TOOL_NUTTCP
@@ -89,6 +96,7 @@ extern BWLToolDefinitionRec BWLToolThrulay;
 
 BWLToolRec tool_list[] = {
     {BWL_TOOL_IPERF, &BWLToolIperf},
+    {BWL_TOOL_IPERF3, &BWLToolIperf3},
     {BWL_TOOL_NUTTCP, &BWLToolNuttcp},
     {BWL_TOOL_THRULAY, &BWLToolThrulay},
     {BWL_TOOL_UNDEFINED, &BWLToolNone}

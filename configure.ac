@@ -221,6 +221,16 @@ if test "$tool_ok" = "yes"; then
 fi
 AM_CONDITIONAL(TOOL_IPERF, test x$do_iperf = xtrue)
 
+AC_ARG_ENABLE(iperf3,
+              AC_HELP_STRING([--enable-iperf3], [- IPERF throughput tool via libiperf]),
+              [tool_ok=$enableval], [tool_ok=yes])
+if test "$tool_ok" = "yes"; then
+    AC_CHECK_LIB(iperf, [iperf_init_test], ,AC_MSG_ERROR([Couldn't find libiperf library]))
+    AC_DEFINE(TOOL_IPERF3, 1, [IPERF throuphput tool via libiperf])
+    do_iperf3=true
+fi
+AM_CONDITIONAL(TOOL_IPERF3, test x$do_iperf3 = xtrue)
+
 AC_ARG_ENABLE(nuttcp,
               AC_HELP_STRING([--enable-nuttcp], [- NUTTCP throughput tool]),
               [tool_ok=$enableval], [tool_ok=yes])

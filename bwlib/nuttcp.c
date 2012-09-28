@@ -264,7 +264,7 @@ NuttcpPreRunTest(
     len = strlen(confkey);
     strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
 
-    /* Run iperf */
+    /* Run nuttcp */
     cmd = (char*)BWLContextConfigGetV(ctx,confkey);
     if(!cmd) cmd = tsess->tool->def_cmd;
 

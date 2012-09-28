@@ -32,4 +32,10 @@ else
 BWLIBTHRULAY =
 endif
 
-bwctl_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) -lI2util
+if TOOL_IPERF3
+BWLIBIPERF = -liperf
+else
+BWLIBIPERF =
+endif
+
+bwctl_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) $(BWLIBIPERF) -lI2util

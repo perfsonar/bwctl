@@ -40,6 +40,10 @@ if TOOL_IPERF
 TOOL_SOURCES		+= iperf.c
 endif
 
+if TOOL_IPERF3
+TOOL_SOURCES		+= iperf3.c
+endif
+
 if TOOL_NUTTCP
 TOOL_SOURCES		+= nuttcp.c
 endif
