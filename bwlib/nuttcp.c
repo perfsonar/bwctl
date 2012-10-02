@@ -339,6 +339,10 @@ NuttcpPreRunTest(
         }
     }
 
+    if(tsess->conf_receiver){
+        NuttcpArgs[a++] = "--nofork";
+    }
+
     NuttcpArgs[a++] = NULL;
 
     /*
