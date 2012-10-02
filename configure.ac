@@ -153,7 +153,6 @@ fi
 
 uname=`uname`
 
-#
 # --with-thrulay:
 # If not specified, or is 'yes' then:
 #       build with local-dir if available
@@ -166,13 +165,11 @@ AC_ARG_WITH(thrulay,
             AC_HELP_STRING([--with-thrulay=<path>],
                            [defaults to using sub-dir if avail, otherwise installed. If <path> specified, attempts to use that.]),
                            with_thrulay=$withval, with_thrulay=yes)
-
 case $uname in
 	SunOS*) 
 		with_thrulay=no
 	;;
 esac
-
 if test "$with_thrulay" = "no"; then
 	AC_MSG_WARN([Disabling thrulay support])
 	do_thrulay=false
@@ -201,14 +198,12 @@ else
 	    fi
 	    AC_SEARCH_LIBS([thrulay_client_init],thrulay, ,AC_MSG_ERROR([Couldn't find thrulay library]))
 	    use_sys_thrulay="true"
-		AC_DEFINE(USE_SYS_THRULAY, 1, [Use system installed thrulay library])
+	    AC_DEFINE(USE_SYS_THRULAY, 1, [Use system installed thrulay library])
 	fi
-
 	AC_CHECK_HEADERS([thrulay/client.h thrulay/server.h], ,AC_MSG_ERROR([Couldn't find thrulay header files]), [AC_INCLUDES_DEFAULT])
 	do_thrulay=true
 	AC_DEFINE(TOOL_THRULAY, 1, [THRULAY throughput tool])
 fi
-
 AM_CONDITIONAL(USE_SYS_THRULAY, test x$use_sys_thrulay = xtrue)
 AM_CONDITIONAL(TOOL_THRULAY, test x$do_thrulay = xtrue)
 
@@ -221,14 +216,53 @@ if test "$tool_ok" = "yes"; then
 fi
 AM_CONDITIONAL(TOOL_IPERF, test x$do_iperf = xtrue)
 
-AC_ARG_ENABLE(iperf3,
-              AC_HELP_STRING([--enable-iperf3], [- IPERF throughput tool via libiperf]),
-              [tool_ok=$enableval], [tool_ok=yes])
-if test "$tool_ok" = "yes"; then
-    AC_CHECK_LIB(iperf, [iperf_init_test], ,AC_MSG_ERROR([Couldn't find libiperf library]))
-    AC_DEFINE(TOOL_IPERF3, 1, [IPERF throuphput tool via libiperf])
-    do_iperf3=true
+# --with-iperf3:
+# If not specified, or is 'yes' then:
+#       build with local-dir if available
+#       use installed otherwise (depends on CFLAGS/LDFLAGS env set correctly)
+# If <path> specified, then that <path> must point to an already installed
+# prefix style tree (and include/lib subdir is assumed and used to set
+# LDFLAGS/CFLAGS
+#
+AC_ARG_WITH(iperf3,
+            AC_HELP_STRING([--with-iperf3=<path>],
+                           [defaults to using sub-dir if avail, otherwise installed. If <path> specified, attempts to use that.]),
+                           with_iperf3=$withval, with_iperf3=yes)
+if test "$with_iperf3" = "no"; then
+	AC_MSG_WARN([Disabling iperf3 support])
+	do_iperf3=false
+else
+	if test \( -z "$with_iperf3" -o "$with_iperf3" = "yes" \) -a -d iperf3; then
+	    # Use local iperf3? - just setup LDFLAGS/CFLAGS so libtool can find
+	    # it from the Makefile.am during build.
+	    AC_MSG_WARN([Using local iperf3])
+	    AC_CONFIG_SUBDIRS(iperf3)
+	    TOP_BUILD_DIRS="iperf3 $TOP_BUILD_DIRS"
+	    iperf3_dir="`pwd`/iperf3"
+	    LDFLAGS="-L$iperf3_dir/src $LDFLAGS"
+	    CFLAGS="-I$iperf3_dir/src $CFLAGS"
+	else
+	    # else - libiperf3 must already be built. If <path>, then add to
+	    # LDFLAGS/CFLAGS - but ultimately, AC_SEARCH_LIBS and AC_CHECK_HEADERS
+	    # must succeed.
+	    if test -n "$with_iperf3" -a -d "$with_iperf3"; then
+	        iperf3_dir=`dirname $with_iperf3`
+	        case $iperf3_dir in
+	            /*) ;; # already an absolute path
+	            *) iperf3_dir="`pwd`/$iperf3_dir" ;;
+	        esac
+	        LDFLAGS="-L$iperf3_dir/src $LDFLAGS"
+	        CFLAGS="-I$iperf3_dir/src $CFLAGS"
+	    fi
+	    AC_SEARCH_LIBS([iperf_init_test],iperf, ,AC_MSG_ERROR([Couldn't find iperf3 library]))
+	    use_sys_iperf3="true"
+	    AC_DEFINE(USE_SYS_IPERF3, 1, [Use system installed iperf3 library])
+	fi
+	AC_CHECK_HEADERS([iperf_api.h], ,AC_MSG_ERROR([Couldn't find iperf3 header file]), [AC_INCLUDES_DEFAULT])
+	do_iperf3=true
+	AC_DEFINE(TOOL_IPERF3, 1, [IPERF3 throughput tool via libiperf])
 fi
+AM_CONDITIONAL(USE_SYS_IPERF3, test x$use_sys_iperf3 = xtrue)
 AM_CONDITIONAL(TOOL_IPERF3, test x$do_iperf3 = xtrue)
 
 AC_ARG_ENABLE(nuttcp,

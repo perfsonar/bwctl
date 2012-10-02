@@ -33,9 +33,13 @@ BWLIBTHRULAY =
 endif
 
 if TOOL_IPERF3
-BWLIBIPERF = -liperf
+if USE_SYS_IPERF3
+BWLIBIPERF3 = -liperf
 else
-BWLIBIPERF =
+BWLIBIPERF3 = ../iperf3/src/libiperf.a
+endif
+else
+BWLIBIPERF3 =
 endif
 
-bwctld_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) $(BWLIBIPERF) -lI2util
+bwctld_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) $(BWLIBIPERF3) -lI2util
