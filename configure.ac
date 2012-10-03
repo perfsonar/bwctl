@@ -193,7 +193,7 @@ else
 	            /*) ;; # already an absolute path
 	            *) thrulay_dir="`pwd`/$thrulay_dir" ;;
 	        esac
-	        LDFLAGS="-L$with_thrulay/lib $LDFLAGS"
+	        LDFLAGS="-L$thrulay_dir/lib $LDFLAGS"
 	        CFLAGS="-I$thrulay_dir/include $CFLAGS"
 	    fi
 	    AC_SEARCH_LIBS([thrulay_client_init],thrulay, ,AC_MSG_ERROR([Couldn't find thrulay library]))
