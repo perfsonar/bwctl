@@ -1179,6 +1179,12 @@ BWLToolGetNameByIndex(
         uint32_t    i
         );
 
+extern const char *
+BWLToolGetToolNames(
+        BWLContext  ctx,
+        BWLToolAvailability tools
+        );
+
 /*
  * return vals: -1 (key recognized, val invalid)
  *              1 (key recognized, val used)

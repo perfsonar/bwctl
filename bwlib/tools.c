@@ -198,6 +198,36 @@ BWLToolGetNameByIndex(
     return ctx->tool_list[i].tool->name;
 }
 
+const char *
+BWLToolGetToolNames(
+        BWLContext ctx,
+        BWLToolAvailability tools
+        )
+{
+    static char names[BWL_MAX_TOOLNAME*10]; /* enough to hold all names */
+    char unknown[BWL_MAX_TOOLNAME];
+    uint32_t tid;
+    const char *name;
+
+    names[0] = '\0';
+    tid = 1;
+    while ( tools != 0 ) {
+        if ( tid & tools ) {
+            name = BWLToolGetNameByID( ctx, tid );
+            if ( name == NULL ) {
+                (void) sprintf( unknown, "unknown(id=%x)", tid );
+                name = unknown;
+            }
+            (void) strcat( names, name );
+            (void) strcat( names, " " );
+        }
+        /* Remove tid from the tool mask and go to the next bit. */
+        tools &= ~tid;
+        tid <<= 1;
+    }
+    return names;
+}
+
 int
 BWLToolParseArg(
         BWLContext  ctx,
@@ -260,8 +290,16 @@ _BWLToolLookForTesters(
         )
 {
     uint32_t    i;
+    BWLToolAvailability compiled_in;
 
     assert(!ctx->tool_avail);
+
+    compiled_in = 0;
+    for(i=0;i<ctx->tool_list_size;i++){
+        compiled_in |= ctx->tool_list[i].id;
+    }
+    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+            "Compiled-in tools: %s", BWLToolGetToolNames(ctx,compiled_in));
 
     for(i=0;i<ctx->tool_list_size;i++){
         if(ctx->tool_list[i].tool->tool_avail(ctx,ctx->tool_list[i].tool)){
@@ -280,6 +318,8 @@ _BWLToolLookForTesters(
         return BWLErrFATAL;
     }
 
+    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+            "Available tools: %s", BWLToolGetToolNames(ctx,ctx->tool_avail));
     return BWLErrOK;
 }
 

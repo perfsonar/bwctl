@@ -2277,73 +2277,33 @@ AGAIN:
             goto finish;
         }
 
-        if (first.tspec.tool_id == BWL_TOOL_UNDEFINED){
-            uint32_t    tid;
-            BWLToolAvailability remaining_tools;
-            const char  *req_name;
+        if ( first.tspec.tool_id == BWL_TOOL_UNDEFINED ) {
+            uint32_t tid;
+            const char *req_name;
 
-             /*
-             * Find the common tool to use
-             */
+            /* Pick the first common tool to use. */
             tid = 1;
-            remaining_tools = common_tools;
-            while(remaining_tools){
-
-                if(tid & remaining_tools){
-                    first.tspec.tool_id = tid;
-                    second.tspec.tool_id = tid;
+            for ( tid = 1; ; tid <<= 1 ) {
+                if ( tid & common_tools )
                     break;
-                }
-
-                /*
-                 * remove tid from common mask, and bump tid to next bit
-                 */
-                remaining_tools &= ~tid;
-                tid <<= 1;
             }
+            first.tspec.tool_id = tid;
+            second.tspec.tool_id = tid;
+            req_name = BWLToolGetNameByID( ctx, first.tspec.tool_id );
+            I2ErrLog( eh, "Using tool: %s", req_name );
+        } else if ( ! ( first.tspec.tool_id & common_tools ) ) {
+            char unknown[BWL_MAX_TOOLNAME];
+            char *req_name;
 
-            req_name = BWLToolGetNameByID(ctx,first.tspec.tool_id);
-
-            I2ErrLog(eh,"Using tool: %s", req_name);
-        }else if (!(first.tspec.tool_id & common_tools)){
-            uint32_t    tid;
-            char        tname[BWL_MAX_TOOLNAME];
-            const char  *req_name = BWLToolGetNameByID(ctx,first.tspec.tool_id);
-
-            if(!req_name){
-                sprintf(tname,"unknown(id=%x)",tid);
-                req_name = tname;
+            req_name = BWLToolGetNameByID( ctx, first.tspec.tool_id );
+            if ( ! req_name ) {
+                sprintf( unknown, "unknown(id=%x)", first.tspec.tool_id );
+                req_name = unknown;
             }
-            I2ErrLog(eh,"Requested tool \"%s\" not supported by both servers. "
-                    "See the \'-T\' option", req_name);
-
-            /*
-             * Print out 'common' tools.
-             */
-            tid = 1;
-            while(common_tools){
-
-                if(tid & common_tools){
-                    req_name = BWLToolGetNameByID(ctx,tid);
-
-                    if(!req_name){
-                        sprintf(tname,"unknown tool(id=%x)",tid);
-                        req_name = tname;
-                    }
-
-                    I2ErrLog(eh,"Available in-common: %s",req_name);
-                }
-
-                /*
-                 * remove tid from common mask, and bump tid to next bit
-                 */
-                common_tools &= ~tid;
-                tid <<= 1;
-            }
-
+            I2ErrLog( eh, "Requested tool \"%s\" not supported by both servers. See the \'-T\' option", req_name );
+            I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
             exit_val = 1;
             goto finish;
-
         }
 
         /*
