@@ -227,12 +227,21 @@ AM_CONDITIONAL(TOOL_IPERF, test x$do_iperf = xtrue)
 AC_ARG_WITH(iperf3,
             AC_HELP_STRING([--with-iperf3=<path>],
                            [defaults to using sub-dir if avail, otherwise installed. If <path> specified, attempts to use that.]),
-                           with_iperf3=$withval, with_iperf3=yes)
-if test "$with_iperf3" = "no"; then
+                           with_iperf3=$withval, with_iperf3="")
+if test -z "$with_iperf3"; then
+    if test -d iperf3; then
+        with_iperf3="yes"
+    else
+        AC_CHECK_HEADERS([iperf_api.h], with_iperf3="yes", with_iperf3="", [AC_INCLUDES_DEFAULT])
+	AC_SEARCH_LIBS([iperf_init_test],iperf, with_iperf3="yes", with_iperf3="")
+    fi
+fi
+
+if test "$with_iperf3" = "no" -o -z "$with_iperf3"; then
 	AC_MSG_WARN([Disabling iperf3 support])
 	do_iperf3=false
 else
-	if test \( -z "$with_iperf3" -o "$with_iperf3" = "yes" \) -a -d iperf3; then
+	if test "$with_iperf3" = "yes" -a -d iperf3; then
 	    # Use local iperf3? - just setup LDFLAGS/CFLAGS so libtool can find
 	    # it from the Makefile.am during build.
 	    AC_MSG_WARN([Using local iperf3])
