@@ -1,25 +1,25 @@
-." The first line of this file must contain the '"[e][r][t][v] line
-." to tell man to run the appropriate filter "t" for table.
-."
-."	$Id$
-."
-."######################################################################
-."#									#
-."#			   Copyright (C)  2004				#
-."#	     			Internet2				#
-."#			   All Rights Reserved				#
-."#									#
-."######################################################################
-."
-."	File:		bwctld.keys.man
-."
-."	Author:		Jeff Boote
-."			Internet2
-."
-."	Date:		Fri Feb 13 11:53:48 MST 2004
-."
-."	Description:	
-."
+.\" The first line of this file must contain the '"[e][r][t][v] line
+.\" to tell man to run the appropriate filter "t" for table.
+.\"
+.\"	$Id$
+.\"
+.\"######################################################################
+.\"#									#
+.\"#			   Copyright (C)  2004				#
+.\"#	     			Internet2				#
+.\"#			   All Rights Reserved				#
+.\"#									#
+.\"######################################################################
+.\"
+.\"	File:		bwctld.keys.man
+.\"
+.\"	Author:		Jeff Boote
+.\"			Internet2
+.\"
+.\"	Date:		Fri Feb 13 11:53:48 MST 2004
+.\"
+.\"	Description:
+.\"
 .TH bwctld.keys 5 "$Date$"
 .SH NAME
 bwctld.keys \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR

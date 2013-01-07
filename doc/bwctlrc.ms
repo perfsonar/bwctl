@@ -1,26 +1,26 @@
-." The first line of this file must contain the '"[e][r][t][v] line
-." to tell man to run the appropriate filter "t" for table.
-."
-."	$Id: bwctlrc.man 493 2008-10-09 16:27:47Z aaron $
-."
-."######################################################################
-."#									#
-."#			   Copyright (C)  2004				#
-."#	     			Internet2				#
-."#			   All Rights Reserved				#
-."#									#
-."######################################################################
-."
-."	File:		bwctlrc.8
-."
-."	Author:		Jeff Boote and Aaron Brown
-."			    Internet2
-."
-."	Date:		Tue Jan 06 07:44:09 EST 2009
-."
-."	Description:	
-."
-.TH bwctlrc 5 "$Date: 2008-10-09 12:27:47 -0400 (Thu, 09 Oct 2008) $"
+.\" The first line of this file must contain the '"[e][r][t][v] line
+.\" to tell man to run the appropriate filter "t" for table.
+.\"
+.\"	$Id: bwctlrc.man 493 2008-10-09 16:27:47Z aaron $
+.\"
+.\"######################################################################
+.\"#									#
+.\"#			   Copyright (C)  2004				#
+.\"#	     			Internet2				#
+.\"#			   All Rights Reserved				#
+.\"#									#
+.\"######################################################################
+.\"
+.\"	File:		bwctlrc.8
+.\"
+.\"	Author:		Jeff Boote and Aaron Brown
+.\"			    Internet2
+.\"
+.\"	Date:		Tue Jan 06 07:44:09 EST 2009
+.\"
+.\"	Description:
+.\"
+.TH bwctlrc 5 "$Date: 2008\-10\-09 12:27:47 \-0400 (Thu, 09 Oct 2008) $"
 .SH NAME
 bwctlrc \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR configuration file
 .SH DESCRIPTION
@@ -44,7 +44,7 @@ and the \%http://e2epi.internet2.edu/bwctl/ web site.
 For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
 .PP
-For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
+For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
 For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/

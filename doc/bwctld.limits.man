@@ -1,26 +1,26 @@
 '\"t
-." The first line of this file must contain the '"[e][r][t][v] line
-." to tell man to run the appropriate filter "t" for table.
-."
-."	$Id$
-."
-."######################################################################
-."#									#
-."#			   Copyright (C)  2004				#
-."#	     			Internet2				#
-."#			   All Rights Reserved				#
-."#									#
-."######################################################################
-."
-."	File:		bwctld.limits.man
-."
-."	Author:		Jeff Boote
-."			Internet2
-."
-."	Date:		Fri Feb 13 12:45:52 MST 2004
-."
-."	Description:	
-."
+.\" The first line of this file must contain the '"[e][r][t][v] line
+.\" to tell man to run the appropriate filter "t" for table.
+.\"
+.\"	$Id$
+.\"
+.\"######################################################################
+.\"#									#
+.\"#			   Copyright (C)  2004				#
+.\"#	     			Internet2				#
+.\"#			   All Rights Reserved				#
+.\"#									#
+.\"######################################################################
+.\"
+.\"	File:		bwctld.limits.man
+.\"
+.\"	Author:		Jeff Boote
+.\"			Internet2
+.\"
+.\"	Date:		Fri Feb 13 12:45:52 MST 2004
+.\"
+.\"	Description:
+.\"
 .TH bwctld.limits 5 "$Date$"
 .SH NAME
 bwctld.limits \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
@@ -290,7 +290,7 @@ of the next 5 minutes. The advantage of this kind of setup is that the
 administrator can define other \fIuserclasses\fR with a larger
 \fIevent_horizon\fR allowing then to have priority over this class.
 (Suggestions for other methods of priority scheduling should be sent to
-bwctl-users@internet2.edu.)
+bwctl\-users@internet2.edu.)
 .PP
 Now, these three \fIuserclasses\fR might be assigned to specific connections
 in the following ways:
@@ -328,7 +328,7 @@ and the \%http://e2epi.internet2.edu/bwctl/ web site.
 For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
 .PP
-For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
+For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
 For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/

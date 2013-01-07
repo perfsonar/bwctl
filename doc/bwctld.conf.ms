@@ -1,26 +1,26 @@
-." The first line of this file must contain the '"[e][r][t][v] line
-." to tell man to run the appropriate filter "t" for table.
-."
-."	$Id: bwctld.conf.man 493 2008-10-09 16:27:47Z aaron $
-."
-."######################################################################
-."#									#
-."#			   Copyright (C)  2004				#
-."#	     			Internet2				#
-."#			   All Rights Reserved				#
-."#									#
-."######################################################################
-."
-."	File:		bwctld.8
-."
-."	Author:		Jeff Boote
-."			Internet2
-."
-."	Date:		Thu Feb 12 15:44:09 MST 2004
-."
-."	Description:	
-."
-.TH bwctld.conf 5 "$Date: 2008-10-09 12:27:47 -0400 (Thu, 09 Oct 2008) $"
+.\" The first line of this file must contain the '"[e][r][t][v] line
+.\" to tell man to run the appropriate filter "t" for table.
+.\"
+.\"	$Id: bwctld.conf.man 493 2008-10-09 16:27:47Z aaron $
+.\"
+.\"######################################################################
+.\"#									#
+.\"#			   Copyright (C)  2004				#
+.\"#	     			Internet2				#
+.\"#			   All Rights Reserved				#
+.\"#									#
+.\"######################################################################
+.\"
+.\"	File:		bwctld.8
+.\"
+.\"	Author:		Jeff Boote
+.\"			Internet2
+.\"
+.\"	Date:		Thu Feb 12 15:44:09 MST 2004
+.\"
+.\"	Description:
+.\"
+.TH bwctld.conf 5 "$Date: 2008\-10\-09 12:27:47 \-0400 (Thu, 09 Oct 2008) $"
 .SH NAME
 bwctld.conf \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR
 \fBd\fRaemon configuration file
@@ -43,7 +43,7 @@ and the \%http://e2epi.internet2.edu/bwctl/ web site.
 For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
 .PP
-For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
+For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
 For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/

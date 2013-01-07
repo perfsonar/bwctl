@@ -1,26 +1,26 @@
-'"t
-." The first line of this file must contain the '"[e][r][t][v] line
-." to tell man to run the appropriate filter "t" for table.
-."
-."	$Id$
-."
-."######################################################################
-."#									#
-."#			   Copyright (C)  2004				#
-."#	     			Internet2				#
-."#			   All Rights Reserved				#
-."#									#
-."######################################################################
-."
-."	File:		bwctld.8
-."
-."	Author:		Jeff Boote
-."			Internet2
-."
-."	Date:		Tue Feb 10 22:23:30 MST 2004
-."
-."	Description:	
-."
+'\"t
+.\" The first line of this file must contain the '"[e][r][t][v] line
+.\" to tell man to run the appropriate filter "t" for table.
+.\"
+.\"	$Id$
+.\"
+.\"######################################################################
+.\"#									#
+.\"#			   Copyright (C)  2004				#
+.\"#	     			Internet2				#
+.\"#			   All Rights Reserved				#
+.\"#									#
+.\"######################################################################
+.\"
+.\"	File:		bwctld.8
+.\"
+.\"	Author:		Jeff Boote
+.\"			Internet2
+.\"
+.\"	Date:		Tue Feb 10 22:23:30 MST 2004
+.\"
+.\"	Description:
+.\"
 .TH bwctld 8 "$Date$"
 .SH NAME
 bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
@@ -178,7 +178,7 @@ the \%http://e2epi.internet2.edu/bwctl/ web site.
 For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
 .PP
-For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
+For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
 For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/

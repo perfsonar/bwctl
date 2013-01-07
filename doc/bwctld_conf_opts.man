@@ -1,25 +1,25 @@
-." The first line of this file must contain the '"[e][r][t][v] line
-." to tell man to run the appropriate filter "t" for table.
-."
-."	$Id: bwctlrc.man 493 2008-10-09 16:27:47Z aaron $
-."
-."######################################################################
-."#									#
-."#			   Copyright (C)  2004				#
-."#	     			Internet2				#
-."#			   All Rights Reserved				#
-."#									#
-."######################################################################
-."
-."	File:		bwctlrc.8
-."
-."	Author:		Jeff Boote and Aaron Brown
-."			    Internet2
-."
-."	Date:		Tue Jan 06 07:44:09 EST 2009
-."
-."	Description:	
-."
+.\" The first line of this file must contain the '"[e][r][t][v] line
+.\" to tell man to run the appropriate filter "t" for table.
+.\"
+.\"	$Id: bwctlrc.man 493 2008-10-09 16:27:47Z aaron $
+.\"
+.\"######################################################################
+.\"#									#
+.\"#			   Copyright (C)  2004				#
+.\"#	     			Internet2				#
+.\"#			   All Rights Reserved				#
+.\"#									#
+.\"######################################################################
+.\"
+.\"	File:		bwctlrc.8
+.\"
+.\"	Author:		Jeff Boote and Aaron Brown
+.\"			    Internet2
+.\"
+.\"	Date:		Tue Jan 06 07:44:09 EST 2009
+.\"
+.\"	Description:
+.\"
 .PP
 The format of this file is:
 .RS
@@ -96,7 +96,7 @@ send/recv window sizes. This option is likely to be removed in the
 future once a dynamic \fIbottleneck_capacity\fR algorithm is incorporated
 into the code. (This option only really works when the local NIC is
 the bottleneck.) If this option is not specified, the dynamic window
-calculation requested by the \fB-W\fR option to \fBbwctl\fR is not
+calculation requested by the \fB\-W\fR option to \fBbwctl\fR is not
 done and the advisory value is used.
 .RS
 .IP Default:
@@ -106,7 +106,7 @@ unset
 .BI control_timeout " controltimeout"
 Number of seconds to wait for protocol messages before timing out. This
 value should be significantly larger than what typical users specify
-for the \fB-I\fR flag of \fBbwctl\fR or \fBbwctl\fR will have to open
+for the \fB\-I\fR flag of \fBbwctl\fR or \fBbwctl\fR will have to open
 a new control connection for each new test it requests.
 .RS
 .IP Default:
@@ -131,7 +131,7 @@ LOG_DAEMON
 .TP
 .BI group " group"
 Specifies the gid the \fBbwctld\fR process should run as. \fIgroup\fR
-can be specified using a valid group name on the system or by using -gid.
+can be specified using a valid group name on the system or by using \-gid.
 This option is only used if \fBbwctld\fR is started as root.
 .RS
 .IP Default:
@@ -151,10 +151,10 @@ iperf
 The port number(s) that \fBIperf\fR receivers will use.
 Currently, \fBbwctld\fR simply cycles through this range linearly.
 \fIiperf_port\fR can be specified as a single valid port number or as
-a range as \fIlow\fR-\fIhigh\fR. The range must be specified as two valid
-port numbers with the '-' character separating them. Whitespace is
-not allowed within the \fIiperf_port\fR. For example, \fB"5001-5004"\fR would
-be valid, but \fB"5001 - 5004"\fR would be invalid.
+a range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid
+port numbers with the '\-' character separating them. Whitespace is
+not allowed within the \fIiperf_port\fR. For example, \fB"5001\-5004"\fR would
+be valid, but \fB"5001 \- 5004"\fR would be invalid.
 .RS
 .PP
 This value should be set to a range because it can take a few minutes for a
@@ -190,10 +190,10 @@ nuttcp
 The port number(s) that \fBNuttcp\fR receivers will use.
 Currently, \fBbwctld\fR simply cycles through this range linearly.
 \fInuttcp_port\fR can be specified as a single valid port number or as
-a range as \fIlow\fR-\fIhigh\fR. The range must be specified as two valid
-port numbers with the '-' character separating them. Whitespace is
-not allowed within the \fInuttcp_port\fR. For example, \fB"5001-5004"\fR would
-be valid, but \fB"5001 - 5004"\fR would be invalid.
+a range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid
+port numbers with the '\-' character separating them. Whitespace is
+not allowed within the \fInuttcp_port\fR. For example, \fB"5001\-5004"\fR would
+be valid, but \fB"5001 \- 5004"\fR would be invalid.
 .RS
 .PP
 This value should be set to a range because it can take a few minutes for a
@@ -207,7 +207,7 @@ different from that of iperf_port and thrulay_port.
 5001
 .RE
 .TP
-.BI peer_port " 0 | lowport-highport"
+.BI peer_port " 0 | lowport\-highport"
 Specify the port range that will be used on the local host for peer
 connections to other
 .B bwctld
@@ -289,10 +289,10 @@ buffer before and after each throughput test.
 The port number(s) that \fBThrulay\fR receivers will use.
 Currently, \fBbwctld\fR simply cycles through this range linearly.
 \fIthrulay_port\fR can be specified as a single valid port number or as
-a range as \fIlow\fR-\fIhigh\fR. The range must be specified as two valid
-port numbers with the '-' character separating them. Whitespace is
-not allowed within the \fIthrulay_port\fR. For example, \fB"5001-5004"\fR would
-be valid, but \fB"5001 - 5004"\fR would be invalid.
+a range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid
+port numbers with the '\-' character separating them. Whitespace is
+not allowed within the \fIthrulay_port\fR. For example, \fB"5001\-5004"\fR would
+be valid, but \fB"5001 \- 5004"\fR would be invalid.
 .RS
 .PP
 This value should be set to a range because it can take a few minutes for a
@@ -308,7 +308,7 @@ different from that of iperf_port and nuttcp_port.
 .TP
 .BI user " user"
 Specifies the uid the \fBbwctld\fR process should run as. \fIuser\fR
-can be specified using a valid user name on the system or by using -uid.
+can be specified using a valid user name on the system or by using \-uid.
 This option is only used if \fBbwctld\fR is started as root. If the
 given \fIuser\fR has \fIroot\fR permissions, the \fIroot_folly\fR option
 must also be specified.

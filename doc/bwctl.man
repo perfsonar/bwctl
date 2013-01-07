@@ -1,26 +1,26 @@
 .TH bwctl 1 "$Date$"
-." The first line of this file must contain the '"[e][r][t][v] line
-." to tell man to run the appropriate filter "t" for table.
-."
-."	$Id$
-."
-."######################################################################
-."#									#
-."#			   Copyright (C)  2004				#
-."#	     			Internet2				#
-."#			   All Rights Reserved				#
-."#									#
-."######################################################################
-."
-."	File:		bwctl.1
-."
-."	Author:		Jeff Boote
-."			Internet2
-."
-."	Date:		Sun Feb  8 16:01:25 MST 2004
-."
-."	Description:	
-."
+.\" The first line of this file must contain the '"[e][r][t][v] line
+.\" to tell man to run the appropriate filter "t" for table.
+.\"
+.\"	$Id$
+.\"
+.\"######################################################################
+.\"#									#
+.\"#			   Copyright (C)  2004				#
+.\"#	     			Internet2				#
+.\"#			   All Rights Reserved				#
+.\"#									#
+.\"######################################################################
+.\"
+.\"	File:		bwctl.1
+.\"
+.\"	Author:		Jeff Boote
+.\"			Internet2
+.\"
+.\"	Date:		Sun Feb  8 16:01:25 MST 2004
+.\"
+.\"	Description:
+.\"
 .SH NAME
 bwctl \- Client application to request throughput tests.
 .SH SYNOPSIS
@@ -587,35 +587,35 @@ BWCTL_DEBUG_TIMEOFFSET	Offset	0.0(seconds)
 Only tested with versions 1.7.0 and 2.0.b of \fBIperf\fR.
 .SH EXAMPLES
 .LP
-\fBbwctl -c somehost.example.com\fR
+\fBbwctl \-c somehost.example.com\fR
 .IP
 Run a default 10 second TCP test as soon as possible with
 \fIlocal\fR as the sender and somehost.example.com as the receiver, using
 whichever tools they have in common. Return the results from the receive side
 of the test.
 .LP
-\fBbwctl -x -c somehost.example.com\fR
+\fBbwctl \-x \-c somehost.example.com\fR
 .IP
 Like the previous test, but also return the results from the sender
 side of the test.
 .LP
-\fBbwctl -x -c somehost.example.com -s otherhost.example.com\fR
+\fBbwctl \-x \-c somehost.example.com \-s otherhost.example.com\fR
 .IP
 Like the previous test, but with otherhost.example.com as the
 sender instead of \fIlocal\fR.
 .LP
-\fBbwctl -t 30 -T iperf -s somehost.example.com\fR
+\fBbwctl \-t 30 \-T iperf \-s somehost.example.com\fR
 .IP
 Run a 30 second TCP \fBIperf\fR test with somehost.example.com as the sender
 and \fIlocal\fR as the receiver.
 .LP
-\fBbwctl -I 3600 -R 10 -t 10 -u -b 10m -s somehost.example.com\fR
+\fBbwctl \-I 3600 \-R 10 \-t 10 \-u \-b 10m \-s somehost.example.com\fR
 .IP
-Run a 10 second UDP test about every hour (3600 +/- 360 seconds) with
+Run a 10 second UDP test about every hour (3600 +/\- 360 seconds) with
 the sender rate limited to 10 Mbits per second from somehost.example.com to
 \fIlocal\fR.
 .LP
-\fBbwctl -s somehost.example.com AE AESKEY someuser\fR
+\fBbwctl \-s somehost.example.com AE AESKEY someuser\fR
 .IP
 Run the default 10 second TCP test. Authenticate using
 the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a passphrase
@@ -626,7 +626,7 @@ bwctld(8) and the \%http://e2epi.internet2.edu/bwctl/ web site.
 For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
 .PP
-For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp-HOWTO.html
+For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
 For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/
