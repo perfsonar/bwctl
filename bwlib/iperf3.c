@@ -189,6 +189,9 @@ Iperf3PreRunTest(
         switch((char)tsess->test_spec.outformat){
             case 'c':
                 break;
+            case 'J':
+                iperf_set_test_json_output( iperf_test, 1 );
+                break;
             default:
                 fprintf(tsess->localfp,
                         "bwctl: tool(iperf3): Invalid out format (-y) specification %c",
