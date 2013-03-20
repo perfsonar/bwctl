@@ -59,6 +59,7 @@ make
 %{__install} -D -p -m 0755 conf/bwctld.limits.default %{buildroot}%{_sysconfdir}/bwctld/bwctld.limits
 %{__install} -D -p -m 0755 conf/bwctld.limits.default %{buildroot}%{_sysconfdir}/bwctld/bwctld.limits.default
 %{__install} -D -p -m 0755 conf/bwctld.conf %{buildroot}%{_sysconfdir}/bwctld/bwctld.conf
+%{__install} -D -p -m 0755 conf/bwctld.conf %{buildroot}%{_sysconfdir}/bwctld/bwctld.conf.default
 
 %clean
 rm -rf $RPM_BUILD_ROOT 
