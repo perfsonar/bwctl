@@ -249,18 +249,10 @@ Iperf3RunTest(
 {
     struct iperf_test *iperf_test = closure;
 
-    iperf_set_test_state( iperf_test, TEST_RUNNING );
-
     // XXX: it would be better to receive the output from iperf3 than this, but
     // this will do for now.
     //dup2(fileno(stderr), STDOUT_FILENO);
     //dup2(fileno(stderr), STDERR_FILENO);
-
-    if (iperf_init_test(iperf_test) < 0) {
-        fprintf(stderr, "Problem starting test\n");
-        BWLError(ctx,BWLErrFATAL,EINVAL,"Problem starting test");
-        exit(-1);
-    }
 
     fprintf(stderr, "Test initialized\n");
 
