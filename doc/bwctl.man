@@ -478,7 +478,7 @@ The \fIlongest\fR time is specified as a number of seconds.
 .IP Default:
 If \fIinterval\fR is set, the default is 50% of \fIinterval\fR. Otherwise,
 the default is twice the test duration \fItime\fR but no smaller than
-5 minutes. (See \fB\-t\fR.)
+10 minutes. (See \fB\-t\fR.)
 .RE
 .TP
 \fB\-n\fR \fInIntervals\fR

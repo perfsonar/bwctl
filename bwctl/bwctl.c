@@ -1849,7 +1849,7 @@ main(
          * no less than 5 minutes for the default.)
          */
         if(!app.opt.seriesWindow){
-            app.opt.seriesWindow = MAX(app.opt.timeDuration * 2,300);
+            app.opt.seriesWindow = MAX(app.opt.timeDuration * 2,600);
         }
         /*
          * If nIntervals not set, and seriesInterval not set
