@@ -169,7 +169,7 @@ print_output_args(
             "                  (Initial start randomized within the complete interval.)\n"
            );
     fprintf(stderr,
-            "                  (default: 0 - start time not randomized)\n"
+            "                  (default: 10 - start time randomization is 10%)\n"
             "  -v             verbose output to syslog - add 'v's to increase verbosity\n"
             "  -V             print version and exit\n"
             "  -x             output sender session results\n"
@@ -1332,6 +1332,7 @@ main(
     /* Set default options. */
     memset(&app,0,sizeof(app));
     app.opt.timeDuration = 10;
+    app.opt.randomizeStart = 10;
 
     memset(&first,0,sizeof(first));
     memset(&second,0,sizeof(second));
