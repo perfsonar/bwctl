@@ -49,7 +49,7 @@ applications that use the bwctl library.
 %setup -q
 
 %build
-%configure --prefix=%{_prefix} --with-thrulay=no --with-I2util=no --enable-nuttcp
+%configure --prefix=%{_prefix} --with-thrulay=no --with-I2util=no --with-iperf3 --enable-nuttcp
 
 make
 
