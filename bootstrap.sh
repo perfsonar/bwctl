@@ -62,6 +62,30 @@ if test -x thrulay/bootstrap.sh; then
         echo
 fi
 
+#iperf3 is in mecurial, so can't do svn external
+if [ ! -d "iperf3" ]; then
+    echo
+    echo "## Downloading iperf3"
+    hg clone https://code.google.com/p/iperf/ ./iperf3
+    if [ "$?" != "0" ]; then
+        echo "## Unable to export iperf3. Please verify mecurial installed."
+        echo "## Please ignore this message if you do not want to build with iperf3 support."
+    fi 
+    echo
+fi
+
+if test -x iperf3/bootstrap.sh; then
+        echo
+        echo "## iperf3/bootstrap"
+        echo
+        cd iperf3
+        ./bootstrap.sh $*
+        cd ..
+        echo
+        echo "## Finished iperf3/bootstrap"
+        echo
+fi
+
 set -x
 libtoolize --copy --force --automake
 aclocal -I config
