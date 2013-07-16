@@ -315,6 +315,7 @@ typedef uint32_t    BWLSessionMode;
 typedef uint32_t    BWLProtocolVersion;
 
 typedef struct{
+    BWLBoolean      verbose;
     BWLToolType     tool_id;
     I2Addr          sender;
     I2Addr          receiver;
@@ -327,6 +328,7 @@ typedef struct{
     uint32_t        window_size;
     uint32_t        len_buffer;
     uint16_t        report_interval;
+    uint8_t         omit;
     uint8_t         parallel_streams;
     uint8_t         units;
     uint8_t         outformat;

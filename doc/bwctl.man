@@ -388,6 +388,12 @@ length of read/write buffers (bytes).
 8 KB TCP, 1470 bytes UDP
 .RE
 .TP
+\fB\-O\fR \fIseconds\fR
+Initial period of data to omit from the final statistics.
+This is so that you can skip past initial conditions
+such as TCP Slow Start.
+Currently only implemented by the \fBiperf3\fR tool.
+.TP
 \fB\-P\fR \fInStreams\fR
 Number of concurrent streams for the test. See the \fB\-P\fR option
 of \fBIperf\fR for details.

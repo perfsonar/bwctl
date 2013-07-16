@@ -1002,9 +1002,11 @@ _BWLWriteTestRequest(
     if(tool_negotiation){
         buf[94] = tspec->parallel_streams;
         *(uint32_t*)&buf[96] = htonl(tspec->tool_id);
-        buf[111] = tspec->units;
         buf[108] = tspec->outformat;
         buf[109] = bandwidth_exp;
+        buf[110] = tspec->omit;
+        buf[111] = tspec->units;
+        /* buf[112] = tspec->verbose; */
     }
     else if(tspec->parallel_streams){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
@@ -1313,8 +1315,6 @@ _BWLReadTestRequest(
             uint8_t bandwidth_exp;
 
             tspec.parallel_streams = buf[94];
-            tspec.outformat = buf[108];
-            tspec.units = buf[111];
             tspec.tool_id = ntohl(*(uint32_t*)&buf[96]);
 
             /* Ensure only one bit is set in the tool selection bit-mask */
@@ -1327,8 +1327,12 @@ _BWLReadTestRequest(
                 goto error;
             }
 
+            tspec.outformat = buf[108];
             bandwidth_exp = buf[109];
             tspec.bandwidth <<= bandwidth_exp;
+            tspec.omit = buf[110];
+            tspec.units = buf[111];
+            /* tspec.verbose = buf[112]; */
         }
         else{
             tspec.tool_id = BWL_TOOL_IPERF;

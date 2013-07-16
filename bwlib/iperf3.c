@@ -117,6 +117,10 @@ Iperf3PreRunTest(
     /* Set defaults. */
     iperf_defaults(iperf_test);
 
+    /* -v verbose flag */
+    if (tsess->test_spec.verbose)
+        iperf_set_verbose( iperf_test, 1 );
+
     /* -t test duration in seconds */
     iperf_set_test_duration( iperf_test, tsess->test_spec.duration );
 
@@ -154,6 +158,10 @@ Iperf3PreRunTest(
     } else {
         iperf_set_test_num_streams( iperf_test, tsess->test_spec.parallel_streams );
     }
+
+    /* -O omit time */
+    if (tsess->test_spec.omit != 0)
+        iperf_set_test_omit( iperf_test, tsess->test_spec.omit );
 
     /* -b (busy wait in UDP test) and -D (DSCP value for TOS
        byte): not used for the moment. */

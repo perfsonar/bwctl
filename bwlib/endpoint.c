@@ -272,7 +272,7 @@ epssock(
         memset(&sbuff,0,sizeof(sbuff));
         memcpy(&sbuff,lsaddr,lsaddrlen);
 
-        /* type-punning!!! */
+        /* type-punning!! */
         /* Specify port number to use */
         switch(lsaddr->sa_family){
             struct sockaddr_in  *s4;
@@ -993,6 +993,8 @@ ACCEPT:
     reltime = BWLNum64Add(reltime,tsess->fuzz);
     reltime = BWLNum64Add(reltime,
             BWLULongToNum64(tsess->test_spec.duration));
+    reltime = BWLNum64Add(reltime,
+            BWLULongToNum64(tsess->test_spec.omit));
 
     memset(&itval,0,sizeof(itval));
     BWLNum64ToTimeval(&itval.it_value,reltime);
@@ -1087,6 +1089,8 @@ ACCEPT:
     currtime2.tstamp = BWLNum64Sub(tsess->reserve_time,tsess->fuzz);
     currtime2.tstamp = BWLNum64Add(currtime2.tstamp,
             BWLULongToNum64(tsess->test_spec.duration));
+    currtime2.tstamp = BWLNum64Add(currtime2.tstamp,
+            BWLULongToNum64(tsess->test_spec.omit));
 
     /*
      * Wait for something to do:

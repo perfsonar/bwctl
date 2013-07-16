@@ -120,6 +120,7 @@ print_test_args(
     fprintf(stderr,
             "  -i interval    report interval (seconds)\n"
             "  -l len         length of read/write buffers (bytes)\n"
+            "  -O interval    omit time (currently only for iperf3)\n"
             "  -P nThreads    number of concurrent connections\n"
             "  -s sendhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 sendhost will run thrulay/nuttcp/iperf client \n"
@@ -1280,7 +1281,7 @@ main(
     char                optstring[128];
     static char         *conn_opts = "46a:AB:";
     static char         *out_opts = "d:e:f:I:L:n:pqrR:vVxy:";
-    static char         *test_opts = "ab:c:D:i:l:P:s:S:t:T:uw:W:";
+    static char         *test_opts = "ab:c:D:i:l:O:P:s:S:t:T:uw:W:";
     static char         *gen_opts = "hW";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
@@ -1612,6 +1613,19 @@ main(
                 free(tstr);
                 tstr = NULL;
                 break;
+            case 'O':
+                app.opt.timeOmit = strtoul(optarg,&tstr,10);
+                if(*tstr != '\0'){
+                    usage(progname, 
+                            "Invalid value. (-O) positive integer expected");
+                    exit(1);
+                }
+                if(app.opt.timeOmit < 0 || app.opt.timeOmit > 60){
+                    usage(progname, 
+                            "Invalid value. (-O) integer from 0 to 60 expected");
+                    exit(1);
+                }
+                break;
             case 'P':
                 app.opt.parallel =strtoul(optarg, &tstr, 10);
                 if (*tstr != '\0') {
@@ -1917,6 +1931,7 @@ main(
         /* Default to thrulay */
         first.tspec.tool_id = second.tspec.tool_id = BWL_TOOL_UNDEFINED;
     }
+    first.tspec.verbose = app.opt.verbose > 0 ? 1 : 0;
     first.tspec.duration = app.opt.timeDuration;
     first.tspec.udp = app.opt.udpTest;
     first.tspec.tos = app.opt.tos;
@@ -1939,6 +1954,7 @@ main(
     first.tspec.report_interval = app.opt.reportInterval;
     first.tspec.units = app.opt.units;
     first.tspec.outformat = app.opt.outformat;
+    first.tspec.omit = app.opt.timeOmit;
     first.tspec.parallel_streams = app.opt.parallel;
 
     /*
@@ -2294,7 +2310,7 @@ AGAIN:
             I2ErrLog( eh, "Using tool: %s", req_name );
         } else if ( ! ( first.tspec.tool_id & common_tools ) ) {
             char unknown[BWL_MAX_TOOLNAME];
-            char *req_name;
+            const char *req_name;
 
             req_name = BWLToolGetNameByID( ctx, first.tspec.tool_id );
             if ( ! req_name ) {
@@ -2596,6 +2612,8 @@ sess_req_err:
         endtime = first.tspec.req_time.tstamp;
         endtime = BWLNum64Add(endtime,
                 BWLULongToNum64(first.tspec.duration));
+        endtime = BWLNum64Add(endtime,
+                BWLULongToNum64(first.tspec.omit));
         endtime = BWLNum64Add(endtime,fuzz64);
         stop = False;
 
