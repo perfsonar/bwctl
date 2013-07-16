@@ -91,7 +91,7 @@ _BWLWriteServerGreeting(
     memset(buf,0,12);
 
     *((uint32_t *)&buf[12]) = htonl(avail_modes | 
-            BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION);
+            BWL_MODE_PROTOCOL_OMIT_VERSION);
     memcpy(&buf[16],challenge,16);
     if(I2Writeni(cntrl->sockfd,buf,32,retn_on_err) != 32){
         return BWLErrFATAL;
@@ -179,7 +179,7 @@ _BWLReadServerGreeting(
  *
  *        Note: The high-order byte of 'Mode' is set to the protocol version
  *        cntrl->protocol_version, which is (currently)
- *        BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION from the server.
+ *        BWL_MODE_PROTOCOL_OMIT_VERSION from the server.
  */
 BWLErrSeverity
 _BWLWriteClientGreeting(
@@ -813,8 +813,8 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     100|                                                               |
  *     104|                            Unused                             |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               +-+-+-+-+-+-+-+-+
- *     108|    Out Fmt    | bandwidth-exp |               |     Units     |
+ *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     108|    Out Fmt    | bandwidth-exp |   Omit Time   |     Units     |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     112|                                                               |
  *     116|                Integrity Zero Padding (16 octets)             |
@@ -852,6 +852,7 @@ _BWLWriteTestRequest(
     uint32_t	    message_len;
     int	            blocks;
     BWLBoolean	    tool_negotiation;
+    BWLBoolean	    omit_available;
     uint64_t        bandwidth;
     uint8_t         bandwidth_exp = 0;
 
@@ -911,6 +912,10 @@ _BWLWriteTestRequest(
     else { 
         message_len = 7*_BWL_RIJNDAEL_BLOCK_SIZE;
     }
+
+    /* Is there support for the -O omit flag in this version? */
+    omit_available = cntrl->protocol_version >=
+        BWL_MODE_PROTOCOL_OMIT_VERSION;
 
     /*
      * Initialize buffer
@@ -998,13 +1003,11 @@ _BWLWriteTestRequest(
         buf[93] = tspec->tos;
     }
 
-
     if(tool_negotiation){
         buf[94] = tspec->parallel_streams;
         *(uint32_t*)&buf[96] = htonl(tspec->tool_id);
         buf[108] = tspec->outformat;
         buf[109] = bandwidth_exp;
-        buf[110] = tspec->omit;
         buf[111] = tspec->units;
         /* buf[112] = tspec->verbose; */
     }
@@ -1026,6 +1029,15 @@ _BWLWriteTestRequest(
     else if(bandwidth_exp > 0){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -b greater than 4.3g");
+        return BWLErrFATAL;
+    }
+
+    if(omit_available){
+        buf[110] = tspec->omit;
+    }
+    else if(tspec->omit){
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support -O option");
         return BWLErrFATAL;
     }
 
@@ -1093,6 +1105,7 @@ _BWLReadTestRequest(
     int                     blocks=_BWL_TEST_REQUEST_BLK_LEN; /* 8 */
     uint32_t                padding_pos;
     BWLBoolean	            tool_negotiation;
+    BWLBoolean	            omit_available;
 
     if(!_BWLStateIs(_BWLStateTestRequest,cntrl)){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -1126,6 +1139,10 @@ _BWLReadTestRequest(
         blocks--;
     }
     padding_pos = (blocks -1) * _BWL_RIJNDAEL_BLOCK_SIZE;
+
+    /* Is there support for the -O omit flag in this version? */
+    omit_available = cntrl->protocol_version >=
+        BWL_MODE_PROTOCOL_OMIT_VERSION;
 
     /*
      * Already read the first block - read the rest for this message
@@ -1330,13 +1347,16 @@ _BWLReadTestRequest(
             tspec.outformat = buf[108];
             bandwidth_exp = buf[109];
             tspec.bandwidth <<= bandwidth_exp;
-            tspec.omit = buf[110];
             tspec.units = buf[111];
             /* tspec.verbose = buf[112]; */
         }
         else{
             tspec.tool_id = BWL_TOOL_IPERF;
         }
+
+	if(omit_available){
+            tspec.omit = buf[110];
+	}
 
         /*
          * Allocate a record for this test.
