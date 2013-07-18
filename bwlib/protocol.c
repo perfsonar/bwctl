@@ -811,7 +811,8 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	96|                    Tool selection bit-mask                    |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     100|                                                               |
+ *     100|    Verbose    |                                               |
+ *	  +-+-+-+-+-+-+-+-+                                               +
  *     104|                            Unused                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     108|    Out Fmt    | bandwidth-exp |   Omit Time   |     Units     |
@@ -1009,7 +1010,6 @@ _BWLWriteTestRequest(
         buf[108] = tspec->outformat;
         buf[109] = bandwidth_exp;
         buf[111] = tspec->units;
-        /* buf[112] = tspec->verbose; */
     }
     else if(tspec->parallel_streams){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
@@ -1033,6 +1033,7 @@ _BWLWriteTestRequest(
     }
 
     if(omit_available){
+        buf[100] = tspec->verbose;
         buf[110] = tspec->omit;
     }
     else if(tspec->omit){
@@ -1348,13 +1349,13 @@ _BWLReadTestRequest(
             bandwidth_exp = buf[109];
             tspec.bandwidth <<= bandwidth_exp;
             tspec.units = buf[111];
-            /* tspec.verbose = buf[112]; */
         }
         else{
             tspec.tool_id = BWL_TOOL_IPERF;
         }
 
 	if(omit_available){
+            tspec.verbose = buf[100];
             tspec.omit = buf[110];
 	}
 
