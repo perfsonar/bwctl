@@ -221,6 +221,7 @@ struct BWLToolDefinitionRec{
     BWLToolInitTestFunc     init_test;
     BWLToolPreRunTestFunc   pre_run;
     BWLToolRunTestFunc      run;
+    BWLTestSideData         results_side;
 };
 
 

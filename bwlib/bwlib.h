@@ -288,6 +288,13 @@ typedef enum{
     BWL_TOOL_IPERF3=0x8
 } BWLToolType;
 
+typedef enum{
+   BWL_DATA_UNKNOWN=0,
+   BWL_DATA_ON_CLIENT=0x1,
+   BWL_DATA_ON_SERVER=0x2,
+   BWL_DATA_ON_BOTH=0x3,
+} BWLTestSideData;
+
 typedef uint32_t   BWLBoolean;
 typedef uint8_t    BWLSID[16];
 typedef uint8_t    BWLSequence[4];

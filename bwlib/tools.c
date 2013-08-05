@@ -187,6 +187,24 @@ BWLToolGetNameByID(
     return NULL;
 }
 
+BWLTestSideData
+BWLToolGetResultsSideByID(
+        BWLContext  ctx,
+        BWLToolType tool_id
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(tool_id == ctx->tool_list[i].id){
+            return ctx->tool_list[i].tool->results_side;
+        }
+    }
+
+    return BWL_DATA_UNKNOWN;
+}
+
+
 const char *
 BWLToolGetNameByIndex(
         BWLContext ctx,

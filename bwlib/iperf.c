@@ -480,5 +480,6 @@ BWLToolDefinitionRec    BWLToolIperf = {
     IperfAvailable,         /* tool_avail       */
     _BWLToolGenericInitTest, /* init_test        */
     IperfPreRunTest,        /* pre_run          */
-    IperfRunTest            /* run              */
+    IperfRunTest,           /* run              */
+    BWL_DATA_ON_SERVER       /* results_side     */
 };

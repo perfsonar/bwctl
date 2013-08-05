@@ -289,5 +289,6 @@ BWLToolDefinitionRec    BWLToolIperf3 = {
     Iperf3Available,         /* tool_avail       */
     _BWLToolGenericInitTest, /* init_test        */
     Iperf3PreRunTest,        /* pre_run          */
-    Iperf3RunTest            /* run              */
+    Iperf3RunTest,           /* run              */
+    BWL_DATA_ON_CLIENT       /* results_side     */
 };

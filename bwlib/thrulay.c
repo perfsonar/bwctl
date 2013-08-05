@@ -316,5 +316,6 @@ BWLToolDefinitionRec    BWLToolThrulay = {
     ThrulayAvailable,       /* tool_avail       */
     _BWLToolGenericInitTest, /* init_test        */
     ThrulayPreRunTest,      /* pre_run          */
-    ThrulayRunTest          /* run              */
+    ThrulayRunTest,         /* run              */
+    BWL_DATA_ON_SERVER      /* run              */
 };

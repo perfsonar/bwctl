@@ -173,7 +173,7 @@ print_output_args(
             "                  (default: 10 - start time randomization is 10%)\n"
             "  -v             verbose output to syslog - add 'v's to increase verbosity\n"
             "  -V             print version and exit\n"
-            "  -x             output sender session results\n"
+            "  -x             output both sender and receiver session results\n"
             "  -y outfmt      output format to use (Default: tool specific)\n"
            );
 }
@@ -1296,6 +1296,7 @@ main(
     sigset_t            sigs;
     int                 exit_val=0;
     double              syncfuzz;
+    BWLTestSideData     test_results_side;
 
     /*
      * Make sure the signal mask is UNBLOCKING TERM/HUP/INT
@@ -1504,7 +1505,7 @@ main(
                 app.opt.printfiles = True;
                 break;
             case 'x':
-                app.opt.sender_results = True;
+                app.opt.bidirectional_results = True;
                 break;
             case 'd':
                 if (!(app.opt.savedir = strdup(optarg))) {
@@ -2617,6 +2618,8 @@ sess_req_err:
         endtime = BWLNum64Add(endtime,fuzz64);
         stop = False;
 
+        test_results_side = BWLToolGetResultsSideByID(ctx, sess[0]->tspec.tool_id);
+
         /*
          * Setup files for the results.
          */
@@ -2626,15 +2629,20 @@ sess_req_err:
                     first.tspec.req_time.tstamp);
             strcpy(sendfname,recvfname);
 
-            sprintf(&recvfname[ext_offset],"%s%s",
-                    RECV_EXT,BWL_FILE_EXT);
-            if(!(recvfp = fopen(recvfname,"w"))){
-                I2ErrLog(eh,"Unable to write to %s %M",
-                        recvfname);
-                exit_val = 1;
-                goto finish;
+            if(test_results_side == BWL_DATA_ON_SERVER ||
+               app.opt.bidirectional_results){
+                sprintf(&recvfname[ext_offset],"%s%s",
+                        RECV_EXT,BWL_FILE_EXT);
+                if(!(recvfp = fopen(recvfname,"w"))){
+                    I2ErrLog(eh,"Unable to write to %s %M",
+                            recvfname);
+                    exit_val = 1;
+                    goto finish;
+                }
             }
-            if(app.opt.sender_results){
+
+            if(test_results_side == BWL_DATA_ON_CLIENT ||
+               app.opt.bidirectional_results){
                 sprintf(&sendfname[ext_offset],"%s%s",
                         SEND_EXT,BWL_FILE_EXT);
                 if(!(sendfp = fopen(sendfname,"w"))){
@@ -2644,11 +2652,14 @@ sess_req_err:
                     goto finish;
                 }
             }
-
         }
         else{
-            recvfp = stdout;
-            if(app.opt.sender_results){
+            if(test_results_side == BWL_DATA_ON_SERVER ||
+                app.opt.bidirectional_results){
+                recvfp = stdout;
+            }
+            if(test_results_side == BWL_DATA_ON_CLIENT ||
+                app.opt.bidirectional_results){
                 sendfp = stdout;
             }
         }
@@ -2699,7 +2710,7 @@ sess_req_err:
                 if(recvfp == stdout){
                     fprintf(stdout,"\nRECEIVER END\n");
                 }
-                else{
+                else if (recvfp) {
                     fclose(recvfp);
                     recvfp = NULL;
                     fprintf(stdout,"%s\n",recvfname);
@@ -2711,33 +2722,35 @@ sess_req_err:
                     goto finish;
                 }
 
-                /* sender session */
-                if(sendfp == stdout){
-                    fprintf(stdout,"\nSENDER START\n");
-                }
-                atype = BWL_CNTRL_ACCEPT;
-                if( (err_ret = BWLEndSession(sess[1]->cntrl,
-                                &ip_intr,&atype,sendfp))
-                        < BWLErrWARNING){
-                    CloseSessions();
-                    goto next_test;
-                }
-                if(sendfp && (atype != BWL_CNTRL_ACCEPT)){
-                    fprintf(sendfp,"bwctl: Session ended abnormally\n");
-                }
-                if(sendfp == stdout){
-                    fprintf(stdout,"\nSENDER END\n");
-                }
-                else if(sendfp){
-                    fclose(sendfp);
-                    sendfp = NULL;
-                    fprintf(stdout,"%s\n",sendfname);
-                }
-                fflush(stdout);
+                if (sendfp) {
+                    /* sender session */
+                    if(sendfp == stdout){
+                        fprintf(stdout,"\nSENDER START\n");
+                    }
+                    atype = BWL_CNTRL_ACCEPT;
+                    if( (err_ret = BWLEndSession(sess[1]->cntrl,
+                                    &ip_intr,&atype,sendfp))
+                            < BWLErrWARNING){
+                        CloseSessions();
+                        goto next_test;
+                    }
+                    if(sendfp && (atype != BWL_CNTRL_ACCEPT)){
+                        fprintf(sendfp,"bwctl: Session ended abnormally\n");
+                    }
+                    if(sendfp == stdout){
+                        fprintf(stdout,"\nSENDER END\n");
+                    }
+                    else if(sendfp){
+                        fclose(sendfp);
+                        sendfp = NULL;
+                        fprintf(stdout,"%s\n",sendfname);
+                    }
+                    fflush(stdout);
 
-                if(sig_check()){
-                    exit_val = 1;
-                    goto finish;
+                    if(sig_check()){
+                        exit_val = 1;
+                        goto finish;
+                    }
                 }
 
                 break;

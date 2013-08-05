@@ -566,8 +566,8 @@ Verbose output. Specifying additional \fB\-v\fR's increases the verbosity.
 .TP
 \fB\-x\fR
 .br
-Output sender (client) results as well as receiver results.
-By default, sender results are not output. If the \fB\-p\fR option is
+Output both sender and receiver results.  By default, only the results from the
+appropriate side for the given tool are output. If the \fB\-p\fR option is
 specified, the sender results are placed in an additional file.
 .TP
 \fB\-y\fR \fIformat\fR

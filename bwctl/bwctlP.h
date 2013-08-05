@@ -114,7 +114,7 @@ typedef	struct {
         I2Boolean	v4only;	        /* -4 */
         I2Boolean	v6only;	        /* -6 */
         I2Boolean	printfiles;	/* -p */
-        I2Boolean	sender_results;	/* -x (xmit)*/
+        I2Boolean	bidirectional_results;	/* -x (xmit)*/
         char		*savedir;	/* -d */
         uint32_t	seriesInterval;	/* -I (seconds) */
         uint32_t	randomizeStart;	/* -R (alpha[0-50])	*/
