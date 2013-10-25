@@ -1232,9 +1232,9 @@ BWLDExecPostHookScript(
     buflen = sizeof(buf);
     fprintf(pipe_fp, "client: %s\n", I2AddrNodeName(ctrl->remote_addr, buf, &buflen));
     buflen = sizeof(buf);
-    fprintf(pipe_fp, "sender: %s\n", I2AddrNodeName(test_spec->sender, buf, &buflen));
+    fprintf(pipe_fp, "sender: %s\n", I2AddrNodeName(test_spec->client, buf, &buflen));
     buflen = sizeof(buf);
-    fprintf(pipe_fp, "receiver: %s\n", I2AddrNodeName(test_spec->receiver, buf, &buflen));
+    fprintf(pipe_fp, "receiver: %s\n", I2AddrNodeName(test_spec->server, buf, &buflen));
     fprintf(pipe_fp, "duration: %i\n", test_spec->duration);
     fprintf(pipe_fp, "use_udp: %s\n", (test_spec->udp)?"YES":"NO");
     fprintf(pipe_fp, "bandwidth: %llu\n", test_spec->bandwidth);
@@ -1973,6 +1973,12 @@ main(int argc, char *argv[])
     if( !BWLContextFindTools(ctx)){
         I2ErrLog(errhand, "BWLContextFindTools failed.");
         exit(1);
+    }
+
+    if( !BWLContextConfigGetV(ctx,BWLAllowUnsync)){
+        if (BWLNTPIsSynchronized(ctx) == False) {
+            I2ErrLog(errhand, "NTP is currently unsynchronized. Tests will be denied until NTP is synchronized. Set 'allow_unsync' to allow tests anyway.");
+        }
     }
 
     /*

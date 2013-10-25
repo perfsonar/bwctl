@@ -209,6 +209,35 @@ typedef BWLBoolean  (*BWLToolRunTestFunc)(
  */
 
 /*
+ * This function is used to parse the protocol parameters for the given tool.
+ */
+typedef BWLErrSeverity (*BWLToolParseRequestFunc)(
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+/*
+ * This function is used to parse the protocol parameters for the given tool.
+ */
+typedef BWLErrSeverity (*BWLToolUnparseRequestFunc)(
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+/*
+ * This function is used to parse the protocol parameters for the given tool.
+ */
+typedef BWLTestSideData (*BWLToolTestSideDataFunc)(
+        BWLContext          ctx,
+        BWLTestSpec         *tspec
+        );
+
+
+/*
  * This structure is used to actually define the 'Tool' abstraction
  */
 struct BWLToolDefinitionRec{
@@ -222,6 +251,7 @@ struct BWLToolDefinitionRec{
     BWLToolPreRunTestFunc   pre_run;
     BWLToolRunTestFunc      run;
     BWLTestSideData         results_side;
+    BWLBoolean                supports_server_sends;
 };
 
 
@@ -346,8 +376,8 @@ struct BWLTestSessionRec{
     BWLToolDefinition   tool;
     uint16_t            tool_port;
 
-    BWLBoolean          conf_sender;
-    BWLBoolean          conf_receiver;
+    BWLBoolean          conf_client;
+    BWLBoolean          conf_server;
     BWLTestSpec         test_spec;
 
     FILE                *localfp;
@@ -371,8 +401,8 @@ extern BWLTestSession
 _BWLTestSessionAlloc(
         BWLControl  cntrl,
         BWLBoolean  sender_local,
-        I2Addr      sender,
-        I2Addr      receiver,
+        I2Addr      client,
+        I2Addr      server,
         uint16_t    recv_port,
         BWLTestSpec *test_spec
         );
@@ -835,5 +865,7 @@ _BWLGetTimespec(
         uint32_t        *esterr,
         int             *synchronized
         );
+
+extern BWLToolDefinitionRec BWLToolPing;
 
 #endif    /* IPCNTRLP_H */

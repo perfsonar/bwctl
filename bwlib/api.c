@@ -296,9 +296,9 @@ _BWLFailControlSession(
 BWLTestSession
 _BWLTestSessionAlloc(
         BWLControl  cntrl,
-        BWLBoolean  send_local,
-        I2Addr      sender,
-        I2Addr      receiver,
+        BWLBoolean  is_client,
+        I2Addr      client,
+        I2Addr      server,
         uint16_t    tool_port,
         BWLTestSpec *test_spec
         )
@@ -308,7 +308,7 @@ _BWLTestSessionAlloc(
     /*
      * Address records must exist.
      */
-    if(!sender || ! receiver){
+    if(!client || !server){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
                 "_BWLTestSessionAlloc:Invalid Addr arg");
         return NULL;
@@ -327,22 +327,22 @@ _BWLTestSessionAlloc(
     memcpy(&test->test_spec,test_spec,sizeof(BWLTestSpec));
 
     /*
-     * Overwrite sender/receiver with passed-in values
+     * Overwrite client/server with passed-in values
      */
-    test->test_spec.sender = sender;
-    test->test_spec.receiver = receiver;
+    test->test_spec.client = client;
+    test->test_spec.server = server;
 
-    test->conf_receiver = !send_local;
-    test->conf_sender = !test->conf_receiver;
+    test->conf_server = !is_client;
+    test->conf_client = !test->conf_server;
 
-    if(send_local){
-        test->conf_sender = True;
-        test->conf_receiver = False;
+    if(is_client){
+        test->conf_client = True;
+        test->conf_server = False;
         test->tool_port = tool_port;
     }
     else{
-        test->conf_receiver = True;
-        test->conf_sender = False;
+        test->conf_server = True;
+        test->conf_client = False;
         test->tool_port = 0;
     }
 
@@ -389,8 +389,8 @@ _BWLTestSessionFree(
         _BWLCallTestComplete(tsession,aval);
     }
 
-    I2AddrFree(tsession->test_spec.sender);
-    I2AddrFree(tsession->test_spec.receiver);
+    I2AddrFree(tsession->test_spec.client);
+    I2AddrFree(tsession->test_spec.server);
 
     while(tsession->localfp &&
             (fclose(tsession->localfp) < 0) &&
@@ -426,7 +426,7 @@ _BWLCreateSID(
         )
 {
     uint8_t    *aptr;
-    struct sockaddr *saddr = I2AddrSAddr(tsession->test_spec.receiver,NULL);
+    struct sockaddr *saddr = I2AddrSAddr(tsession->test_spec.server,NULL);
 
     if(!saddr){
         BWLError(tsession->cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,

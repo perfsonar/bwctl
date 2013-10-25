@@ -95,10 +95,10 @@ ThrulayPreRunTest(
     int     rc;
 
     hlen = sizeof(recvhost);
-    I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+    I2AddrNodeName(tsess->test_spec.server,recvhost,&hlen);
     if(!hlen){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "ThrulayPreRunTest: Invalid receiver I2Addr");
+                "ThrulayPreRunTest: Invalid server I2Addr");
         return NULL;
     }
 
@@ -112,7 +112,7 @@ ThrulayPreRunTest(
         tsess->test_spec.parallel_streams = 1;
     }
 
-    if(tsess->conf_receiver){
+    if(tsess->conf_server){
         /* Run thrulay server through its API */
 
         /* Log through stderr and verbose reports. */
@@ -230,7 +230,7 @@ ThrulayRunTest(
 {
     int rc;
 
-    if(tsess->conf_receiver){
+    if(tsess->conf_server){
         int     wstatus;
         int     ret=0;
         pid_t   pid;
@@ -313,6 +313,8 @@ BWLToolDefinitionRec    BWLToolThrulay = {
     NULL,                   /* def_server_cmd   */
     5003,                   /* def_port         */
     _BWLToolGenericParse,    /* parse            */
+    BWLGenericParseThroughputParameters,    /* parse_request */
+    BWLGenericUnparseThroughputParameters,  /* unparse_request */
     ThrulayAvailable,       /* tool_avail       */
     _BWLToolGenericInitTest, /* init_test        */
     ThrulayPreRunTest,      /* pre_run          */

@@ -282,10 +282,14 @@ typedef enum{
 /* Supported tools. The values*/
 typedef enum{
     BWL_TOOL_UNDEFINED=0,
-    BWL_TOOL_IPERF=0x1,
-    BWL_TOOL_NUTTCP=0x2,
-    BWL_TOOL_THRULAY=0x4,
-    BWL_TOOL_IPERF3=0x8
+    BWL_TOOL_IPERF=0x01,
+    BWL_TOOL_NUTTCP=0x02,
+    BWL_TOOL_THRULAY=0x04,
+    BWL_TOOL_IPERF3=0x08,
+    BWL_TOOL_PING=0x10,
+    BWL_TOOL_TRACEROUTE=0x20,
+    BWL_TOOL_TRACEPATH=0x40,
+    BWL_TOOL_OWAMP=0x80,
 } BWLToolType;
 
 typedef enum{
@@ -310,6 +314,7 @@ typedef uint8_t    BWLKey[16];
 
 #define BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION  (0x01000000)
 #define BWL_MODE_PROTOCOL_OMIT_VERSION                (0x02000000)
+#define BWL_MODE_PROTOCOL_1_5_VERSION                 (0x04000000)
 #define BWL_MODE_PROTOCOL_VERSION_MASK                (0xff000000)
 #define BWL_MODE_UNDEFINED          (0x0)
 #define BWL_MODE_LEAST_RESTRICTIVE  (0x80)
@@ -324,12 +329,17 @@ typedef uint32_t    BWLProtocolVersion;
 
 typedef struct{
     BWLBoolean      verbose;
-    BWLToolType     tool_id;
-    I2Addr          sender;
-    I2Addr          receiver;
+    I2Addr          client;
+    I2Addr          server;
     BWLTimeStamp    req_time;
     BWLNum64        latest_time;
+
+    BWLBoolean      server_sends;
+
     uint32_t        duration;
+
+    // Throughput test parameters
+    BWLToolType     tool_id;
     BWLBoolean      udp;
     uint8_t         tos;
     uint64_t        bandwidth;
@@ -341,6 +351,21 @@ typedef struct{
     uint8_t         units;
     uint8_t         outformat;
     BWLBoolean      dynamic_window_size;
+
+    // Ping test parameters
+    // 'duration' field is ping_packet_count * (ping_packet_count / 1000)
+    // 'bandwidth' field is (ping_packet_count * ping_packet_size) * (1 / ping_interpacket_time) * 8
+    uint16_t        ping_packet_count;
+    uint16_t        ping_interpacket_time;  // in milliseconds
+    uint16_t        ping_packet_size;
+    uint8_t         ping_packet_ttl;
+
+    // Traceroute test parameters
+    // Maximum test duration is 'duration' field
+    BWLBoolean      traceroute_udp;
+    uint16_t        traceroute_packet_size;
+    uint8_t         traceroute_first_ttl;
+    uint8_t         traceroute_last_ttl;
 } BWLTestSpec;
 
 typedef uint32_t   BWLPacketSizeT;
@@ -1418,4 +1443,125 @@ BWLUInt32Dup(
         uint32_t    n
         );
 
+extern char *
+BWLDoubleDup(
+        BWLContext  ctx,
+        double      n
+        );
+
+extern BWLErrSeverity
+BWLGenericParseThroughputParameters(
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+extern BWLErrSeverity
+BWLGenericParseTracerouteParameters(
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+extern BWLErrSeverity
+BWLGenericParsePingParameters(
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+extern BWLErrSeverity
+BWLGenericUnparseThroughputParameters(
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+extern BWLErrSeverity
+BWLGenericUnparseTracerouteParameters(
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+extern BWLErrSeverity
+BWLGenericUnparsePingParameters(
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+BWLErrSeverity
+BWLToolUnparseRequestParameters(
+        BWLToolType         id,
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+BWLErrSeverity
+BWLToolParseRequestParameters(
+        BWLToolType         id,
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+BWLTestSideData
+BWLToolGetResultsSideByID(
+        BWLContext  ctx,
+        BWLToolType tool_id,
+        BWLTestSpec *spec
+        );
+
+BWLTestSideData BWLToolServerSideData(
+        BWLContext          ctx,
+        BWLTestSpec         *spec
+        );
+
+BWLTestSideData BWLToolClientSideData(
+        BWLContext          ctx,
+        BWLTestSpec         *spec
+        );
+
+BWLTestSideData BWLToolSenderSideData(
+        BWLContext          ctx,
+        BWLTestSpec         *spec
+        );
+int
+ExecCommand(
+        BWLContext          ctx,
+        char                *output_buf,
+        int                 output_buf_size,
+        char                *command,
+        ...
+        );
+
+BWLBoolean
+BWLNTPIsSynchronized(
+        BWLContext	ctx
+        );
+
+BWLBoolean
+BWLAddrIsIPv6(
+        BWLContext ctx,
+        I2Addr     addr
+        );
+
+char *
+BWLAddrNodeName(
+        BWLContext ctx,
+        I2Addr     addr,
+        char      *buf,
+        size_t     len,
+        int        flags
+        );
 #endif    /* OWAMP_H */

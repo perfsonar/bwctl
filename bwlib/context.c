@@ -1128,16 +1128,16 @@ _BWLCallCheckTestPolicy(
         return False;
     }
 
-    if(tsess->conf_sender){
-        lsaddr = I2AddrSAddr(tsess->test_spec.sender,&lsaddrlen);
-        rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen);
+    if(tsess->conf_client){
+        lsaddr = I2AddrSAddr(tsess->test_spec.client,&lsaddrlen);
+        rsaddr = I2AddrSAddr(tsess->test_spec.server,&rsaddrlen);
     }
     else{
-        lsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen);
-        rsaddr = I2AddrSAddr(tsess->test_spec.sender,&lsaddrlen);
+        lsaddr = I2AddrSAddr(tsess->test_spec.server,&rsaddrlen);
+        rsaddr = I2AddrSAddr(tsess->test_spec.client,&lsaddrlen);
     }
 
-    return func(cntrl,tsess->sid,tsess->conf_sender,lsaddr,rsaddr,
+    return func(cntrl,tsess->sid,tsess->conf_client,lsaddr,rsaddr,
             lsaddrlen,&tsess->test_spec,tsess->fuzz,&tsess->reserve_time,
             &tsess->tool_port,&tsess->closure,err_ret);
 }
@@ -1198,7 +1198,7 @@ _BWLCallProcessResults(
         return BWLErrOK;
     }
 
-    if(tsession->conf_sender){
+    if(tsession->conf_client){
         return func(tsession->cntrl,True,&tsession->test_spec,
                 tsession->localfp,tsession->remotefp);
     }

@@ -156,7 +156,8 @@ static struct limdesc	limkeys[] = {
     {BWLDLimAllowOpenMode,  "allow_open_mode",	LIMBOOL,        1},
     {BWLDLimAllowTCP,	    "allow_tcp",	LIMBOOL,        1},
     {BWLDLimAllowUDP,	    "allow_udp",	LIMBOOL,        0},
-    {BWLDLimMaxTimeError,   "max_time_error",	LIMFIXEDINT,    0}
+    {BWLDLimMaxTimeError,   "max_time_error",	LIMFIXEDINT,    0},
+    {BWLDLimMinimumTTL,     "minimum_ttl",    	LIMFIXEDINT,    0}
 };
 
 static BWLDLimitT
@@ -2156,7 +2157,7 @@ BWLBoolean
 BWLDCheckTestPolicy(
         BWLControl	cntrl,
         BWLSID		sid,
-        BWLBoolean	local_sender,
+        BWLBoolean	local_client,
         struct sockaddr	*local_sa_addr	__attribute__((unused)),
         struct sockaddr	*remote_sa_addr __attribute__((unused)),
         socklen_t	sa_len	__attribute__((unused)),
@@ -2177,6 +2178,7 @@ BWLDCheckTestPolicy(
     uint16_t	        tool_port_loc = *tool_port_ret;
     double              td;
     uint32_t            access_prio = BWLErrINFO;
+    I2numT              minimum_ttl;
 
     *err_ret = BWLErrOK;
 
@@ -2218,6 +2220,32 @@ BWLDCheckTestPolicy(
 
     /* VALIDATE THE REQUEST! */
 
+    /*
+     * If allow_unsync is unset, check whether we're synchronized, and the
+     * client is synchronized.
+     */
+    if( !BWLContextConfigGetV(ctx,BWLAllowUnsync)){
+        if (BWLNTPIsSynchronized(ctx) == False) {
+            BWLError(ctx,access_prio,BWLErrPOLICY,
+                    "BWLDCheckTestPolicy: Local server isn't synchronized. Server administrator needs to set 'allow_unsync' to allow anyway.");
+            goto done;
+        }
+        /*
+        else if (!tspec->req_time.sync) {
+            BWLError(ctx,access_prio,BWLErrPOLICY,
+                    "BWLDCheckTestPolicy: Requesting client isn't synchronized. Server administrator needs to set 'allow_unsync' to allow anyway.");
+            goto done;
+        }
+        */
+    }
+ 
+    lim.limit = BWLDLimDuration;
+    lim.value = tspec->duration;
+    if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
+        BWLError(ctx,access_prio,BWLErrPOLICY,
+                "BWLDCheckTestPolicy: Requested test duration denied");
+        goto done;
+    }
     /*
      * First check fixed limits that don't need to be communicated
      * with the parent for global state.
@@ -2284,6 +2312,25 @@ BWLDCheckTestPolicy(
         }
     }
 
+    // The minimum TTL is only applicable on the client side
+    if ((local_client && !tspec->server_sends) ||
+        (!local_client && tspec->server_sends)) {
+
+	// Get the minimum TTL, and if they haven't specified it in the request
+	// (i.e. the traceroute_first_ttl is 0), set the TTL to it.
+        if (BWLDGetFixedLimit(node,BWLDLimMinimumTTL,&minimum_ttl)) {
+            if (minimum_ttl > 0 && tspec->traceroute_first_ttl > 0 &&
+                tspec->traceroute_first_ttl < minimum_ttl) {
+                BWLError(ctx,access_prio,BWLErrPOLICY,
+                        "BWLDCheckTestPolicy: Specified TTL is too low");
+                goto done;
+            }
+
+            if (tspec->traceroute_first_ttl == 0)
+                tspec->traceroute_first_ttl = minimum_ttl;
+        }
+    }
+
     /*
      * Now request consumable resources
      */
@@ -2316,7 +2363,7 @@ reservation:
      * receiver. (The sender MUST use what the reciever specifies, so
      * ignore the parents suggestion in this case.)
      */
-    if(!local_sender){
+    if(!local_client){
         *tool_port_ret = tool_port_loc;
     }
     *closure = tinfo;

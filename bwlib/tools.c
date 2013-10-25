@@ -70,6 +70,11 @@ static BWLToolDefinitionRec BWLToolNone = {
 
 /* autoconf seletion of tools here... */
 
+extern BWLToolDefinitionRec BWLToolOwamp;
+extern BWLToolDefinitionRec BWLToolPing;
+extern BWLToolDefinitionRec BWLToolTraceroute;
+extern BWLToolDefinitionRec BWLToolTracepath;
+
 #ifdef  TOOL_IPERF
 extern BWLToolDefinitionRec BWLToolIperf;
 #else
@@ -95,6 +100,10 @@ extern BWLToolDefinitionRec BWLToolThrulay;
 #endif
 
 BWLToolRec tool_list[] = {
+    {BWL_TOOL_OWAMP,  &BWLToolOwamp},
+    {BWL_TOOL_TRACEPATH, &BWLToolTracepath},
+    {BWL_TOOL_TRACEROUTE, &BWLToolTraceroute},
+    {BWL_TOOL_PING,  &BWLToolPing},
     {BWL_TOOL_IPERF, &BWLToolIperf},
     {BWL_TOOL_IPERF3, &BWLToolIperf3},
     {BWL_TOOL_NUTTCP, &BWLToolNuttcp},
@@ -187,8 +196,8 @@ BWLToolGetNameByID(
     return NULL;
 }
 
-BWLTestSideData
-BWLToolGetResultsSideByID(
+BWLTestType
+BWLToolGetTestTypesByID(
         BWLContext  ctx,
         BWLToolType tool_id
         )
@@ -197,11 +206,47 @@ BWLToolGetResultsSideByID(
 
     for(i=0;i<ctx->tool_list_size;i++){
         if(tool_id == ctx->tool_list[i].id){
-            return ctx->tool_list[i].tool->results_side;
+            return ctx->tool_list[i].tool->test_types;
         }
     }
 
     return BWL_DATA_UNKNOWN;
+}
+
+
+BWLTestSideData
+BWLToolGetResultsSideByID(
+        BWLContext  ctx,
+        BWLToolType tool_id,
+        BWLTestSpec *spec
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(tool_id == ctx->tool_list[i].id){
+            return ctx->tool_list[i].tool->results_side(ctx, spec);
+        }
+    }
+
+    return BWL_DATA_UNKNOWN;
+}
+
+BWLBoolean
+BWLToolSupportsServerSendByID(
+        BWLContext  ctx,
+        BWLToolType tool_id
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(tool_id == ctx->tool_list[i].id){
+            return ctx->tool_list[i].tool->supports_server_sends;
+        }
+    }
+
+    return False;
 }
 
 
@@ -215,6 +260,18 @@ BWLToolGetNameByIndex(
 
     return ctx->tool_list[i].tool->name;
 }
+
+BWLTestType
+BWLToolGetTestTypesByIndex(
+        BWLContext ctx,
+        uint32_t    i
+        )
+{
+    assert(i < ctx->tool_list_size);
+
+    return ctx->tool_list[i].tool->test_types;
+}
+
 
 const char *
 BWLToolGetToolNames(
@@ -272,6 +329,53 @@ BWLToolParseArg(
     return False;
 }
 
+BWLErrSeverity
+BWLToolParseRequestParameters(
+        BWLToolType         id,
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(ctx->tool_list[i].id == id){
+            return ctx->tool_list[i].tool->parse_request(ctx,buf,tspec,protocol_version);
+        }
+    }
+
+    /*
+     * Arg not found
+     */
+    return BWLErrFATAL;
+}
+
+BWLErrSeverity
+BWLToolUnparseRequestParameters(
+        BWLToolType         id,
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(ctx->tool_list[i].id == id){
+            return ctx->tool_list[i].tool->unparse_request(ctx,buf,tspec,protocol_version);
+        }
+    }
+
+    /*
+     * Arg not found
+     */
+    return BWLErrFATAL;
+}
+
+
 /*
  * This must currently be called from the CheckTestPolicy function
  * that is registered with the daemon. This is because the 'policy'
@@ -320,6 +424,17 @@ _BWLToolLookForTesters(
             "Compiled-in tools: %s", BWLToolGetToolNames(ctx,compiled_in));
 
     for(i=0;i<ctx->tool_list_size;i++){
+        char confkey[BWL_MAX_TOOLNAME + 20];
+
+        // Check if the tool is disabled in the configuration file
+        snprintf(confkey, sizeof(confkey) - 1, "V.disable_%s", ctx->tool_list[i].tool->name);
+        if (BWLContextConfigGetV(ctx,confkey)) {
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "Tool \"%s\" is disabled in the configuration file",
+                    ctx->tool_list[i].tool->name);
+            continue;
+        }
+
         if(ctx->tool_list[i].tool->tool_avail(ctx,ctx->tool_list[i].tool)){
             ctx->tool_avail |= ctx->tool_list[i].id;
         }
@@ -332,7 +447,7 @@ _BWLToolLookForTesters(
 
     if(!ctx->tool_avail){
         BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
-                "Unable to initialize *ANY* throughput tools");
+                "Unable to initialize *ANY* tools");
         return BWLErrFATAL;
     }
 
@@ -426,6 +541,7 @@ _BWLToolRunTest(
  *      ${TOOL}_cmd
  *      ${TOOL}_server_cmd
  *      ${TOOL}_port
+ *      disable_${TOOL}
  *
  *      These are common to most tools - so providing a common implementation
  *      is reasonable.
@@ -438,7 +554,7 @@ _BWLToolRunTest(
  * Returns:    
  * Side Effect:    
  */
-static int
+int
 save_path(
         BWLContext  ctx,
         const char  *key,
@@ -504,7 +620,7 @@ _BWLToolGenericParse(
         const char          *val
         )
 {
-    char        confkey[BWL_MAX_TOOLNAME + 10];
+    char        confkey[BWL_MAX_TOOLNAME + 20];
     uint32_t    len;
 
     strncpy(confkey,tool->name,sizeof(confkey));
@@ -538,6 +654,18 @@ _BWLToolGenericParse(
 
         return save_ports(ctx,key,&portrange);
     }
+
+    snprintf(confkey, sizeof(confkey) - 1, "disable_%s", tool->name);
+    if(!strncasecmp(key,confkey,strlen(confkey))){
+        return save_path(ctx,key,val);
+    }
+
+    snprintf(confkey, sizeof(confkey) - 1, "!disable_%s", tool->name);
+    if(!strncasecmp(key,confkey,strlen(confkey))){
+        // don't save it, but acknowledge the variable
+        return 1;
+    }
+
 
     /* key not handled */
 
@@ -595,4 +723,34 @@ _BWLToolGenericInitTest(
     }
 
     return BWLErrOK;
+}
+
+BWLTestSideData BWLToolServerSideData(
+        BWLContext          ctx,
+        BWLTestSpec         *spec
+        ) {
+
+     return BWL_DATA_ON_SERVER;
+}
+
+BWLTestSideData BWLToolClientSideData(
+        BWLContext          ctx,
+        BWLTestSpec         *spec
+        ) {
+
+     return BWL_DATA_ON_CLIENT;
+}
+
+
+BWLTestSideData BWLToolSenderSideData(
+        BWLContext          ctx,
+        BWLTestSpec         *spec
+        ) {
+
+     if (spec->server_sends) {
+         return BWL_DATA_ON_SERVER;
+     }
+     else {
+         return BWL_DATA_ON_CLIENT;
+     }
 }

@@ -60,6 +60,8 @@ int optreset;
  * The bwctl context
  */
 static    ipapp_trec    app;
+static    char          *progname;
+static    BWLTestType   test_type;
 static    I2ErrHandle   eh;
 static    uint32_t      file_offset,ext_offset;
 static    int           ip_intr = 0;
@@ -77,7 +79,7 @@ static    BWLNum64      zero64;
 static    BWLNum64      fuzz64;
 static    BWLSID        sid;
 static    uint16_t      recv_port;
-static    ipsess_t      sess[2];    /* receiver == 0, sender == 1 */
+static    ipsess_t      sess[2];    /* server == 0, client == 1 */
 static    BWLBoolean    fake_daemon = False;
 static    pid_t         fake_pid = -1;
 static    int           fake_fd = -1;
@@ -103,46 +105,68 @@ print_conn_args(
 
 static void
 print_test_args(
-        void
         )
 {
     uint32_t    i,n;
 
     fprintf(stderr,
             "            [Test Args]\n\n");
-    fprintf(stderr,"\n"
-            "  -a offset      allow unsync'd clock - claim good within offset (seconds)\n"
-            "  -b bandwidth   bandwidth to use for UDP test (bits/sec KM) (Default: 1Mb)\n"
+    fprintf(stderr,
             "  -c recvhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 recvhost will run thrulay/nuttcp/iperf server \n"
             "            AUTHMETHODS: (See -A argument)\n"
-           );
-    fprintf(stderr,
-            "  -i interval    report interval (seconds)\n"
-            "  -l len         length of read/write buffers (bytes)\n"
-            "  -O interval    omit time (currently only for iperf3)\n"
-            "  -P nThreads    number of concurrent connections\n"
+            "\n",
             "  -s sendhost [AUTHMETHOD [AUTHOPTS]]\n"
             "                 sendhost will run thrulay/nuttcp/iperf client \n"
             "            AUTHMETHODS: (See -A argument)\n"
             "             [MUST SPECIFY AT LEAST ONE OF -c/-s]\n"
            );
-    fprintf(stderr,
-            "  -D DSCP        RFC 2474 style DSCP value for TOS byte\n"
-            "  -S TOS         type-of-service for outgoing packets\n"
-           );
+
     fprintf(stderr,
 	        "  -T tool        tool one of:\n");
     for(i=0,n = BWLToolGetNumTools(ctx);i<n;i++){
+        if (BWLToolGetTestTypesByIndex(ctx, i) != test_type)
+            continue;
+
         fprintf(stderr,
                 "                     %s\n",BWLToolGetNameByIndex(ctx,i));
     }
-    fprintf(stderr,
+
+    fprintf(stderr,"\n"
+            "  -o             Have the receiver connect to the sender (default: False)\n"
+           );
+
+    if (test_type == BWL_TEST_PING) {
+    fprintf(stderr,"\n"
+            "  -N count       number of packets to send (Default: 10)\n"
+            "  -l len         length of the packets (bytes)\n"
+            "  -t ttl         TTL for the packets\n"
+           );
+    }
+    else if (test_type == BWL_TEST_TRACEROUTE) {
+    fprintf(stderr,"\n"
+            "  -F first_ttl   minimum TTL for traceroute\n"
+            "  -M max_ttl     maximum TTL for traceroute\n"
+            "  -l len         length of the packets (bytes)\n"
+            "  -t time        maximum seconds for traceroute to finish (Default: 10)\n"
+           );
+    }
+    else {
+    fprintf(stderr,"\n"
+            "  -a offset      allow unsync'd clock - claim good within offset (seconds)\n"
+            "  -b bandwidth   bandwidth to use for UDP test (bits/sec KM) (Default: 1Mb)\n"
+            "  -i interval    report interval (seconds)\n"
+            "  -l len         length of read/write buffers (bytes)\n"
+            "  -O interval    omit time (currently only for iperf3)\n"
+            "  -P nThreads    number of concurrent connections\n"
+            "  -D DSCP        RFC 2474 style DSCP value for TOS byte\n"
+            "  -S TOS         type-of-service for outgoing packets\n"
             "  -t time        duration of test (seconds) (Default: 10)\n"
             "  -u             UDP test\n"
             "  -w window      TCP window size (bytes) 0 indicates system defaults\n"
             "  -W window      Dynamic TCP window size: value used as fallback (bytes)\n"
            );
+    }
 }
 
 static void
@@ -190,7 +214,6 @@ version(
 
 static void
 usage(
-        const char  *progname,
         const char  *msg
         )
 {
@@ -1262,13 +1285,411 @@ FAILED:
     return False;
 }
 
+static BWLBoolean
+handle_conn_arg(const char arg, const char *value, char **argv, int argc) {
+    BWLBoolean handled = True;
+
+    switch (arg) {
+        case '4':
+            app.opt.v4only = True;
+            break;
+        case '6':
+            app.opt.v6only = True;
+            break;
+        case 'A':
+            /* parse auth */
+            if((parse_auth_args(eh,argv,argc,"BOTH",&app.def_auth) != 0) ||
+                    !app.def_auth){
+                I2ErrLog(eh,"invalid default authentication");
+                exit(1);
+            }
+            break;
+        case 'B':
+            if (!(app.opt.srcaddr = strdup(optarg))) {
+                I2ErrLog(eh,"malloc:%M");
+                exit(1);
+            }
+            break;
+
+        default:
+            handled = False;
+    }
+
+    return handled;
+}
+
+static BWLBoolean
+handle_output_arg(const char arg, const char *value) {
+    BWLBoolean handled = True;
+
+    switch (arg) {
+        case 'd':
+            if (!(app.opt.savedir = strdup(optarg))) {
+                I2ErrLog(eh,"malloc:%M");
+                exit(1);
+            }
+            break;
+        case 'f':
+            if(strlen(optarg) != 1){
+                usage("Invalid value. (-f) Single character expected");
+                exit(1);
+            }
+            app.opt.units = optarg[0];
+            break;
+        case 'p':
+            app.opt.printfiles = True;
+            break;
+        case 'x':
+            app.opt.bidirectional_results = True;
+            break;
+        default:
+            handled = False;
+    }
+
+    return handled;
+}
+
+static BWLBoolean
+handle_misc_arg(const char arg, const char *value) {
+    BWLBoolean handled = True;
+
+    switch (arg) {
+        case 'V':
+            version();
+            exit(0);
+        case 'h':
+        case '?':
+            usage("");
+            exit(0);
+        default:
+            handled = False;
+    } 
+
+    return handled;
+}
+
+static BWLBoolean
+handle_scheduling_arg(const char arg, const char *value) {
+    BWLBoolean handled = True;
+    char *tstr;
+
+    switch (arg) {
+        case 'a':
+            app.opt.allowUnsync = strtod(optarg,&tstr);
+            if((optarg == tstr) || (errno == ERANGE) ||
+                    (app.opt.allowUnsync < 0.0)){
+                usage("Invalid value \'-a\'. Positive float expected");
+                exit(1);
+            }
+            break;
+        case 'I':
+            app.opt.seriesInterval =strtoul(optarg, &tstr, 10);
+            if (*tstr != '\0') {
+                usage("Invalid value. (-I) Positive integer expected");
+                exit(1);
+            }
+            break;
+        case 'R':
+            app.opt.randomizeStart = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0'){
+                usage("Invalid value. (-R) Positive integer expected");
+                exit(1);
+            }
+            if(app.opt.randomizeStart > 50){
+                usage("Invalid value. (-R) Value must be <= 50");
+                exit(1);
+            }
+            break;
+        case 'n':
+            app.opt.nIntervals =strtoul(optarg, &tstr, 10);
+            if (*tstr != '\0') {
+                usage("Invalid value. Positive integer expected");
+                exit(1);
+            }
+            break;
+        case 'L':
+            app.opt.seriesWindow = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0'){
+                usage("Invalid value. Positive integer expected");
+                exit(1);
+            }
+            break;
+        default:
+            handled = False;
+    }
+
+    return handled;
+}
+
+static BWLBoolean
+handle_generic_test_arg(const char arg, const char *value, char **argv, int argc) {
+    BWLBoolean handled = True;
+
+    switch (arg) {
+        case 'c':
+            if(app.receiver_sess){
+                usage("-c flag can only be specified once");
+                exit(1);
+            }
+            if(!first_set){
+                first_set = True;
+                app.receiver_sess = &first;
+            }else{
+                second_set = True;
+                app.receiver_sess = &second;
+            }
+            app.receiver_sess->host = optarg;
+
+            if(parse_auth_args(eh,argv,argc,optarg,&app.receiver_sess->auth)
+                    != 0){
+                I2ErrLog(eh,
+                        "invalid \'receiver\' authentication");
+                exit(1);
+            }
+            break;
+        case 's':
+            if(app.sender_sess){
+                usage("-s flag can only be specified once");
+                exit(1);
+            }
+            if(!first_set){
+                first_set = True;
+                app.sender_sess = &first;
+            }else{
+                second_set = True;
+                app.sender_sess = &second;
+            }
+            app.sender_sess->host = optarg;
+
+            if(parse_auth_args(eh,argv,argc,optarg,&app.sender_sess->auth)
+                    != 0){
+                I2ErrLog(eh,
+                        "invalid \'sender\' authentication");
+                exit(1);
+            }
+            break;
+
+        case 'o':
+            app.opt.flip_direction = True;
+            break;
+
+        case 'T':
+            if( (app.opt.tool_id = BWLToolGetID(ctx,optarg)) ==
+                    BWL_TOOL_UNDEFINED){
+                char    buf[BWL_MAX_TOOLNAME + 20];
+                snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",optarg);
+                usage(buf);
+                exit(1);
+            }
+            break;
+
+        default:
+            handled = False;
+    }
+
+    return handled;
+}
+
+static BWLBoolean
+handle_throughput_test_arg(const char arg, const char *value) {
+    BWLBoolean handled = True;
+    char *tstr;
+
+    switch (arg) {
+        case 'y':
+            if(strlen(optarg) != 1){
+                usage("Invalid value. (-y) Single character expected");
+                exit(1);
+            }
+            app.opt.outformat = optarg[0];
+            break;
+
+        case 'b':
+            if( !(tstr = strdup(optarg))){
+                I2ErrLog(eh, "strdup(): %M");
+                exit(1);
+            }
+            if(I2StrToNum(&app.opt.bandWidth,tstr) != 0){
+                usage("Invalid value. (-b) Positive integer expected");
+                exit(1);
+            }
+            free(tstr);
+            tstr = NULL;
+            break;
+        case 'D':
+            if(app.opt.tos){
+                usage("Invalid option \'-D\'. TOS byte already specified");
+                exit(1);
+            }
+            if(!parse_typeP(optarg)){
+                exit(1);
+            }
+            break;
+        case 'i':
+            app.opt.reportInterval = strtod(optarg,&tstr) * 1000;
+            if((optarg == tstr) || (errno == ERANGE) ||
+                    (app.opt.reportInterval < 0.0)){
+                usage("Invalid value. (-i) positive float expected");
+                exit(1);
+            }
+            break;
+        case 'l':
+            if( !(tstr = strdup(optarg))){
+                I2ErrLog(eh, "strdup(): %M");
+                exit(1);
+            }
+            if(I2StrToByte(&app.opt.lenBuffer,tstr) != 0){
+                usage("Invalid value. (-l) positive integer expected");
+                exit(1);
+            }
+            free(tstr);
+            tstr = NULL;
+            break;
+        case 'O':
+            app.opt.timeOmit = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0'){
+                usage("Invalid value. (-O) positive integer expected");
+                exit(1);
+            }
+            if(app.opt.timeOmit > 60){
+                usage("Invalid value. (-O) integer from 0 to 60 expected");
+                exit(1);
+            }
+            break;
+        case 'P':
+            app.opt.parallel =strtoul(optarg, &tstr, 10);
+            if (*tstr != '\0') {
+                usage("Invalid value. Positive integer expected");
+                exit(1);
+            }
+            break;
+        case 'S':
+            if(app.opt.tos){
+                usage("Invalid option \'-S\'. TOS byte already specified");
+                exit(1);
+            }
+            app.opt.tos = strtoul(optarg, &tstr, 0);
+            if((*tstr != '\0') || (app.opt.tos > 0xff) ||
+                    (app.opt.tos & 0x01)){
+                usage("Invalid value for TOS. (-S)");
+                exit(1);
+            }
+            break;
+        case 't':
+            app.opt.timeDuration = strtoul(optarg, &tstr, 10);
+            if((*tstr != '\0') || (app.opt.timeDuration == 0)){
+                usage("Invalid value \'-t\'. Positive integer expected");
+                exit(1);
+            }
+            break;
+        case 'u':
+            app.opt.udpTest = True;
+            break;
+        case 'W':
+            app.opt.dynamicWindowSize = True;
+        case 'w':
+            if(app.opt.winset){
+                usage("Invalid args. Only one -w or -W may be set");
+                exit(1);
+            }
+            app.opt.winset++;
+            if( !(tstr = strdup(optarg))){
+                I2ErrLog(eh, "strdup(): %M");
+                exit(1);
+            }
+            if(I2StrToByte(&app.opt.windowSize,tstr) != 0){
+                usage("Invalid value. (-w/-W) positive integer expected");
+                exit(1);
+            }
+            free(tstr);
+            tstr = NULL;
+            break;
+        default:
+            handled = False;
+    }
+    return handled;
+}
+
+static BWLBoolean
+handle_ping_test_arg(const char arg, const char *value) {
+    BWLBoolean handled = True;
+    char *tstr;
+
+    switch (arg) {
+        case 'N':
+            app.opt.ping_packet_count = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0') {
+                usage("Invalid value. (-N) positive integer expected");
+                exit(1);
+            }
+            break;
+        case 'l':
+            app.opt.ping_packet_size = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0') {
+                usage("Invalid value. (-l) positive integer expected");
+                exit(1);
+            }
+            break;
+        case 't':
+            app.opt.ping_packet_ttl = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0') {
+                usage("Invalid value. (-t) integer between 0 and 255 expected");
+                exit(1);
+            }
+            break;
+        default:
+            handled = False;
+    }
+    return handled;
+}
+
+static BWLBoolean
+handle_traceroute_test_arg(const char arg, const char *value) {
+    BWLBoolean handled = True;
+    char *tstr;
+
+    switch (arg) {
+        case 't':
+            app.opt.timeDuration = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0' ||
+               app.opt.timeDuration < 0) {
+                usage("Invalid value. (-t) positive integer expected");
+                exit(1);
+            }
+            break;
+        case 'F':
+            app.opt.traceroute_first_ttl = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0') {
+                usage("Invalid value. (-F) integer between 0 and 255 expected");
+                exit(1);
+            }
+            break;
+        case 'l':
+            app.opt.traceroute_packet_size = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0') {
+                usage("Invalid value. (-l) positive integer expected");
+                exit(1);
+            }
+            break;
+        case 'M':
+            app.opt.traceroute_last_ttl = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0') {
+                usage("Invalid value. (-F) integer between 0 and 255 expected");
+                exit(1);
+            }
+            break;
+        default:
+            handled = False;
+    }
+    return handled;
+}
+
 int
 main(
         int    argc,
         char    **argv
     )
 {
-    char                *progname;
     int                 lockfd;
     char                lockpath[PATH_MAX];
     int                 rc;
@@ -1280,9 +1701,12 @@ main(
     char                *tstr = NULL;
     char                optstring[128];
     static char         *conn_opts = "46a:AB:";
-    static char         *out_opts = "d:e:f:I:L:n:pqrR:vVxy:";
-    static char         *test_opts = "ab:c:D:i:l:O:P:s:S:t:T:uw:W:";
-    static char         *gen_opts = "hW";
+    static char         *misc_opts = "hV?";
+    static char         *out_opts = "d:e:f:I:L:n:pqrR:vxy:";
+    static char         *generic_test_opts = "c:s:T:o";
+    static char         *throughput_test_opts = "b:D:i:l:O:P:S:t:uw:W:";
+    static char         *ping_test_opts = "N:l:t:";
+    static char         *traceroute_test_opts = "F:M:l:t:";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
     char                dirpath[PATH_MAX];
@@ -1318,11 +1742,30 @@ main(
         progname = *argv;
     }
 
+    if (strcmp(progname, "bwping") == 0) {
+        test_type = BWL_TEST_PING;
+    }
+    else if (strcmp(progname, "bwtraceroute") == 0) {
+        test_type = BWL_TEST_TRACEROUTE;
+    }
+    else {
+        test_type = BWL_TEST_THROUGHPUT;
+    }
+
     /* Create options strings for this program. */
     strcpy(optstring, conn_opts);
-    strcat(optstring, test_opts);
+    strcat(optstring, generic_test_opts);
+    if (test_type == BWL_TEST_THROUGHPUT) {
+        strcat(optstring, throughput_test_opts);
+    }
+    else if (test_type == BWL_TEST_TRACEROUTE) {
+        strcat(optstring, traceroute_test_opts);
+    }
+    else if (test_type == BWL_TEST_PING) {
+        strcat(optstring, ping_test_opts);
+    }
     strcat(optstring, out_opts);
-    strcat(optstring, gen_opts);
+    strcat(optstring, misc_opts);
 
 
     syslogattr.ident = progname;
@@ -1425,309 +1868,66 @@ main(
     }
 
     while ((ch = getopt(argc, argv, optstring)) != -1){
-        switch (ch) {
-            /* Connection options. */
-            case '4':
-                app.opt.v4only = True;
-                break;
-            case '6':
-                app.opt.v6only = True;
-                break;
-            case 'A':
-                /* parse auth */
-                if((parse_auth_args(eh,argv,argc,"BOTH",&app.def_auth) != 0) ||
-                        !app.def_auth){
-                    I2ErrLog(eh,"invalid default authentication");
-                    exit(1);
-                }
-                break;
-            case 'B':
-                if (!(app.opt.srcaddr = strdup(optarg))) {
-                    I2ErrLog(eh,"malloc:%M");
-                    exit(1);
-                }
-                break;
-            case 'c':
-                if(app.recv_sess){
-                    usage(progname,
-                            "-c flag can only be specified once");
-                    exit(1);
-                }
-                if(!first_set){
-                    first_set = True;
-                    app.recv_sess = &first;
-                }else{
-                    second_set = True;
-                    app.recv_sess = &second;
-                }
-                app.recv_sess->host = optarg;
+        if (handle_conn_arg(ch, optarg, argv, argc))
+            continue;
 
-                if(parse_auth_args(eh,argv,argc,optarg,&app.recv_sess->auth)
-                        != 0){
-                    I2ErrLog(eh,
-                            "invalid \'receiver\' authentication");
-                    exit(1);
-                }
-                break;
-            case 's':
-                if(app.send_sess){
-                    usage(progname,
-                            "-s flag can only be specified once");
-                    exit(1);
-                }
-                if(!first_set){
-                    first_set = True;
-                    app.send_sess = &first;
-                }else{
-                    second_set = True;
-                    app.send_sess = &second;
-                }
-                app.send_sess->host = optarg;
+        if (handle_output_arg(ch, optarg))
+            continue;
 
-                if(parse_auth_args(eh,argv,argc,optarg,&app.send_sess->auth)
-                        != 0){
-                    I2ErrLog(eh,
-                            "invalid \'sender\' authentication");
-                    exit(1);
-                }
-                break;
+        if (handle_misc_arg(ch, optarg))
+            continue;
 
-                /* OUTPUT OPTIONS */
-            case 'f':
-                if(strlen(optarg) != 1){
-                    usage(progname, 
-                            "Invalid value. (-f) Single character expected");
-                    exit(1);
-                }
-                app.opt.units = optarg[0];
-                break;
-            case 'p':
-                app.opt.printfiles = True;
-                break;
-            case 'x':
-                app.opt.bidirectional_results = True;
-                break;
-            case 'd':
-                if (!(app.opt.savedir = strdup(optarg))) {
-                    I2ErrLog(eh,"malloc:%M");
-                    exit(1);
-                }
-                break;
-            case 'I':
-                app.opt.seriesInterval =strtoul(optarg, &tstr, 10);
-                if (*tstr != '\0') {
-                    usage(progname, 
-                            "Invalid value. (-I) Positive integer expected");
-                    exit(1);
-                }
-                break;
-            case 'R':
-                app.opt.randomizeStart = strtoul(optarg,&tstr,10);
-                if(*tstr != '\0'){
-                    usage(progname,
-                            "Invalid value. (-R) Positive integer expected");
-                    exit(1);
-                }
-                if(app.opt.randomizeStart > 50){
-                    usage(progname,
-                            "Invalid value. (-R) Value must be <= 50");
-                    exit(1);
-                }
-                break;
-            case 'n':
-                app.opt.nIntervals =strtoul(optarg, &tstr, 10);
-                if (*tstr != '\0') {
-                    usage(progname, 
-                            "Invalid value. Positive integer expected");
-                    exit(1);
-                }
-                break;
-            case 'L':
-                app.opt.seriesWindow = strtoul(optarg,&tstr,10);
-                if(*tstr != '\0'){
-                    usage(progname, 
-                            "Invalid value. Positive integer expected");
-                    exit(1);
-                }
-                break;
-            case 'e':
-            case 'r':
-            case 'v':
-            case 'q':
-                /* handled in prior getopt call... */
-                break;
-            case 'V':
-                version();
-                exit(0);
-                /* NOTREACHED */
-            case 'y':
-                if(strlen(optarg) != 1){
-                    usage(progname, 
-                            "Invalid value. (-y) Single character expected");
-                    exit(1);
-                }
-                app.opt.outformat = optarg[0];
-                break;
+        if (handle_scheduling_arg(ch, optarg))
+            continue;
 
-                /* TEST OPTIONS */
-            case 'b':
-                if( !(tstr = strdup(optarg))){
-                    I2ErrLog(eh, "strdup(): %M");
-                    exit(1);
-                }
-                if(I2StrToNum(&app.opt.bandWidth,tstr) != 0){
-                    usage(progname, 
-                            "Invalid value. (-b) Positive integer expected");
-                    exit(1);
-                }
-                free(tstr);
-                tstr = NULL;
-                break;
-            case 'D':
-                if(app.opt.tos){
-                    usage(progname,
-                            "Invalid option \'-D\'. TOS byte already specified");
-                    exit(1);
-                }
-                if(!parse_typeP(optarg)){
-                    exit(1);
-                }
-                break;
-            case 'i':
-                app.opt.reportInterval =strtoul(optarg, &tstr, 10);
-                if (*tstr != '\0') {
-                    usage(progname, 
-                            "Invalid value. (-i) positive integer expected");
-                    exit(1);
-                }
-                break;
-            case 'l':
-                if( !(tstr = strdup(optarg))){
-                    I2ErrLog(eh, "strdup(): %M");
-                    exit(1);
-                }
-                if(I2StrToByte(&app.opt.lenBuffer,tstr) != 0){
-                    usage(progname, 
-                            "Invalid value. (-l) positive integer expected");
-                    exit(1);
-                }
-                free(tstr);
-                tstr = NULL;
-                break;
-            case 'O':
-                app.opt.timeOmit = strtoul(optarg,&tstr,10);
-                if(*tstr != '\0'){
-                    usage(progname, 
-                            "Invalid value. (-O) positive integer expected");
-                    exit(1);
-                }
-                if(app.opt.timeOmit < 0 || app.opt.timeOmit > 60){
-                    usage(progname, 
-                            "Invalid value. (-O) integer from 0 to 60 expected");
-                    exit(1);
-                }
-                break;
-            case 'P':
-                app.opt.parallel =strtoul(optarg, &tstr, 10);
-                if (*tstr != '\0') {
-                    usage(progname, 
-                            "Invalid value. Positive integer expected");
-                    exit(1);
-                }
-                break;
-            case 'S':
-                if(app.opt.tos){
-                    usage(progname,
-                            "Invalid option \'-S\'. TOS byte already specified");
-                    exit(1);
-                }
-                app.opt.tos = strtoul(optarg, &tstr, 0);
-                if((*tstr != '\0') || (app.opt.tos > 0xff) ||
-                        (app.opt.tos & 0x01)){
-                    usage(progname,
-                            "Invalid value for TOS. (-S)");
-                    exit(1);
-                }
-                break;
-            case 'T':
-                if( (app.opt.tool_id = BWLToolGetID(ctx,optarg)) ==
-                        BWL_TOOL_UNDEFINED){
-                    char    buf[BWL_MAX_TOOLNAME + 20];
-                    snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",optarg);
-                    usage(progname,buf);
-                    exit(1);
-                }
-                break;
-            case 't':
-                app.opt.timeDuration = strtoul(optarg, &tstr, 10);
-                if((*tstr != '\0') || (app.opt.timeDuration == 0)){
-                    usage(progname, 
-                            "Invalid value \'-t\'. Positive integer expected");
-                    exit(1);
-                }
-                break;
-            case 'u':
-                app.opt.udpTest = True;
-                break;
-            case 'W':
-                app.opt.dynamicWindowSize = True;
-            case 'w':
-                if(app.opt.winset){
-                    usage(progname,
-                            "Invalid args. Only one -w or -W may be set");
-                    exit(1);
-                }
-                app.opt.winset++;
-                if( !(tstr = strdup(optarg))){
-                    I2ErrLog(eh, "strdup(): %M");
-                    exit(1);
-                }
-                if(I2StrToByte(&app.opt.windowSize,tstr) != 0){
-                    usage(progname, 
-                            "Invalid value. (-w/-W) positive integer expected");
-                    exit(1);
-                }
-                free(tstr);
-                tstr = NULL;
-                break;
-                /* Generic options.*/
-            case 'a':
-                app.opt.allowUnsync = strtod(optarg,&tstr);
-                if((optarg == tstr) || (errno == ERANGE) ||
-                        (app.opt.allowUnsync < 0.0)){
-                    usage(progname, 
-                            "Invalid value \'-a\'. Positive float expected");
-                    exit(1);
-                }
-                break;
-                break;
-            case 'h':
-            case '?':
-            default:
-                usage(progname, "");
-                exit(0);
-                /* UNREACHED */
+        if (handle_generic_test_arg(ch, optarg, argv, argc))
+            continue;
+
+        if (test_type == BWL_TEST_THROUGHPUT) {
+            if (handle_throughput_test_arg(ch, optarg))
+                continue;
         }
+        else if (test_type == BWL_TEST_TRACEROUTE) {
+            if (handle_traceroute_test_arg(ch, optarg))
+                continue;
+        }
+        else if (test_type == BWL_TEST_PING) {
+            if (handle_ping_test_arg(ch, optarg))
+                continue;
+        }
+        
+        /* handled in prior getopt call... */
+        if (ch == 'e' || ch == 'r' || ch == 'v' || ch == 'q')
+            continue;
+
+        usage("");
+        exit(0);
     }
     argc -= optind;
     argv += optind;
 
     if(argc != 0){
-        usage(progname, NULL);
+        usage("");
         exit(1);
     }
 
-    if(!app.recv_sess && !app.send_sess){
-        usage(progname, "At least one of -s or -c must be specified.");
+    if(!app.receiver_sess && !app.sender_sess){
+        usage("At least one of -s or -c must be specified.");
         exit(1);
     }
-    if(!app.recv_sess){
-        app.recv_sess = (app.send_sess == &first)?&second:&first;
+    if(!app.receiver_sess){
+        app.receiver_sess = (app.sender_sess == &first)?&second:&first;
     }
-    if(!app.send_sess){
-        app.send_sess = (app.recv_sess == &first)?&second:&first;
+    if(!app.sender_sess){
+        app.sender_sess = (app.receiver_sess == &first)?&second:&first;
     }
-    app.send_sess->send = True;
+    if (app.opt.flip_direction) {
+        app.receiver_sess->is_client = True;
+    }
+    else {
+        app.sender_sess->is_client = True;
+    }
+
     if(!second_set && !(second.host = strdup("localhost"))){
         I2ErrLog(eh,"malloc:%M");
         exit(1);
@@ -1768,7 +1968,7 @@ main(
     if(app.opt.savedir){
         if((strlen(app.opt.savedir) + strlen(BWL_PATH_SEPARATOR)+
                     fname_len + 1) > PATH_MAX){
-            usage(progname,"-d: pathname too long.");
+            usage("-d: pathname too long.");
             exit(1);
         }
         strcpy(dirpath,app.opt.savedir);
@@ -1778,10 +1978,6 @@ main(
     }
     file_offset = strlen(dirpath);
     ext_offset = file_offset + BWL_TSTAMPCHARS;
-
-    if(!app.opt.timeDuration){
-        app.opt.timeDuration = 10; /* 10 second default */
-    }
 
     /*
      * Possibly over-ride .bwctlrc allow_unsync and sync_fuzz options
@@ -1828,13 +2024,51 @@ main(
     }
 
     /*
+     * Set default test parameters if they're not already set.
+     */
+    if (test_type == BWL_TEST_TRACEROUTE) {
+        if(!app.opt.timeDuration){
+            app.opt.timeDuration = 10;
+        }
+
+    }
+    else if (test_type == BWL_TEST_PING) {
+        if(!app.opt.ping_packet_count){
+            app.opt.ping_packet_count = 10;
+        }
+
+        if(!app.opt.ping_interpacket_time){
+            app.opt.ping_interpacket_time = 1000;
+        }
+
+        app.opt.timeDuration = app.opt.ping_packet_count * (app.opt.ping_interpacket_time / 1000.0) + 1;
+    }
+    else {
+        if(!app.opt.timeDuration){
+            app.opt.timeDuration = 10;
+        }
+
+        /*
+         * UDP bandwidth checks.
+         */
+        if(app.opt.udpTest && !app.opt.bandWidth){
+            app.opt.bandWidth = DEF_UDP_RATE;
+        }
+
+        if(app.opt.bandWidth && !app.opt.udpTest){
+            usage("-b: only valid with -u");
+            exit(1);
+        }
+    }
+
+    /*
      * If seriesInterval is in use, verify the args and pick a
      * resonable default for seriesWindow if needed.
      */
     if(app.opt.seriesInterval){
         if(app.opt.seriesInterval <
                 (app.opt.timeDuration + SETUP_ESTIMATE)){
-            usage(progname,"-I: interval too small relative to -t");
+            usage("-I: interval too small relative to -t");
             exit(1);
         }
 
@@ -1878,18 +2112,6 @@ main(
     latest64 = BWLULongToNum64(app.opt.seriesWindow);
 
     /*
-     * UDP bandwidth checks.
-     */
-    if(app.opt.udpTest && !app.opt.bandWidth){
-        app.opt.bandWidth = DEF_UDP_RATE;
-    }
-
-    if(app.opt.bandWidth && !app.opt.udpTest){
-        usage(progname,"-b: only valid with -u");
-        exit(1);
-    }
-
-    /*
      * Lock the directory for bwctl if it is in printfiles mode.
      */
     if(app.opt.printfiles){
@@ -1929,44 +2151,68 @@ main(
         first.tspec.tool_id = second.tspec.tool_id = app.opt.tool_id;
     }
     else{
-        /* Default to thrulay */
         first.tspec.tool_id = second.tspec.tool_id = BWL_TOOL_UNDEFINED;
     }
     first.tspec.verbose = app.opt.verbose > 0 ? 1 : 0;
-    first.tspec.duration = app.opt.timeDuration;
-    first.tspec.udp = app.opt.udpTest;
-    first.tspec.tos = app.opt.tos;
-    if(first.tspec.udp){
-        first.tspec.bandwidth = app.opt.bandWidth;
-    }
-    first.tspec.window_size = (uint32_t)app.opt.windowSize;
-    if(app.opt.windowSize != (I2numT)first.tspec.window_size){
-        first.tspec.window_size = (uint32_t)~0;
-        I2ErrLog(eh,"Requested -w/-W option (%llu) too large: max supported size: (%llu)",app.opt.windowSize,first.tspec.window_size);
-        exit(1);
-    }
-    first.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
-    first.tspec.len_buffer = (uint32_t)app.opt.lenBuffer;
-    if(app.opt.lenBuffer != (I2numT)first.tspec.len_buffer){
-        first.tspec.len_buffer = (uint32_t)~0;
-        I2ErrLog(eh,"Requested -l option (%llu) too large: max supported size: (%llu)",app.opt.lenBuffer,first.tspec.len_buffer);
-        exit(1);
-    }
-    first.tspec.report_interval = app.opt.reportInterval;
-    first.tspec.units = app.opt.units;
-    first.tspec.outformat = app.opt.outformat;
-    first.tspec.omit = app.opt.timeOmit;
-    first.tspec.parallel_streams = app.opt.parallel;
 
-    /*
+    first.tspec.duration = app.opt.timeDuration;
+
+    if (app.opt.flip_direction) {
+        first.tspec.server_sends = True;
+    }
+
+    if (test_type == BWL_TEST_TRACEROUTE) {
+        first.tspec.traceroute_udp = app.opt.traceroute_udp;
+        first.tspec.traceroute_packet_size = app.opt.traceroute_packet_size;
+        first.tspec.traceroute_first_ttl = app.opt.traceroute_first_ttl;
+        first.tspec.traceroute_last_ttl = app.opt.traceroute_last_ttl;
+    }
+    else if (test_type == BWL_TEST_PING) {
+        first.tspec.ping_packet_count = app.opt.ping_packet_count;
+        first.tspec.ping_packet_size = app.opt.ping_packet_size;
+        first.tspec.ping_packet_ttl = app.opt.ping_packet_ttl;
+        first.tspec.ping_interpacket_time = app.opt.ping_interpacket_time;
+    }
+    else {
+        first.tspec.udp = app.opt.udpTest;
+        first.tspec.tos = app.opt.tos;
+        if(first.tspec.udp){
+            first.tspec.bandwidth = app.opt.bandWidth;
+        }
+        first.tspec.window_size = (uint32_t)app.opt.windowSize;
+        if(app.opt.windowSize != (I2numT)first.tspec.window_size){
+            first.tspec.window_size = (uint32_t)~0;
+            I2ErrLog(eh,"Requested -w/-W option (%llu) too large: max supported size: (%llu)",app.opt.windowSize,first.tspec.window_size);
+            exit(1);
+        }
+        first.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
+        first.tspec.len_buffer = (uint32_t)app.opt.lenBuffer;
+        if(app.opt.lenBuffer != (I2numT)first.tspec.len_buffer){
+            first.tspec.len_buffer = (uint32_t)~0;
+            I2ErrLog(eh,"Requested -l option (%llu) too large: max supported size: (%llu)",app.opt.lenBuffer,first.tspec.len_buffer);
+            exit(1);
+        }
+        first.tspec.report_interval = app.opt.reportInterval;
+        first.tspec.units = app.opt.units;
+        first.tspec.outformat = app.opt.outformat;
+        first.tspec.omit = app.opt.timeOmit;
+        first.tspec.parallel_streams = app.opt.parallel;
+    }
+
+     /*
      * copy first tspec to second record.
      */
     memcpy(&second.tspec,&first.tspec,sizeof(first.tspec));
 
-
-    /* sess[0] == reciever, sess[1] == sender */
-    sess[0] = app.recv_sess;
-    sess[1] = app.send_sess;
+    /* sess[0] == server, sess[1] == client */
+    if (app.opt.flip_direction) {
+        sess[0] = app.sender_sess;
+        sess[1] = app.receiver_sess;
+    }
+    else {
+        sess[0] = app.receiver_sess;
+        sess[1] = app.sender_sess;
+    }
 
     /*
      * setup sighandlers
@@ -2028,8 +2274,8 @@ main(
         BWLBoolean          stop;
         char                recvfname[PATH_MAX];
         char                sendfname[PATH_MAX];
-        FILE                *recvfp = NULL;
-        FILE                *sendfp = NULL;
+        FILE                *servfp = NULL;
+        FILE                *clientfp = NULL;
         struct timespec     tspec;
 	    BWLToolAvailability common_tools;
 
@@ -2075,6 +2321,18 @@ AGAIN:
             goto finish;
         }
 
+        /*
+         * Check if NTP is synchronized, and if not, verify that we're running
+         * allow_unsync. If not, wait until the next test interval to see if
+         * we're synchronized then.
+         */
+        if (BWLNTPIsSynchronized(ctx) == False) {
+            if( !BWLContextConfigGetV(ctx,BWLAllowUnsync)){
+                BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"NTP is unsynchronized. Skipping test. Use -a to run anyway.");
+                goto next_test;
+            }
+        }
+
         /* Open first (definitely remote) connection */
         if(!first.cntrl){
             /*
@@ -2110,12 +2368,12 @@ AGAIN:
                  * When doing a third-party connection, the hostname needs to
                  * be passed to the underlying functions, not the IP address.
                  */
-                if(first.send){
-                    first.tspec.sender = second.tspec.sender =
+                if(first.is_client){
+                    first.tspec.client = second.tspec.client =
                         I2AddrByNode(eh, first.host);
                 }
                 else{
-                    first.tspec.receiver = second.tspec.receiver =
+                    first.tspec.server = second.tspec.server =
                         I2AddrByNode(eh, first.host);
                 }
             }
@@ -2124,12 +2382,12 @@ AGAIN:
                  * Need to get a clean I2Addr that is basically a copy of
                  * the control connection (but unconnected).
                  */
-                if(first.send){
-                    first.tspec.sender = second.tspec.sender =
+                if(first.is_client){
+                    first.tspec.client = second.tspec.client =
                         BWLAddrByControl(first.cntrl);
                 }
                 else{
-                    first.tspec.receiver = second.tspec.receiver =
+                    first.tspec.server = second.tspec.server =
                         BWLAddrByControl(first.cntrl);
                 }
             }
@@ -2208,32 +2466,32 @@ AGAIN:
             second.sockfd = BWLControlFD(second.cntrl);
 
             if(fake_daemon){
-                if(second.send){
-                    first.tspec.sender = second.tspec.sender =
+                if(second.is_client){
+                    first.tspec.client = second.tspec.client =
                         BWLAddrByLocalControl(first.cntrl);
                 }
                 else{
-                    first.tspec.receiver = second.tspec.receiver =
+                    first.tspec.server = second.tspec.server =
                         BWLAddrByLocalControl(first.cntrl);
                 }
             }
             else if (second_set){
-                if(second.send){
-                    first.tspec.sender = second.tspec.sender =
+                if(second.is_client){
+                    first.tspec.client = second.tspec.client =
                         I2AddrByNode(eh, second.host);
                 }
                 else{
-                    first.tspec.receiver = second.tspec.receiver =
+                    first.tspec.server = second.tspec.server =
                         I2AddrByNode(eh, second.host);
                 }
             }
             else {
-                if(second.send){
-                    first.tspec.sender = second.tspec.sender =
+                if(second.is_client){
+                    first.tspec.client = second.tspec.client =
                         BWLAddrByControl(second.cntrl);
                 }
                 else{
-                    first.tspec.receiver = second.tspec.receiver =
+                    first.tspec.server = second.tspec.server =
                         BWLAddrByControl(second.cntrl);
                 }
             }
@@ -2245,13 +2503,13 @@ AGAIN:
                 size_t      buflen = sizeof(buf);
                 I2Addr new_addr = BWLAddrByLocalControl(second.cntrl);
 
-                if (first.send) {
-                    I2AddrFree(first.tspec.sender);
-                    first.tspec.sender = second.tspec.sender = new_addr;
+                if (first.is_client) {
+                    I2AddrFree(first.tspec.client);
+                    first.tspec.client = second.tspec.client = new_addr;
                 }
                 else{
-                    I2AddrFree(first.tspec.receiver);
-                    first.tspec.receiver = second.tspec.receiver = new_addr;
+                    I2AddrFree(first.tspec.server);
+                    first.tspec.server = second.tspec.server = new_addr;
                 }
 
                 I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", first.host, I2AddrNodeName(new_addr,buf,&buflen));
@@ -2261,25 +2519,25 @@ AGAIN:
                 size_t      buflen = sizeof(buf);
                 I2Addr new_addr = BWLAddrByLocalControl(first.cntrl);
 
-                if (second.send) {
-                    I2AddrFree(first.tspec.sender);
-                     first.tspec.sender = second.tspec.sender = new_addr;
+                if (second.is_client) {
+                    I2AddrFree(first.tspec.client);
+                     first.tspec.client = second.tspec.client = new_addr;
                 }
                 else{
-                    I2AddrFree(first.tspec.receiver);
-                    first.tspec.receiver = second.tspec.receiver = new_addr;
+                    I2AddrFree(first.tspec.server);
+                    first.tspec.server = second.tspec.server = new_addr;
                 }
 
                 I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", second.host, I2AddrNodeName(new_addr,buf,&buflen));
             }
         }
 
-        if(!first.tspec.sender){
-            I2ErrLog(eh,"Unable to determine send address: %M");
+        if(!first.tspec.client){
+            I2ErrLog(eh,"Unable to determine client address: %M");
             exit_val = 1;
             goto finish;
         }
-        if(!first.tspec.receiver){
+        if(!first.tspec.server){
             I2ErrLog(eh,"Unable to determine recv address: %M");
             exit_val = 1;
             goto finish;
@@ -2302,6 +2560,9 @@ AGAIN:
             /* Pick the first common tool to use. */
             tid = 1;
             for ( tid = 1; ; tid <<= 1 ) {
+                if (BWLToolGetTestTypesByID(ctx, tid) != test_type)
+                    continue;
+
                 if ( tid & common_tools )
                     break;
             }
@@ -2444,8 +2705,8 @@ AGAIN:
 
         /*
          * Get a reservation:
-         *     s[0] == receiver
-         *     s[1] == sender
+         *     s[0] == server
+         *     s[1] == client
          *     initialize req_time/latest_time
          *     keep querying each server in turn until satisfied,
          *     or denied.
@@ -2471,7 +2732,7 @@ AGAIN:
              * p is the current connection we are talking to,
              * q is the "other" one.
              * (Logic is started so the first time through this loop
-             * we are talking to the "receiver". That is required
+             * we are talking to the "server". That is required
              * to initialize the sid and recv_port.)
              */
             p = q++;
@@ -2482,7 +2743,7 @@ AGAIN:
             /*
              * Make the request
              */
-            if(!BWLSessionRequest(sess[p]->cntrl,sess[p]->send,
+            if(!BWLSessionRequest(sess[p]->cntrl,sess[p]->is_client,
                         &sess[p]->tspec,&req_time,&recv_port,
                         sid,&err_ret)){
                 /*
@@ -2531,7 +2792,7 @@ AGAIN:
                             zero64;
                         if(!BWLSessionRequest(
                                     sess[q]->cntrl,
-                                    sess[q]->send,
+                                    sess[q]->is_client,
                                     &sess[q]->tspec,
                                     &req_time,
                                     &recv_port,
@@ -2588,7 +2849,7 @@ sess_req_err:
             }
         }
 
-        /* Start receiver */
+        /* Start server */
         if(BWLStartSession(sess[0]->cntrl,&dataport) < BWLErrINFO){
             I2ErrLog(eh,"BWLStartSessions: Failed");
             CloseSessions();
@@ -2599,7 +2860,7 @@ sess_req_err:
             goto finish;
         }
 
-        /* Start sender */
+        /* Start client */
         if(BWLStartSession(sess[1]->cntrl,&dataport) < BWLErrINFO){
             I2ErrLog(eh,"BWLStartSessions: Failed");
             CloseSessions();
@@ -2618,7 +2879,7 @@ sess_req_err:
         endtime = BWLNum64Add(endtime,fuzz64);
         stop = False;
 
-        test_results_side = BWLToolGetResultsSideByID(ctx, sess[0]->tspec.tool_id);
+        test_results_side = BWLToolGetResultsSideByID(ctx, sess[0]->tspec.tool_id, &(sess[0]->tspec));
 
         /*
          * Setup files for the results.
@@ -2633,7 +2894,7 @@ sess_req_err:
                app.opt.bidirectional_results){
                 sprintf(&recvfname[ext_offset],"%s%s",
                         RECV_EXT,BWL_FILE_EXT);
-                if(!(recvfp = fopen(recvfname,"w"))){
+                if(!(servfp = fopen(recvfname,"w"))){
                     I2ErrLog(eh,"Unable to write to %s %M",
                             recvfname);
                     exit_val = 1;
@@ -2645,7 +2906,7 @@ sess_req_err:
                app.opt.bidirectional_results){
                 sprintf(&sendfname[ext_offset],"%s%s",
                         SEND_EXT,BWL_FILE_EXT);
-                if(!(sendfp = fopen(sendfname,"w"))){
+                if(!(clientfp = fopen(sendfname,"w"))){
                     I2ErrLog(eh,"Unable to write to %s %M",
                             sendfname);
                     exit_val = 1;
@@ -2656,11 +2917,11 @@ sess_req_err:
         else{
             if(test_results_side == BWL_DATA_ON_SERVER ||
                 app.opt.bidirectional_results){
-                recvfp = stdout;
+                servfp = stdout;
             }
             if(test_results_side == BWL_DATA_ON_CLIENT ||
                 app.opt.bidirectional_results){
-                sendfp = stdout;
+                clientfp = stdout;
             }
         }
 
@@ -2694,25 +2955,35 @@ sess_req_err:
                 /*
                  * Send TerminateSession
                  */
-                if(recvfp == stdout){
-                    fprintf(stdout,"\nRECEIVER START\n");
+                if(servfp == stdout){
+                    if (app.opt.flip_direction) {
+                        fprintf(stdout,"\nSENDER START\n");
+                    }
+                    else {
+                        fprintf(stdout,"\nRECEIVER START\n");
+                    }
                 }
                 atype = BWL_CNTRL_ACCEPT;
                 if( (err_ret =BWLEndSession(sess[0]->cntrl,
-                                &ip_intr,&atype,recvfp))
+                                &ip_intr,&atype,servfp))
                         < BWLErrWARNING){
                     CloseSessions();
                     goto next_test;
                 }
-                if(recvfp && (atype != BWL_CNTRL_ACCEPT)){
-                    fprintf(recvfp,"bwctl: Session ended abnormally\n");
+                if(servfp && (atype != BWL_CNTRL_ACCEPT)){
+                    fprintf(servfp,"bwctl: Session ended abnormally\n");
                 }
-                if(recvfp == stdout){
-                    fprintf(stdout,"\nRECEIVER END\n");
+                if(servfp == stdout){
+                    if (app.opt.flip_direction) {
+                        fprintf(stdout,"\nSENDER END\n");
+                    }
+                    else {
+                        fprintf(stdout,"\nRECEIVER END\n");
+                    }
                 }
-                else if (recvfp) {
-                    fclose(recvfp);
-                    recvfp = NULL;
+                else if (servfp) {
+                    fclose(servfp);
+                    servfp = NULL;
                     fprintf(stdout,"%s\n",recvfname);
                 }
                 fflush(stdout);
@@ -2722,35 +2993,43 @@ sess_req_err:
                     goto finish;
                 }
 
-                if (sendfp) {
-                    /* sender session */
-                    if(sendfp == stdout){
+                /* client session */
+                if(clientfp == stdout){
+                    if (app.opt.flip_direction) {
+                        fprintf(stdout,"\nRECEIVER START\n");
+                    }
+                    else {
                         fprintf(stdout,"\nSENDER START\n");
                     }
-                    atype = BWL_CNTRL_ACCEPT;
-                    if( (err_ret = BWLEndSession(sess[1]->cntrl,
-                                    &ip_intr,&atype,sendfp))
-                            < BWLErrWARNING){
-                        CloseSessions();
-                        goto next_test;
+                }
+                atype = BWL_CNTRL_ACCEPT;
+                if( (err_ret = BWLEndSession(sess[1]->cntrl,
+                                &ip_intr,&atype,clientfp))
+                        < BWLErrWARNING){
+                    CloseSessions();
+                    goto next_test;
+                }
+                if(clientfp && (atype != BWL_CNTRL_ACCEPT)){
+                    fprintf(clientfp,"bwctl: Session ended abnormally\n");
+                }
+                if(clientfp == stdout){
+                    if (app.opt.flip_direction) {
+                        fprintf(stdout,"\nRECEIVER END\n");
                     }
-                    if(sendfp && (atype != BWL_CNTRL_ACCEPT)){
-                        fprintf(sendfp,"bwctl: Session ended abnormally\n");
-                    }
-                    if(sendfp == stdout){
+                    else {
                         fprintf(stdout,"\nSENDER END\n");
                     }
-                    else if(sendfp){
-                        fclose(sendfp);
-                        sendfp = NULL;
-                        fprintf(stdout,"%s\n",sendfname);
-                    }
-                    fflush(stdout);
+                }
+                else if(clientfp){
+                    fclose(clientfp);
+                    clientfp = NULL;
+                    fprintf(stdout,"%s\n",sendfname);
+                }
+                fflush(stdout);
 
-                    if(sig_check()){
-                        exit_val = 1;
-                        goto finish;
-                    }
+                if(sig_check()){
+                    exit_val = 1;
+                    goto finish;
                 }
 
                 break;

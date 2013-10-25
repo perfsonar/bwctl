@@ -52,149 +52,37 @@ IperfAvailable(
         BWLToolDefinition   tool
         )
 {
-    char            confkey[BWL_MAX_TOOLNAME + 10];
     int             len;
     char            *cmd;
-    int             fdpipe[2];
-    pid_t           pid;
-    int             status;
-    int             rc;
+    char            *pattern = "iperf version "; /* Expected begin of stderr */
                     /* We expect 'iperf -v' to print to stderr something like
                     'iperf version 2.0.2 (03 May 2005) pthreads' */
-    char            *pattern = "iperf version "; /* Expected begin of stderr */
-    char            buf[PATH_MAX];
-    const uint32_t  buf_size = I2Number(buf);
-
-    /*
-     * Build conf-key name that is used to store the tool cmd
-     */
-    strcpy(confkey,"V.");
-    strncat(confkey,tool->name,sizeof(confkey));
-    len = strlen(confkey);
-    strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
+    char            buf[1024];
+    int             n;
 
     /*
      * Fetch 'tool' name
      */
-    if( !(cmd = (char *)BWLContextConfigGetV(ctx,confkey))){
+    if( !(cmd = (char *)BWLContextConfigGetV(ctx,"V.iperf_cmd"))){
         BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
                 "IperfAvailable(): %s unset, using \"%s\"",
                 "iperf_cmd",tool->def_cmd);
         cmd = tool->def_cmd;
     }
 
-    /*
-     * iperf is quite weird regarding exit codes and output.
-     *
-     * 'iperf -v' and 'iperf -h exit 1!
-     * Also, the output of 'iperf -v' and 'iperf -h' go to stderr, not stdout
-     *
-     */
-    if(socketpair(AF_UNIX,SOCK_STREAM,0,fdpipe) < 0){
-        BWLError(ctx,BWLErrFATAL,errno,"IperfAvailable():socketpair(): %M");
-        return False;
-    }
-
-    pid = fork();
-
-    /* fork error */
-    if(pid < 0){
-        BWLError(ctx,BWLErrFATAL,errno,"IperfAvailable():fork(): %M");
-        return False;
-    }
-
-    /*
-     * child:
-     *
-     * Redirect stderr to pipe - then exec iperf -v, which should send
-     * an identifying version string into the pipe.
-     */
-    if(0 == pid){
-        /*
-         * Redirect stdout/stderr from iperf into fdpipe[1]. iperf by default
-         * outputs to stderr, but debian patches it to output to stdout.
-         */
-        dup2(fdpipe[1],STDOUT_FILENO);
-        dup2(fdpipe[1],STDERR_FILENO);
-        close(fdpipe[0]);
-        close(fdpipe[1]);
-
-        execlp(cmd,cmd,"-v",NULL);
-        buf[buf_size-1] = '\0';
-        snprintf(buf,buf_size-1,"IperfAvailable(): exec(%s)",cmd);
-        perror(buf);
-        exit(1);
-    }
-
-    /*
-     * parent:
-     *
-     * Wait for child to exit, then read the output from the
-     * child.
-     *
-     * XXX: This solution depends on the pipe buffer being large enough
-     * to hold the complete output of the iperf -v command. (Otherwise
-     * iperf will block...) This has not been a problem in practice, but
-     * a more thourough solution would make sure SIGCHLD will be sent,
-     * and wait for either that signal or I/O using select(2).
-     *
-     * May need to do this eventually anyway, if iperf ever starts
-     * sending the messages via stdout - then this solution will need
-     * to watch for data on both stdout and stderr.
-     */
-
-    close(fdpipe[1]);
-    while(((rc = waitpid(pid,&status,0)) == -1) && errno == EINTR);
-    if(rc < 0){
-        BWLError(ctx,BWLErrFATAL,errno,
-                "IperfAvailable(): waitpid(), rc = %d: %M",rc);
-        return False;
-    }
-
-    /*
-     * If iperf did not even exit...
-     */
-    if(!WIFEXITED(status)){
-        if(WIFSIGNALED(status)){
-            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-                    "IperfAvailable(): iperf exited due to signal=%d",
-                    WTERMSIG(status));
-        }
-        BWLError(ctx,BWLErrWARNING,errno,"IperfAvailable(): iperf unusable");
-        return False;
-    }
-
-    /*
-     * Read any output from the child
-     */
-    buf[0] = '\0';
-    if( (rc = read(fdpipe[0],buf,buf_size-1)) > 0){
-        /* unsure the string is nul terminated */
-        for(len=buf_size;len>rc;len--){
-            buf[len-1] = '\0';
-        }
-    }
-    close(fdpipe[0]);
-
-    /*
-     * Hopefully future versions of iperf will exit with 0 for -v...
-     */
-    if((WEXITSTATUS(status) == 0) || (WEXITSTATUS(status) == 1)){
+    n = ExecCommand(ctx, buf, sizeof(buf), cmd, "-v", NULL);
+    if(n == 0 || n == 1) {
         if(0 == strncmp(buf,pattern,strlen(pattern))){
             /* iperf found! */
             return True;
         }
+   }
 
-        /* This is what we exit with if the exec fails so it likely means the tool isn't installed. */
-        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-            "IperfAvailable(): We were unable to verify that iperf is working. Likely you do not have it installed. exit status: 1: output: %s", buf);
-    } else {
-        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-            "IperfAvailable(): iperf invalid: exit status %d: output:\n%s",
-            WEXITSTATUS(status),buf);
-    }
+   /* This is what we exit with if the exec fails so it likely means the tool isn't installed. */
+   BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+        "IperfAvailable(): Unable to verify that iperf is working. It may not be installed. exit status: %d: output: %s", n, buf);
 
-    return False;
+   return False;
 }
 
 /*
@@ -227,7 +115,6 @@ IperfPreRunTest(
         BWLTestSession      tsess
         )
 {
-    char            confkey[BWL_MAX_TOOLNAME + 10];
     int             len;
     char            *cmd;
     int             a = 0;
@@ -237,38 +124,30 @@ IperfPreRunTest(
     struct sockaddr *rsaddr;
     socklen_t       rsaddrlen;
 
-    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen))){
+    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.server,&rsaddrlen))){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "IperfPreRunTest(): Invalid receiver I2Addr");
+                "IperfPreRunTest(): Invalid server I2Addr");
         return NULL;
     }
 
     hlen = sizeof(recvhost);
-    I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
+    I2AddrNodeName(tsess->test_spec.server,recvhost,&hlen);
     if(!hlen){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "IperfPreRunTest(): Invalid receiver I2Addr");
+                "IperfPreRunTest(): Invalid server I2Addr");
         return NULL;
     }
 
     hlen = sizeof(sendhost);
-    I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
+    I2AddrNodeName(tsess->test_spec.client,sendhost,&hlen);
     if(!hlen){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "IperfPreRunTest(): Invalid sender I2Addr");
+                "IperfPreRunTest(): Invalid client I2Addr");
         return NULL;
     }
 
-    /*
-     * Build conf-key name that is used to store the tool cmd
-     */
-    strcpy(confkey,"V.");
-    strncat(confkey,tsess->tool->name,sizeof(confkey));
-    len = strlen(confkey);
-    strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
-
     /* Run iperf */
-    cmd = (char*)BWLContextConfigGetV(ctx,confkey);
+    cmd = (char*)BWLContextConfigGetV(ctx,"V.iperf_cmd");
     if(!cmd) cmd = tsess->tool->def_cmd;
 
     /*
@@ -276,7 +155,7 @@ IperfPreRunTest(
      */
     IperfArgs[a++] = cmd;
 
-    if(tsess->conf_receiver){
+    if(tsess->conf_server){
         IperfArgs[a++] = "-B";
         if( !(IperfArgs[a++] = strdup(recvhost))){
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"IperfPreRunTest():strdup(): %M");
@@ -386,7 +265,7 @@ IperfPreRunTest(
 
     if(tsess->test_spec.udp){
         IperfArgs[a++] = "-u";
-        if((!tsess->conf_receiver) && (tsess->test_spec.bandwidth)){
+        if((!tsess->conf_server) && (tsess->test_spec.bandwidth)){
             IperfArgs[a++] = "-b";
             if( !(IperfArgs[a++] =
                         BWLUInt64Dup(ctx,tsess->test_spec.bandwidth))){
@@ -410,7 +289,7 @@ IperfPreRunTest(
     if(tsess->test_spec.report_interval){
         IperfArgs[a++] = "-i";
         if( !(IperfArgs[a++] =
-                    BWLUInt32Dup(ctx,tsess->test_spec.report_interval))){
+                    BWLDoubleDup(ctx,tsess->test_spec.report_interval / 1000.0))){
             return NULL;
         }
     }
@@ -477,9 +356,12 @@ BWLToolDefinitionRec    BWLToolIperf = {
     NULL,                   /* def_server_cmd   */
     5001,                   /* def_port         */
     _BWLToolGenericParse,    /* parse            */
+    BWLGenericParseThroughputParameters,    /* parse_request */
+    BWLGenericUnparseThroughputParameters,  /* unparse_request */
     IperfAvailable,         /* tool_avail       */
     _BWLToolGenericInitTest, /* init_test        */
     IperfPreRunTest,        /* pre_run          */
     IperfRunTest,           /* run              */
-    BWL_DATA_ON_SERVER       /* results_side     */
+    BWLToolServerSideData,      /* results_side     */
+    False,                   /* supports_server_sends */
 };
