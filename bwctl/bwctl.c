@@ -141,6 +141,7 @@ print_test_args(
             "  -N count       number of packets to send (Default: 10)\n"
             "  -l len         length of the packets (bytes)\n"
             "  -t ttl         TTL for the packets\n"
+            "  -i delay       delay between packets in seconds (Default: 1.0)\n"
            );
     }
     else if (test_type == BWL_TEST_TRACEROUTE) {
@@ -1483,6 +1484,14 @@ handle_generic_test_arg(const char arg, const char *value, char **argv, int argc
             }
             break;
 
+        case 'y':
+            if(strlen(optarg) != 1){
+                usage("Invalid value. (-y) Single character expected");
+                exit(1);
+            }
+            app.opt.outformat = optarg[0];
+            break;
+
         default:
             handled = False;
     }
@@ -1496,14 +1505,6 @@ handle_throughput_test_arg(const char arg, const char *value) {
     char *tstr;
 
     switch (arg) {
-        case 'y':
-            if(strlen(optarg) != 1){
-                usage("Invalid value. (-y) Single character expected");
-                exit(1);
-            }
-            app.opt.outformat = optarg[0];
-            break;
-
         case 'b':
             if( !(tstr = strdup(optarg))){
                 I2ErrLog(eh, "strdup(): %M");
@@ -1623,6 +1624,14 @@ handle_ping_test_arg(const char arg, const char *value) {
                 exit(1);
             }
             break;
+        case 'i':
+            app.opt.ping_interpacket_time = strtod(optarg,&tstr) * 1000;
+            if((optarg == tstr) || (errno == ERANGE) ||
+                    (app.opt.ping_interpacket_time < 0.0)){
+                usage("Invalid value. (-i) positive float expected");
+                exit(1);
+            }
+            break;
         case 'l':
             app.opt.ping_packet_size = strtoul(optarg,&tstr,10);
             if(*tstr != '\0') {
@@ -1705,7 +1714,7 @@ main(
     static char         *out_opts = "d:e:f:I:L:n:pqrR:vxy:";
     static char         *generic_test_opts = "c:s:T:o";
     static char         *throughput_test_opts = "b:D:i:l:O:P:S:t:uw:W:";
-    static char         *ping_test_opts = "N:l:t:";
+    static char         *ping_test_opts = "N:l:t:i:";
     static char         *traceroute_test_opts = "F:M:l:t:";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
@@ -2041,7 +2050,7 @@ main(
             app.opt.ping_interpacket_time = 1000;
         }
 
-        app.opt.timeDuration = app.opt.ping_packet_count * (app.opt.ping_interpacket_time / 1000.0) + 1;
+        app.opt.timeDuration = app.opt.ping_packet_count * (app.opt.ping_interpacket_time / 1000.0) + 3;
     }
     else {
         if(!app.opt.timeDuration){
@@ -2157,6 +2166,8 @@ main(
 
     first.tspec.duration = app.opt.timeDuration;
 
+    first.tspec.outformat = app.opt.outformat;
+
     if (app.opt.flip_direction) {
         first.tspec.server_sends = True;
     }
@@ -2194,7 +2205,6 @@ main(
         }
         first.tspec.report_interval = app.opt.reportInterval;
         first.tspec.units = app.opt.units;
-        first.tspec.outformat = app.opt.outformat;
         first.tspec.omit = app.opt.timeOmit;
         first.tspec.parallel_streams = app.opt.parallel;
     }

@@ -989,6 +989,14 @@ _BWLWriteTestRequest(
 
     *(uint32_t*)&buf[4] = htonl(tspec->duration);
 
+    if(!tool_negotiation && tspec->outformat){
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support -y option");
+        return BWLErrFATAL;
+    }
+
+    *(uint32_t*)&buf[108] = tspec->outformat;
+
     if (!reverse_available && tspec->server_sends) {
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support firewall mode");
@@ -1069,7 +1077,6 @@ BWLGenericUnparseThroughputParameters(
     if(tool_negotiation){
         buf[94] = tspec->parallel_streams;
         *(uint32_t*)&buf[96] = htonl(tspec->tool_id);
-        buf[108] = tspec->outformat;
         buf[109] = bandwidth_exp;
         buf[111] = tspec->units;
     }
@@ -1081,11 +1088,6 @@ BWLGenericUnparseThroughputParameters(
     else if(tspec->units){
         BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -f option");
-        return BWLErrFATAL;
-    }
-    else if(tspec->outformat){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
-                "Legacy server does not support -y option");
         return BWLErrFATAL;
     }
     else if(bandwidth_exp > 0){
@@ -1406,6 +1408,10 @@ _BWLReadTestRequest(
             tspec.server_sends = buf[101];
         }
 
+        if(tool_negotiation){
+            tspec.outformat = buf[108];
+        }
+
         if (BWLToolParseRequestParameters(tspec.tool_id,cntrl->ctx,buf,&tspec,cntrl->protocol_version) != BWLErrOK) {
             BWLError(cntrl->ctx,BWLErrWARNING,BWLErrINVALID,
                     "_BWLReadTestRequest: Problem reading test parameters for tool (%d)",
@@ -1516,7 +1522,6 @@ BWLGenericParseThroughputParameters(
         uint8_t bandwidth_exp;
 
         tspec->parallel_streams = buf[94];
-        tspec->outformat = buf[108];
         bandwidth_exp = buf[109];
         tspec->bandwidth <<= bandwidth_exp;
         tspec->units = buf[111];
