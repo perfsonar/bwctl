@@ -69,6 +69,7 @@
 static struct timeval   timeoffset;
 static int              sign_timeoffset = 0;
 static int              ntpsyscall_fails; /* initialized in InitNTP */
+static int              allow_unsync = 0;
 static int              ntp_unsync = 1;
 
 /*
@@ -149,10 +150,23 @@ _BWLInitNTP(
 #endif	/*  STA_NANO */
     }
 NOADJTIME:
-#else
-    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-            "NTP: Status Unknown (NTP syscalls unavailable)");
 #endif
+    if( (BWLContextConfigGetV(ctx,BWLAllowUnsync))){
+        allow_unsync = 1;
+    }
+
+    if(!allow_unsync){
+        if(ntpsyscall_fails){
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                    "NTP: Status *unknown* (ntp syscalls unavailable)");
+            allow_unsync = 1;
+        }
+        else if(ntp_unsync){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "NTP: Unsynchronized. Failing (Set allow_unsync to run anyway)");
+            return 1;
+        }
+    }
 
     if( !(toffstr = getenv("BWCTL_DEBUG_TIMEOFFSET"))){
         timeoffset.tv_sec = 0;
@@ -204,21 +218,6 @@ NOADJTIME:
     }
 
     return 0;
-}
-
-BWLBoolean
-BWLNTPIsSynchronized(
-        BWLContext	ctx
-        )
-{
-    BWLTimeStamp    ts;
-
-    if(!BWLGetTimeStamp(ctx,&ts)) {
-	BWLError(ctx,BWLErrFATAL,errno, "BWLGetTimeStamp failed");
-        return False;
-    }
-
-    return ts.sync?True:False;
 }
 
 struct timespec *
@@ -287,6 +286,12 @@ _BWLGetTimespec(
             if(!ntp_unsync){
                 BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,"NTP: Status UNSYNC");
                 ntp_unsync = 1;
+            }
+
+            if( !allow_unsync){
+                BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                        "allow_unsync is not set, failing.");
+                return NULL;
             }
         }
         else{

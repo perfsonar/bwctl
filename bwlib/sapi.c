@@ -589,7 +589,7 @@ BWLProcessTestRequest(
         /*
          * If this "new" session is a receiver session, create a SID for it.
          */
-        if(tsession->conf_server && (_BWLCreateSID(tsession) != 0)){
+        if(tsession->conf_receiver && (_BWLCreateSID(tsession) != 0)){
             err_ret = BWLErrWARNING;
             acceptval = BWL_CNTRL_FAILURE;
             goto error;
@@ -606,16 +606,6 @@ BWLProcessTestRequest(
             goto error;
         }
     }
-
-    if (tsession->test_spec.server_sends &&
-        !BWLToolSupportsServerSendByID(cntrl->ctx,tsession->test_spec.tool_id)) {
-        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-                "Tool does not support firewall mode");
-        err_ret = BWLErrWARNING;
-        acceptval = BWL_CNTRL_UNSUPPORTED;
-        goto error;
-    }
-
 
     /*
      * compute "fuzz" time.

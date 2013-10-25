@@ -91,7 +91,7 @@ _BWLWriteServerGreeting(
     memset(buf,0,12);
 
     *((uint32_t *)&buf[12]) = htonl(avail_modes | 
-            BWL_MODE_PROTOCOL_1_5_VERSION);
+            BWL_MODE_PROTOCOL_OMIT_VERSION);
     memcpy(&buf[16],challenge,16);
     if(I2Writeni(cntrl->sockfd,buf,32,retn_on_err) != 32){
         return BWLErrFATAL;
@@ -811,8 +811,8 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	96|                    Tool selection bit-mask                    |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     100|    Verbose    | Reverse Flow  |                               |
- *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *     100|    Verbose    |                                               |
+ *	  +-+-+-+-+-+-+-+-+                                               +
  *     104|                            Unused                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     108|    Out Fmt    | bandwidth-exp |   Omit Time   |     Units     |
@@ -854,7 +854,8 @@ _BWLWriteTestRequest(
     int	            blocks;
     BWLBoolean	    tool_negotiation;
     BWLBoolean	    omit_available;
-    BWLBoolean      reverse_available;
+    uint64_t        bandwidth;
+    uint8_t         bandwidth_exp = 0;
 
 
     /*
@@ -869,8 +870,8 @@ _BWLWriteTestRequest(
     /*
      * Interpret addresses
      */
-    ssaddr = I2AddrSAddr(tspec->client,NULL);
-    rsaddr = I2AddrSAddr(tspec->server,NULL);
+    ssaddr = I2AddrSAddr(tspec->sender,NULL);
+    rsaddr = I2AddrSAddr(tspec->receiver,NULL);
     if(!ssaddr || !rsaddr){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
                 "_BWLWriteTestRequest: Unable to decode sockaddrs");
@@ -917,9 +918,6 @@ _BWLWriteTestRequest(
     omit_available = cntrl->protocol_version >=
         BWL_MODE_PROTOCOL_OMIT_VERSION;
 
-    reverse_available = cntrl->protocol_version >=
-        BWL_MODE_PROTOCOL_1_5_VERSION;
-
     /*
      * Initialize buffer
      */
@@ -927,12 +925,16 @@ _BWLWriteTestRequest(
 
     buf[0] = 1;	/* Request-Session message # */
     buf[1] = version & 0xF;	/* version */
-    buf[2] = (tsession->conf_client)?1:0;
-    buf[3] = (tsession->conf_server)?1:0;
+    if(tspec->udp){	/* udp */
+        buf[1] |= 0x10;
+    }
+    buf[2] = (tsession->conf_sender)?1:0;
+    buf[3] = (tsession->conf_receiver)?1:0;
 
     /*
      * slots and npackets... convert to network byte order.
      */
+    *(uint32_t*)&buf[4] = htonl(tspec->duration);
     _BWLEncodeTimeStamp(&buf[8],&tspec->req_time);
     tstamp.tstamp = tspec->latest_time;
     _BWLEncodeTimeStamp(&buf[16],&tstamp);
@@ -954,22 +956,22 @@ _BWLWriteTestRequest(
         struct sockaddr_in6 *saddr6;
 
         case 6:
-        /* client address */
+        /* sender address */
         saddr6 = (struct sockaddr_in6*)ssaddr;
         memcpy(&buf[28],saddr6->sin6_addr.s6_addr,16);
 
-        /* server address and port  */
+        /* receiver address and port  */
         saddr6 = (struct sockaddr_in6*)rsaddr;
         memcpy(&buf[44],saddr6->sin6_addr.s6_addr,16);
 
         break;
 #endif
         case 4:
-        /* client address */
+        /* sender address */
         saddr4 = (struct sockaddr_in*)ssaddr;
         *(uint32_t*)&buf[28] = saddr4->sin_addr.s_addr;
 
-        /* server address */
+        /* receiver address */
         saddr4 = (struct sockaddr_in*)rsaddr;
         *(uint32_t*)&buf[44] = saddr4->sin_addr.s_addr;
 
@@ -984,66 +986,6 @@ _BWLWriteTestRequest(
     }
 
     memcpy(&buf[60],tsession->sid,16);
-
-    *(uint32_t*)&buf[96] = htonl(tspec->tool_id);
-
-    *(uint32_t*)&buf[4] = htonl(tspec->duration);
-
-    if (!reverse_available && tspec->server_sends) {
-        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
-                "Legacy server does not support firewall mode");
-        return BWLErrFATAL;
-    }
-
-    buf[101] = tspec->server_sends;
-
-    if (BWLToolUnparseRequestParameters(tspec->tool_id, cntrl->ctx,buf,tspec,cntrl->protocol_version) != BWLErrOK) {
-        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-                "Problem writing test request parameters");
-        return BWLErrFATAL;
-    }
-
-    /*
-     * Now - send the request! 112(+4) octets == 7(+1) blocks.
-     */
-    blocks = message_len / _BWL_RIJNDAEL_BLOCK_SIZE;
-    if(_BWLSendBlocks(cntrl,buf,blocks) != blocks){
-        cntrl->state = _BWLStateInvalid;
-        return BWLErrFATAL;
-    }
-
-    cntrl->state |= _BWLStateTestAccept;
-
-    return BWLErrOK;
-}
-
-BWLErrSeverity
-BWLGenericUnparseThroughputParameters(
-        BWLContext          ctx,
-        uint8_t             *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        )
-{
-    BWLBoolean	    tool_negotiation;
-    BWLBoolean	    omit_available;
-    uint64_t        bandwidth;
-    uint8_t         bandwidth_exp = 0;
-
-    /*
-     * Check if tool negotiation has been requested.
-     */
-    tool_negotiation =  protocol_version >=
-        BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION;
-
-    /* Is there support for the -O omit flag in this version? */
-    omit_available = protocol_version >=
-        BWL_MODE_PROTOCOL_OMIT_VERSION;
-
-    if(tspec->udp){	/* udp */
-        buf[1] |= 0x10;
-    }
-
     bandwidth = tspec->bandwidth;
     while(bandwidth > 0xFFFFFFFFULL){
         bandwidth_exp++;
@@ -1052,11 +994,7 @@ BWLGenericUnparseThroughputParameters(
     *(uint32_t*)&buf[76] = htonl((uint32_t)(bandwidth & 0xFFFFFFFFULL));
     *(uint32_t*)&buf[80] = htonl(tspec->len_buffer);
     *(uint32_t*)&buf[84] = htonl(tspec->window_size);
-
-    if (protocol_version >= BWL_MODE_PROTOCOL_1_5_VERSION)
-        *(uint32_t*)&buf[88] = htonl(tspec->report_interval);
-    else
-        *(uint32_t*)&buf[88] = htonl(tspec->report_interval / 1000);
+    *(uint32_t*)&buf[88] = htonl(tspec->report_interval);
 
     if(tspec->dynamic_window_size){
         buf[92] |= _BWL_DYNAMIC_WINDOW_SIZE;
@@ -1074,22 +1012,22 @@ BWLGenericUnparseThroughputParameters(
         buf[111] = tspec->units;
     }
     else if(tspec->parallel_streams){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -P option");
         return BWLErrFATAL;
     }
     else if(tspec->units){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -f option");
         return BWLErrFATAL;
     }
     else if(tspec->outformat){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -y option");
         return BWLErrFATAL;
     }
     else if(bandwidth_exp > 0){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -b greater than 4.3g");
         return BWLErrFATAL;
     }
@@ -1099,46 +1037,24 @@ BWLGenericUnparseThroughputParameters(
         buf[110] = tspec->omit;
     }
     else if(tspec->omit){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -O option");
         return BWLErrFATAL;
     }
 
-    return BWLErrOK;
-}
+    /*
+     * Now - send the request! 112(+4) octets == 7(+1) blocks.
+     */
+    blocks = message_len / _BWL_RIJNDAEL_BLOCK_SIZE;
+    if(_BWLSendBlocks(cntrl,buf,blocks) != blocks){
+        cntrl->state = _BWLStateInvalid;
+        return BWLErrFATAL;
+    }
 
-BWLErrSeverity
-BWLGenericUnparseTracerouteParameters(
-        BWLContext          ctx,
-        uint8_t             *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        )
-{
-    *(uint32_t*)&buf[4] = htonl(tspec->duration);
-    buf[76] = tspec->traceroute_first_ttl;
-    buf[77] = tspec->traceroute_last_ttl;
-    *(uint16_t*)&buf[78] = htons((uint16_t)(tspec->ping_packet_size));
+    cntrl->state |= _BWLStateTestAccept;
 
     return BWLErrOK;
 }
-
-BWLErrSeverity
-BWLGenericUnparsePingParameters(
-        BWLContext          ctx,
-        uint8_t             *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        )
-{
-    *(uint16_t*)&buf[76] = htons((uint16_t)(tspec->ping_packet_count));
-    *(uint16_t*)&buf[78] = htons((uint16_t)(tspec->ping_packet_size));
-    *(uint16_t*)&buf[80] = htons((uint16_t)(tspec->ping_interpacket_time));
-    buf[84] = tspec->ping_packet_ttl;
-
-    return BWLErrOK;
-}
-
 
 /*
  * Function:	_BWLReadTestRequest
@@ -1185,14 +1101,12 @@ _BWLReadTestRequest(
     int                     ival=0;
     int                     *intr=&ival;
     uint16_t                tool_port;
-    BWLBoolean              conf_client;
-    BWLBoolean              conf_server;
+    BWLBoolean              conf_sender;
+    BWLBoolean              conf_receiver;
     int                     blocks=_BWL_TEST_REQUEST_BLK_LEN; /* 8 */
     uint32_t                padding_pos;
     BWLBoolean	            tool_negotiation;
     BWLBoolean	            omit_available;
-    BWLBoolean	            reverse_available;
-
 
     if(!_BWLStateIs(_BWLStateTestRequest,cntrl)){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
@@ -1230,10 +1144,6 @@ _BWLReadTestRequest(
     /* Is there support for the -O omit flag in this version? */
     omit_available = cntrl->protocol_version >=
         BWL_MODE_PROTOCOL_OMIT_VERSION;
-
-    /* Is there support for the -O omit flag in this version? */
-    reverse_available = cntrl->protocol_version >=
-        BWL_MODE_PROTOCOL_1_5_VERSION;
 
     /*
      * Already read the first block - read the rest for this message
@@ -1279,7 +1189,7 @@ _BWLReadTestRequest(
         }
         tsession->test_spec.req_time = tspec.req_time;
         tsession->test_spec.latest_time = tspec.latest_time;
-        if(!tsession->conf_server){
+        if(!tsession->conf_receiver){
             tsession->tool_port = tool_port;
         }
     }
@@ -1291,33 +1201,36 @@ _BWLReadTestRequest(
          */
 
         ipvn = buf[1] & 0xF;
+        tspec.udp = (buf[1]>>4)?True:False;
+
+        tspec.duration = ntohl(*(uint32_t*)&buf[4]);
 
         switch(buf[2]){
             case 0:
-                conf_client = False;
+                conf_sender = False;
                 break;
             case 1:
             default:
-                conf_client = True;
+                conf_sender = True;
                 break;
         }
         switch(buf[3]){
             case 0:
-                conf_server = False;
+                conf_receiver = False;
                 break;
             case 1:
             default:
-                conf_server = True;
+                conf_receiver = True;
                 break;
         }
 
-        if(conf_client == conf_server){
+        if(conf_sender == conf_receiver){
             BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
                     "_BWLReadTestRequest: Invalid req(send/recv?)");
             goto error;
         }
 
-        if(conf_server){
+        if(conf_receiver){
             tool_port = 0;
         }
 
@@ -1337,13 +1250,13 @@ _BWLReadTestRequest(
             addrlen = sizeof(struct sockaddr_in6);
 
             /* type punning - socket api, leaving for now */
-            /* client address and port */
+            /* sender address and port */
             saddr6 = (struct sockaddr_in6*)&sendaddr_rec;
             saddr6->sin6_family = AF_INET6;
             memcpy(saddr6->sin6_addr.s6_addr,&buf[28],16);
             saddr6->sin6_port = 0;
 
-            /* server address and port  */
+            /* receiver address and port  */
             saddr6 = (struct sockaddr_in6*)&recvaddr_rec;
             saddr6->sin6_family = AF_INET6;
             memcpy(saddr6->sin6_addr.s6_addr,&buf[44],16);
@@ -1363,13 +1276,13 @@ _BWLReadTestRequest(
             addrlen = sizeof(struct sockaddr_in);
 
             /* type punning - socket api, leaving for now */
-            /* client address and port  */
+            /* sender address and port  */
             saddr4 = (struct sockaddr_in*)&sendaddr_rec;
             saddr4->sin_family = AF_INET;
             saddr4->sin_addr.s_addr = *(uint32_t*)&buf[28];
             saddr4->sin_port = 0;
 
-            /* server address and port  */
+            /* receiver address and port  */
             saddr4 = (struct sockaddr_in*)&recvaddr_rec;
             saddr4->sin_family = AF_INET;
             saddr4->sin_addr.s_addr = *(uint32_t*)&buf[44];
@@ -1383,38 +1296,6 @@ _BWLReadTestRequest(
             goto error;
         }
 
-        if(tool_negotiation){
-            tspec.tool_id = ntohl(*(uint32_t*)&buf[96]);
-
-            /* Ensure only one bit is set in the tool selection bit-mask */
-            if(tspec.tool_id & (tspec.tool_id - 1)){
-                BWLError(cntrl->ctx,BWLErrWARNING,BWLErrINVALID,
-                        "_BWLReadTestRequest: Multiple tools requested (%d)",
-                        tspec.tool_id);
-                err_ret = BWLErrWARNING;
-                *accept_ret = BWL_CNTRL_FAILURE;
-                goto error;
-            }
-        }
-        else{
-            tspec.tool_id = BWL_TOOL_IPERF;
-        }
-
-        tspec.duration = ntohl(*(uint32_t*)&buf[4]);
-
-        if (reverse_available) {
-            tspec.server_sends = buf[101];
-        }
-
-        if (BWLToolParseRequestParameters(tspec.tool_id,cntrl->ctx,buf,&tspec,cntrl->protocol_version) != BWLErrOK) {
-            BWLError(cntrl->ctx,BWLErrWARNING,BWLErrINVALID,
-                    "_BWLReadTestRequest: Problem reading test parameters for tool (%d)",
-                    tspec.tool_id);
-            err_ret = BWLErrWARNING;
-            *accept_ret = BWL_CNTRL_FAILURE;
-            goto error;
-        }
- 
 #ifdef    HAVE_STRUCT_SOCKADDR_SA_LEN
         ((struct sockaddr *)&sendaddr_rec)->sa_len =
             ((struct sockaddr *)&recvaddr_rec)->sa_len = addrlen;
@@ -1439,11 +1320,49 @@ _BWLReadTestRequest(
                 (struct sockaddr*)&recvaddr_rec,addrlen,
                 socktype,protocol);
 
+        tspec.bandwidth = ntohl(*(uint32_t*)&buf[76]);
+        tspec.len_buffer = ntohl(*(uint32_t*)&buf[80]);
+        tspec.window_size = ntohl(*(uint32_t*)&buf[84]);
+        tspec.report_interval = ntohl(*(uint32_t*)&buf[88]);
+
+        tspec.dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
+        tspec.tos = buf[93];
+
+
+        if(tool_negotiation){
+            uint8_t bandwidth_exp;
+
+            tspec.parallel_streams = buf[94];
+            tspec.tool_id = ntohl(*(uint32_t*)&buf[96]);
+
+            /* Ensure only one bit is set in the tool selection bit-mask */
+            if(tspec.tool_id & (tspec.tool_id - 1)){
+                BWLError(cntrl->ctx,BWLErrWARNING,BWLErrINVALID,
+                        "_BWLReadTestRequest: Multiple tools requested (%d)",
+                        tspec.tool_id);
+                err_ret = BWLErrWARNING;
+                *accept_ret = BWL_CNTRL_FAILURE;
+                goto error;
+            }
+
+            tspec.outformat = buf[108];
+            bandwidth_exp = buf[109];
+            tspec.bandwidth <<= bandwidth_exp;
+            tspec.units = buf[111];
+        }
+        else{
+            tspec.tool_id = BWL_TOOL_IPERF;
+        }
+
+	if(omit_available){
+            tspec.verbose = buf[100];
+            tspec.omit = buf[110];
+	}
 
         /*
          * Allocate a record for this test.
          */
-        if( !(tsession = _BWLTestSessionAlloc(cntrl,conf_client,
+        if( !(tsession = _BWLTestSessionAlloc(cntrl,conf_sender,
                         SendAddr,RecvAddr,tool_port,&tspec))){
             err_ret = BWLErrWARNING;
             *accept_ret = BWL_CNTRL_FAILURE;
@@ -1479,86 +1398,6 @@ error:
     }
 
     return err_ret;
-}
-
-BWLErrSeverity
-BWLGenericParseThroughputParameters(
-        BWLContext          ctx,
-        const uint8_t       *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        )
-{
-    BWLBoolean	            tool_negotiation;
-    BWLBoolean	            omit_available;
-
-    /*
-     * Check if tool negotiation has been requested.
-     */
-    tool_negotiation =  protocol_version >=
-        BWL_MODE_PROTOCOL_TESTER_NEGOTIATION_VERSION;
-
-    /* Is there support for the -O omit flag in this version? */
-    omit_available = protocol_version >=
-        BWL_MODE_PROTOCOL_OMIT_VERSION;
-
-    tspec->udp = (buf[1]>>4)?True:False;
-    tspec->bandwidth = ntohl(*(uint32_t*)&buf[76]);
-    tspec->len_buffer = ntohl(*(uint32_t*)&buf[80]);
-    tspec->window_size = ntohl(*(uint32_t*)&buf[84]);
-    tspec->report_interval = ntohl(*(uint32_t*)&buf[88]);
-    if (protocol_version < BWL_MODE_PROTOCOL_1_5_VERSION)
-        tspec->report_interval = ntohl(*(uint32_t*)&buf[88]) * 1000;
-    tspec->dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
-    tspec->tos = buf[93];
-
-    if(tool_negotiation){
-        uint8_t bandwidth_exp;
-
-        tspec->parallel_streams = buf[94];
-        tspec->outformat = buf[108];
-        bandwidth_exp = buf[109];
-        tspec->bandwidth <<= bandwidth_exp;
-        tspec->units = buf[111];
-    }
-
-    if(omit_available){
-        tspec->verbose = buf[100];
-        tspec->omit = buf[110];
-    }
-
-    return BWLErrOK;
-}
-
-BWLErrSeverity
-BWLGenericParseTracerouteParameters(
-        BWLContext          ctx,
-        const uint8_t       *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        )
-{
-    tspec->traceroute_first_ttl = buf[76];
-    tspec->traceroute_last_ttl = buf[77];
-    tspec->traceroute_packet_size = htons(*(uint16_t*)&buf[78]);
-
-    return BWLErrOK;
-}
-
-BWLErrSeverity
-BWLGenericParsePingParameters(
-        BWLContext          ctx,
-        const uint8_t       *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        )
-{
-    tspec->ping_packet_count = htons(*(uint16_t*)&buf[76]);
-    tspec->ping_packet_size = htons(*(uint16_t*)&buf[78]);
-    tspec->ping_interpacket_time = htons(*(uint16_t*)&buf[80]);
-    tspec->ping_packet_ttl = buf[84];
-
-    return BWLErrOK;
 }
 
 /*
@@ -1604,7 +1443,7 @@ _BWLWriteTestAccept(
     memset(buf,0,32);
 
     buf[0] = acceptval & 0xff;
-    if(tsession->conf_server){
+    if(tsession->conf_receiver){
         *(uint16_t *)&buf[2] = htons(tsession->tool_port);
     }
     memcpy(&buf[4],tsession->sid,16);
@@ -1663,7 +1502,7 @@ _BWLReadTestAccept(
         return BWLErrFATAL;
     }
 
-    if(tsession->conf_server){
+    if(tsession->conf_receiver){
         tsession->tool_port = ntohs(*(uint16_t*)&buf[2]);
         memcpy(tsession->sid,&buf[4],16);
     }
@@ -1718,9 +1557,9 @@ _BWLWriteStartSession(
 
     buf[0] = 2;	/* start-session identifier	*/
     /*
-     * If conf_client, than need to "set" the peerport.
+     * If conf_sender, than need to "set" the peerport.
      */
-    if(cntrl->tests->conf_client){
+    if(cntrl->tests->conf_sender){
         *(uint16_t*)&buf[2] = htons(peerport);
     }
 
@@ -1782,7 +1621,7 @@ _BWLReadStartSession(
         return BWLErrFATAL;
     }
 
-    if(cntrl->tests->conf_client){
+    if(cntrl->tests->conf_sender){
         *peerport = ntohs(*(uint16_t*)&buf[2]);
     }
     /*
@@ -1838,7 +1677,7 @@ _BWLWriteStartAck(
 
     buf[0] = acceptval & 0xff;
 
-    if(cntrl->tests->conf_server){
+    if(cntrl->tests->conf_receiver){
         *(uint16_t*)&buf[2] = htons(peerport);
     }
 
@@ -1905,7 +1744,7 @@ _BWLReadStartAck(
         return BWLErrFATAL;
     }
 
-    if(cntrl->tests->conf_server){
+    if(cntrl->tests->conf_receiver){
         *peerport = ntohs(*(uint16_t*)&buf[2]);
     }
 

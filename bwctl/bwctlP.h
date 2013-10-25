@@ -90,7 +90,7 @@ typedef struct{
     int		        sockfd;
     BWLNum64	        rttbound;
     BWLNum64	        waketime;
-    BWLBoolean	        is_client;
+    BWLBoolean	        send;
     BWLTestSpec         tspec;
     BWLToolAvailability avail_tools;
 } ipsess_trec, *ipsess_t;
@@ -121,8 +121,6 @@ typedef	struct {
         uint32_t	nIntervals;	/* -n */
         I2Boolean	continuous;	/* == !nIntervals && seriesI */
         uint32_t	seriesWindow;	/* -L (seconds) */
-
-        I2Boolean	flip_direction; /* -o */
 
         /* Determines how far into
          * a seriesInterval a test
@@ -158,25 +156,11 @@ typedef	struct {
         uint32_t	tos;		/* -S	*/
         double          allowUnsync;    /* -a   */
 
-        // Ping test parameters
-        // 'duration' field is ping_packet_count * (ping_packet_count / 1000)
-        // 'bandwidth' field is (ping_packet_count * ping_packet_size) * (1 / ping_interpacket_time) * 8
-        uint16_t        ping_packet_count;
-        uint16_t        ping_interpacket_time;  // in milliseconds
-        uint16_t        ping_packet_size;
-        uint8_t         ping_packet_ttl;
-
-        // Traceroute test parameters
-        // Maximum test duration is 'duration' field
-        BWLBoolean      traceroute_udp;
-        uint16_t        traceroute_packet_size;
-        uint8_t         traceroute_first_ttl;
-        uint8_t         traceroute_last_ttl;
     } opt;
 
 
-    ipsess_t		receiver_sess;
-    ipsess_t		sender_sess;
+    ipsess_t		recv_sess;
+    ipsess_t		send_sess;
 
     aeskey_auth		def_auth;
 

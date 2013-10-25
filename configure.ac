@@ -41,11 +41,11 @@
 # limitations under the License.
 #
 PACKAGE=bwctl
-VERSION="1.5.1"
+VERSION="1.4.2"
 
-AC_INIT(bwctl, 1.5.1, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.4.2, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.5.1, [no-define])
+AM_INIT_AUTOMAKE(bwctl, 1.4.2, [no-define])
 
 
 AC_CONFIG_SRCDIR(bwlib/context.c)
@@ -123,10 +123,6 @@ AC_CHECK_DECLS([fseeko])
 #	fi
 #fi
 #AC_SUBST(MALLOCDEBUGLIBS)
-
-AC_ARG_ENABLE(debug,
-                [  --enable-debug         turn on debugging],
-                [CFLAGS="-g -Wall -DDEBUG ${CFLAGS}"])
 
 #
 # --with-I2util:

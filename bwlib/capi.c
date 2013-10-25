@@ -740,7 +740,7 @@ _BWLClientRequestTestReadResponse(
 BWLBoolean
 BWLSessionRequest(
         BWLControl	cntrl,
-        BWLBoolean	is_client,
+        BWLBoolean	send_local,
         BWLTestSpec	*test_spec,
         BWLTimeStamp	*avail_time_ret,
         uint16_t	*tool_port,
@@ -754,8 +754,8 @@ BWLSessionRequest(
     struct addrinfo *sai=NULL;
     BWLTestSession  tsession = NULL;
     int		    rc=0;
-    I2Addr	    server=NULL;
-    I2Addr	    client=NULL;
+    I2Addr	    receiver=NULL;
+    I2Addr	    sender=NULL;
     struct sockaddr *rsaddr;
     struct sockaddr *ssaddr;
     socklen_t       saddrlen;
@@ -799,33 +799,33 @@ BWLSessionRequest(
             goto cancel;
     }else{
 
-        if(test_spec->server){
-            server = I2AddrCopy(test_spec->server);
+        if(test_spec->receiver){
+            receiver = I2AddrCopy(test_spec->receiver);
         }else{
             BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
                     "BWLSessionRequest:Invalid receive address");
         }
 
-        if(!server)
+        if(!receiver)
             goto error;
 
-        if(test_spec->client){
-            client = I2AddrCopy(test_spec->client);
+        if(test_spec->sender){
+            sender = I2AddrCopy(test_spec->sender);
         }else{
             BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
                     "BWLSessionRequest:Invalid receive address");
         }
 
-        if(!client)
+        if(!sender)
             goto error;
 
         /*
          * Set the socktypes needed for this type of test so the
          * getaddrinfo happens correctly.
          */
-        if(     !I2AddrSetSocktype(client,
+        if(     !I2AddrSetSocktype(receiver,
                     (test_spec->udp)? SOCK_DGRAM: SOCK_STREAM) ||
-                !I2AddrSetSocktype(server,
+                !I2AddrSetSocktype(sender,
                     (test_spec->udp)? SOCK_DGRAM: SOCK_STREAM)){
             goto error;
         }
@@ -834,8 +834,8 @@ BWLSessionRequest(
          * Get addrinfo for address spec's so we can choose between
          * the different address possiblities in the next step.
          */
-        if(     !(frai = I2AddrAddrInfo(server,NULL,NULL)) ||
-                !(fsai = I2AddrAddrInfo(client,NULL,NULL))){
+        if(     !(frai = I2AddrAddrInfo(receiver,NULL,NULL)) ||
+                !(fsai = I2AddrAddrInfo(sender,NULL,NULL))){
             goto error;
         }
 
@@ -911,8 +911,8 @@ foundaddr:
         /*
          * Fill I2Addr records with "selected" addresses for test.
          */
-        if( !I2AddrSetSAddr(server,rai->ai_addr,rai->ai_addrlen) ||
-                !I2AddrSetSAddr(client,sai->ai_addr,sai->ai_addrlen)){
+        if( !I2AddrSetSAddr(receiver,rai->ai_addr,rai->ai_addrlen) ||
+                !I2AddrSetSAddr(sender,sai->ai_addr,sai->ai_addrlen)){
             BWLError(cntrl->ctx,*err_ret,BWLErrINVALID,
                     "BWLSessionRequest: Unable to set socket info");
             goto error;
@@ -929,12 +929,12 @@ foundaddr:
          * Create a structure to store the stuff we need to keep for
          * later calls.
          */
-        if( !(tsession = _BWLTestSessionAlloc(cntrl,is_client,client,
-                        server,*tool_port,test_spec)))
+        if( !(tsession = _BWLTestSessionAlloc(cntrl,send_local,sender,
+                        receiver,*tool_port,test_spec)))
             goto error;
     }
 
-    if(tsession->conf_server){
+    if(tsession->conf_receiver){
         *tool_port = 0;
     }
     else{
@@ -942,8 +942,8 @@ foundaddr:
     }
 
     /*
-     * Request the server create the server & possibly the
-     * client. (copy reservation time so a denied response can be
+     * Request the server create the receiver & possibly the
+     * sender. (copy reservation time so a denied response can be
      * differentiated from a "busy" response.)
      */
     rc = _BWLClientRequestTestReadResponse(cntrl,tsession,err_ret);
@@ -967,7 +967,7 @@ foundaddr:
     /*
      * return the SID for this session to the caller.
      */
-    if(tsession->conf_server){
+    if(tsession->conf_receiver){
         memcpy(sid,tsession->sid,sizeof(BWLSID));
     }
 
@@ -1001,8 +1001,8 @@ error:
          * If tsession exists - the addr's will be free'd as
          * part of it - otherwise, do it here.
          */
-        I2AddrFree(server);
-        I2AddrFree(client);
+        I2AddrFree(receiver);
+        I2AddrFree(sender);
     }
 
     return retval;

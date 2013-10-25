@@ -90,25 +90,25 @@ Iperf3PreRunTest(
     socklen_t       rsaddrlen;
     struct iperf_test *iperf_test;
 
-    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.server,&rsaddrlen))){
+    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.receiver,&rsaddrlen))){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "Iperf3PreRunTest(): Invalid server I2Addr");
+                "Iperf3PreRunTest(): Invalid receiver I2Addr");
         return NULL;
     }
 
     hlen = sizeof(recvhost);
-    I2AddrNodeName(tsess->test_spec.server,recvhost,&hlen);
+    I2AddrNodeName(tsess->test_spec.receiver,recvhost,&hlen);
     if(!hlen){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "Iperf3PreRunTest(): Invalid server I2Addr");
+                "Iperf3PreRunTest(): Invalid receiver I2Addr");
         return NULL;
     }
 
     hlen = sizeof(sendhost);
-    I2AddrNodeName(tsess->test_spec.client,sendhost,&hlen);
+    I2AddrNodeName(tsess->test_spec.sender,sendhost,&hlen);
     if(!hlen){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "Iperf3PreRunTest(): Invalid client I2Addr");
+                "Iperf3PreRunTest(): Invalid sender I2Addr");
         return NULL;
     }
 
@@ -126,8 +126,8 @@ Iperf3PreRunTest(
 
     /* -i reporting interval in seconds */
     if(tsess->test_spec.report_interval){
-        iperf_set_test_reporter_interval( iperf_test, tsess->test_spec.report_interval / 1000.0 );
-        iperf_set_test_stats_interval( iperf_test, tsess->test_spec.report_interval / 1000.0 );
+        iperf_set_test_reporter_interval( iperf_test, tsess->test_spec.report_interval );
+        iperf_set_test_stats_interval( iperf_test, tsess->test_spec.report_interval );
     }
 
     /* Set defaults, if UDP test */
@@ -220,7 +220,7 @@ Iperf3PreRunTest(
             "Iperf3PreRunTest: There are some known problems with using Iperf3 and UDP. Only run this if you're debugging the problem.\n");
     }
 
-    if(tsess->conf_server){
+    if(tsess->conf_receiver){
         iperf_set_test_role( iperf_test, 's' ); // specify server side
     }else{
         iperf_set_test_role( iperf_test, 'c' ); // specify client side
@@ -230,10 +230,6 @@ Iperf3PreRunTest(
             return NULL;
         }
         iperf_set_test_server_hostname( iperf_test, drh );
-
-        if (tsess->test_spec.server_sends) {
-             iperf_set_test_reverse( iperf_test, 1 );
-        }
     }
 
     return (void *)iperf_test;
@@ -290,12 +286,9 @@ BWLToolDefinitionRec    BWLToolIperf3 = {
     NULL,                    /* def_server_cmd   */
     5001,                    /* def_port         */
     _BWLToolGenericParse,    /* parse            */
-    BWLGenericParseThroughputParameters,    /* parse_request */
-    BWLGenericUnparseThroughputParameters,  /* unparse_request */
     Iperf3Available,         /* tool_avail       */
     _BWLToolGenericInitTest, /* init_test        */
     Iperf3PreRunTest,        /* pre_run          */
     Iperf3RunTest,           /* run              */
-    BWLToolClientSideData,      /* results_side     */
-    True,                    /* supports_server_sends */
+    BWL_DATA_ON_CLIENT       /* results_side     */
 };

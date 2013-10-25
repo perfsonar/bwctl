@@ -40,7 +40,6 @@
 #	allow_open_mode
 #	allow_tcp
 #	allow_udp
-#	minimum_ttl
 #
 
 # setup the root node with max bandwidth as open as possible.
