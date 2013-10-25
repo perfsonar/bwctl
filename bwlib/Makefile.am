@@ -30,7 +30,7 @@ libbwlib_a_SOURCES	= api.c capi.c sapi.c context.c error.c bwlibP.h \
 # add parent
 libbwlib_a_CFLAGS	= -I..
 
-TOOL_SOURCES		= tools.c
+TOOL_SOURCES		= tools.c ping.c traceroute.c tracepath.c owamp.c
 
 if TOOL_THRULAY
 TOOL_SOURCES		+= thrulay.c

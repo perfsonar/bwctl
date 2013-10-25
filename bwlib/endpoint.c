@@ -228,9 +228,9 @@ epssock(
     int                     saveerr=0;
 
 
-    if( !(lsaddr = I2AddrSAddr(tsess->test_spec.receiver,&lsaddrlen))){
+    if( !(lsaddr = I2AddrSAddr(tsess->test_spec.server,&lsaddrlen))){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "epssock: Invalid receiver I2Addr");
+                "epssock: Invalid server I2Addr");
         return -1;
     }
 
@@ -317,7 +317,7 @@ epssock(
 bind_fail:
     if(!saveerr) saveerr = errno;
     BWLError(tsess->cntrl->ctx,BWLErrFATAL,saveerr,"bind([%s]:%d): %M",
-            I2AddrNodeName(tsess->test_spec.receiver,nodebuff,&nodebufflen),p);
+            I2AddrNodeName(tsess->test_spec.server,nodebuff,&nodebufflen),p);
     goto failsock;
 
 bind_success:
@@ -457,11 +457,7 @@ run_tool(
     struct timespec     ts_remain;
     void                *closure;
     const char          *tname;
-
-
-    tname = BWLToolGetNameByID(ctx,tsess->test_spec.tool_id);
-    BWLError(tsess->cntrl->ctx,BWLErrINFO,BWLErrUNKNOWN,
-            "run_tool: tester = %s",((tname)?tname:"unknown"));
+    char                addr_str[INET6_ADDRSTRLEN];
 
     /*
      * Open /dev/null to dup to stdin before the exec.
@@ -538,7 +534,7 @@ run_tool(
      * Use the error estimates rounded up to 1 second, and start the
      * recv side that much before the test time.
      */
-    if(tsess->conf_receiver){
+    if(tsess->conf_server){
 	if(BWLNum64Cmp(reltime,tsess->fuzz) > 0){
 	    reltime = BWLNum64Sub(reltime,tsess->fuzz);
 	}
@@ -560,11 +556,24 @@ run_tool(
     }
 
     /*
-     * Report 'when' this was actually started
+     * Report some information about this test.
      */
+    tname = BWLToolGetNameByID(ctx,tsess->test_spec.tool_id);
+    fprintf(tsess->localfp,"bwctl: run_tool: tester: %s\n",((tname)?tname:"unknown"));
+
+    if( BWLAddrNodeName(ctx, tsess->test_spec.server, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
+        fprintf(tsess->localfp,"bwctl: run_tool: %s: %s\n", (tsess->test_spec.server_sends?"sender":"receiver"),addr_str);
+    }
+
+    if( BWLAddrNodeName(ctx, tsess->test_spec.client, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
+        fprintf(tsess->localfp,"bwctl: run_tool: %s: %s\n", (tsess->test_spec.server_sends?"receiver":"sender"),addr_str);
+    }
+
     BWLGetTimeStamp(ctx,&currtime);
     fprintf(tsess->localfp,"bwctl: start_tool: %f\n",
             BWLNum64ToDouble(currtime.tstamp));
+
+
     fflush(tsess->localfp);
 
     _BWLToolRunTest(ctx,tsess,closure);
@@ -612,7 +621,7 @@ _BWLEndpointStart(
         return False;
     }
 
-    if(tsess->conf_receiver){
+    if(tsess->conf_server){
         if((ep->ssockfd = epssock(tsess,peerport)) < 0){
             EndpointFree(ep);
             return False;
@@ -658,7 +667,7 @@ _BWLEndpointStart(
 
         if(sigprocmask(SIG_SETMASK,&osigs,NULL) != 0){
             BWLError(ctx,BWLErrFATAL,errno,"sigprocmask(): %M");
-            kill(ep->child,SIGINT);
+            kill(-ep->child,SIGINT);
             ep->wopts &= ~WNOHANG;
             while((waitpid(ep->child,&cstatus,ep->wopts) < 0) &&
                     (errno == EINTR));
@@ -678,6 +687,12 @@ _BWLEndpointStart(
     }
 
     /* child */
+
+    /*
+     * Set the process group to the PID of the child. All its children should
+     * inherit that process group.
+     */
+    setpgid(0, 0); 
 
     /*
      * Set sig handlers
@@ -806,16 +821,16 @@ _BWLEndpointStart(
                     "Endpoint: Invalid session mode");
     }
 
-    if(tsess->conf_receiver){
+    if(tsess->conf_server){
         struct sockaddr         *ssaddr;
         socklen_t               ssaddrlen;
         struct sockaddr_storage sbuff;
         socklen_t               sbuff_len;
         int                     connfd;
 
-        if( !(ssaddr = I2AddrSAddr(tsess->test_spec.sender,&ssaddrlen))){
+        if( !(ssaddr = I2AddrSAddr(tsess->test_spec.client,&ssaddrlen))){
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                    "_BWLEndpointStart: Invalid sender I2Addr");
+                    "_BWLEndpointStart: Invalid client I2Addr");
             goto end;
         }
 
@@ -831,8 +846,8 @@ ACCEPT:
                     "Endpoint peer connection could not accept(): listening at port(%d) : %M",
                     *peerport);
             fprintf(tsess->localfp,
-                    "bwctl: Remote \'sender\' (%s) never initiated handshake: listening at port(%d) - canceling\n",
-                    I2AddrNodeName(tsess->test_spec.sender,nambuf,&nambuflen),
+                    "bwctl: Remote \'client\' (%s) never initiated handshake: listening at port(%d) - canceling\n",
+                    I2AddrNodeName(tsess->test_spec.client,nambuf,&nambuflen),
                     *peerport
                    );
             if(ipf_intr){
@@ -850,9 +865,7 @@ ACCEPT:
                     (struct sockaddr *)&sbuff,sbuff_len,
                     I2SADDR_ADDR) <= 0){
             BWLError(ctx,BWLErrFATAL,BWLErrPOLICY,
-                    "Connect from invalid addr");
-            while((close(connfd) != 0) && (errno == EINTR));
-            goto ACCEPT;
+                    "Connect from unknown addr, assuming NAT");
         }
 
         close(ep->ssockfd);
@@ -874,7 +887,7 @@ ACCEPT:
         socklen_t           saddrlen;
         BWLToolAvailability tavail = 0;
 
-        if( (saddr = I2AddrSAddr(tsess->test_spec.sender,&saddrlen)) &&
+        if( (saddr = I2AddrSAddr(tsess->test_spec.client,&saddrlen)) &&
                 (local = I2AddrBySAddr(BWLContextErrHandle(ctx),
                                        saddr,saddrlen,SOCK_STREAM,IPPROTO_TCP
                                       ))){
@@ -883,7 +896,7 @@ ACCEPT:
                 local = NULL;
             }
         }
-        if( (saddr = I2AddrSAddr(tsess->test_spec.receiver,&saddrlen)) &&
+        if( (saddr = I2AddrSAddr(tsess->test_spec.server,&saddrlen)) &&
                 (remote =I2AddrBySAddr(BWLContextErrHandle(ctx),
                                        saddr,saddrlen,SOCK_STREAM,IPPROTO_TCP
                                       ))){
@@ -903,6 +916,7 @@ ACCEPT:
                 &tavail,err_ret);
 
         if(!ep->rcntrl){
+            nambuflen=sizeof(nambuf);
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
                     "Endpoint: Unable to connect to Peer(%s): %M",
                     I2AddrNodeServName(remote,nambuf,&nambuflen)
@@ -1009,7 +1023,7 @@ ACCEPT:
         goto end;
     }
 
-    if(tsess->conf_receiver){
+    if(tsess->conf_server){
         if(BWLReadRequestType(ep->rcntrl,&ipf_intr) != BWLReqTime){
             BWLError(ctx,BWLErrFATAL,errno,
                     "PeerAgent: Invalid message from peer");
@@ -1109,8 +1123,8 @@ ACCEPT:
     alarm_set = ipf_alrm;
 
     /*
-     * We ran into an issue where the sender would finish and send a
-     * StopSession message before the receiver was finished (The race condition
+     * We ran into an issue where the client would finish and send a
+     * StopSession message before the server was finished (The race condition
      * described in comments below). The idea with the subsequent sleep is to
      * pause for (hopefully) long enough for iperf to finish up. 
      *
@@ -1147,29 +1161,34 @@ ACCEPT:
      * send a graceful kill to the child (If already dead, errno will be ESRCH)
      *
      * There is an unlikely race condition:
-     * The sender side will finish first, it is technically possible that it
+     * The client side will finish first, it is technically possible that it
      * will exit, and the PeerAgent watching it exit will send the StopSession
      * message to the reciever PeerAgent. It is *possible* that the StopSession
      * message could get to the reciver PeerAgent before the tester-tool
-     * receiver process ends.
+     * server process ends.
      *
      * This is unlikely since it will do things like fetch the timestamp
      * above before sending the message, and it will have to traverse the
      * same network as the tester tool... However, it may eventually be
-     * prudent to wait 'errest' after the sender process finishes before
+     * prudent to wait 'errest' after the client process finishes before
      * sending the StopSession message.
      */
     if(!ipf_chld && ep->child){
 
+        BWLError(ctx,BWLErrDEBUG,errno,
+                "PeerAgent: Killing tester with SIGTERM, pid=%d",
+                ep->child);
+
         /*
-         * Send the kill signal twice, iperf does not exit after receiving one
+	 * Send the kill signal twice to the process group, iperf does not exit
+	 * after receiving one
          */
-        if(kill(ep->child,SIGTERM) == 0){
+        if(kill(-ep->child,SIGTERM) == 0){
             /*
              * Ignore any errors from the second one since some testing tools
              * will actually die from just the first one.
              */
-            (void)kill(ep->child,SIGTERM);
+            (void)kill(-ep->child,SIGTERM);
             ep->killed = True;
 
         }
@@ -1217,7 +1236,10 @@ ACCEPT:
      * big gun (SIGKILL).
      */
     if(ep->child && (ep->acceptval < 0)){
-        if((kill(ep->child,SIGKILL) != 0) && (errno != ESRCH)){
+        BWLError(ctx,BWLErrDEBUG,errno,
+                "PeerAgent: Killing tester with SIGKILL, pid=%d",
+                ep->child);
+        if((kill(-ep->child,SIGKILL) != 0) && (errno != ESRCH)){
             /* kill failed */
             BWLError(ctx,BWLErrFATAL,errno,
                     "PeerAgent: Unable to kill test endpoint, pid=%d: %M",
@@ -1276,7 +1298,7 @@ ACCEPT:
      * Prepare data to send to peer
      * Print 'final' data of local tool
      */
-    fprintf(tsess->localfp,"bwctl: stop_exec: %f\n",
+    fprintf(tsess->localfp,"bwctl: stop_tool: %f\n",
             BWLNum64ToDouble(currtime.tstamp));
     fflush(tsess->localfp);
 
@@ -1437,7 +1459,7 @@ _BWLEndpointStop(
      * If child already exited, kill will come back with ESRCH
      */
     if(!ep->dont_kill){
-        if(kill(ep->child,SIGTERM) != 0){
+        if(kill(-ep->child,SIGTERM) != 0){
             if(errno != ESRCH){
                 goto error;
             }
