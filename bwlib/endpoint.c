@@ -667,7 +667,7 @@ _BWLEndpointStart(
 
         if(sigprocmask(SIG_SETMASK,&osigs,NULL) != 0){
             BWLError(ctx,BWLErrFATAL,errno,"sigprocmask(): %M");
-            kill(-ep->child,SIGINT);
+            killpg(ep->child,SIGINT);
             ep->wopts &= ~WNOHANG;
             while((waitpid(ep->child,&cstatus,ep->wopts) < 0) &&
                     (errno == EINTR));
@@ -687,12 +687,6 @@ _BWLEndpointStart(
     }
 
     /* child */
-
-    /*
-     * Set the process group to the PID of the child. All its children should
-     * inherit that process group.
-     */
-    setpgid(0, 0); 
 
     /*
      * Set sig handlers
@@ -981,6 +975,13 @@ ACCEPT:
 
     if(ep->child == 0){
         /* Run the tool in the child process. */
+
+        /*
+         * Set the process group to the PID of the child. All its children should
+         * inherit that process group.
+         */
+        setpgid(0, 0); 
+
         run_tool(ep);
         /* NOTREACHED */
     }
@@ -1183,12 +1184,12 @@ ACCEPT:
 	 * Send the kill signal twice to the process group, iperf does not exit
 	 * after receiving one
          */
-        if(kill(-ep->child,SIGTERM) == 0){
+        if(killpg(ep->child,SIGTERM) == 0){
             /*
              * Ignore any errors from the second one since some testing tools
              * will actually die from just the first one.
              */
-            (void)kill(-ep->child,SIGTERM);
+            (void)killpg(ep->child,SIGTERM);
             ep->killed = True;
 
         }
@@ -1239,7 +1240,7 @@ ACCEPT:
         BWLError(ctx,BWLErrDEBUG,errno,
                 "PeerAgent: Killing tester with SIGKILL, pid=%d",
                 ep->child);
-        if((kill(-ep->child,SIGKILL) != 0) && (errno != ESRCH)){
+        if((killpg(ep->child,SIGKILL) != 0) && (errno != ESRCH)){
             /* kill failed */
             BWLError(ctx,BWLErrFATAL,errno,
                     "PeerAgent: Unable to kill test endpoint, pid=%d: %M",
@@ -1459,7 +1460,7 @@ _BWLEndpointStop(
      * If child already exited, kill will come back with ESRCH
      */
     if(!ep->dont_kill){
-        if(kill(-ep->child,SIGTERM) != 0){
+        if(killpg(ep->child,SIGTERM) != 0){
             if(errno != ESRCH){
                 goto error;
             }
