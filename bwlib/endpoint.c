@@ -689,6 +689,13 @@ _BWLEndpointStart(
     /* child */
 
     /*
+     * Set the process group to the PID of the child. This will get overwritten
+     * later, but do it here so we can do "killpg(ep->child)" whether we have
+     * forked the tester or not.
+     */
+    setpgid(0, 0); 
+
+    /*
      * Set sig handlers
      */
     ipf_alrm = ipf_term = ipf_intr = ipf_chld = 0;
