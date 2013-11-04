@@ -1577,4 +1577,12 @@ BWLAddrNodeName(
         int        flags
         );
 
+char *
+BWLDiscoverSourceAddr(
+        BWLContext ctx,
+        I2Addr     remote_addr,
+        char       *buf,
+        size_t     buflen
+        );
+
 #endif    /* OWAMP_H */

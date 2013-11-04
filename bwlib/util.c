@@ -117,7 +117,7 @@ BWLPortsParse(
     long        tint;
 
     if(!pspec || (strlen(pspec) >= sizeof(chmem))){
-	BWLError(ctx,BWLErrFATAL,EINVAL,"Invalid port-range: \"%s\"",pspec);
+    BWLError(ctx,BWLErrFATAL,EINVAL,"Invalid port-range: \"%s\"",pspec);
         return False;
     }
     strcpy(chmem,pspec);
@@ -400,6 +400,70 @@ BWLAddrIsIPv6(
         retval = True;
     }
 #endif
+
+    return retval;
+}
+
+char *
+BWLDiscoverSourceAddr(
+        BWLContext ctx,
+        I2Addr     remote_addr,
+        char       *buf,
+        size_t     buflen
+        )
+{
+    int                     temp_sd;
+    struct sockaddr         *remote_saddr;
+    socklen_t               remote_saddrlen;
+    I2Addr                  local_addr;
+    char                    *retval;
+
+    if( !(remote_saddr = I2AddrSAddr(remote_addr,&remote_saddrlen))){
+        BWLError(ctx,BWLErrFATAL,EINVAL, "BWLDiscoverSourceAddr(): Invalid address");
+        return NULL;
+    }
+
+    temp_sd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (temp_sd < 0) {
+        BWLError(ctx,BWLErrFATAL,EINVAL, "BWLDiscoverSourceAddr(): Problem creating socket");
+        return NULL;
+    }
+
+    if (connect(temp_sd, remote_saddr, remote_saddrlen) == -1) {
+        if (errno == EACCES) {
+            int broadcast = 1;
+
+            if (setsockopt(temp_sd, SOL_SOCKET, SO_BROADCAST,
+                       &broadcast, sizeof(broadcast)) < 0) {
+                BWLError(ctx,BWLErrFATAL,errno,"setsockopt(): %M");
+                return NULL;
+            }
+            if (connect(temp_sd, remote_saddr, remote_saddrlen) == -1) {
+                BWLError(ctx,BWLErrFATAL,EINVAL, "BWLDiscoverSourceAddr(): Problem setting up socket: %M");
+                return NULL;
+            }
+        } else {
+            BWLError(ctx,BWLErrFATAL,EINVAL, "BWLDiscoverSourceAddr(): Problem setting up socket: %M");
+            return NULL;
+        }
+    }
+
+    local_addr = I2AddrByLocalSockFD(BWLContextErrHandle(ctx), temp_sd, False);
+    if(!local_addr) {
+        BWLError(ctx,BWLErrFATAL,EINVAL,"getsockname(): %M");
+        return NULL;
+    }
+
+    close(temp_sd);
+
+    if (BWLAddrNodeName(ctx, local_addr, buf, buflen, NI_NUMERICHOST)) {
+        retval = buf;
+    }
+    else {
+        retval = NULL;
+    }
+
+    I2AddrFree(local_addr);
 
     return retval;
 }
