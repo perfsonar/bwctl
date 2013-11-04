@@ -1564,6 +1564,10 @@ BWLAddrIsIPv6(
         I2Addr     addr
         );
 
+double BWLNum64ToTimestampDouble(BWLNum64 tstamp);
+
+time_t BWLNum64ToTimestamp(BWLNum64 tstamp);
+
 char *
 BWLAddrNodeName(
         BWLContext ctx,
@@ -1572,4 +1576,5 @@ BWLAddrNodeName(
         size_t     len,
         int        flags
         );
+
 #endif    /* OWAMP_H */

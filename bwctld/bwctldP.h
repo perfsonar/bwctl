@@ -36,6 +36,10 @@
 #define	BWCTLD_IPERF_DEF_TESTPORT	(5001)
 #define	BWCTLD_THRULAYD_DEF_TESTPORT	(5003)
 
+#include <sys/queue.h>
+
+#include "policy.h"
+
 /*
  * Types
  */
@@ -61,5 +65,42 @@ typedef struct {
     char            **posthook;
     int             posthook_count;
 } bwctld_opts;
+
+typedef struct ReservationRec ReservationRec, *Reservation;
+struct ReservationRec{
+    BWLToolType tool;
+    BWLSID      sid;
+    BWLNum64    restime;
+    BWLNum64    start;    /* fuzz applied */
+    BWLNum64    end;    /* fuzz applied */
+    BWLNum64    fuzz;
+    uint32_t    duration;
+    uint16_t    toolport;
+    Reservation next;
+};
+
+typedef struct ChldStateRec ChldStateRec, *ChldState;
+struct ChldStateRec{
+    BWLDPolicy      policy;
+    pid_t           pid;
+    int             fd;
+    BWLDPolicyNode  node;
+    Reservation     res;
+};
+
+typedef enum { SLOT_ANY, SLOT_BANDWIDTH, SLOT_LATENCY } time_slot_types;
+
+typedef struct TimeSlotRec *TimeSlot;
+struct TimeSlotRec {
+    TAILQ_ENTRY(TimeSlotRec) entries;
+
+    time_slot_types type;
+    BWLNum64        start;
+    BWLNum64        end;
+    int             num_reservations;
+    int             max_reservations;
+};
+
+static void DisplayTimeSlots();
 
 #endif	/*	_BWCTLDP_H_	*/

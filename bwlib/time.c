@@ -898,3 +898,39 @@ BWLTimeStampToTimespec(
 
     return tval;
 }
+
+time_t BWLNum64ToTimestamp(BWLNum64 tstamp)
+{
+    struct timespec ts;
+
+    /*
+     * Convert "epoch"'s - must do before conversion or there is the risk
+     * of overflow since time_t is a 32bit signed quantity instead of
+     * unsigned.
+     */
+    tstamp = BWLNum64Sub(tstamp,
+            BWLULongToNum64(BWLJAN_1970));
+    BWLNum64ToTimespec(&ts,tstamp);
+
+    return ts.tv_sec;
+}
+
+double BWLNum64ToTimestampDouble(BWLNum64 tstamp)
+{
+    struct timespec ts;
+    double retval;
+    double ts_nsec;
+
+    /*
+     * Convert "epoch"'s - must do before conversion or there is the risk
+     * of overflow since time_t is a 32bit signed quantity instead of
+     * unsigned.
+     */
+    tstamp = BWLNum64Sub(tstamp,
+            BWLULongToNum64(BWLJAN_1970));
+    BWLNum64ToTimespec(&ts,tstamp);
+
+    retval = ts.tv_sec + ts.tv_nsec/1000000000.0;
+
+    return retval;
+}
