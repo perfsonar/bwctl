@@ -2653,8 +2653,10 @@ establish_connection(ipsess_t current_sess, ipsess_t other_sess)
             /*
              * No local daemon - spawn something.
              */
-            I2ErrLog(eh,
+            if (app.opt.verbose) {
+                I2ErrLog(eh,
                     "Unable to contact a local bwctld: Spawning local tool controller");
+            }
 
             if( !(current_sess->cntrl =
                         spawn_local_server(ctx,current_sess,&current_sess->avail_tools))){
@@ -2662,7 +2664,10 @@ establish_connection(ipsess_t current_sess, ipsess_t other_sess)
             }
         }
         else if (current_sess->require_endpoint == False) {
-            I2ErrLog(eh,"Spawning endpoint to handle remote side");
+            if (app.opt.verbose) {
+                I2ErrLog(eh,"Spawning endpoint to handle remote side");
+            }
+
             if( !(current_sess->cntrl =
                         spawn_local_server(ctx,current_sess,&current_sess->avail_tools))){
                 I2ErrLog(eh,"Unable to spawn local tool controller");
@@ -2805,7 +2810,9 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
         goto error_exit;
     }
 
-    I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
+    if (app.opt.verbose) {
+        I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
+    }
 
     if ( test_options->tool_id == BWL_TOOL_UNDEFINED ) {
         uint32_t tid;

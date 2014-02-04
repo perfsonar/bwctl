@@ -421,7 +421,7 @@ _BWLToolLookForTesters(
     for(i=0;i<ctx->tool_list_size;i++){
         compiled_in |= ctx->tool_list[i].id;
     }
-    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+    BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
             "Compiled-in tools: %s", BWLToolGetToolNames(ctx,compiled_in));
 
     for(i=0;i<ctx->tool_list_size;i++){
@@ -452,7 +452,7 @@ _BWLToolLookForTesters(
         return BWLErrFATAL;
     }
 
-    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+    BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
             "Available tools: %s", BWLToolGetToolNames(ctx,ctx->tool_avail));
     return BWLErrOK;
 }
