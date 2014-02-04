@@ -665,7 +665,7 @@ error:
 
 err2:
     if(tsession)
-        _BWLTestSessionFree(tsession,BWL_CNTRL_FAILURE);
+        _BWLTestSessionFree(cntrl->ctx,tsession,BWL_CNTRL_FAILURE);
 
     return err_ret;
 }
@@ -765,7 +765,7 @@ BWLSessionStatus(
     if(!tsession || (memcmp(sid,tsession->sid,sizeof(BWLSID)) != 0))
         return False;
 
-    return _BWLEndpointStatus(tsession,aval,&err);
+    return _BWLEndpointStatus(cntrl->ctx,tsession,aval,&err);
 }
 
 int
@@ -779,7 +779,7 @@ BWLSessionsActive(
     BWLErrSeverity  err;
 
     tsession = cntrl->tests;
-    if(tsession && _BWLEndpointStatus(tsession,&laval,&err) && (laval < 0))
+    if(tsession && _BWLEndpointStatus(cntrl->ctx,tsession,&laval,&err) && (laval < 0))
         return 1;
 
     if(aval)
@@ -819,7 +819,7 @@ BWLStopSession(
      * Stop the local endpoint. This should not return until
      * the datafile is "flushed" into "localfp".
      */
-    (void)_BWLEndpointStop(cntrl->tests,*acceptval,&err2);
+    (void)_BWLEndpointStop(cntrl->ctx,cntrl->tests,*acceptval,&err2);
 
     /*
      * If acceptval would have been "success", but stopping of local
@@ -860,7 +860,7 @@ BWLStopSession(
     err = _BWLCallProcessResults(cntrl->tests);
     err2 = MIN(err,err2);
 
-    err = _BWLTestSessionFree(cntrl->tests,*acceptval);
+    err = _BWLTestSessionFree(cntrl->ctx,cntrl->tests,*acceptval);
 
     cntrl->state &= ~_BWLStateTest;
 
@@ -1015,7 +1015,7 @@ AGAIN:
      * Stop the local endpoint. This should not return until
      * the datafile is "flushed" into "localfp".
      */
-    (void)_BWLEndpointStop(cntrl->tests,*acceptval,&err2);
+    (void)_BWLEndpointStop(cntrl->ctx,cntrl->tests,*acceptval,&err2);
     if(err2 < BWLErrWARNING){
         *acceptval = BWL_CNTRL_FAILURE;
         fp = NULL;
@@ -1035,7 +1035,7 @@ AGAIN:
     *err_ret = MIN(*err_ret,err2);
 
     while(cntrl->tests){
-        err2 = _BWLTestSessionFree(cntrl->tests,*acceptval);
+        err2 = _BWLTestSessionFree(cntrl->ctx,cntrl->tests,*acceptval);
         *err_ret = MIN(*err_ret,err2);
     }
 

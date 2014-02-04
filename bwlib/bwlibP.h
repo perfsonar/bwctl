@@ -225,7 +225,8 @@ typedef BWLErrSeverity (*BWLToolUnparseRequestFunc)(
         BWLContext          ctx,
         uint8_t             *buf,
         BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
+        BWLProtocolVersion  protocol_version,
+        BWLTestSession      tsession
         );
 
 /*
@@ -412,6 +413,7 @@ _BWLTestSessionAlloc(
 
 extern BWLErrSeverity
 _BWLTestSessionFree(
+        BWLContext      ctx,
         BWLTestSession  tsession,
         BWLAcceptType   aval
         );
@@ -807,6 +809,7 @@ _BWLEndpointStart(
  */
 extern BWLBoolean
 _BWLEndpointStatus(
+        BWLContext      ctx,
         BWLTestSession  tsession,
         BWLAcceptType   *aval,
         BWLErrSeverity  *err_ret
@@ -814,6 +817,7 @@ _BWLEndpointStatus(
 
 extern BWLBoolean
 _BWLEndpointStop(
+        BWLContext        ctx,
         BWLTestSession  tsession,
         BWLAcceptType   aval,
         BWLErrSeverity  *err_ret
@@ -870,5 +874,76 @@ _BWLGetTimespec(
         );
 
 extern BWLToolDefinitionRec BWLToolPing;
+
+extern BWLErrSeverity
+BWLGenericParseThroughputParameters(
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+extern BWLErrSeverity
+BWLGenericParseTracerouteParameters(
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+extern BWLErrSeverity
+BWLGenericParsePingParameters(
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
+extern BWLErrSeverity
+BWLGenericUnparseThroughputParameters(
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version,
+        BWLTestSession      tsession
+        );
+
+extern BWLErrSeverity
+BWLGenericUnparseTracerouteParameters(
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version,
+        BWLTestSession      tsession
+        );
+
+extern BWLErrSeverity
+BWLGenericUnparsePingParameters(
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version,
+        BWLTestSession      tsession
+        );
+
+BWLErrSeverity
+BWLToolUnparseRequestParameters(
+        BWLToolType         id,
+        BWLContext          ctx,
+        uint8_t             *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version,
+        BWLTestSession      tsession
+        );
+
+BWLErrSeverity
+BWLToolParseRequestParameters(
+        BWLToolType         id,
+        BWLContext          ctx,
+        const uint8_t       *buf,
+        BWLTestSpec         *tspec,
+        BWLProtocolVersion  protocol_version
+        );
+
 
 #endif    /* IPCNTRLP_H */

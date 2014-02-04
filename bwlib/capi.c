@@ -35,11 +35,14 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <ifaddrs.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <assert.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 /*
  * Function:	_BWLClientBind
@@ -63,67 +66,113 @@ static BWLBoolean
 _BWLClientBind(
         BWLControl	cntrl,
         int		fd,
-        I2Addr		local_addr,
+        const char      *local_addr,
         struct addrinfo	*remote_addrinfo,
         BWLErrSeverity	*err_ret
         )
 {
-    struct addrinfo	*fai;
-    struct addrinfo	*ai;
+    struct addrinfo *fai;
+    struct addrinfo *ai;
+    BWLBoolean      retval = False;
 
     *err_ret = BWLErrOK;
 
-    if(!I2AddrSetSocktype(local_addr,SOCK_STREAM) ||
-            !I2AddrSetProtocol(local_addr,IPPROTO_TCP) ||
-            !(fai = I2AddrAddrInfo(local_addr,NULL,NULL))){
-        *err_ret = BWLErrFATAL;
-        return False;
-    }
+    if (BWLIsInterface(local_addr)) {
+        struct ifaddrs *ifaddr, *ifa;
 
-    /*
-     * Now that we have a valid addrinfo list for this address, go
-     * through each of those addresses and try to bind the first
-     * one that matches addr family and socktype.
-     */
-    for(ai=fai;ai;ai = ai->ai_next){
-        if(ai->ai_family != remote_addrinfo->ai_family)
-            continue;
-        if(ai->ai_socktype != remote_addrinfo->ai_socktype)
-            continue;
-
-        if(bind(fd,ai->ai_addr,ai->ai_addrlen) == 0){
-            if( I2AddrSetSAddr(local_addr,ai->ai_addr,ai->ai_addrlen)){
-                return True;
-            }
-            BWLError(cntrl->ctx,BWLErrFATAL,errno,
-                    "I2AddrSetSAddr(): failed to set saddr");
-            return False;
-        }else{
-            switch(errno){
-                /* report these errors */
-                case EAGAIN:
-                case EBADF:
-                case ENOTSOCK:
-                case EADDRNOTAVAIL:
-                case EADDRINUSE:
-                case EACCES:
-                case EFAULT:
-                    BWLError(cntrl->ctx,BWLErrFATAL,errno,
-                            "bind(): %M");
-                    break;
-                    /* ignore all others */
-                default:
-                    break;
-            }
+        if (getifaddrs(&ifaddr) == -1) {
             return False;
         }
 
+        for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+
+            if (strcmp(ifa->ifa_name, local_addr) != 0)
+                continue;
+
+            if (ifa->ifa_addr == NULL)
+                continue;
+
+            if (remote_addrinfo->ai_family != ifa->ifa_addr->sa_family)
+                continue;
+
+	    // This is a hacky method of getting the addrlen. It should match
+	    // the remote_addrinfo's addrlen.
+            if (bind(fd,ifa->ifa_addr,remote_addrinfo->ai_addrlen) == 0){
+                retval = True;
+                break;
+            }
+        }
+
+        freeifaddrs(ifaddr);
+    }
+    else {
+        struct addrinfo hints;
+        struct addrinfo *result;
+
+        memset(&hints, 0, sizeof(struct addrinfo));
+        hints.ai_family = remote_addrinfo->ai_family;
+        hints.ai_socktype = remote_addrinfo->ai_socktype;
+        hints.ai_flags = 0;    /* For wildcard IP address */
+        hints.ai_protocol = remote_addrinfo->ai_protocol;
+        hints.ai_canonname = NULL;
+        hints.ai_addr = NULL;
+        hints.ai_next = NULL;
+
+        if (getaddrinfo(local_addr, NULL, &hints, &result) != 0) {
+            BWLError(cntrl->ctx,BWLErrFATAL,errno,
+                    "getaddrinfo(): %M");
+            return False;
+        }
+
+        for(ai=result;ai;ai = ai->ai_next){
+            if(bind(fd,ai->ai_addr,ai->ai_addrlen) == 0){
+                retval = True;
+                break;
+            }
+            else{
+                switch(errno){
+                    /* report these errors */
+                    case EAGAIN:
+                    case EBADF:
+                    case ENOTSOCK:
+                    case EADDRNOTAVAIL:
+                    case EADDRINUSE:
+                    case EACCES:
+                    case EFAULT:
+                        BWLError(cntrl->ctx,BWLErrFATAL,errno,
+                                "bind(): %M");
+                        break;
+                        /* ignore all others */
+                    default:
+                        break;
+                }
+            }
+        }
+
+        freeaddrinfo(result);
     }
 
-    /*
-     * None found.
-     */
-    return False;
+    return retval;
+}
+
+BWLBoolean __set_nonblocking(int fd, BWLBoolean non_blocking)
+{
+   int curr_flags = fcntl(fd, F_GETFL, 0);
+   if (curr_flags < 0)
+       return False;
+
+   if (non_blocking) {
+       curr_flags |= O_NONBLOCK;
+   }
+   else {
+       curr_flags &= ~O_NONBLOCK;
+   }
+
+   if (fcntl(fd, F_SETFL, curr_flags) != 0) {
+       return False;
+   }
+
+   return False;
 }
 
 /*
@@ -131,7 +180,7 @@ _BWLClientBind(
  *
  * Description:	
  * 	This function attempts to connect to the given ai description of
- * 	the "server" addr possibly binding to "local" addr.
+ * 	the "server" addr possibly binding to "local" addr. It has a timeout period of 
  *
  * In Args:	
  *
@@ -150,7 +199,7 @@ static int
 TryAddr(
         BWLControl	cntrl,
         struct addrinfo	*ai,
-        I2Addr		local_addr,
+        const char      *local_addr,
         I2Addr		server_addr
        )
 {
@@ -174,34 +223,67 @@ TryAddr(
         }
     }
 
+
+    // set the socket into non-blocking mode for the connect. We'll undo this
+    // before returning from the function. This lets us set a sane timeout.
+    __set_nonblocking(fd, True);
+
     /*
      * Call connect - if it succeeds, return else try again.
      */
-    if(connect(fd,ai->ai_addr,ai->ai_addrlen) == 0){
-
-        /*
-         * connected, set the fields in the addr records
-         */
-        if(I2AddrSetSAddr(server_addr,ai->ai_addr,ai->ai_addrlen) &&
-                I2AddrSetSocktype(server_addr,ai->ai_socktype) &&
-                I2AddrSetProtocol(server_addr,ai->ai_protocol) &&
-                I2AddrSetFD(server_addr,fd,True)){
-
-            cntrl->remote_addr = server_addr;
-            cntrl->local_addr = local_addr;
-            cntrl->sockfd = fd;
-            return 0;
-        }
-
-        /*
-         * Connected, but addr record stuff failed.
-         */
-        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                "I2Addr functions failed after successful connection");
-
+    if (connect(fd,ai->ai_addr,ai->ai_addrlen) == -1 && errno != EINPROGRESS) {
+        goto cleanup;
     }
 
+    if (errno == EINPROGRESS) {
+        fd_set  fdset;
+        struct timeval timeout;
+        int err = -1;
+        socklen_t err_len = sizeof(err);
+
+        // Default: 2 second timeout
+        timeout.tv_sec  = 2;
+        timeout.tv_usec = 0;
+
+        FD_ZERO(&fdset);
+        FD_SET(fd, &fdset);
+
+        if (select(fd + 1, NULL, &fdset, NULL, &timeout) != 1) {
+            goto cleanup;
+        }
+     
+        getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &err_len);
+        if (err != 0)
+            goto cleanup;
+    }
+
+    /*
+     * connected, set the fields in the addr records
+     */
+    if(I2AddrSetSAddr(server_addr,ai->ai_addr,ai->ai_addrlen) == False ||
+            I2AddrSetSocktype(server_addr,ai->ai_socktype) == False ||
+            I2AddrSetProtocol(server_addr,ai->ai_protocol) == False ||
+            I2AddrSetFD(server_addr,fd,True) == False){
+            goto cleanup;
+    }
+
+    cntrl->remote_addr = server_addr;
+    cntrl->sockfd = fd;
+
+    __set_nonblocking(fd, False);
+
+    if( !(cntrl->local_addr = I2AddrByLocalSockFD(
+                    BWLContextErrHandle(cntrl->ctx),
+                    cntrl->sockfd,False))){
+        BWLError(cntrl->ctx,BWLErrFATAL,errno, "I2AddrByLocalSockFD() failed");
+        goto cleanup;
+    }
+
+    return 0;
+
 cleanup:
+    __set_nonblocking(fd, False);
+
     while((close(fd) < 0) && (errno == EINTR));
     return 1;
 }
@@ -228,7 +310,7 @@ cleanup:
 static int
 _BWLClientConnect(
         BWLControl	cntrl,
-        I2Addr		local_addr,
+        const char      *local_addr,
         I2Addr		server_addr,
         BWLErrSeverity	*err_ret
         )
@@ -255,6 +337,7 @@ _BWLClientConnect(
      */
     if(!(fai = I2AddrAddrInfo(server_addr,"localhost",
                     BWL_CONTROL_SERVICE_NAME))){
+        BWLError(cntrl->ctx,BWLErrFATAL,errno, "I2AddrAddrInfo failed");
         goto error;
     }
 
@@ -273,16 +356,10 @@ _BWLClientConnect(
 
             /* avoid type punning by using memcpy instead of casting ai_addr */
             memcpy(&srec,ai->ai_addr,sizeof(srec));
-            if(IN6_IS_ADDR_LOOPBACK(&srec.sin6_addr)){
-                BWLError(cntrl->ctx,BWLErrWARNING,errno,
-                        "Server(%s): Loopback is probably not a valid test address",
-                        I2AddrNodeServName(server_addr,buf,&buflen));
-            }
-
-            if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
+            if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0) {
                 return 0;
+            }
             if(rc < 0) {
-                BWLError(cntrl->ctx,BWLErrFATAL,errno, "TryAddr(in6) failed");
                 goto error;
             }
         }
@@ -300,16 +377,11 @@ _BWLClientConnect(
 
             /* avoid type punning by using memcpy instead of casting ai_addr */
             memcpy(&saddr4,ai->ai_addr,sizeof(saddr4));
-            if(saddr4.sin_addr.s_addr == INADDR_LOOPBACK){
-                BWLError(cntrl->ctx,BWLErrWARNING,errno,
-                        "Server(%s): Loopback is probably not a valid test address",
-                        I2AddrNodeServName(server_addr,buf,&buflen));
-            }
 
-            if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0)
+            if( (rc = TryAddr(cntrl,ai,local_addr,server_addr)) == 0) {
                 return 0;
+            }
             if(rc < 0) {
-                BWLError(cntrl->ctx,BWLErrFATAL,errno, "TryAddr() failed");
                 goto error;
             }
         }
@@ -338,7 +410,7 @@ error:
 BWLControl
 BWLControlOpen(
         BWLContext	    ctx,	    /* control context	        */
-        I2Addr		    local_addr,	    /* local addr or null	*/
+        const char          *local_addr,    /* local addr or null	*/
         I2Addr		    server_addr,    /* server addr		*/
         uint32_t	    mode_req_mask,  /* requested modes	        */
         BWLUserID	    userid,	    /* userid or NULL	        */
@@ -384,7 +456,6 @@ BWLControlOpen(
      * Initialize server record for address we are connecting to.
      */
     if(!server_addr){
-        BWLError(ctx,BWLErrFATAL,errno, "!server_addr");
         goto error;
     }
     if(!I2AddrSetSocktype(server_addr,SOCK_STREAM)){
@@ -402,15 +473,6 @@ BWLControlOpen(
          */
         BWLError(ctx,BWLErrDEBUG,errno, "_BWLClientConnect() failed");
         goto error;
-    }
-
-    if(!cntrl->local_addr){
-        if( !(cntrl->local_addr = I2AddrByLocalSockFD(
-                        BWLContextErrHandle(cntrl->ctx),
-                        cntrl->sockfd,False))){
-            BWLError(ctx,BWLErrFATAL,errno, "I2AddrByLocalSockFD() failed");
-            goto error;
-        }
     }
 
     /*
@@ -626,8 +688,6 @@ error:
      * If access was denied - cleanup memory and return.
      */
 denied:
-    if(cntrl->local_addr != local_addr)
-        I2AddrFree(local_addr);
     if(cntrl->remote_addr != server_addr)
         I2AddrFree(server_addr);
     BWLControlClose(cntrl);
@@ -991,7 +1051,7 @@ cancel:
 
 error:
     if(tsession){
-        _BWLTestSessionFree(tsession,acceptval);
+        _BWLTestSessionFree(cntrl->ctx, tsession,acceptval);
         if(cntrl->tests == tsession){
             cntrl->tests = NULL;
         }
@@ -1110,5 +1170,5 @@ BWLEndSession(
         return _BWLFailControlSession(cntrl,(int)rc);
     }
 
-    return _BWLTestSessionFree(cntrl->tests,*aptr);
+    return _BWLTestSessionFree(cntrl->ctx,cntrl->tests,*aptr);
 }

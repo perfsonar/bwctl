@@ -26,6 +26,8 @@
 #			that was bundled with the distribution if
 #			at all possible.)
 #
+IPERF3_TAG="3.0.1"
+
 case "$1" in
 	ac257)
 		alias autoconf=autoconf257
@@ -73,6 +75,15 @@ if [ ! -d "iperf3" ]; then
     fi 
     echo
 fi
+
+pushd iperf3
+hg checkout $IPERF3_TAG
+hg revert -a
+# in-case glibtoolize isn't available, e.g. on linux
+patch -i ../iperf3_makefile.patch -p2
+libtoolize --copy --force --automake
+popd
+
 
 if test -x iperf3/bootstrap.sh; then
         echo

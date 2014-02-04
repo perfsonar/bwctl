@@ -1,11 +1,12 @@
 Name: bwctl
 Summary: bwctl - network throughput tester
 Version: @VERSION@
-Release:        5%{?dist}
+Release:        11%{?dist}
 License: Apache License v2.0
 Group: *Development/Libraries*
 URL: http://e2epi.internet2.edu/bwctl/
 Source: %{name}-%{version}.tar.gz
+Patch0: iperf3_tcp_congestion.patch 
 Packager: Aaron Brown <aaron@internet2.edu>
 BuildRequires:  libtool, I2util
 Requires: bwctl-client, bwctl-server
@@ -47,6 +48,7 @@ applications that use the bwctl library.
 
 %prep
 %setup -q
+%patch0 -p1
 
 %build
 %configure --prefix=%{_prefix} --with-thrulay=no --with-I2util=no --with-iperf3 --enable-nuttcp --enable-debug

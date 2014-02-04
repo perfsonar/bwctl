@@ -67,6 +67,8 @@ static I2Table              fdtable=NULL;
 static I2Table              pidtable=NULL;
 static BWLNum64             uptime;
 
+static BWLContext          ctx;
+
 static TAILQ_HEAD(timeslots_head, TimeSlotRec) time_slots = TAILQ_HEAD_INITIALIZER(time_slots);
 
 struct timeslots_head *time_slots_head;
@@ -151,6 +153,95 @@ signal_catch(
     return;
 }
 
+static BWLBoolean
+TimeSlotAddReservation(
+        TimeSlot slot,
+        Reservation res
+)
+{
+    BWLTestType test_type = BWLToolGetTestTypesByID(ctx,res->tool);
+
+    if (test_type == BWL_TEST_THROUGHPUT) {
+        slot->type = SLOT_BANDWIDTH;
+    }
+    else if (test_type == BWL_TEST_LATENCY) {
+        slot->type = SLOT_LATENCY;
+    }
+
+    slot->num_reservations++;
+
+    return True;
+}
+
+static TimeSlot
+TimeSlotCreate(
+        Reservation res,
+        BWLNum64    start,
+        BWLNum64    end
+)
+{
+    TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
+    if (!new_slot)
+        return NULL;
+
+    new_slot->type  = SLOT_ANY;
+    new_slot->start = start;
+    new_slot->end   = end;
+    new_slot->num_reservations = 0;
+    new_slot->max_reservations = 20;
+
+    TimeSlotAddReservation(new_slot, res);
+
+    return new_slot;
+}
+
+static TimeSlot
+TimeSlotSplit(
+        TimeSlot slot,
+        BWLNum64 time
+)
+{
+    TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
+    if (!new_slot)
+        return NULL;
+
+    new_slot->start = time;
+    new_slot->end = slot->end;
+    new_slot->num_reservations = slot->num_reservations;
+    new_slot->max_reservations = slot->max_reservations;
+
+    slot->end = time;
+
+    return new_slot;
+}
+
+static BWLBoolean
+TimeSlotHasReservation(
+        TimeSlot slot,
+        Reservation res
+)
+{
+    if (slot->start >= res->end)
+        return False;
+
+    if (slot->end <= res->start)
+        return False;
+
+    return True;
+}
+
+static BWLBoolean
+TimeSlotRemoveReservation(
+        TimeSlot slot,
+        Reservation res
+)
+{
+    slot->num_reservations--;
+
+    return True;
+}
+
+
 static Reservation
 AllocReservation(
         ChldState   cstate,
@@ -163,13 +254,13 @@ AllocReservation(
     Reservation     res;
 
     if(cstate->res){
-        BWLError(cstate->policy->ctx,BWLErrFATAL,BWLErrINVALID,
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                 "AllocReservation: cstate->res != NULL");
         return NULL;
     }
 
     if( !(res = calloc(1,sizeof(*res)))){
-        BWLError(cstate->policy->ctx,BWLErrFATAL,ENOMEM,"malloc(): %M");
+        BWLError(ctx,BWLErrFATAL,ENOMEM,"malloc(): %M");
         return NULL;
     }
 
@@ -182,12 +273,13 @@ AllocReservation(
      * Done here so there is daemon-wide state for the 'last' port allocated.
      */
     if( BWLErrOK !=
-            (err = BWLToolInitTest(cstate->policy->ctx,tool_id,toolport))){
-        BWLError(cstate->policy->ctx,err,BWLErrINVALID,
+            (err = BWLToolInitTest(ctx,tool_id,toolport))){
+        BWLError(ctx,err,BWLErrINVALID,
                 "AllocReservation: Tool initialization failed");
         return NULL;
     }
     res->toolport = *toolport;
+    res->tool = tool_id;
 
     cstate->res = res;
 
@@ -225,13 +317,10 @@ ResRemove(
     for(slot = TAILQ_FIRST(&time_slots); slot; slot = slot_temp ) {
         slot_temp = TAILQ_NEXT(slot, entries);
 
-        if (slot->start < res->start)
+        if (TimeSlotHasReservation(slot, res) == False)
             continue;
 
-        if (slot->end > res->end)
-            continue;
-
-        slot->num_reservations--;
+        TimeSlotRemoveReservation(slot, res);
 
         if (slot->num_reservations == 0) {
             TAILQ_REMOVE(&time_slots, slot, entries);
@@ -260,6 +349,38 @@ DeleteReservation(
 }
 
 static BWLBoolean
+ReservationCanUseSlot(
+        Reservation res,
+        TimeSlot    slot
+        )
+{
+
+    BWLTestType test_type = BWLToolGetTestTypesByID(ctx,res->tool);
+
+    if (test_type == BWL_TEST_THROUGHPUT) {
+        // There is already a throughput test here.
+        if (slot->type == SLOT_BANDWIDTH) {
+            return False;
+        }
+        else if (slot->type == SLOT_LATENCY) {
+            return False;
+        }
+    }
+    else if (test_type == BWL_TEST_LATENCY) {
+        // There is already a throughput test here.
+        if (slot->type == SLOT_BANDWIDTH) {
+            return False;
+        }
+    }
+
+    if (slot->num_reservations == slot->max_reservations) {
+       return False;
+    }
+
+   return True;
+}
+
+static BWLBoolean
 ChldReservationDemand(
         ChldState   cstate,
         BWLSID      sid,
@@ -273,7 +394,6 @@ ChldReservationDemand(
         BWLToolType tool_id,
         int         *err)
 {
-    BWLContext      ctx = cstate->policy->ctx;
     BWLTimeStamp    currtime;
     Reservation     res;
     TimeSlot        prev_slot;
@@ -390,7 +510,6 @@ ChldReservationDemand(
     added = 0;
 
     TAILQ_FOREACH(slot, &time_slots, entries) {
-
         /*
          * Skip ahead trying to find a slot that might overlap this reservation
          */
@@ -422,7 +541,7 @@ ChldReservationDemand(
         /*
          * Skip this slot if it's already full
          */
-        if (slot->num_reservations == slot->max_reservations) {
+        if (ReservationCanUseSlot(res, slot) == False) {
             prev_slot = slot;
             res->start = slot->end;
             res->restime = BWLNum64Add(res->start,res->fuzz);
@@ -438,11 +557,7 @@ ChldReservationDemand(
         if ((!prev_slot || BWLNum64Cmp(prev_slot->end, res->start) < 0) && BWLNum64Cmp(res->end, slot->start) < 0) {
             // There is enough time between the end of the previous slot, and
             // the beginning of the next one to make a new slot.
-            TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
-            new_slot->start = res->start;
-            new_slot->end   = res->end;
-            new_slot->num_reservations = 1;
-            new_slot->max_reservations = 1; // XXX: have this depend on the type of test
+            TimeSlot new_slot = TimeSlotCreate(res, res->start, res->end);
 
             TAILQ_INSERT_BEFORE(slot, new_slot, entries);
 
@@ -474,7 +589,7 @@ ChldReservationDemand(
                 if (BWLNum64Cmp(res->end, next_slot->start) < 0)
                     break;
 
-                if (last_slot->num_reservations == last_slot->max_reservations) {
+                if (ReservationCanUseSlot(res, slot) == False) {
                     conflicting_slot = last_slot;
                     break;
                 }
@@ -492,62 +607,60 @@ ChldReservationDemand(
                 TimeSlot temp_slot;
 
                 if (BWLNum64Cmp(first_slot->start, res->start) < 0) {
-                    // We need to create an additional slot to handle first_slot->start
-                    // to res->start
-                    TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
-                    new_slot->start = first_slot->start;
-                    new_slot->end   = res->start;
-                    new_slot->num_reservations = slot->num_reservations;
-                    new_slot->max_reservations = slot->max_reservations;
+                    // Our reservation partially overlaps this slot, so we need
+                    // to split the existing slot to divide into two new slots:
+                    // one that handles the time period up until the new
+                    // reservation starts, and one that handles the time period
+                    // after.
+                    TimeSlot new_slot = TimeSlotSplit(slot, res->start);
 
-                    TAILQ_INSERT_BEFORE(first_slot, new_slot, entries);
+                    TAILQ_INSERT_AFTER(&time_slots, first_slot, new_slot, entries);
+
+                    // first_slot is meant to refer to the first slot that
+                    // overlaps the reservation. The TimeSlotSplit function
+                    // will return the timeslot after the split point, i.e.
+                    // it's the first slot that overlaps our reservation. Also,
+                    // since we're changing the first slot, we might be
+                    // changing the last slot as well.
+                    if (last_slot == first_slot)
+                        last_slot = new_slot;
+
+                    first_slot = new_slot;
                 }
                 else if (BWLNum64Cmp(res->start, first_slot->start) < 0) {
                     // We need to create an additional slot to handle
                     // res->start to first_slot->start.
-                    TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
-                    new_slot->start = res->start;
-                    new_slot->end   = first_slot->start;
-                    new_slot->num_reservations = 1;
-                    new_slot->max_reservations = 2;
+                    TimeSlot new_slot = TimeSlotCreate(res, res->start, first_slot->start);
 
                     TAILQ_INSERT_BEFORE(first_slot, new_slot, entries);
                 }
 
                 if (BWLNum64Cmp(res->end, last_slot->end) < 0) {
-                    // We need to create an additional slot to handle res->end
-                    // to last_slot->end
-                    TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
-                    new_slot->start = res->end;
-                    new_slot->end   = last_slot->end;
-                    new_slot->num_reservations = last_slot->num_reservations;
-                    new_slot->max_reservations = last_slot->max_reservations;
+                    // Our reservation partially overlaps this slot, so we need
+                    // to split the existing slot to divide into two new slots:
+                    // the slot up to when our reservation ends, and the slot
+                    // after our reservation ends.
+                    TimeSlot new_slot = TimeSlotSplit(last_slot, res->end);
 
                     TAILQ_INSERT_AFTER(&time_slots, last_slot, new_slot, entries);
-
-
-                    last_slot->end = res->end;
-                    // At the end here, we have split last_slot into 2 slots:
-                    // last_slot->start to res->end, res->end to last_slot->end.
                 }
                 else if (BWLNum64Cmp(last_slot->end, res->end) < 0) {
-                    TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
-                    new_slot->start = last_slot->end;
-                    new_slot->end   = res->end;
-                    new_slot->num_reservations = 1;
-                    new_slot->max_reservations = 2;
+                    // We need to create an additional slot to handle
+                    // last_slot->end to res->end.
+                    TimeSlot new_slot = TimeSlotCreate(res, last_slot->end, res->end);
 
                     TAILQ_INSERT_AFTER(&time_slots, last_slot, new_slot, entries);
                 }
 
                 temp_slot = first_slot;
-                do {
-                    temp_slot->num_reservations++;
-                    temp_slot = TAILQ_NEXT(temp_slot, entries);
+                while (temp_slot) {
+                    TimeSlotAddReservation(temp_slot, res);
+
                     if (temp_slot == last_slot)
                         temp_slot = NULL;
-
-                } while(temp_slot);
+                    else
+                        temp_slot = TAILQ_NEXT(temp_slot, entries);
+                }
 
                 added = 1;
                 break;
@@ -556,11 +669,7 @@ ChldReservationDemand(
     }
 
     if (!added) {
-        new_slot = calloc(1, sizeof(struct TimeSlotRec));
-        new_slot->start = res->start;
-        new_slot->end   = res->end;
-        new_slot->num_reservations = 1;
-        new_slot->max_reservations = 1; // XXX: have this depend on the type of test
+        new_slot = TimeSlotCreate(res, res->start, res->end);
 
         /*
          * Two reasons it wasn't added: nothing in the list, or its start time
@@ -644,7 +753,7 @@ AllocChldState(
     I2Datum     k,v;
 
     if(!cstate){
-        BWLError(policy->ctx,BWLErrFATAL,ENOMEM,"malloc(): %M");
+        BWLError(ctx,BWLErrFATAL,ENOMEM,"malloc(): %M");
         return NULL;
     }
 
@@ -699,7 +808,7 @@ FreeChldState(
 
         k.dsize = cstate->fd;
         if(I2HashDelete(fdtable,k) != 0){
-            BWLError(cstate->policy->ctx,BWLErrWARNING,
+            BWLError(ctx,BWLErrWARNING,
                     BWLErrUNKNOWN,
                     "fd(%d) not in fdtable!?!",cstate->fd);
         }
@@ -707,7 +816,7 @@ FreeChldState(
 
     k.dsize = cstate->pid;
     if(I2HashDelete(pidtable,k) != 0){
-        BWLError(cstate->policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                 "pid(%d) not in pidtable!?!",cstate->pid);
     }
 
@@ -743,7 +852,7 @@ ReapChildren(
     while ( (child = waitpid(-1, &status, WNOHANG)) > 0){
         key.dsize = child;
         if(!I2HashFetch(pidtable,key,&val)){
-            BWLError(cstate->policy->ctx,BWLErrWARNING,
+            BWLError(ctx,BWLErrWARNING,
                     BWLErrUNKNOWN,
                     "pid(%d) not in pidtable!?!",child);
         }
@@ -900,7 +1009,7 @@ CheckFD(
 
 done:
     if(err){
-        BWLError(cstate->policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                 "Invalid message from child pid=%d",cstate->pid);
         (void)kill(cstate->pid,SIGTERM);
     }
@@ -947,7 +1056,7 @@ ClosePipes(
 
     while((close(cstate->fd) < 0) && (errno == EINTR));
     if(I2HashDelete(fdtable,key) != 0){
-        BWLError(cstate->policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
+        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                 "fd(%d) not in fdtable!?!",cstate->fd);
     }
     cstate->fd = -1;
@@ -998,7 +1107,7 @@ ACCEPT:
                 return;
                 break;
             default:
-                BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                         "accept(): %M");
                 return;
                 break;
@@ -1006,7 +1115,7 @@ ACCEPT:
     }
 
     if (socketpair(AF_UNIX,SOCK_STREAM,0,new_pipe) < 0){
-        BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,"socketpair(): %M");
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"socketpair(): %M");
         (void)close(connfd);
         return;
     }
@@ -1015,7 +1124,7 @@ ACCEPT:
 
     /* fork error */
     if (pid < 0){
-        BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,"fork(): %M");
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"fork(): %M");
         (void)close(new_pipe[0]);
         (void)close(new_pipe[1]);
         (void)close(connfd);
@@ -1049,11 +1158,11 @@ ACCEPT:
         BWLRequestType      msgtype=BWLReqInvalid;
 
 #ifndef    NDEBUG
-        void                *childwait = BWLContextConfigGetV(policy->ctx,
+        void                *childwait = BWLContextConfigGetV(ctx,
                                                                 BWLChildWait);
 
         if(childwait){
-            BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                     "Waiting for Debugger.");
             /* busy loop to wait for debug-attach */
             while(childwait);
@@ -1063,9 +1172,9 @@ ACCEPT:
              * executing the next line to make sub children 'wait'
              * as well.
              */
-            if( !BWLContextConfigSet(policy->ctx,BWLChildWait,
+            if( !BWLContextConfigSet(ctx,BWLChildWait,
                         (void*)childwait)){
-                BWLError(policy->ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
                     "BWLContextConfigSet(ChildWait): %M");
             }
         }
@@ -1120,7 +1229,7 @@ ACCEPT:
             I2ErrLog(errhand,"setitimer(): %M");
             exit(BWLErrFATAL);
         }
-        cntrl = BWLControlAccept(policy->ctx,connfd,
+        cntrl = BWLControlAccept(ctx,connfd,
                 (struct sockaddr *)&sbuff,sbufflen,
                 mode,uptime,&ipfd_intr,&out);
         /*
@@ -1317,7 +1426,7 @@ BWLDExecPostHookScript(
 
     pid = fork();
     if (pid < 0) {
-        BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,"fork(): %M");
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"fork(): %M");
         (void)close(pipe_fds[0]);
         (void)close(pipe_fds[1]);
         return;
@@ -1337,7 +1446,7 @@ BWLDExecPostHookScript(
         while((close(pipe_fds[1]) < 0) && (errno == EINTR));
 
         execlp(script, script, NULL);
-        BWLError(ctrl->ctx,BWLErrFATAL,BWLErrUNKNOWN, "Couldn't execute script \'%s\'", script);
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN, "Couldn't execute script \'%s\'", script);
         exit(-1);
     }
 
@@ -1348,13 +1457,13 @@ BWLDExecPostHookScript(
     close(pipe_fds[0]);
 
     if (fcntl(pipe_fds[1], F_SETFL, O_NONBLOCK) == -1) {
-        BWLError(ctrl->ctx,BWLErrFATAL,errno, "fcntl() failed");
+        BWLError(ctx,BWLErrFATAL,errno, "fcntl() failed");
         goto error_out;
     }
 
     pipe_fp = fdopen(pipe_fds[1], "w");
     if (!pipe_fp) {
-        BWLError(ctrl->ctx,BWLErrFATAL,errno, "fdopen() failed");
+        BWLError(ctx,BWLErrFATAL,errno, "fdopen() failed");
         goto error_out;
     }
 
@@ -1371,7 +1480,7 @@ BWLDExecPostHookScript(
     BWLTimeStampToTimespec(&ts, &test_spec->req_time);
 
     fprintf(pipe_fp, "<TEST_CONFIG>\n");
-    fprintf(pipe_fp, "tool: %s\n", BWLToolGetNameByID(ctrl->ctx,test_spec->tool_id));
+    fprintf(pipe_fp, "tool: %s\n", BWLToolGetNameByID(ctx,test_spec->tool_id));
     fprintf(pipe_fp, "user: %s\n", ctrl->userid_buffer);
     fprintf(pipe_fp, "limit_class: %s\n", limit_class);
     fprintf(pipe_fp, "start_time: %d\n", ts.tv_sec);
@@ -1454,7 +1563,6 @@ BWLDProcessResults(
 
 static BWLBoolean
 PostHookAvailable(
-        BWLContext          ctx,
         const char          *script
         )
 {
@@ -1648,7 +1756,6 @@ LoadErrConfig(
 
 static void
 LoadConfig(
-    BWLContext  ctx,
     char        **lbuf,
     size_t      *lbuf_max
         )
@@ -1788,7 +1895,7 @@ LoadConfig(
                  !strncasecmp(key,"post_hook",9)) {
             char **new_posthook;
 
-            if (!PostHookAvailable(ctx, val)) {
+            if (!PostHookAvailable(val)) {
                 I2ErrLog(errhand,
                         "Can't use posthook %s", val);
                 exit(1);
@@ -1849,7 +1956,6 @@ main(int argc, char *argv[])
 
     fd_set              readfds;
     int                 maxfd;    /* max fd in readfds */
-    BWLContext          ctx;
     BWLDPolicy          policy;
     I2Addr              listenaddr = NULL;
     int                 listenfd;
@@ -1990,7 +2096,7 @@ main(int argc, char *argv[])
      * understand. It takes the context as an arg so the context can
      * be queried for tool specific option parsing.
      */
-    LoadConfig(ctx,&lbuf,&lbuf_max);
+    LoadConfig(&lbuf,&lbuf_max);
 
     /*
      * Now deal with "all" cmdline options.

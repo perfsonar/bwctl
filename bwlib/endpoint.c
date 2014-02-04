@@ -601,6 +601,7 @@ _BWLEndpointStart(
     BWLAcceptType       aval = BWL_CNTRL_FAILURE;
     fd_set              readfds;
     fd_set              exceptfds;
+    int                 max_readfd;
     int                 rc=0;
     int                 do_read=0;
     int                 do_write=0;
@@ -610,6 +611,7 @@ _BWLEndpointStart(
     int                 alarm_set;
     char                nambuf[MAXHOSTNAMELEN+8]; /* 8 chars for '[]:port\0' */
     size_t              nambuflen = sizeof(nambuf);
+    char                addr_str[INET6_ADDRSTRLEN];
 
 
     if( !(tsess->localfp = tfile(tsess)) ||
@@ -621,7 +623,7 @@ _BWLEndpointStart(
         return False;
     }
 
-    if(tsess->conf_server){
+    if(tsess->conf_server && !tsess->test_spec.no_server_endpoint){
         if((ep->ssockfd = epssock(tsess,peerport)) < 0){
             EndpointFree(ep);
             return False;
@@ -773,6 +775,19 @@ _BWLEndpointStart(
         goto end;
     }
 
+    fprintf(tsess->localfp,"bwctl: start_endpoint: %f\n",
+            BWLNum64ToDouble(currtime.tstamp));
+
+    if( BWLAddrNodeName(ctx, tsess->test_spec.server, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
+        fprintf(tsess->localfp,"bwctl: run_endpoint: %s: %s\n", (tsess->test_spec.server_sends?"sender":"receiver"),addr_str);
+    }
+
+    if( BWLAddrNodeName(ctx, tsess->test_spec.client, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
+        fprintf(tsess->localfp,"bwctl: run_endpoint: %s: %s\n", (tsess->test_spec.server_sends?"receiver":"sender"),addr_str);
+    }
+
+    fflush(tsess->localfp);
+
     if(BWLNum64Cmp(tsess->reserve_time,currtime.tstamp) < 0){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                 "endpoint to endpoint setup too late");
@@ -822,7 +837,7 @@ _BWLEndpointStart(
                     "Endpoint: Invalid session mode");
     }
 
-    if(tsess->conf_server){
+    if(tsess->conf_server && !tsess->test_spec.no_server_endpoint){
         struct sockaddr         *ssaddr;
         socklen_t               ssaddrlen;
         struct sockaddr_storage sbuff;
@@ -877,26 +892,23 @@ ACCEPT:
                 mode,currtime.tstamp,
                 &ipf_intr,err_ret);
     }
-    else{
+
+    if (tsess->conf_client && !tsess->test_spec.no_server_endpoint) {
         /*
          * Copy remote address, with modified port number
          * and other fields for contacting remote host.
          */
-        I2Addr              local;
+        const char          *local = NULL;
+        char                addr_str[1024];
         I2Addr              remote;
         struct sockaddr     *saddr;
         socklen_t           saddrlen;
         BWLToolAvailability tavail = 0;
 
-        if( (saddr = I2AddrSAddr(tsess->test_spec.client,&saddrlen)) &&
-                (local = I2AddrBySAddr(BWLContextErrHandle(ctx),
-                                       saddr,saddrlen,SOCK_STREAM,IPPROTO_TCP
-                                      ))){
-            if(!(I2AddrSetPort(local,0))){
-                I2AddrFree(local);
-                local = NULL;
-            }
+        if( BWLAddrNodeName(ctx, tsess->test_spec.client, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
+            local = addr_str;
         }
+
         if( (saddr = I2AddrSAddr(tsess->test_spec.server,&saddrlen)) &&
                 (remote =I2AddrBySAddr(BWLContextErrHandle(ctx),
                                        saddr,saddrlen,SOCK_STREAM,IPPROTO_TCP
@@ -931,7 +943,7 @@ ACCEPT:
         }
     }
 
-    if(!ep->rcntrl || ipf_term || ipf_alrm){
+    if((!tsess->test_spec.no_server_endpoint && !ep->rcntrl) || ipf_term || ipf_alrm){
         goto end;
     }
 
@@ -954,7 +966,14 @@ ACCEPT:
 
         if( BWLContextConfigGetU64(ctx,BWLBottleNeckCapacity,&bnc)){
             double  dbnc = (double)bnc;
-            double  rtt = BWLNum64ToDouble(BWLGetRTTBound(ep->rcntrl));
+            double  rtt;
+
+            if (ep->rcntrl) {
+                rtt = BWLNum64ToDouble(BWLGetRTTBound(ep->rcntrl));
+            }
+            else {
+                rtt = 1.0;
+            }
 
             dbnc *= rtt / 8 * 1.1;
 
@@ -1031,79 +1050,87 @@ ACCEPT:
         goto end;
     }
 
-    if(tsess->conf_server){
-        if(BWLReadRequestType(ep->rcntrl,&ipf_intr) != BWLReqTime){
-            BWLError(ctx,BWLErrFATAL,errno,
-                    "PeerAgent: Invalid message from peer");
-            goto end;
+    if (ep->rcntrl) {
+        if(tsess->conf_server){
+            if(BWLReadRequestType(ep->rcntrl,&ipf_intr) != BWLReqTime){
+                BWLError(ctx,BWLErrFATAL,errno,
+                        "PeerAgent: Invalid message from peer");
+                goto end;
+            }
+
+            if(BWLProcessTimeRequest(ep->rcntrl,&ipf_intr) != BWLErrOK){
+                BWLError(ctx,BWLErrFATAL,errno,
+                        "PeerAgent: Unable to process time request for peer");
+                goto end;
+            }
+        }else{
+            /*
+             * Make sure two clocks are synchronized enough that
+             * sessions will start when they should.
+             */
+
+            double        t1,t2,tr;
+            double        e1,e2,er;
+
+            if(BWLControlTimeCheck(ep->rcntrl,&rtime) != BWLErrOK){
+                BWLError(ctx,BWLErrFATAL,errno,
+                        "PeerAgent: BWLControlTimeCheck(): %M");
+                goto end;
+            }
+            if(!BWLGetTimeStamp(ctx,&currtime2)){
+                BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                        "PeerAgent: BWLGetTimeStamp(): %M");
+                goto end;
+            }
+
+            t1 = BWLNum64ToDouble(currtime.tstamp);
+            t2 = BWLNum64ToDouble(currtime2.tstamp);
+            tr = BWLNum64ToDouble(rtime.tstamp);
+            e1 = BWLNum64ToDouble(BWLGetTimeStampError(&currtime));
+            e2 = BWLNum64ToDouble(BWLGetTimeStampError(&currtime2));
+            er = BWLNum64ToDouble(BWLGetTimeStampError(&rtime));
+    
+            if((t1-e1) > (tr+er)){
+                BWLError(ctx,BWLErrFATAL,errno,
+                        "PeerAgent: Remote clock is at least %f(secs) "
+                        "ahead of local, NTP only indicates %f(secs) error, failing",
+                        t1-tr,e1+er);
+                fprintf(tsess->localfp,
+                        "bwctl: Remote clock is at least %f(secs) ahead of local,"
+                        " NTP only indicates %f(secs) error, failing\n",
+                        t1-tr,e1+er);
+                ipf_intr = 1;
+            }
+            else if((tr-er) > (t2+e2)){
+                BWLError(ctx,BWLErrFATAL,errno,
+                        "PeerAgent: Remote clock is at least %f(secs) "
+                        "behind local, NTP only indicates %f(secs) error, failing",
+                        tr-t2,e2+er);
+                fprintf(tsess->localfp,
+                        "PeerAgent: Remote clock is at least %f(secs) behind local,"
+                        " NTP only indicates %f(secs) error, failing\n",
+                        tr-t2,e2+er);
+                ipf_intr = 1;
+            }
         }
 
-        if(BWLProcessTimeRequest(ep->rcntrl,&ipf_intr) != BWLErrOK){
-            BWLError(ctx,BWLErrFATAL,errno,
-                    "PeerAgent: Unable to process time request for peer");
-            goto end;
-        }
-    }else{
         /*
-         * Make sure two clocks are synchronized enough that
-         * sessions will start when they should.
+         * Fake rcntrl socket into "test" mode and set it up to trade results.
          */
-
-        double        t1,t2,tr;
-        double        e1,e2,er;
-
-        if(BWLControlTimeCheck(ep->rcntrl,&rtime) != BWLErrOK){
-            BWLError(ctx,BWLErrFATAL,errno,
-                    "PeerAgent: BWLControlTimeCheck(): %M");
-            goto end;
-        }
-        if(!BWLGetTimeStamp(ctx,&currtime2)){
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                    "PeerAgent: BWLGetTimeStamp(): %M");
-            goto end;
-        }
-
-        t1 = BWLNum64ToDouble(currtime.tstamp);
-        t2 = BWLNum64ToDouble(currtime2.tstamp);
-        tr = BWLNum64ToDouble(rtime.tstamp);
-        e1 = BWLNum64ToDouble(BWLGetTimeStampError(&currtime));
-        e2 = BWLNum64ToDouble(BWLGetTimeStampError(&currtime2));
-        er = BWLNum64ToDouble(BWLGetTimeStampError(&rtime));
-
-        if((t1-e1) > (tr+er)){
-            BWLError(ctx,BWLErrFATAL,errno,
-                    "PeerAgent: Remote clock is at least %f(secs) "
-                    "ahead of local, NTP only indicates %f(secs) error, failing",
-                    t1-tr,e1+er);
-            fprintf(tsess->localfp,
-                    "bwctl: Remote clock is at least %f(secs) ahead of local,"
-                    " NTP only indicates %f(secs) error, failing\n",
-                    t1-tr,e1+er);
-            ipf_intr = 1;
-        }
-        else if((tr-er) > (t2+e2)){
-            BWLError(ctx,BWLErrFATAL,errno,
-                    "PeerAgent: Remote clock is at least %f(secs) "
-                    "behind local, NTP only indicates %f(secs) error, failing",
-                    tr-t2,e2+er);
-            fprintf(tsess->localfp,
-                    "PeerAgent: Remote clock is at least %f(secs) behind local,"
-                    " NTP only indicates %f(secs) error, failing\n",
-                    tr-t2,e2+er);
-            ipf_intr = 1;
-        }
+        ep->rcntrl->tests = tsess;
+        tsess->cntrl = ep->rcntrl;
+        tsess->closure = NULL;
+        ep->rcntrl->state |= _BWLStateTest;
     }
 
-    /*
-     * Fake rcntrl socket into "test" mode and set it up to trade results.
-     */
-    ep->rcntrl->tests = tsess;
-    tsess->cntrl = ep->rcntrl;
-    tsess->closure = NULL;
-    ep->rcntrl->state |= _BWLStateTest;
-
     FD_ZERO(&readfds);
-    FD_SET(ep->rcntrl->sockfd,&readfds);
+    if (ep->rcntrl) {
+       FD_SET(ep->rcntrl->sockfd,&readfds);
+       max_readfd = ep->rcntrl->sockfd;
+    }
+    else {
+       max_readfd = -1;
+    }
     exceptfds = readfds;
     do_read=do_write=1;
 
@@ -1122,7 +1149,7 @@ ACCEPT:
      *  TERM signal - parent killing this.
      */
     while(!rc && !ipf_intr){
-        rc = select(ep->rcntrl->sockfd+1,&readfds,NULL,&exceptfds,NULL);
+        rc = select(max_readfd + 1,&readfds,NULL,&exceptfds,NULL);
     }
 
     /*
@@ -1183,13 +1210,8 @@ ACCEPT:
      */
     if(!ipf_chld && ep->child){
 
-        BWLError(ctx,BWLErrDEBUG,errno,
-                "PeerAgent: Killing tester with SIGTERM, pid=%d",
-                ep->child);
-
         /*
-	 * Send the kill signal twice to the process group, iperf does not exit
-	 * after receiving one
+         * Send the kill signal twice, iperf does not exit after receiving one
          */
         if(killpg(ep->child,SIGTERM) == 0){
             /*
@@ -1233,7 +1255,7 @@ ACCEPT:
      * Get child exit status
      *
      */
-    if(!_BWLEndpointStatus(tsess,&ep->acceptval,err_ret)){
+    if(!_BWLEndpointStatus(ctx,tsess,&ep->acceptval,err_ret)){
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "PeerAgent: _BWLEndpointStatus failed");
         exit(BWL_CNTRL_FAILURE);
@@ -1259,7 +1281,7 @@ ACCEPT:
          * call Status again, but this time wait for the process to end.
          */
         ep->wopts &= ~WNOHANG;
-        if(!_BWLEndpointStatus(tsess,&ep->acceptval,err_ret)){
+        if(!_BWLEndpointStatus(ctx,tsess,&ep->acceptval,err_ret)){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                     "PeerAgent: _BWLEndpointStatus failed");
             exit(BWL_CNTRL_FAILURE);
@@ -1289,7 +1311,7 @@ ACCEPT:
         if(rc > 0){
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
                     "PeerAgent: Peer cancelled test before expected");
-            fprintf(tsess->localfp,"bwctl: remote peer cancelled test\n");
+            fprintf(tsess->localfp,"\nbwctl: remote peer cancelled test\n");
         }
 
     }
@@ -1298,8 +1320,9 @@ ACCEPT:
      * Report if the local test had to be killed.
      */
     if(alarm_set){
+            // try to make sure these print on their own line
             fprintf(tsess->localfp,
-                    "bwctl: local tool did not complete in allocated time frame and was killed\n");
+                    "\nbwctl: local tool did not complete in allocated time frame and was killed\n");
     }
 
     /*
@@ -1310,66 +1333,73 @@ ACCEPT:
             BWLNum64ToDouble(currtime.tstamp));
     fflush(tsess->localfp);
 
-    /*
-     * Write StopSession to peer to send test results from this side.
-     */
-    *err_ret = _BWLWriteStopSession(ep->rcntrl,&ipf_intr,ep->acceptval,
-            tsess->localfp);
-    if(*err_ret != BWLErrOK){
-        BWLError(ctx,BWLErrFATAL,errno,
-                "PeerAgent: Unable to send StopSession to peer");
-        goto end;
-    }
-
-    /*
-     * Is socket readable? Select again. If it was readable before, this
-     * is a no-op. If not, this will wait until the peer StopSession
-     * message comes.
-     *
-     * XXX: Need a timeout here?
-     */
-    /* if earlier selected ended due to intr, reset rc to 0 so select called */
-    if(rc < 0) rc=0;
-    while(!rc && !ipf_term){
-        rc = select(ep->rcntrl->sockfd+1,&readfds,NULL,&exceptfds,NULL);
-    }
-    if(ipf_term){
-        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
-                "PeerAgent: Caught termination signal, test exiting");
-        goto end;
-    }
-
-    /*
-     * Socket ready, read StopSession message from peer.
-     */
-    if(rc > 0){
-
-        msgtype = BWLReadRequestType(ep->rcntrl,&ipf_intr);
-
-        switch(msgtype){
-
-            /* socket closed */
-            case 0:
-                BWLError(ctx,BWLErrFATAL,errno,"PeerAgent: Test peer closed connection.");
-                break;
-
-                /* stop session message */
-            case 3:
-                *err_ret = _BWLReadStopSession(ep->rcntrl,&ipf_intr,&aval,
-                        tsess->remotefp);
-                break;
-
-                /* anything else */
-            default:
-                BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                        "PeerAgent: Invalid protocol message from test peer");
-                break;
-
+    if (ep->rcntrl) {
+        /*
+         * Write StopSession to peer to send test results from this side.
+         */
+        *err_ret = _BWLWriteStopSession(ep->rcntrl,&ipf_intr,ep->acceptval,
+                tsess->localfp);
+        if(*err_ret != BWLErrOK){
+            BWLError(ctx,BWLErrFATAL,errno,
+                    "PeerAgent: Unable to send StopSession to peer");
+            goto end;
         }
 
+        /*
+         * Is socket readable? Select again. If it was readable before, this
+         * is a no-op. If not, this will wait until the peer StopSession
+         * message comes.
+         *
+         * XXX: Need a timeout here?
+         */
+        /* if earlier selected ended due to intr, reset rc to 0 so select called */
+        if(rc < 0) rc=0;
+        while(!rc && !ipf_term){
+            rc = select(ep->rcntrl->sockfd+1,&readfds,NULL,&exceptfds,NULL);
+        }
+        if(ipf_term){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
+                    "PeerAgent: Caught termination signal, test exiting");
+            goto end;
+        }
+
+        /*
+         * Socket ready, read StopSession message from peer.
+         */
+        if(rc > 0){
+
+            msgtype = BWLReadRequestType(ep->rcntrl,&ipf_intr);
+
+            switch(msgtype){
+
+                /* socket closed */
+                case 0:
+                    BWLError(ctx,BWLErrFATAL,errno,"PeerAgent: Test peer closed connection.");
+                    break;
+
+                    /* stop session message */
+                case 3:
+                    *err_ret = _BWLReadStopSession(ep->rcntrl,&ipf_intr,&aval,
+                            tsess->remotefp);
+                    break;
+
+                    /* anything else */
+                default:
+                    BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                            "PeerAgent: Invalid protocol message from test peer");
+                    break;
+
+            }
+
+        }
     }
 
 end:
+
+    BWLGetTimeStamp(ctx,&currtime);
+
+    fprintf(tsess->localfp,"bwctl: stop_endpoint: %f\n",
+            BWLNum64ToDouble(currtime.tstamp));
 
     /*
      * aval == remote status
@@ -1382,6 +1412,7 @@ end:
 
 BWLBoolean
 _BWLEndpointStatus(
+        BWLContext      ctx,
         BWLTestSession  tsess,
         BWLAcceptType   *aval,        /* out */
         BWLErrSeverity  *err_ret
@@ -1402,7 +1433,7 @@ AGAIN:
         if(p < 0){
             if(errno == EINTR)
                 goto AGAIN;
-            BWLError(ep->cntrl->ctx,BWLErrWARNING,
+            BWLError(ctx,BWLErrWARNING,
                     BWLErrUNKNOWN,
                     "_BWLEndpointStatus: Can't query child #%d: %M",
                     ep->child);
@@ -1422,7 +1453,7 @@ AGAIN:
                     ep->exit_status = 0;
                 }
                 else{
-                    BWLError(ep->cntrl->ctx,BWLErrWARNING,errno,
+                    BWLError(ctx,BWLErrWARNING,errno,
                             "_BWLEndpointStatus: Child #%d exited from signal #%d",
                             ep->child,WTERMSIG(childstatus));
                     ep->acceptval = BWL_CNTRL_FAILURE;
@@ -1444,6 +1475,7 @@ AGAIN:
 
 BWLBoolean
 _BWLEndpointStop(
+        BWLContext        ctx,
         BWLTestSession    tsess,
         BWLAcceptType    aval,
         BWLErrSeverity    *err_ret
@@ -1484,12 +1516,12 @@ _BWLEndpointStop(
      * (Should we add a timer to break out? No - not that paranoid yet.)
      */
     ep->wopts &= ~WNOHANG;
-    retval = _BWLEndpointStatus(tsess,&teststatus,err_ret);
+    retval = _BWLEndpointStatus(ctx,tsess,&teststatus,err_ret);
     if(teststatus >= 0)
         goto done;
 
 error:
-    BWLError(ep->cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
+    BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,
             "EndpointStop:Can't signal child #%d: %M",ep->child);
 done:
     if(aval < ep->acceptval){

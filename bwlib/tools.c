@@ -358,14 +358,15 @@ BWLToolUnparseRequestParameters(
         BWLContext          ctx,
         uint8_t             *buf,
         BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
+        BWLProtocolVersion  protocol_version,
+        BWLTestSession      tsession
         )
 {
     uint32_t    i;
 
     for(i=0;i<ctx->tool_list_size;i++){
         if(ctx->tool_list[i].id == id){
-            return ctx->tool_list[i].tool->unparse_request(ctx,buf,tspec,protocol_version);
+            return ctx->tool_list[i].tool->unparse_request(ctx,buf,tspec,protocol_version,tsession);
         }
     }
 
@@ -754,3 +755,26 @@ BWLTestSideData BWLToolSenderSideData(
          return BWL_DATA_ON_CLIENT;
      }
 }
+
+BWLToolAvailability
+BWLToolGetCommonTools(
+        BWLContext ctx,
+        BWLToolAvailability tools_1,
+        BWLToolAvailability tools_2,
+        BWLTestType test_type
+        )
+{
+    BWLToolAvailability common_tools = tools_1 & tools_2;
+    BWLToolAvailability tid;
+
+    for (tid = 1; tid > 0; tid <<= 1) {
+        if (BWLToolGetTestTypesByID(ctx, tid) == test_type)
+            continue;
+
+        common_tools &= ~tid;
+    }
+
+    return common_tools;
+}
+
+

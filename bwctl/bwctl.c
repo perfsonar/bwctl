@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <getopt.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <ctype.h>
@@ -56,6 +57,275 @@ int optreset;
 
 #include "./bwctlP.h"
 
+static BWLControl spawn_local_server(BWLContext lctx, ipsess_t sess, BWLToolAvailability *avail_tools);
+static BWLBoolean close_local_server(BWLContext ctx, ipsess_t sess);
+static BWLBoolean wait_for_next_test();
+static BWLBoolean start_testing(ipsess_t server_sess, ipsess_t client_sess);
+static BWLBoolean negotiate_individual_test(ipsess_t sess, BWLSID sid, BWLTimeStamp *req_time, uint16_t *recv_port);
+static BWLBoolean negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_options);
+static BWLBoolean wait_for_results();
+static BWLBoolean setup_results_storage(ipsess_t sess);
+static BWLBoolean display_results(ipsess_t sess);
+static BWLBoolean establish_connection(ipsess_t current_sess, ipsess_t other_sess);
+static BWLBoolean getclientkey(BWLContext lctx, const BWLUserID userid, BWLKey key_ret, BWLErrSeverity  *err_ret);
+
+// The ordering here is the odering it will show when the usage is printed
+struct bwctl_option bwctl_options[] = {
+   {
+        BWL_TEST_ALL,
+        { "receiver", required_argument, 0, 'c' },
+        "The host that will act as the receiving side for a test",
+        "address",
+   },
+   {
+        BWL_TEST_ALL,
+        { "sender", required_argument, 0, 's' },
+        "The host that will act as the sending side for a test",
+        "address",
+   },
+   {
+        BWL_TEST_ALL,
+        { "ipv4", no_argument, 0, '4' },
+        "Use IPv4 only",
+   },
+   {
+        BWL_TEST_ALL,
+        { "ipv6", no_argument, 0, '6' },
+        "Use IPv6 only",
+   },
+   {
+        BWL_TEST_ALL,
+        { "local_address", required_argument, 0, 'B' },
+        "Use this as a local address for control connection and tests",
+        "address",
+   },
+   {
+        BWL_TEST_ALL,
+        { "num_tests", required_argument, 0, 'n' },
+        "Number of tests to perform (default: 1)",
+        "num"
+   },
+   {
+        BWL_TEST_ALL,
+        { "test_interval", required_argument, 0, 'I' },
+        "Time between repeated bwctl tests",
+        "seconds",
+   },
+   {
+        BWL_TEST_ALL,
+        { "latest_time", required_argument, 0, 'L' },
+        "Latest time into an interval to allow a test to run",
+        "seconds"
+   },
+   {
+        BWL_TEST_ALL,
+        { "randomize", required_argument, 0, 'R' },
+        "Randomize the start time within this percentage of the test's interval (Default: 10%)",
+        "percent",
+   },
+   {
+        BWL_TEST_ALL,
+        { "tool", required_argument, 0, 'T' },
+        "The tool to use for the test",
+        "tool",
+   },
+   {
+        BWL_TEST_ALL,
+        { "flip", no_argument, 0, 'o' },
+        "Have the receiver connect to the sender (default: False)"
+   },
+   {
+        BWL_TEST_ALL,
+        { "allow_ntp_unsync", required_argument, 0, 'a' },
+        "Allow unsynchronized clock - claim good within offset",
+        "seconds"
+   },
+
+   {
+        BWL_TEST_ALL,
+        { "units", required_argument, 0, 'f' },
+        "Type of measurement units to return (Default: tool specific)",
+        "unit"
+   },
+   {
+        BWL_TEST_ALL,
+        { "both", no_argument, 0, 'x' },
+        "Output both sender and receiver results",
+   },
+   {
+        BWL_TEST_ALL,
+        { "format", no_argument, 0, 'y' },
+        "Output format to use (Default: tool specific)",
+   },
+
+// Latency/Traceroute-specific options
+   {
+        BWL_TEST_LATENCY | BWL_TEST_TRACEROUTE,
+        { "no_endpoint", no_argument, 0, 'E' },
+        "Allow tests to occur when the receiver isn't running bwctl (Default: False)",
+   },
+   {
+        BWL_TEST_LATENCY | BWL_TEST_TRACEROUTE,
+        { "packet_length", required_argument, 0, 'l' },
+        "Length of packets",
+        "bytes",
+   },
+
+// Latency-specific options
+   {
+        BWL_TEST_LATENCY,
+        { "num_packets", required_argument, 0, 'N' },
+        "Number of packets to send (Default: 10)",
+        "num",
+   },
+   {
+        BWL_TEST_LATENCY,
+        { "ttl", required_argument, 0, 't' },
+        "TTL for the packets",
+        "num",
+   },
+   {
+        BWL_TEST_LATENCY,
+        { "packet_interval", required_argument, 0, 'i' },
+        "Delay between packets (Default: 1.0)",
+        "seconds",
+   },
+
+// Traceroute-specific options
+   {
+        BWL_TEST_TRACEROUTE,
+        { "first_ttl", required_argument, 0, 'F' },
+        "minimum TTL for traceroute (Default: none)",
+        "num",
+   },
+   {
+        BWL_TEST_TRACEROUTE,
+        { "max_ttl", required_argument, 0, 'M' },
+        "maximum TTL for traceroute (Default: none)",
+        "num",
+   },
+   {
+        BWL_TEST_TRACEROUTE,
+        { "test_duration", required_argument, 0, 't' },
+        "Maximum time to wait for traceroute to finish (Default: 10)",
+        "seconds",
+   },
+
+// Throughput-specific options
+   {
+        BWL_TEST_THROUGHPUT,
+        { "bandwidth", required_argument, 0, 'b' },
+        "Bandwidth to use for tests (bits/sec KM) (Default: 1Mb for UDP tests, unlimited for TCP tests)",
+        "bandwidth",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "report_interval", required_argument, 0, 'i' },
+        "Tool reporting interval",
+        "seconds",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "buffer_length", required_argument, 0, 'l' },
+        "Length of read/write buffers",
+        "bytes",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "omit", required_argument, 0, 'O' },
+        "Omit time (currently only for iperf3)",
+        "seconds",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "parallel", required_argument, 0, 'P' },
+        "Number of concurrent connections",
+        "num",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "dscp", required_argument, 0, 'D' },
+        "RFC 2474-style DSCP value for TOS byte",
+        "dscp",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "tos", required_argument, 0, 'S' },
+        "Type-Of-Service for outgoing packets",
+        "tos",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "test_duration", required_argument, 0, 't' },
+        "Duration for test (Default: 10)",
+        "seconds",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "udp", no_argument, 0, 'u' },
+        "Perform a UDP test",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "window", no_argument, 0, 'w' },
+        "TCP window size (Default: system default)",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        { "dynamic_window", no_argument, 0, 'W' },
+        "Dynamic TCP window fallback size (Default: system default)",
+   },
+
+
+// Lesser-used or minor options
+   {
+        BWL_TEST_ALL,
+        { "verbose", no_argument, 0, 'v' },
+        "Display verbose output",
+   },
+   {
+        BWL_TEST_ALL,
+        { "print", no_argument, 0, 'p' },
+        "Print results filenames to stdout (Default: False)",
+   },
+   {
+        BWL_TEST_ALL,
+        { "output_dir", required_argument, 0, 'd' },
+        "Directory to save session files to (only if -p)",
+        "directory"
+   },
+   {
+        BWL_TEST_ALL,
+        { "facility", required_argument, 0, 'e' },
+        "Syslog facility to log to",
+        "facility"
+   },
+   {
+        BWL_TEST_ALL,
+        { "quiet", no_argument, 0, 'q' },
+        "Silent mode (Default: False)",
+   },
+   {
+        BWL_TEST_ALL,
+        { "syslog_to_stderr", no_argument, 0, 'r' },
+        "Send syslog to stderr (Default: False)",
+   },
+
+   {
+        BWL_TEST_ALL,
+        { "version", no_argument, 0, 'V' },
+        "Show version number",
+   },
+   {
+        BWL_TEST_ALL,
+        { "help", no_argument, 0, 'h' },
+        "Display the help message\n",
+   },
+   {
+        BWL_TEST_UNDEFINED,
+   },
+};
+
 /*
  * The bwctl context
  */
@@ -63,145 +333,18 @@ static    ipapp_trec    app;
 static    char          *progname;
 static    BWLTestType   test_type;
 static    I2ErrHandle   eh;
-static    uint32_t      file_offset,ext_offset;
 static    int           ip_intr = 0;
 static    int           ip_chld = 0;
 static    int           ip_reset = 0;
 static    int           ip_exit = 0;
 static    int           ip_error = SIGCONT;
 static    BWLContext    ctx;
-static    int           first_set = False;
-static    int           second_set = False;
-static    ipsess_trec   first;
-static    ipsess_trec   second;
 static    aeskey_auth   current_auth=NULL;
 static    BWLNum64      zero64;
 static    BWLNum64      fuzz64;
-static    BWLSID        sid;
-static    uint16_t      recv_port;
-static    ipsess_t      sess[2];    /* server == 0, client == 1 */
-static    BWLBoolean    fake_daemon = False;
-static    pid_t         fake_pid = -1;
-static    int           fake_fd = -1;
-
-static void
-print_conn_args(
-        void
-        )
-{
-    fprintf(stderr,"              [Connection Args]\n\n"
-            "  -4             Use IPv4 only\n"
-            "  -6             Use IPv6 only\n"
-            "  -A authmode [AUTHMETHOD [AUTHOPTS]]\n"
-            "            authmodes:\n"
-            "                 [A]uthenticated, [E]ncrypted, [O]pen\n"
-            "            AUTHMETHODS:\n"
-            "                 AESKEY userid [keyfile]\n"
-            "  -B srcaddr     use this as a local address for control connection and tests\n"
-            "  -k             deprecated\n"
-            "  -U             deprecated\n"
-           );
-}
-
-static void
-print_test_args(
-        )
-{
-    uint32_t    i,n;
-
-    fprintf(stderr,
-            "            [Test Args]\n\n");
-    fprintf(stderr,
-            "  -c recvhost [AUTHMETHOD [AUTHOPTS]]\n"
-            "                 recvhost will run thrulay/nuttcp/iperf server \n"
-            "            AUTHMETHODS: (See -A argument)\n"
-            "\n",
-            "  -s sendhost [AUTHMETHOD [AUTHOPTS]]\n"
-            "                 sendhost will run thrulay/nuttcp/iperf client \n"
-            "            AUTHMETHODS: (See -A argument)\n"
-            "             [MUST SPECIFY AT LEAST ONE OF -c/-s]\n"
-           );
-
-    fprintf(stderr,
-	        "  -T tool        tool one of:\n");
-    for(i=0,n = BWLToolGetNumTools(ctx);i<n;i++){
-        if (BWLToolGetTestTypesByIndex(ctx, i) != test_type)
-            continue;
-
-        fprintf(stderr,
-                "                     %s\n",BWLToolGetNameByIndex(ctx,i));
-    }
-
-    fprintf(stderr,"\n"
-            "  -o             Have the receiver connect to the sender (default: False)\n"
-           );
-
-    if (test_type == BWL_TEST_PING) {
-    fprintf(stderr,"\n"
-            "  -N count       number of packets to send (Default: 10)\n"
-            "  -l len         length of the packets (bytes)\n"
-            "  -t ttl         TTL for the packets\n"
-            "  -i delay       delay between packets in seconds (Default: 1.0)\n"
-           );
-    }
-    else if (test_type == BWL_TEST_TRACEROUTE) {
-    fprintf(stderr,"\n"
-            "  -F first_ttl   minimum TTL for traceroute\n"
-            "  -M max_ttl     maximum TTL for traceroute\n"
-            "  -l len         length of the packets (bytes)\n"
-            "  -t time        maximum seconds for traceroute to finish (Default: 10)\n"
-           );
-    }
-    else {
-    fprintf(stderr,"\n"
-            "  -a offset      allow unsync'd clock - claim good within offset (seconds)\n"
-            "  -b bandwidth   bandwidth to use for UDP test (bits/sec KM) (Default: 1Mb)\n"
-            "  -i interval    report interval (seconds)\n"
-            "  -l len         length of read/write buffers (bytes)\n"
-            "  -O interval    omit time (currently only for iperf3)\n"
-            "  -P nThreads    number of concurrent connections\n"
-            "  -D DSCP        RFC 2474 style DSCP value for TOS byte\n"
-            "  -S TOS         type-of-service for outgoing packets\n"
-            "  -t time        duration of test (seconds) (Default: 10)\n"
-            "  -u             UDP test\n"
-            "  -w window      TCP window size (bytes) 0 indicates system defaults\n"
-            "  -W window      Dynamic TCP window size: value used as fallback (bytes)\n"
-           );
-    }
-}
-
-static void
-print_output_args(
-        void
-        )
-{
-    fprintf(stderr,
-            "              [Output Args]\n\n"
-            "  -d dir         directory to save session files in (only if -p)\n"
-            "  -e facility    syslog facility to log to\n"
-            "  -f units       units type to use (Default: tool specific)\n"
-            "  -h             print this message and exit\n"
-           );
-    fprintf(stderr,
-            "  -I Interval    time between BWL test sessions(seconds)\n"
-            "  -L LatestDelay latest time into an interval to run test(seconds)\n"
-            "  -n nIntervals  number of tests to perform (default: continuous)\n"
-            "  -p             print completed filenames to stdout - not session data\n"
-           );
-    fprintf(stderr,
-            "  -q             silent mode\n"
-            "  -r             send syslog to stderr\n"
-            "  -R alpha       randomize the start time within this alpha(0-50%%)\n"
-            "                  (Initial start randomized within the complete interval.)\n"
-           );
-    fprintf(stderr,
-            "                  (default: 10 - start time randomization is 10%)\n"
-            "  -v             verbose output to syslog - add 'v's to increase verbosity\n"
-            "  -V             print version and exit\n"
-            "  -x             output both sender and receiver session results\n"
-            "  -y outfmt      output format to use (Default: tool specific)\n"
-           );
-}
+static    int           exit_val=0;
+static    ipsess_trec   sessions[2];    /* server == 0, client == 1 */
+static    I2RandomSource      rsrc;
 
 static void
 version(
@@ -218,16 +361,56 @@ usage(
         const char  *msg
         )
 {
+    int i;
+
+    // Do a dummy load of ctx to make sure we can print out the list of
+    // available tools...
+    if (!ctx) {
+        if( !(ctx = BWLContextCreate(NULL,
+                        BWLInterruptIO, &ip_intr,
+                        BWLGetAESKey,   getclientkey,
+                        NULL))){
+            fprintf(stderr, "Unable to initialize BWL library.\n");
+            exit(1);
+        }
+    }
+
     if(msg) fprintf(stderr, "%s: %s\n", progname, msg);
     fprintf(stderr,"usage: %s %s\n", progname, "[arguments]");
-    fprintf(stderr, "\n");
-    print_conn_args();
 
-    fprintf(stderr, "\n");
-    print_test_args();
+    for(i = 0; bwctl_options[i].test_types != BWL_TEST_UNDEFINED; i++) {
+        char buf[50];
 
-    fprintf(stderr, "\n");
-    print_output_args();
+        if (!(bwctl_options[i].test_types & test_type))
+            continue;
+
+        if (bwctl_options[i].option.val) {
+            snprintf(buf, sizeof(buf) - 1, "-%c|--%s", bwctl_options[i].option.val, bwctl_options[i].option.name);
+        }
+        else {
+            snprintf(buf, sizeof(buf) - 1, "--%s", bwctl_options[i].option.name);
+        }
+
+        if (bwctl_options[i].option.has_arg == required_argument) {
+            strncat(buf, " <", sizeof(buf) - 1);
+            strncat(buf, bwctl_options[i].argument_description, sizeof(buf) - 1);
+            strncat(buf, ">", sizeof(buf) - 1);
+        }
+
+        fprintf(stderr, "%-32.34s %s\n", buf, bwctl_options[i].description);
+
+        // The -T option is a special case
+        if (bwctl_options[i].option.name == "tool") {
+            int j, n;
+            fprintf(stderr, "%-34s Available Tools:\n", "");
+            for(j=0,n = BWLToolGetNumTools(ctx);j<n;j++){
+                if (BWLToolGetTestTypesByIndex(ctx, j) != test_type)
+                    continue;
+        
+                fprintf(stderr, "%-34s    %s\n", "", BWLToolGetNameByIndex(ctx,j));
+            }
+        }
+    }
 
     version();
 
@@ -463,71 +646,26 @@ CloseSessions(
         void
         )
 {
-    struct itimerval    itval;
-
     /* TODO: Handle clearing other state. Canceling tests nicely? */
 
-    if(first.cntrl){
-        BWLControlClose(first.cntrl);
-        first.cntrl = NULL;
-        first.sockfd = 0;
-        first.tspec.req_time.tstamp = zero64;
+    if (app.client_sess->cntrl) {
+        BWLControlClose(app.client_sess->cntrl);
+        app.client_sess->cntrl = NULL;
+        app.client_sess->sockfd = 0;
+        app.client_sess->tspec.req_time.tstamp = zero64;
+
+        close_local_server(ctx, app.client_sess);
     }
 
-    if(second.cntrl){
-        BWLControlClose(second.cntrl);
-        second.cntrl = NULL;
-        second.sockfd = 0;
-        second.tspec.req_time.tstamp = zero64;
-        if(fake_daemon){
-            if(fake_fd > -1){
-                while((close(fake_fd) < 0) &&
-                        (errno == EINTR));
-                fake_fd = -1;
-            }
-            if(fake_pid > 0){
-                int     status = 0;
-                pid_t   rc;
-                int     killed=0;
+    if (app.server_sess->cntrl) {
+        BWLControlClose(app.server_sess->cntrl);
+        app.server_sess->cntrl = NULL;
+        app.server_sess->sockfd = 0;
+        app.server_sess->tspec.req_time.tstamp = zero64;
 
-                /*
-                 * Attempt to let the spawned daemon complete on
-                 * it's own by waiting 1 seconds before killing it.
-                 */
-time_wait:
-                ip_intr=0;
-                ip_chld=0;
-                memset(&itval,0,sizeof(itval));
-                itval.it_value.tv_sec = 1;
-                if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
-                    I2ErrLog(eh,"setitimer(): %M");
-                    exit(-1);
-                }
-
-again:
-                rc = waitpid(fake_pid,&status,0);
-                if(fake_pid != rc){
-                    if(errno == EINTR){
-                        /*
-                         * If the timer went off, then kill the
-                         * child process.
-                         */
-                        if(ip_intr && !killed){
-                            (void)kill(fake_pid,SIGTERM);
-                            killed=1;
-                            goto time_wait;
-                        }
-                        goto again;
-                    }
-                    I2ErrLog(eh,"waitpid() returned %d: %M",
-                            rc);
-                    exit(-1);
-                }
-                fake_pid = -1;
-            }
-            fake_daemon = False;
-        }
+        close_local_server(ctx, app.server_sess);
     }
+
     return;
 }
 
@@ -565,16 +703,11 @@ sig_check(
 {
     if(ip_error != SIGCONT){
         I2ErrLog(eh,"sig_catch(%d):UNEXPECTED SIGNAL NUMBER",ip_error);
-        exit(1);
+        return 1;
     }
 
     if(ip_exit || ip_reset){
-        CloseSessions();
-    }
-
-    if(ip_exit){
-        I2ErrLog(eh,"SIGTERM/SIGINT: Exiting.");
-        exit(0);
+        return 1;
     }
 
     ip_intr = 0;
@@ -733,9 +866,73 @@ CheckTestPolicy(
     return True;
 }
 
+static BWLBoolean
+close_local_server(
+        BWLContext   ctx,
+        ipsess_t     sess
+)
+{
+    BWLBoolean func_retval = True;
+
+    if(sess->fake_daemon_pipe > -1){
+        BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,"close_local_server(): shutting down daemon pipe");
+        while((close(sess->fake_daemon_pipe) < 0) &&
+                (errno == EINTR));
+        sess->fake_daemon_pipe = -1;
+    }
+
+    if(sess->fake_daemon_pid > 0){
+        int     status = 0;
+        int     killed=0;
+        struct timeval tv;
+
+        BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,"close_local_server(): killing daemon process");
+
+        tv.tv_sec = 2;
+        tv.tv_usec = 0;
+
+        while (1) {
+            int retval = select(0, NULL, NULL, NULL, &tv);
+            int select_errno = errno;
+
+            pid_t rc = waitpid(sess->fake_daemon_pid,&status,WNOHANG);
+            if (rc > 0) {
+                if (app.opt.verbose) {
+                    I2ErrLog(eh, "Local server has exited");
+                }
+                // child pid has exited 
+                break;
+            }
+
+            if (rc < 0) {
+                // No children are around...
+                break;
+            }
+
+            if ((retval == -1 && select_errno == EINTR) ||
+                (retval == 0 && killed)) {
+                I2ErrLog(eh, "Problem killing local server");
+                func_retval = False;
+                break;
+            }
+            else if (retval == 0) {
+                (void)kill(sess->fake_daemon_pid,SIGTERM);
+                tv.tv_sec = 2;
+                tv.tv_usec = 0;
+                killed = 1;
+            }
+        }
+
+        sess->fake_daemon_pid = -1;
+    }
+
+    return func_retval;
+}
+
 static BWLControl
-SpawnLocalServer(
+spawn_local_server(
         BWLContext          lctx,
+        ipsess_t            sess,
         BWLToolAvailability *avail_tools
         )
 {
@@ -786,8 +983,9 @@ SpawnLocalServer(
             return NULL;
         }
 
-        fake_fd = new_pipe[0];
-        fake_pid = pid;
+        sess->fake_daemon_pipe = new_pipe[0];
+        sess->fake_daemon_pid = pid;
+        sess->fake_daemon = True;
         return cntrl;
     }
 
@@ -796,6 +994,10 @@ SpawnLocalServer(
         I2ErrLog(eh,"Child exiting from signal");
         _exit(0);
     }
+
+
+    /* Close the write side of the pipe */
+    while((close(new_pipe[0]) < 0) && (errno == EINTR));
 
     /*
      * Make access log stuff be quiet in child server if !verbose.
@@ -1287,7 +1489,7 @@ FAILED:
 }
 
 static BWLBoolean
-handle_conn_arg(const char arg, const char *value, char **argv, int argc) {
+handle_conn_arg(const char arg, const char *long_name, const char *value, char **argv, int argc) {
     BWLBoolean handled = True;
 
     switch (arg) {
@@ -1301,13 +1503,13 @@ handle_conn_arg(const char arg, const char *value, char **argv, int argc) {
             /* parse auth */
             if((parse_auth_args(eh,argv,argc,"BOTH",&app.def_auth) != 0) ||
                     !app.def_auth){
-                I2ErrLog(eh,"invalid default authentication");
+                usage("invalid default authentication");
                 exit(1);
             }
             break;
         case 'B':
             if (!(app.opt.srcaddr = strdup(optarg))) {
-                I2ErrLog(eh,"malloc:%M");
+                fprintf(stderr,"malloc failed\n");
                 exit(1);
             }
             break;
@@ -1320,13 +1522,13 @@ handle_conn_arg(const char arg, const char *value, char **argv, int argc) {
 }
 
 static BWLBoolean
-handle_output_arg(const char arg, const char *value) {
+handle_output_arg(const char arg, const char *long_name, const char *value) {
     BWLBoolean handled = True;
 
     switch (arg) {
         case 'd':
             if (!(app.opt.savedir = strdup(optarg))) {
-                I2ErrLog(eh,"malloc:%M");
+                fprintf(stderr,"malloc failed\n");
                 exit(1);
             }
             break;
@@ -1351,10 +1553,28 @@ handle_output_arg(const char arg, const char *value) {
 }
 
 static BWLBoolean
-handle_misc_arg(const char arg, const char *value) {
+handle_misc_arg(const char arg, const char *long_name, const char *value) {
     BWLBoolean handled = True;
+    int fac;
 
     switch (arg) {
+        case 'e':
+            if((fac = I2ErrLogSyslogFacility(optarg)) == -1){
+                fprintf(stderr, "Invalid -e: Unknown syslog facility");
+                exit(1);
+            }
+            app.opt.log_facility = fac;
+            break;
+        case 'v':
+            app.opt.verbose++;
+            app.opt.log_to_stderr = True;
+            break;
+        case 'r':
+            app.opt.log_to_stderr = True;
+            break;
+        case 'q':
+            app.opt.quiet = True;
+            break;
         case 'V':
             version();
             exit(0);
@@ -1370,7 +1590,7 @@ handle_misc_arg(const char arg, const char *value) {
 }
 
 static BWLBoolean
-handle_scheduling_arg(const char arg, const char *value) {
+handle_scheduling_arg(const char arg, const char *long_name, const char *value) {
     BWLBoolean handled = True;
     char *tstr;
 
@@ -1423,49 +1643,35 @@ handle_scheduling_arg(const char arg, const char *value) {
 }
 
 static BWLBoolean
-handle_generic_test_arg(const char arg, const char *value, char **argv, int argc) {
+handle_generic_test_arg(const char arg, const char *long_name, const char *value, char **argv, int argc) {
     BWLBoolean handled = True;
 
     switch (arg) {
         case 'c':
-            if(app.receiver_sess){
+            if(app.receiver_sess->host){
                 usage("-c flag can only be specified once");
                 exit(1);
             }
-            if(!first_set){
-                first_set = True;
-                app.receiver_sess = &first;
-            }else{
-                second_set = True;
-                app.receiver_sess = &second;
-            }
+
             app.receiver_sess->host = optarg;
 
             if(parse_auth_args(eh,argv,argc,optarg,&app.receiver_sess->auth)
                     != 0){
-                I2ErrLog(eh,
-                        "invalid \'receiver\' authentication");
+                usage("invalid \'receiver\' authentication");
                 exit(1);
             }
             break;
         case 's':
-            if(app.sender_sess){
+            if(app.sender_sess->host){
                 usage("-s flag can only be specified once");
                 exit(1);
             }
-            if(!first_set){
-                first_set = True;
-                app.sender_sess = &first;
-            }else{
-                second_set = True;
-                app.sender_sess = &second;
-            }
+
             app.sender_sess->host = optarg;
 
             if(parse_auth_args(eh,argv,argc,optarg,&app.sender_sess->auth)
                     != 0){
-                I2ErrLog(eh,
-                        "invalid \'sender\' authentication");
+                usage("invalid \'sender\' authentication");
                 exit(1);
             }
             break;
@@ -1475,11 +1681,8 @@ handle_generic_test_arg(const char arg, const char *value, char **argv, int argc
             break;
 
         case 'T':
-            if( (app.opt.tool_id = BWLToolGetID(ctx,optarg)) ==
-                    BWL_TOOL_UNDEFINED){
-                char    buf[BWL_MAX_TOOLNAME + 20];
-                snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",optarg);
-                usage(buf);
+            if (!(app.opt.tool = strdup(optarg))) {
+                fprintf(stderr,"malloc failed\n");
                 exit(1);
             }
             break;
@@ -1500,7 +1703,7 @@ handle_generic_test_arg(const char arg, const char *value, char **argv, int argc
 }
 
 static BWLBoolean
-handle_throughput_test_arg(const char arg, const char *value) {
+handle_throughput_test_arg(const char arg, const char *long_name, const char *value) {
     BWLBoolean handled = True;
     char *tstr;
 
@@ -1612,7 +1815,7 @@ handle_throughput_test_arg(const char arg, const char *value) {
 }
 
 static BWLBoolean
-handle_ping_test_arg(const char arg, const char *value) {
+handle_ping_test_arg(const char arg, const char *long_name, const char *value) {
     BWLBoolean handled = True;
     char *tstr;
 
@@ -1646,6 +1849,16 @@ handle_ping_test_arg(const char arg, const char *value) {
                 exit(1);
             }
             break;
+        case 'E':
+            app.opt.allow_one_sided = True;
+            break;
+        case 'Q':
+            app.opt.service_port = strtoul(optarg,&tstr,10);
+            if(*tstr != '\0') {
+                usage("Invalid value. (-t) positive integer expected");
+                exit(1);
+            }
+            break;
         default:
             handled = False;
     }
@@ -1653,7 +1866,7 @@ handle_ping_test_arg(const char arg, const char *value) {
 }
 
 static BWLBoolean
-handle_traceroute_test_arg(const char arg, const char *value) {
+handle_traceroute_test_arg(const char arg, const char *long_name, const char *value) {
     BWLBoolean handled = True;
     char *tstr;
 
@@ -1680,6 +1893,9 @@ handle_traceroute_test_arg(const char arg, const char *value) {
                 exit(1);
             }
             break;
+        case 'E':
+            app.opt.allow_one_sided = True;
+            break;
         case 'M':
             app.opt.traceroute_last_ttl = strtoul(optarg,&tstr,10);
             if(*tstr != '\0') {
@@ -1693,6 +1909,43 @@ handle_traceroute_test_arg(const char arg, const char *value) {
     return handled;
 }
 
+static void
+build_arguments(char *buf, struct option *options) {
+    int i, buf_i, opt_i;
+
+    buf_i = 0;
+    opt_i = 0;
+
+    // build the option string/list
+    for(i = 0; bwctl_options[i].test_types != BWL_TEST_UNDEFINED; i++) {
+        if (!(bwctl_options[i].test_types & test_type))
+            continue;
+
+        // Add the long option
+        options[opt_i] = bwctl_options[i].option;
+        opt_i++;
+
+        if (bwctl_options[i].option.val == 0)
+            continue;
+
+        // Add the short option
+        buf[buf_i] = (char) bwctl_options[i].option.val;
+        buf_i++;
+
+        if (bwctl_options[i].option.has_arg == required_argument) {
+            buf[buf_i] = ':';
+            buf_i++;
+        }
+    }
+    buf[buf_i] = '\0';
+    options[opt_i].name =  NULL;
+    options[opt_i].has_arg = 0;
+    options[opt_i].flag    = 0;
+    options[opt_i].val     = 0;
+
+    return;
+}
+
 int
 main(
         int    argc,
@@ -1702,34 +1955,28 @@ main(
     int                 lockfd;
     char                lockpath[PATH_MAX];
     int                 rc;
-    BWLErrSeverity      err_ret = BWLErrOK;
     I2ErrLogSyslogAttr  syslogattr;
 
     int                 fname_len;
     int                 ch;
-    char                *tstr = NULL;
-    char                optstring[128];
+    int                 opt_index;
+    char                opt_str[128];
+    struct option       opt_list[128];
     static char         *conn_opts = "46a:AB:";
     static char         *misc_opts = "hV?";
     static char         *out_opts = "d:e:f:I:L:n:pqrR:vxy:";
     static char         *generic_test_opts = "c:s:T:o";
     static char         *throughput_test_opts = "b:D:i:l:O:P:S:t:uw:W:";
-    static char         *ping_test_opts = "N:l:t:i:";
-    static char         *traceroute_test_opts = "F:M:l:t:";
+    static char         *ping_test_opts = "N:l:t:i:EQ:";
+    static char         *traceroute_test_opts = "F:M:l:t:i:E";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
     char                dirpath[PATH_MAX];
     struct flock        flk;
-    BWLNum64            latest64;
-    uint32_t           p,q;
-    I2RandomSource      rsrc;
-    BWLTimeStamp        wake;
-    BWLTimeStamp        base;
     struct sigaction    act;
     sigset_t            sigs;
-    int                 exit_val=0;
     double              syncfuzz;
-    BWLTestSideData     test_results_side;
+    BWLTestSpec         test_options;
 
     /*
      * Make sure the signal mask is UNBLOCKING TERM/HUP/INT
@@ -1752,7 +1999,7 @@ main(
     }
 
     if (strcmp(progname, "bwping") == 0) {
-        test_type = BWL_TEST_PING;
+        test_type = BWL_TEST_LATENCY;
     }
     else if (strcmp(progname, "bwtraceroute") == 0) {
         test_type = BWL_TEST_TRACEROUTE;
@@ -1761,22 +2008,6 @@ main(
         test_type = BWL_TEST_THROUGHPUT;
     }
 
-    /* Create options strings for this program. */
-    strcpy(optstring, conn_opts);
-    strcat(optstring, generic_test_opts);
-    if (test_type == BWL_TEST_THROUGHPUT) {
-        strcat(optstring, throughput_test_opts);
-    }
-    else if (test_type == BWL_TEST_TRACEROUTE) {
-        strcat(optstring, traceroute_test_opts);
-    }
-    else if (test_type == BWL_TEST_PING) {
-        strcat(optstring, ping_test_opts);
-    }
-    strcat(optstring, out_opts);
-    strcat(optstring, misc_opts);
-
-
     syslogattr.ident = progname;
     syslogattr.logopt = 0;
     syslogattr.facility = LOG_USER;
@@ -1784,12 +2015,17 @@ main(
     syslogattr.line_info = I2MSG;
 
     /* Set default options. */
+
     memset(&app,0,sizeof(app));
     app.opt.timeDuration = 10;
     app.opt.randomizeStart = 10;
 
-    memset(&first,0,sizeof(first));
-    memset(&second,0,sizeof(second));
+    memset(&sessions[0],0,sizeof(sessions[0]));
+    memset(&sessions[1],0,sizeof(sessions[1]));
+    memset(&test_options,0,sizeof(test_options));
+
+    app.receiver_sess = &(sessions[0]);
+    app.sender_sess   = &(sessions[1]);
 
     /*
      * Fix getopt if the brain-dead GNU version is being used.
@@ -1799,33 +2035,44 @@ main(
         exit(1);
     }
 
-    opterr = 0;
-    while((ch = getopt(argc, argv, optstring)) != -1){
-        int fac;
-        switch (ch) {
-            case 'e':
-                if((fac = I2ErrLogSyslogFacility(optarg)) == -1){
-                    fprintf(stderr,
-                            "Invalid -e: Syslog facility \"%s\" unknown\n",
-                            optarg);
-                    exit(1);
-                }
-                syslogattr.facility = fac;
-                break;
-            case 'v':
-                app.opt.verbose++;
-                /* fallthrough */
-            case 'r':
-                syslogattr.logopt |= LOG_PERROR;
-                break;
-            case 'q':
-                app.opt.quiet = True;
-                break;
-            default:
-                break;
+    // build the option string/list
+    build_arguments(opt_str, opt_list);
+
+    opt_index = 0;
+    while((ch = getopt_long(argc, argv, opt_str, opt_list, &opt_index)) != -1){
+        const char *long_name = opt_list[opt_index].name;
+
+        if (handle_conn_arg(ch, long_name, optarg, argv, argc))
+            continue;
+
+        if (handle_output_arg(ch, long_name, optarg))
+            continue;
+
+        if (handle_misc_arg(ch, long_name, optarg))
+            continue;
+
+        if (handle_scheduling_arg(ch, long_name, optarg))
+            continue;
+
+        if (handle_generic_test_arg(ch, long_name, optarg, argv, argc))
+            continue;
+
+        if (test_type == BWL_TEST_THROUGHPUT) {
+            if (handle_throughput_test_arg(ch, long_name, optarg))
+                continue;
         }
+        else if (test_type == BWL_TEST_TRACEROUTE) {
+            if (handle_traceroute_test_arg(ch, long_name, optarg))
+                continue;
+        }
+        else if (test_type == BWL_TEST_LATENCY) {
+            if (handle_ping_test_arg(ch, long_name, optarg))
+                continue;
+        }
+        
+        usage("");
+        exit(0);
     }
-    opterr = optreset = optind = 1;
 
     if(app.opt.verbose && app.opt.quiet){
         fprintf(stderr,"Ignoring -q (-v specified)\n");
@@ -1840,7 +2087,7 @@ main(
     }
 
     /*
-     * Start an error logging session for reporing errors to the
+     * Start an error logging session for reporting errors to the
      * standard error
      */
     eh = I2ErrOpen(progname, I2ErrLogSyslog, &syslogattr, NULL, NULL);
@@ -1863,7 +2110,7 @@ main(
                     BWLInterruptIO, &ip_intr,
                     BWLGetAESKey,   getclientkey,
                     NULL))){
-        I2ErrLog(eh, "Unable to initialize BWL library.");
+        fprintf(stderr, "Unable to initialize BWL library.\n");
         exit(1);
     }
 
@@ -1876,69 +2123,95 @@ main(
         exit(1);
     }
 
-    while ((ch = getopt(argc, argv, optstring)) != -1){
-        if (handle_conn_arg(ch, optarg, argv, argc))
-            continue;
-
-        if (handle_output_arg(ch, optarg))
-            continue;
-
-        if (handle_misc_arg(ch, optarg))
-            continue;
-
-        if (handle_scheduling_arg(ch, optarg))
-            continue;
-
-        if (handle_generic_test_arg(ch, optarg, argv, argc))
-            continue;
-
-        if (test_type == BWL_TEST_THROUGHPUT) {
-            if (handle_throughput_test_arg(ch, optarg))
-                continue;
-        }
-        else if (test_type == BWL_TEST_TRACEROUTE) {
-            if (handle_traceroute_test_arg(ch, optarg))
-                continue;
-        }
-        else if (test_type == BWL_TEST_PING) {
-            if (handle_ping_test_arg(ch, optarg))
-                continue;
-        }
-        
-        /* handled in prior getopt call... */
-        if (ch == 'e' || ch == 'r' || ch == 'v' || ch == 'q')
-            continue;
-
-        usage("");
-        exit(0);
-    }
-    argc -= optind;
-    argv += optind;
-
-    if(argc != 0){
+    if(optind < argc) {
         usage("");
         exit(1);
     }
 
-    if(!app.receiver_sess && !app.sender_sess){
+    if(!app.receiver_sess->host && !app.sender_sess->host){
         usage("At least one of -s or -c must be specified.");
         exit(1);
     }
-    if(!app.receiver_sess){
-        app.receiver_sess = (app.sender_sess == &first)?&second:&first;
+
+    if(!app.receiver_sess->host) {
+        if (!(app.receiver_sess->host = strdup("localhost"))){
+            I2ErrLog(eh,"malloc:%M");
+            exit(1);
+        }
+
+        app.receiver_sess->is_local = True;
     }
-    if(!app.sender_sess){
-        app.sender_sess = (app.receiver_sess == &first)?&second:&first;
+
+    if(!app.sender_sess->host) {
+        if (!(app.sender_sess->host = strdup("localhost"))){
+            I2ErrLog(eh,"malloc:%M");
+            exit(1);
+        }
+
+        app.sender_sess->is_local = True;
     }
+
+    app.sender_sess->is_receiver = False;
+    app.receiver_sess->is_receiver = True;
+
     if (app.opt.flip_direction) {
         app.receiver_sess->is_client = True;
+        app.client_sess = app.receiver_sess;
+        app.server_sess = app.sender_sess;
     }
     else {
         app.sender_sess->is_client = True;
+        app.client_sess = app.sender_sess;
+        app.server_sess = app.receiver_sess;
     }
 
-    if(!second_set && !(second.host = strdup("localhost"))){
-        I2ErrLog(eh,"malloc:%M");
+    if (app.opt.tool) {
+        if( (app.opt.tool_id = BWLToolGetID(ctx,app.opt.tool)) ==
+                BWL_TOOL_UNDEFINED){
+            char    buf[BWL_MAX_TOOLNAME + 20];
+            snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",app.opt.tool);
+            usage(buf);
+            exit(1);
+        }
+
+        if( test_type != BWLToolGetTestTypesByID(ctx,app.opt.tool_id) ) {
+            char buf[1024];
+            char *proper_cmd_name;
+            if (BWLToolGetTestTypesByID(ctx,app.opt.tool_id) == BWL_TEST_TRACEROUTE) {
+                proper_cmd_name = "bwtraceroute";
+            }
+            else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_id) == BWL_TEST_LATENCY) {
+                proper_cmd_name = "bwping";
+            }
+            else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_id) == BWL_TEST_THROUGHPUT) {
+                proper_cmd_name = "bwctl";
+            }
+            snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s. Tool should be used with %s",app.opt.tool, proper_cmd_name);
+            usage(buf);
+            exit(1);
+        }
+    }
+
+
+    if (app.opt.allow_one_sided &&
+          app.opt.flip_direction) {
+        I2ErrLog(eh,"-E and -o flags cannot be used together.");
+        exit(1);
+    }
+
+    app.client_sess->require_endpoint = True;
+    if (app.opt.allow_one_sided) {
+        if (app.opt.verbose) {
+            I2ErrLog(eh,"Server side does not require an endpoint");
+        }
+        app.server_sess->require_endpoint = False;
+    }
+    else {
+        app.server_sess->require_endpoint = True;
+    }
+
+    if (!app.opt.allow_one_sided && app.opt.service_port) {
+        I2ErrLog(eh,"-Q flag can only be used with -E flag");
         exit(1);
     }
 
@@ -1946,7 +2219,7 @@ main(
      * -4/-6 sanity check
      */
     if(app.opt.v4only && app.opt.v6only){
-        I2ErrLog(eh,"-4 and -6 flags cannot be set together.");
+        I2ErrLog(eh,"-4 and -6 flags cannot be used together.");
         exit(1);
     }
 
@@ -1985,8 +2258,6 @@ main(
     }else{
         dirpath[0] = '\0';
     }
-    file_offset = strlen(dirpath);
-    ext_offset = file_offset + BWL_TSTAMPCHARS;
 
     /*
      * Possibly over-ride .bwctlrc allow_unsync and sync_fuzz options
@@ -2041,7 +2312,7 @@ main(
         }
 
     }
-    else if (test_type == BWL_TEST_PING) {
+    else if (test_type == BWL_TEST_LATENCY) {
         if(!app.opt.ping_packet_count){
             app.opt.ping_packet_count = 10;
         }
@@ -2063,11 +2334,11 @@ main(
         if(app.opt.udpTest && !app.opt.bandWidth){
             app.opt.bandWidth = DEF_UDP_RATE;
         }
+    }
 
-        if(app.opt.bandWidth && !app.opt.udpTest){
-            usage("-b: only valid with -u");
-            exit(1);
-        }
+    if( !(rsrc = I2RandomSourceInit(eh,I2RAND_DEV,NULL))){
+        I2ErrLog(eh,"Failed to initialize Random Numbers");
+        exit(1);
     }
 
     /*
@@ -2078,11 +2349,6 @@ main(
         if(app.opt.seriesInterval <
                 (app.opt.timeDuration + SETUP_ESTIMATE)){
             usage("-I: interval too small relative to -t");
-            exit(1);
-        }
-
-        if( !(rsrc = I2RandomSourceInit(eh,I2RAND_DEV,NULL))){
-            I2ErrLog(eh,"Failed to initialize Random Numbers");
             exit(1);
         }
 
@@ -2118,7 +2384,6 @@ main(
             app.opt.nIntervals = 1;
         }
     }
-    latest64 = BWLULongToNum64(app.opt.seriesWindow);
 
     /*
      * Lock the directory for bwctl if it is in printfiles mode.
@@ -2157,71 +2422,54 @@ main(
      */
     /* skip req_time/latest_time - set per/test */
     if(app.opt.tool_id){
-        first.tspec.tool_id = second.tspec.tool_id = app.opt.tool_id;
+        test_options.tool_id = app.opt.tool_id;
     }
     else{
-        first.tspec.tool_id = second.tspec.tool_id = BWL_TOOL_UNDEFINED;
+        test_options.tool_id = BWL_TOOL_UNDEFINED;
     }
-    first.tspec.verbose = app.opt.verbose > 0 ? 1 : 0;
+    test_options.verbose = app.opt.verbose > 0 ? 1 : 0;
 
-    first.tspec.duration = app.opt.timeDuration;
+    test_options.duration = app.opt.timeDuration;
 
-    first.tspec.outformat = app.opt.outformat;
+    test_options.outformat = app.opt.outformat;
 
     if (app.opt.flip_direction) {
-        first.tspec.server_sends = True;
+        test_options.server_sends = True;
     }
 
     if (test_type == BWL_TEST_TRACEROUTE) {
-        first.tspec.traceroute_udp = app.opt.traceroute_udp;
-        first.tspec.traceroute_packet_size = app.opt.traceroute_packet_size;
-        first.tspec.traceroute_first_ttl = app.opt.traceroute_first_ttl;
-        first.tspec.traceroute_last_ttl = app.opt.traceroute_last_ttl;
+        test_options.traceroute_udp = app.opt.traceroute_udp;
+        test_options.traceroute_packet_size = app.opt.traceroute_packet_size;
+        test_options.traceroute_first_ttl = app.opt.traceroute_first_ttl;
+        test_options.traceroute_last_ttl = app.opt.traceroute_last_ttl;
     }
-    else if (test_type == BWL_TEST_PING) {
-        first.tspec.ping_packet_count = app.opt.ping_packet_count;
-        first.tspec.ping_packet_size = app.opt.ping_packet_size;
-        first.tspec.ping_packet_ttl = app.opt.ping_packet_ttl;
-        first.tspec.ping_interpacket_time = app.opt.ping_interpacket_time;
-    }
-    else {
-        first.tspec.udp = app.opt.udpTest;
-        first.tspec.tos = app.opt.tos;
-        if(first.tspec.udp){
-            first.tspec.bandwidth = app.opt.bandWidth;
-        }
-        first.tspec.window_size = (uint32_t)app.opt.windowSize;
-        if(app.opt.windowSize != (I2numT)first.tspec.window_size){
-            first.tspec.window_size = (uint32_t)~0;
-            I2ErrLog(eh,"Requested -w/-W option (%llu) too large: max supported size: (%llu)",app.opt.windowSize,first.tspec.window_size);
-            exit(1);
-        }
-        first.tspec.dynamic_window_size = app.opt.dynamicWindowSize;
-        first.tspec.len_buffer = (uint32_t)app.opt.lenBuffer;
-        if(app.opt.lenBuffer != (I2numT)first.tspec.len_buffer){
-            first.tspec.len_buffer = (uint32_t)~0;
-            I2ErrLog(eh,"Requested -l option (%llu) too large: max supported size: (%llu)",app.opt.lenBuffer,first.tspec.len_buffer);
-            exit(1);
-        }
-        first.tspec.report_interval = app.opt.reportInterval;
-        first.tspec.units = app.opt.units;
-        first.tspec.omit = app.opt.timeOmit;
-        first.tspec.parallel_streams = app.opt.parallel;
-    }
-
-     /*
-     * copy first tspec to second record.
-     */
-    memcpy(&second.tspec,&first.tspec,sizeof(first.tspec));
-
-    /* sess[0] == server, sess[1] == client */
-    if (app.opt.flip_direction) {
-        sess[0] = app.sender_sess;
-        sess[1] = app.receiver_sess;
+    else if (test_type == BWL_TEST_LATENCY) {
+        test_options.ping_packet_count = app.opt.ping_packet_count;
+        test_options.ping_packet_size = app.opt.ping_packet_size;
+        test_options.ping_packet_ttl = app.opt.ping_packet_ttl;
+        test_options.ping_interpacket_time = app.opt.ping_interpacket_time;
     }
     else {
-        sess[0] = app.receiver_sess;
-        sess[1] = app.sender_sess;
+        test_options.udp = app.opt.udpTest;
+        test_options.tos = app.opt.tos;
+        test_options.bandwidth = app.opt.bandWidth;
+        test_options.window_size = (uint32_t)app.opt.windowSize;
+        if(app.opt.windowSize != (I2numT)test_options.window_size){
+            test_options.window_size = (uint32_t)~0;
+            I2ErrLog(eh,"Requested -w/-W option (%llu) too large: max supported size: (%llu)",app.opt.windowSize,test_options.window_size);
+            exit(1);
+        }
+        test_options.dynamic_window_size = app.opt.dynamicWindowSize;
+        test_options.len_buffer = (uint32_t)app.opt.lenBuffer;
+        if(app.opt.lenBuffer != (I2numT)test_options.len_buffer){
+            test_options.len_buffer = (uint32_t)~0;
+            I2ErrLog(eh,"Requested -l option (%llu) too large: max supported size: (%llu)",app.opt.lenBuffer,test_options.len_buffer);
+            exit(1);
+        }
+        test_options.report_interval = app.opt.reportInterval;
+        test_options.units = app.opt.units;
+        test_options.omit = app.opt.timeOmit;
+        test_options.parallel_streams = app.opt.parallel;
     }
 
     /*
@@ -2248,86 +2496,16 @@ main(
         exit(1);
     }
 
-    /*
-     * Initialize wake time to current time. If this is a single test,
-     * this will indicate an immediate test. If seriesInterval is set,
-     * this time will be adjusted to spread start times out.
-     */
-    if(!BWLGetTimeStamp(ctx,&wake)){
-        I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-        exit(1);
-    }
+    while(app.opt.continuous || app.opt.nIntervals) {
 
-    if(app.opt.seriesInterval && app.opt.randomizeStart){
-        /*
-         * sleep for rand([0,1])*sessionInterval
-         * (spread out start time)
-         * Use a random 32 bit integer and normalize.
-         */
-        uint32_t    r;
+        app.opt.nIntervals--;
 
-        if(I2RandomBytes(rsrc,(uint8_t*)&r,4) != 0){
-            exit(1);
-        }
-
-        wake.tstamp = BWLNum64Add(wake.tstamp,
-                BWLDoubleToNum64((double)app.opt.seriesInterval*r/0xffffffff));
-    }
-    base = wake;
-
-    do{
-        BWLTimeStamp        req_time;
-        BWLTimeStamp        currtime;
-        BWLNum64            endtime;
-        BWLNum64            rel;
-        uint16_t            dataport;
-        BWLBoolean          stop;
-        char                recvfname[PATH_MAX];
-        char                sendfname[PATH_MAX];
-        FILE                *servfp = NULL;
-        FILE                *clientfp = NULL;
-        struct timespec     tspec;
-	    BWLToolAvailability common_tools;
-
-AGAIN:
         if(sig_check()){
             exit_val = 1;
             goto finish;
         }
 
-        /*
-         * Get current time.
-         */
-        if(!BWLGetTimeStamp(ctx,&currtime)){
-            I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-            exit_val = 1;
-            goto finish;
-        }
-
-        /*
-         * Check if the test should run yet...
-         */
-        if(BWLNum64Cmp(wake.tstamp,currtime.tstamp) > 0){
-
-            rel = BWLNum64Sub(wake.tstamp,currtime.tstamp);
-            BWLNum64ToTimespec(&tspec,rel);
-
-            /*
-             * If the next period is more than 3 seconds from
-             * now, say something.
-             */
-            if(!app.opt.quiet && (tspec.tv_sec > 3)){
-                BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
-                        "%lu seconds until next testing period",
-                        tspec.tv_sec);
-            }
-
-            if((nanosleep(&tspec,NULL) == 0) || (errno == EINTR)){
-                goto AGAIN;
-            }
-
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"nanosleep(): %M");
-            exit_val = 1;
+        if (!wait_for_next_test()) {
             goto finish;
         }
 
@@ -2343,766 +2521,78 @@ AGAIN:
             }
         }
 
-        /* Open first (definitely remote) connection */
-        if(!first.cntrl){
-            /*
-             * pick auth to use
-             */
-            current_auth = ((first.auth)?first.auth:app.def_auth);
-            first.cntrl = BWLControlOpen(ctx,
-                    I2AddrByNode(eh,app.opt.srcaddr),
-                    I2AddrByNode(eh,first.host),
-                    ((current_auth)?
-                     current_auth->auth_mode:BWL_MODE_OPEN),
-                    ((current_auth)?
-                     current_auth->identity:NULL),
-                    NULL,&first.avail_tools,&err_ret);
-            if(sig_check()){
-                exit_val = 1;
+        if (!establish_connection(app.receiver_sess, app.sender_sess)) {
+            if (exit_val)
                 goto finish;
-            }
-
-            /* TODO: deal with temporary failures? */
-            if(!first.cntrl){
-                I2ErrLog(eh,"Unable to connect to %s",first.host);
+            else
                 goto next_test;
-            }
-
-            /*
-             * Get sockfd for later 'select' usage
-             */
-            first.sockfd = BWLControlFD(first.cntrl);
-
-            if (second_set){
-                /*
-                 * When doing a third-party connection, the hostname needs to
-                 * be passed to the underlying functions, not the IP address.
-                 */
-                if(first.is_client){
-                    first.tspec.client = second.tspec.client =
-                        I2AddrByNode(eh, first.host);
-                }
-                else{
-                    first.tspec.server = second.tspec.server =
-                        I2AddrByNode(eh, first.host);
-                }
-            }
-            else {
-                /*
-                 * Need to get a clean I2Addr that is basically a copy of
-                 * the control connection (but unconnected).
-                 */
-                if(first.is_client){
-                    first.tspec.client = second.tspec.client =
-                        BWLAddrByControl(first.cntrl);
-                }
-                else{
-                    first.tspec.server = second.tspec.server =
-                        BWLAddrByControl(first.cntrl);
-                }
-            }
         }
 
-        /* Open second connection */
-        if(!second.cntrl){
-            /*
-             * If second host specified, contact it.
-             *
-             * If second host not specified, attempt to
-             * contact localhost server. If can, then
-             * use it. If not, and if "client_test"
-             * option is set, then fork of a client tool.
-             */
-            current_auth = ((second.auth)?second.auth:app.def_auth);
-            fake_daemon = False;
-            if(second_set){
-                /*
-                 * If second host is specified, a bwctld
-                 * process is required.
-                 */
-                second.cntrl = BWLControlOpen(ctx,
-                        I2AddrByNode(eh,app.opt.srcaddr),
-                        I2AddrByNode(eh,second.host),
-                        ((current_auth)?
-                         current_auth->auth_mode:
-                         BWL_MODE_OPEN),
-                        ((current_auth)?
-                         current_auth->identity:NULL),
-                        NULL,&second.avail_tools,&err_ret);
-            }else{
-                /*
-                 * Try "localhost" server.
-                 */
-                I2Addr laddr = BWLAddrByLocalControl(first.cntrl);
-                if(!I2AddrSetPort(laddr,(uint16_t)BWL_CONTROL_SERVICE_NUMBER)){
-                    if(laddr) I2AddrFree(laddr);
-                    I2ErrLog(eh,"Unable to determine address for local server");
-                    exit_val = 1;
-                    goto finish;
-                }
-
-                second.cntrl = BWLControlOpen(ctx,NULL,laddr,
-                        ((current_auth)?current_auth->auth_mode:BWL_MODE_OPEN),
-                        ((current_auth)?current_auth->identity:NULL),
-                        NULL,&second.avail_tools,&err_ret);
-                if(!second.cntrl && (errno==ECONNREFUSED)){
-                    /*
-                     * No local daemon - spawn something.
-                     */
-                    I2ErrLog(eh,
-                            "Unable to contact a local bwctld: Spawning local tool controller");
-
-                    if( !(second.cntrl =
-                                SpawnLocalServer(ctx,&second.avail_tools))){
-                        I2ErrLog(eh,"Unable to spawn local tool controller");
-                    }
-                    fake_daemon = True;
-                }
-            }
-
-            /* TODO: deal with temporary failures */
-            if(sig_check()){
-                exit_val = 1;
+        if (!establish_connection(app.sender_sess, app.receiver_sess)) {
+            if (exit_val)
                 goto finish;
-            }
-            if(!second.cntrl){
-                I2ErrLog(eh,"Unable to connect to %s",second.host);
+            else
                 goto next_test;
-            }
-
-            /*
-             * Get sockfd for later 'select' usage
-             */
-            second.sockfd = BWLControlFD(second.cntrl);
-
-            if(fake_daemon){
-                if(second.is_client){
-                    first.tspec.client = second.tspec.client =
-                        BWLAddrByLocalControl(first.cntrl);
-                }
-                else{
-                    first.tspec.server = second.tspec.server =
-                        BWLAddrByLocalControl(first.cntrl);
-                }
-            }
-            else if (second_set){
-                if(second.is_client){
-                    first.tspec.client = second.tspec.client =
-                        I2AddrByNode(eh, second.host);
-                }
-                else{
-                    first.tspec.server = second.tspec.server =
-                        I2AddrByNode(eh, second.host);
-                }
-            }
-            else {
-                if(second.is_client){
-                    first.tspec.client = second.tspec.client =
-                        BWLAddrByControl(second.cntrl);
-                }
-                else{
-                    first.tspec.server = second.tspec.server =
-                        BWLAddrByControl(second.cntrl);
-                }
-            }
         }
 
-        if (!fake_daemon) {
-            if (I2AddrIsLoopback(BWLControlRemoteAddr(first.cntrl)) && !I2AddrIsLoopback(BWLControlRemoteAddr(second.cntrl))) {
-                char        buf[NI_MAXHOST+1];
-                size_t      buflen = sizeof(buf);
-                I2Addr new_addr = BWLAddrByLocalControl(second.cntrl);
-
-                if (first.is_client) {
-                    I2AddrFree(first.tspec.client);
-                    first.tspec.client = second.tspec.client = new_addr;
-                }
-                else{
-                    I2AddrFree(first.tspec.server);
-                    first.tspec.server = second.tspec.server = new_addr;
-                }
-
-                I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", first.host, I2AddrNodeName(new_addr,buf,&buflen));
-            }
-            else if (!I2AddrIsLoopback(BWLControlRemoteAddr(first.cntrl)) && I2AddrIsLoopback(BWLControlRemoteAddr(second.cntrl))) {
-                char        buf[NI_MAXHOST+1];
-                size_t      buflen = sizeof(buf);
-                I2Addr new_addr = BWLAddrByLocalControl(first.cntrl);
-
-                if (second.is_client) {
-                    I2AddrFree(first.tspec.client);
-                     first.tspec.client = second.tspec.client = new_addr;
-                }
-                else{
-                    I2AddrFree(first.tspec.server);
-                    first.tspec.server = second.tspec.server = new_addr;
-                }
-
-                I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s.", second.host, I2AddrNodeName(new_addr,buf,&buflen));
-            }
-        }
-
-        if(!first.tspec.client){
-            I2ErrLog(eh,"Unable to determine client address: %M");
-            exit_val = 1;
-            goto finish;
-        }
-        if(!first.tspec.server){
-            I2ErrLog(eh,"Unable to determine recv address: %M");
-            exit_val = 1;
-            goto finish;
-        }
-
-        /* Pick tool */
-
-        /* Check if the requested tool is available at both servers. */
-        common_tools = first.avail_tools & second.avail_tools;
-        if(!common_tools){
-            I2ErrLog(eh,"No tools in common");
-            exit_val = 1;
-            goto finish;
-        }
-
-        if ( first.tspec.tool_id == BWL_TOOL_UNDEFINED ) {
-            uint32_t tid;
-            const char *req_name;
-
-            /* Pick the first common tool to use. */
-            tid = 1;
-            for ( tid = 1; ; tid <<= 1 ) {
-                if (BWLToolGetTestTypesByID(ctx, tid) != test_type)
-                    continue;
-
-                if ( tid & common_tools )
-                    break;
-            }
-            first.tspec.tool_id = tid;
-            second.tspec.tool_id = tid;
-            req_name = BWLToolGetNameByID( ctx, first.tspec.tool_id );
-            I2ErrLog( eh, "Using tool: %s", req_name );
-        } else if ( ! ( first.tspec.tool_id & common_tools ) ) {
-            char unknown[BWL_MAX_TOOLNAME];
-            const char *req_name;
-
-            req_name = BWLToolGetNameByID( ctx, first.tspec.tool_id );
-            if ( ! req_name ) {
-                sprintf( unknown, "unknown(id=%x)", first.tspec.tool_id );
-                req_name = unknown;
-            }
-            I2ErrLog( eh, "Requested tool \"%s\" not supported by both servers. See the \'-T\' option", req_name );
-            I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
-            exit_val = 1;
-            goto finish;
-        }
-
-        /*
-         * Query first time error and update round-trip bound.
-         * The time will be over-written later, we really only
-         * care about the errest portion of the timestamp. The
-         * error estimate is used to hold the "fuzz" time around
-         * when the test can start. This "fuzz" includes the NTP
-         * error as well as the rtt to the "other" server.
-         *
-         * Using the "second" tspec to hold the error of "first"
-         * because I need to pass the error estimate for the
-         * "opposite" end of the test on in the request.
-         */
-        if(BWLControlTimeCheck(first.cntrl,&second.tspec.req_time) !=
-                BWLErrOK){
-            I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
-            CloseSessions();
-            goto next_test;
-        }
-        if(sig_check()){
-            exit_val = 1;
-            goto finish;
-        }
-        first.rttbound = BWLGetRTTBound(first.cntrl);
-        rel = BWLNum64Add(first.rttbound,
-                BWLGetTimeStampError(&second.tspec.req_time));
-        BWLSetTimeStampError(&second.tspec.req_time,rel);
-
-        /*
-         * Query second time error and update round-trip bound.
-         * The time will be over-written later, we really only
-         * care about the errest portion of the timestamp. The
-         * error estimate is used to hold the "fuzz" time around
-         * when the test can start. This "fuzz" includes the NTP
-         * error as well as the rtt to the "other" server.
-         *
-         * Using the "first" tspec to hold the error of "second"
-         * because I need to pass the error estimate for the
-         * "opposite" end of the test on in the request.
-         */
-        if(BWLControlTimeCheck(second.cntrl,&first.tspec.req_time) !=
-                BWLErrOK){
-            I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
-            CloseSessions();
-            goto next_test;
-        }
-        if(sig_check()){
-            exit_val = 1;
-            goto finish;
-        }
-        second.rttbound = BWLGetRTTBound(second.cntrl);
-        rel = BWLNum64Add(second.rttbound,
-                BWLGetTimeStampError(&first.tspec.req_time));
-        BWLSetTimeStampError(&first.tspec.req_time,rel);
-
-        /*
-         * Now caluculate how far into the future the test
-         * request should be made for.
-         *
-         * The protocol messages that must happen are:
-         * client -> first    request
-         * client -> first    start
-         * client -> second    request
-         * client -> second    start
-         * Then, there are 3 round trips between the server systems
-         * for a peer connection setup. In the worst case, the
-         * server two server rtt can be estimated as the sum of
-         * the client->first and client->second rtts. So, we would
-         * expect the amount of time required to setup a test to
-         * be (rtt(c->first)+rtt(c->second))x7.
-         *
-         */
-        /* initialize */
-        req_time.tstamp = BWLNum64Mult(
-                BWLNum64Add(first.rttbound,second.rttbound),
-                BWLULongToNum64(7));
-        /*
-         * Add a small constant value to this... Will need to experiment
-         * to find the right number. All the previous values were
-         * basically estimates for how long it would take to make
-         * the request. This is roughly the time into the future we
-         * want to make the request for above and beyond the amount
-         * of time it takes to actually make the request. It should
-         * be short enough to not be annoying for interactive use, but
-         * long enough to account for most random delays.
-         * (The larger this value is, the more likely the two servers
-         * will be able to accomidate the request initially - the
-         * smaller, the more TestRequests will probably need to be made.
-         * )
-         * TODO: Come up with a *real* value here!
-         * (Actually - make this an option?)
-         */
-        req_time.tstamp = BWLNum64Add(req_time.tstamp,BWLDoubleToNum64(.25));
-
-        /*
-         * Wait this long after a test should be complete before
-         * poking the servers. It should be long enough to allow
-         * the servers to declare the session complete before the
-         * client does.
-         * (Again 1 seconds is just a guess - I'm making a lot of
-         * guesses due to time constrants. If these values cause
-         * problems they can be revisited.)
-         */
-        fuzz64 = BWLNum64Add(BWLULongToNum64(1),
-                BWLNum64Max(first.rttbound,second.rttbound));
-
-        /*
-         * req_time currently holds a reasonable relative amount of
-         * time from 'now' that a test could be held. Get the current
-         * time and add to make that an 'absolute' value.
-         */
-        if(!BWLGetTimeStamp(ctx,&currtime)){
-            I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-            exit_val = 1;
-            goto finish;
-        }
-        req_time.tstamp = BWLNum64Add(req_time.tstamp,
-                currtime.tstamp);
-
-        /*
-         * Get a reservation:
-         *     s[0] == server
-         *     s[1] == client
-         *     initialize req_time/latest_time
-         *     keep querying each server in turn until satisfied,
-         *     or denied.
-         */
-        sess[0]->tspec.latest_time = sess[1]->tspec.latest_time =
-            BWLNum64Add(req_time.tstamp, latest64);
-        sess[1]->tspec.req_time.tstamp = zero64;
-        memset(sid,0,sizeof(sid));
-        recv_port = 0;
-        if(app.opt.verbose > 1){
-            I2ErrLog(eh,"CurrTime: %24.10f",
-                    BWLNum64ToDouble(currtime.tstamp));
-            I2ErrLog(eh,"ReqInitial: %24.10f",
-                    BWLNum64ToDouble(req_time.tstamp));
-            I2ErrLog(eh,"LastTime: %24.10f",
-                    BWLNum64ToDouble(sess[0]->tspec.latest_time));
-        }
-
-        p=0;q=0;
-        while(1){
-
-            /*
-             * p is the current connection we are talking to,
-             * q is the "other" one.
-             * (Logic is started so the first time through this loop
-             * we are talking to the "server". That is required
-             * to initialize the sid and recv_port.)
-             */
-            p = q++;
-            q %= 2;
-
-            sess[p]->tspec.req_time.tstamp = req_time.tstamp;
-
-            /*
-             * Make the request
-             */
-            if(!BWLSessionRequest(sess[p]->cntrl,sess[p]->is_client,
-                        &sess[p]->tspec,&req_time,&recv_port,
-                        sid,&err_ret)){
-                /*
-                 * Session was not accepted.
-                 */
-
-                /*
-                 * If control connection is still ok...
-                 */
-                if(err_ret == BWLErrOK){
-
-                    /*
-                     * If server is busy, req_time will
-                     * be non-zero.
-                     */
-                    if(req_time.tstamp != zero64){
-                        /*
-                         * Request is ok, but server
-                         * is too busy. Skip this test
-                         * and proceed to next session
-                         * interval.
-                         */
-                        I2ErrLog(eh,"SessionRequest: %s busy. (Try -L flag)",
-                                sess[p]->host);
-                    }
-                    else{
-                        /*
-                         * Don't know why it was
-                         * denied.
-                         */
-                        I2ErrLog(eh,"SessionRequest: Denied by %s",
-                                sess[p]->host);
-                    }
-
-                    /*
-                     * Reset other servers reservation if
-                     * needed.
-                     */
-                    if(sess[q]->tspec.req_time.tstamp !=
-                            zero64){
-                        /*
-                         * zero request time is a
-                         * reservation cancellation.
-                         */
-                        sess[q]->tspec.req_time.tstamp =
-                            zero64;
-                        if(!BWLSessionRequest(
-                                    sess[q]->cntrl,
-                                    sess[q]->is_client,
-                                    &sess[q]->tspec,
-                                    &req_time,
-                                    &recv_port,
-                                    sid,
-                                    &err_ret)){
-                            goto sess_req_err;
-                            CloseSessions();
-                            I2ErrLog(eh,
-                                    "SessionRequest Control connection failure for \'%s\'. Skipping.",
-                                    sess[q]->host);
-                        }
-                    }
-                }
-                else{
-sess_req_err:
-                    /*
-                     * Control connection failed, close
-                     * it down.
-                     */
-                    CloseSessions();
-                    I2ErrLog(eh,
-                            "SessionRequest Control connection failure for \'%s\'. Skipping...",
-                            sess[p]->host);
-                }
+        if (!negotiate_test(app.server_sess, app.client_sess, &test_options)) {
+            if (exit_val)
+                goto finish;
+            else
                 goto next_test;
-            }
-            if(sig_check()){
-                exit_val = 1;
-                goto finish;
-            }
-            if(app.opt.verbose > 1){
-                I2ErrLog(eh,"Res(%s): %24.10f",sess[p]->host,
-                        BWLNum64ToDouble(req_time.tstamp));
-            }
+        }
 
-            if(BWLNum64Cmp(req_time.tstamp,
-                        sess[p]->tspec.latest_time) > 0){
-                I2ErrLog(eh,
-                        "SessionRequest: \'%s\' returned bad reservation time!",
-                        sess[p]->host);
-                CloseSessions();
+        if (!setup_results_storage(app.server_sess)) {
+            if (exit_val)
+                goto finish;
+            else
                 goto next_test;
-            }
-
-            /* save new time for res */
-            sess[p]->tspec.req_time.tstamp = req_time.tstamp;
-
-            /*
-             * Do we have a meeting?
-             */
-            if(BWLNum64Cmp(sess[p]->tspec.req_time.tstamp,
-                        sess[q]->tspec.req_time.tstamp) == 0){
-                break;
-            }
         }
 
-        /* Start server */
-        if(BWLStartSession(sess[0]->cntrl,&dataport) < BWLErrINFO){
-            I2ErrLog(eh,"BWLStartSessions: Failed");
-            CloseSessions();
-            goto next_test;
-        }
-        if(sig_check()){
-            exit_val = 1;
-            goto finish;
-        }
-
-        /* Start client */
-        if(BWLStartSession(sess[1]->cntrl,&dataport) < BWLErrINFO){
-            I2ErrLog(eh,"BWLStartSessions: Failed");
-            CloseSessions();
-            goto next_test;
-        }
-        if(sig_check()){
-            exit_val = 1;
-            goto finish;
-        }
-
-        endtime = first.tspec.req_time.tstamp;
-        endtime = BWLNum64Add(endtime,
-                BWLULongToNum64(first.tspec.duration));
-        endtime = BWLNum64Add(endtime,
-                BWLULongToNum64(first.tspec.omit));
-        endtime = BWLNum64Add(endtime,fuzz64);
-        stop = False;
-
-        test_results_side = BWLToolGetResultsSideByID(ctx, sess[0]->tspec.tool_id, &(sess[0]->tspec));
-
-        /*
-         * Setup files for the results.
-         */
-        if(app.opt.printfiles){
-            strcpy(recvfname,dirpath);
-            sprintf(&recvfname[file_offset],BWL_TSTAMPFMT,
-                    first.tspec.req_time.tstamp);
-            strcpy(sendfname,recvfname);
-
-            if(test_results_side == BWL_DATA_ON_SERVER ||
-               app.opt.bidirectional_results){
-                sprintf(&recvfname[ext_offset],"%s%s",
-                        RECV_EXT,BWL_FILE_EXT);
-                if(!(servfp = fopen(recvfname,"w"))){
-                    I2ErrLog(eh,"Unable to write to %s %M",
-                            recvfname);
-                    exit_val = 1;
-                    goto finish;
-                }
-            }
-
-            if(test_results_side == BWL_DATA_ON_CLIENT ||
-               app.opt.bidirectional_results){
-                sprintf(&sendfname[ext_offset],"%s%s",
-                        SEND_EXT,BWL_FILE_EXT);
-                if(!(clientfp = fopen(sendfname,"w"))){
-                    I2ErrLog(eh,"Unable to write to %s %M",
-                            sendfname);
-                    exit_val = 1;
-                    goto finish;
-                }
-            }
-        }
-        else{
-            if(test_results_side == BWL_DATA_ON_SERVER ||
-                app.opt.bidirectional_results){
-                servfp = stdout;
-            }
-            if(test_results_side == BWL_DATA_ON_CLIENT ||
-                app.opt.bidirectional_results){
-                clientfp = stdout;
-            }
-        }
-
-        /*
-         *     WaitForStopSessions
-         */
-        if(!BWLGetTimeStamp(ctx,&currtime)){
-            I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-            exit_val = 1;
-            goto finish;
-        }
-        rel = BWLNum64Sub(endtime,currtime.tstamp);
-        BWLNum64ToTimespec(&tspec,rel);
-        if(!app.opt.quiet){
-            BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
-                    "%lu seconds until test results available",
-                    tspec.tv_sec);
-        }
-        while(1){
-            struct timeval  reltime;
-            fd_set          readfds,exceptfds;
-
-            if(!BWLGetTimeStamp(ctx,&currtime)){
-                I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-                exit_val = 1;
+        if (!setup_results_storage(app.client_sess)) {
+            if (exit_val)
                 goto finish;
-            }
-            if(stop || (BWLNum64Cmp(currtime.tstamp,endtime) > 0)){
-                BWLAcceptType   atype;
-
-                /*
-                 * Send TerminateSession
-                 */
-                if(servfp == stdout){
-                    if (app.opt.flip_direction) {
-                        fprintf(stdout,"\nSENDER START\n");
-                    }
-                    else {
-                        fprintf(stdout,"\nRECEIVER START\n");
-                    }
-                }
-                atype = BWL_CNTRL_ACCEPT;
-                if( (err_ret =BWLEndSession(sess[0]->cntrl,
-                                &ip_intr,&atype,servfp))
-                        < BWLErrWARNING){
-                    CloseSessions();
-                    goto next_test;
-                }
-                if(servfp && (atype != BWL_CNTRL_ACCEPT)){
-                    fprintf(servfp,"bwctl: Session ended abnormally\n");
-                }
-                if(servfp == stdout){
-                    if (app.opt.flip_direction) {
-                        fprintf(stdout,"\nSENDER END\n");
-                    }
-                    else {
-                        fprintf(stdout,"\nRECEIVER END\n");
-                    }
-                }
-                else if (servfp) {
-                    fclose(servfp);
-                    servfp = NULL;
-                    fprintf(stdout,"%s\n",recvfname);
-                }
-                fflush(stdout);
-
-                if(sig_check()){
-                    exit_val = 1;
-                    goto finish;
-                }
-
-                /* client session */
-                if(clientfp == stdout){
-                    if (app.opt.flip_direction) {
-                        fprintf(stdout,"\nRECEIVER START\n");
-                    }
-                    else {
-                        fprintf(stdout,"\nSENDER START\n");
-                    }
-                }
-                atype = BWL_CNTRL_ACCEPT;
-                if( (err_ret = BWLEndSession(sess[1]->cntrl,
-                                &ip_intr,&atype,clientfp))
-                        < BWLErrWARNING){
-                    CloseSessions();
-                    goto next_test;
-                }
-                if(clientfp && (atype != BWL_CNTRL_ACCEPT)){
-                    fprintf(clientfp,"bwctl: Session ended abnormally\n");
-                }
-                if(clientfp == stdout){
-                    if (app.opt.flip_direction) {
-                        fprintf(stdout,"\nRECEIVER END\n");
-                    }
-                    else {
-                        fprintf(stdout,"\nSENDER END\n");
-                    }
-                }
-                else if(clientfp){
-                    fclose(clientfp);
-                    clientfp = NULL;
-                    fprintf(stdout,"%s\n",sendfname);
-                }
-                fflush(stdout);
-
-                if(sig_check()){
-                    exit_val = 1;
-                    goto finish;
-                }
-
-                break;
-            }
-
-            BWLNum64ToTimeval(&reltime,
-                    BWLNum64Sub(endtime,currtime.tstamp));
-            FD_ZERO(&readfds);
-            FD_SET(first.sockfd,&readfds);
-            FD_SET(second.sockfd,&readfds);
-            exceptfds = readfds;
-
-            /*
-             * Wait until endtime, or until one of the sockets
-             * is readable.
-             */
-            rc = select(MAX(first.sockfd,second.sockfd)+1,
-                    &readfds,NULL,&exceptfds,&reltime);
-
-            if(rc > 0){
-                /*
-                 * One of the sockets is readable. Don't
-                 * really care which one. Set stop so
-                 * EndSessions happens above.
-                 * (Basically, any i/o on either of these
-                 * sockets indicates it is time to terminate
-                 * the test.)
-                 */
-                stop = True;
-                if(app.opt.verbose > 1){
-                    if(FD_ISSET(first.sockfd,&readfds)){
-                        I2ErrLogP(eh,0,
-                                "Local readable!");
-                    }
-                    if(FD_ISSET(second.sockfd,&readfds)){
-                        I2ErrLogP(eh,0,
-                                "Remote readable!");
-                    }
-                }
-            }
-            if(sig_check()){
-                exit_val = 1;
-                goto finish;
-            }
+            else
+                goto next_test;
         }
 
-        /*
-         * Skip to here on failure for now. Will perhaps add
-         * intermediate retries until some threshold of the
-         * current period.
-         */
+        if (!start_testing(app.server_sess, app.client_sess)) {
+            if (exit_val)
+                goto finish;
+            else
+                goto next_test;
+        }
+
+        if (!wait_for_results()) {
+            if (exit_val)
+                goto finish;
+            else
+                goto next_test;
+        }
+
+        if (!display_results(app.server_sess)) {
+            if (exit_val)
+                goto finish;
+            else
+                goto next_test;
+        }
+
+        if (!display_results(app.client_sess)) {
+            if (exit_val)
+                goto finish;
+            else
+                goto next_test;
+        }
+
 next_test:
-        if(app.opt.continuous || --app.opt.nIntervals){
-            wake.tstamp = next_start(rsrc,app.opt.seriesInterval,
-                    app.opt.randomizeStart,&base.tstamp);
-        }
-
         if(sig_check()){
             exit_val = 1;
             goto finish;
         }
 
-    }while(app.opt.continuous || app.opt.nIntervals);
+        // Close the session between runs
+        CloseSessions();
+    }
 
 finish:
     CloseSessions();
@@ -3111,4 +2601,832 @@ finish:
     ctx = NULL;
 
     exit(exit_val);
+}
+
+static BWLBoolean
+establish_connection(ipsess_t current_sess, ipsess_t other_sess)
+{
+    BWLErrSeverity err_ret = BWLErrOK;
+    I2Addr local_address;
+    char *host_address;
+    char temp[1024];
+
+    if (current_sess->cntrl) {
+        return True;
+    }
+
+    if (current_sess->is_local) {
+        current_sess->fake_daemon = False;
+        host_address = BWLDiscoverSourceAddr(ctx, other_sess->host, temp, sizeof(temp));
+        if (!host_address) {
+            I2ErrLog(eh,
+                    "Couldn't figure out address to use to connect to %s", other_sess->host);
+            goto error_exit;
+        }
+    }
+    else {
+        host_address = current_sess->host;
+    }
+
+    current_auth = ((current_sess->auth)?current_sess->auth:app.def_auth);
+    /*
+     * If the session host is specified, a bwctld
+     * process is required.
+     */
+    current_sess->cntrl = BWLControlOpen(ctx,
+            app.opt.srcaddr,
+            I2AddrByNode(eh,host_address),
+            ((current_auth)?
+             current_auth->auth_mode:
+             BWL_MODE_OPEN),
+            ((current_auth)?
+             current_auth->identity:NULL),
+            NULL,&current_sess->avail_tools,&err_ret);
+
+    if(sig_check()){
+        exit_val = 1;
+        goto error_exit;
+    }
+
+    if(!current_sess->cntrl) {
+        if(current_sess->is_local){
+            /*
+             * No local daemon - spawn something.
+             */
+            I2ErrLog(eh,
+                    "Unable to contact a local bwctld: Spawning local tool controller");
+
+            if( !(current_sess->cntrl =
+                        spawn_local_server(ctx,current_sess,&current_sess->avail_tools))){
+                I2ErrLog(eh,"Unable to spawn local tool controller");
+            }
+        }
+        else if (current_sess->require_endpoint == False) {
+            I2ErrLog(eh,"Spawning endpoint to handle remote side");
+            if( !(current_sess->cntrl =
+                        spawn_local_server(ctx,current_sess,&current_sess->avail_tools))){
+                I2ErrLog(eh,"Unable to spawn local tool controller");
+            }
+        }
+    }
+
+    if(sig_check()){
+        exit_val = 1;
+        goto error_exit;
+    }
+
+    if(!current_sess->cntrl){
+        I2ErrLog(eh,"Unable to connect to %s",host_address);
+        goto error_exit;
+    }
+
+    /*
+     * Get sockfd for later 'select' usage
+     */
+    current_sess->sockfd = BWLControlFD(current_sess->cntrl);
+
+    /*
+     * Query time error and update round-trip bound.
+     */
+    if(BWLControlTimeCheck(current_sess->cntrl,&current_sess->host_time) !=
+            BWLErrOK){
+        I2ErrLogP(eh,errno,"BWLControlTimeCheck: %M");
+        goto error_exit;
+    }
+
+    if(sig_check()){
+        exit_val = 1;
+        goto error_exit;
+    }
+
+    current_sess->rttbound = BWLGetRTTBound(current_sess->cntrl);
+    BWLSetTimeStampError(&current_sess->host_time,
+                            BWLNum64Add(current_sess->rttbound,
+                                  BWLGetTimeStampError(&current_sess->host_time)
+                            )
+                        );
+
+
+    return True;
+
+error_exit:
+    return False;
+}
+
+static I2Addr
+get_session_address(ipsess_t current_sess, ipsess_t other_sess) {
+    I2Addr   address;
+    char    *session_address;
+    char    buf[1024];
+    char    buflen;;
+
+
+    if (current_sess->is_local) {
+        session_address = BWLDiscoverSourceAddr(ctx, other_sess->host, buf, sizeof(buf));
+    }
+    else {
+        session_address = current_sess->host;
+    }
+
+    if (!session_address) {
+        I2ErrLog(eh,"Couldn't figure out address to use to connect to %s as %s.",
+                    other_sess->host,
+                    (current_sess->is_client?"client":"server"));
+        return NULL;
+    }
+
+    address = I2AddrByNode(eh, session_address);
+
+    if (app.opt.verbose) {
+        I2ErrLog(eh,"Resolving %s", session_address);
+    }
+
+    if (BWLAddrIsLoopback(address)) {
+        I2Addr new_addr = BWLAddrByLocalControl(other_sess->cntrl);
+
+        session_address = BWLAddrNodeName(ctx, new_addr,buf,sizeof(buf), 0);
+
+        if (I2AddrPort(address)) {
+            char buf2[1024];
+
+            snprintf(buf2, sizeof(buf2), "[%s]:%d", session_address, I2AddrPort(address));
+            strncpy(buf, buf2, sizeof(buf));
+        }
+
+        I2AddrFree(address);
+
+        I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s instead.", current_sess->host, session_address);
+
+        address = I2AddrByNode(eh, session_address);
+    }
+
+    if (app.opt.verbose) {
+        I2ErrLog(eh,"Current session is %s, using %s as the address for %s.",
+                (current_sess->is_local?"local":"remote"),
+                session_address,
+                (current_sess->is_client?"client":"server"));
+    }
+
+    return address;
+}
+
+static BWLBoolean
+negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_options)
+{
+    BWLToolAvailability common_tools;
+    BWLNum64            time_offset;
+    BWLTimeStamp        req_time;
+    BWLErrSeverity      err_ret = BWLErrOK;
+    uint16_t            recv_port = 0;
+    BWLSID              sid;
+
+    test_options->client = get_session_address(client_sess, server_sess);
+    test_options->server = get_session_address(server_sess, client_sess);
+
+    if(!test_options->client){
+        I2ErrLog(eh,"Unable to determine client address: %M");
+        exit_val = 1;
+        goto error_exit;
+    }
+
+    if(!test_options->server){
+        I2ErrLog(eh,"Unable to determine server address: %M");
+        exit_val = 1;
+        goto error_exit;
+    }
+
+    /* Pick tool */
+
+    /* Check if the requested tool is available at both servers. */
+    common_tools = BWLToolGetCommonTools(ctx, client_sess->avail_tools,
+                                         server_sess->avail_tools, test_type);
+    if(!common_tools){
+        I2ErrLog(eh,"No tools in common");
+        goto error_exit;
+    }
+
+    I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
+
+    if ( test_options->tool_id == BWL_TOOL_UNDEFINED ) {
+        uint32_t tid;
+        const char *req_name;
+
+        /* Pick the first common tool to use. */
+        tid = 1;
+        for ( tid = 1; tid > 0; tid <<= 1 ) {
+            if ( tid & common_tools )
+                break;
+        }
+        test_options->tool_id = tid;
+        req_name = BWLToolGetNameByID( ctx, test_options->tool_id );
+        I2ErrLog( eh, "Using tool: %s", req_name );
+    } else if ( ! ( test_options->tool_id & common_tools ) ) {
+        char unknown[BWL_MAX_TOOLNAME];
+        const char *req_name;
+
+        req_name = BWLToolGetNameByID( ctx, test_options->tool_id );
+        if ( ! req_name ) {
+            sprintf( unknown, "unknown(id=%x)", test_options->tool_id );
+            req_name = unknown;
+        }
+        I2ErrLog( eh, "Requested tool \"%s\" not supported by both servers. See the \'-T\' option", req_name );
+        I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
+        goto error_exit;
+    }
+
+    /*
+     * Now caluculate how far into the future the test
+     * request should be made for.
+     *
+     * The protocol messages that must happen are:
+     * client -> first    request
+     * client -> first    start
+     * client -> second    request
+     * client -> second    start
+     * Then, there are 3 round trips between the server systems
+     * for a peer connection setup. In the worst case, the
+     * server two server rtt can be estimated as the sum of
+     * the client->first and client->second rtts. So, we would
+     * expect the amount of time required to setup a test to
+     * be (rtt(c->first)+rtt(c->second))x7.
+     *
+     */
+    /* initialize */
+    time_offset = BWLNum64Mult(
+            BWLNum64Add(client_sess->rttbound,server_sess->rttbound),
+            BWLULongToNum64(7));
+    /*
+     * Add a small constant value to this... Will need to experiment
+     * to find the right number. All the previous values were
+     * basically estimates for how long it would take to make
+     * the request. This is roughly the time into the future we
+     * want to make the request for above and beyond the amount
+     * of time it takes to actually make the request. It should
+     * be short enough to not be annoying for interactive use, but
+     * long enough to account for most random delays.
+     * (The larger this value is, the more likely the two servers
+     * will be able to accomidate the request initially - the
+     * smaller, the more TestRequests will probably need to be made.
+     * )
+     * TODO: Come up with a *real* value here!
+     * (Actually - make this an option?)
+     */
+    time_offset = BWLNum64Add(time_offset,BWLDoubleToNum64(.25));
+
+    /*
+     * Wait this long after a test should be complete before
+     * poking the servers. It should be long enough to allow
+     * the servers to declare the session complete before the
+     * client does.
+     * (Again 1 seconds is just a guess - I'm making a lot of
+     * guesses due to time constrants. If these values cause
+     * problems they can be revisited.)
+     */
+    fuzz64 = BWLNum64Add(BWLULongToNum64(1),
+            BWLNum64Max(client_sess->rttbound,server_sess->rttbound));
+
+    /*
+     * req_time currently holds a reasonable relative amount of
+     * time from 'now' that a test could be held. Get the current
+     * time and add to make that an 'absolute' value.
+     */
+    if(!BWLGetTimeStamp(ctx,&req_time)){
+        I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+        goto error_exit;
+    }
+    req_time.tstamp = BWLNum64Add(req_time.tstamp,
+            time_offset);
+
+    /*
+     * Get a reservation:
+     *     s[0] == server
+     *     s[1] == client
+     *     initialize req_time/latest_time
+     *     keep querying each server in turn until satisfied,
+     *     or denied.
+     */
+    test_options->latest_time = BWLNum64Add(req_time.tstamp, BWLULongToNum64(app.opt.seriesWindow));
+
+    memset(sid,0,sizeof(sid));
+    if(app.opt.verbose > 1){
+        I2ErrLog(eh,"Requested Time: %lf",
+                BWLNum64ToTimestampDouble(req_time.tstamp));
+        I2ErrLog(eh,"Latest Acceptable Time: %lf",
+                BWLNum64ToTimestampDouble(test_options->latest_time));
+    }
+
+    memcpy(&client_sess->tspec,test_options,sizeof(*test_options));
+    memcpy(&server_sess->tspec,test_options,sizeof(*test_options));
+
+    if (server_sess->fake_daemon && !server_sess->is_local) {
+        client_sess->tspec.no_server_endpoint = True;
+        server_sess->tspec.no_server_endpoint = True;
+    }
+
+    /*
+     * Since we are doing a third party test, the "time" we're sending to each
+     * host theoretically corresponds to the time from the other host, meaning
+     * the timestamp error we send with each request should be the timestamp
+     * error from the other host.
+     */
+    BWLSetTimeStampError(&client_sess->tspec.req_time, BWLGetTimeStampError(&server_sess->host_time));
+    BWLSetTimeStampError(&server_sess->tspec.req_time, BWLGetTimeStampError(&client_sess->host_time));
+
+    client_sess->session_requested = False;
+    server_sess->session_requested = False;
+
+    do {
+        server_sess->tspec.req_time.tstamp = req_time.tstamp;
+
+        if (!negotiate_individual_test(server_sess, sid, &req_time, &recv_port)) {
+            goto error_exit;
+        }
+
+        if(sig_check()){
+            exit_val = 1;
+            goto error_exit;
+        }
+
+        if(app.opt.verbose){
+          I2ErrLog(eh, "Server \'%s\' accepted test request at time %lf", server_sess->host, BWLNum64ToTimestampDouble(req_time.tstamp));
+        }
+
+        if (!client_sess->session_requested ||
+            BWLNum64Cmp(client_sess->tspec.req_time.tstamp, server_sess->tspec.req_time.tstamp) != 0) {
+
+            client_sess->tspec.req_time.tstamp = req_time.tstamp;
+
+            // override the service port in the case we're doing a one-sided
+            // test, and the -Q flag has been specified.
+            if (client_sess->tspec.no_server_endpoint && app.opt.service_port) {
+                recv_port = app.opt.service_port;
+            }
+
+            if (!negotiate_individual_test(client_sess, sid, &req_time, &recv_port)) {
+                goto error_exit;
+            }
+
+            if(sig_check()){
+                exit_val = 1;
+                goto error_exit;
+            }
+
+            if(app.opt.verbose){
+                I2ErrLog(eh, "Client \'%s\' accepted test request at time %lf", client_sess->host, BWLNum64ToTimestampDouble(req_time.tstamp));
+            }
+        }
+
+        if (app.opt.verbose) {
+            if (BWLNum64Cmp(client_sess->tspec.req_time.tstamp, server_sess->tspec.req_time.tstamp) != 0) {
+                I2ErrLog(eh, "Tests accepted at different times re-requesting test with new time");
+            }
+        }
+    }
+    while (BWLNum64Cmp(client_sess->tspec.req_time.tstamp, server_sess->tspec.req_time.tstamp) != 0);
+
+    return True;
+
+error_exit:
+    if (client_sess->session_requested) {
+        I2ErrLog(eh, "Cancelling requested test for %s", client_sess->host);
+        client_sess->tspec.req_time.tstamp = zero64;
+        if(!BWLSessionRequest(
+                            client_sess->cntrl,
+                            client_sess->is_client,
+                            &client_sess->tspec,
+                            &req_time,
+                            &recv_port,
+                            sid,
+                            &err_ret)){
+                    I2ErrLog(eh,
+                            "Problem cancelling requested test for \'%s\'",
+                            client_sess->host);
+        }
+    }
+
+    if (server_sess->session_requested) {
+        I2ErrLog(eh, "Cancelling requested test for %s", server_sess->host);
+        server_sess->tspec.req_time.tstamp = zero64;
+        if(!BWLSessionRequest(
+                            server_sess->cntrl,
+                            server_sess->is_client,
+                            &server_sess->tspec,
+                            &req_time,
+                            &recv_port,
+                            sid,
+                            &err_ret)){
+                    I2ErrLog(eh,
+                            "Problem cancelling requested test for \'%s\'",
+                            server_sess->host);
+        }
+    }
+
+    return False;
+}
+
+static BWLBoolean
+negotiate_individual_test(ipsess_t sess, BWLSID sid, BWLTimeStamp *req_time, uint16_t *recv_port)
+{
+    BWLErrSeverity      err_ret = BWLErrOK;
+
+    // presume that the request time is right
+
+    /*
+     * Make the request
+     */
+    if(!BWLSessionRequest(sess->cntrl,sess->is_client,
+                &sess->tspec,req_time,recv_port,
+                sid,&err_ret)){
+        /*
+         * Session was not accepted.
+         */
+
+        /*
+         * If control connection is not ok...
+         */
+        if(err_ret != BWLErrOK){
+            I2ErrLog(eh,
+                        "SessionRequest Control connection failure for \'%s\'. Skipping...",
+                        sess->host);
+        }
+        else if(req_time->tstamp != zero64){
+            /*
+             * Request is ok, but server
+             * is too busy. Skip this test
+             * and proceed to next session
+             * interval.
+             */
+            I2ErrLog(eh,"SessionRequest: %s busy. (Try -L flag)",
+                    sess->host);
+        }
+        else{
+            /*
+             * Don't know why it was
+             * denied.
+             */
+            I2ErrLog(eh,"SessionRequest: Denied by %s",
+                    sess->host);
+        }
+
+        goto error_exit;
+    }
+
+    if(sig_check()){
+        exit_val = 1;
+        goto error_exit;
+    }
+
+    sess->session_requested = True;
+
+    if(app.opt.verbose > 1){
+        I2ErrLog(eh,"Reservation(%s): %lf",sess->host,
+                BWLNum64ToTimestampDouble(req_time->tstamp));
+    }
+
+    if(BWLNum64Cmp(req_time->tstamp,
+                    sess->tspec.latest_time) > 0){
+        I2ErrLog(eh,
+                "SessionRequest: \'%s\' returned bad reservation time",
+                sess->host);
+        goto error_exit;
+    }
+
+    /* save new time for res */
+    sess->tspec.req_time.tstamp = req_time->tstamp;
+
+    return True;
+
+error_exit:
+    return False;
+}
+
+static BWLBoolean
+wait_for_next_test()
+{
+    BWLTimeStamp currtime;
+    BWLTimeStamp wake;
+    static BWLBoolean is_first = True;
+
+    /*
+     * Initialize wake time to current time. If this is a single test,
+     * this will indicate an immediate test. If seriesInterval is set,
+     * this time will be adjusted to spread start times out.
+     */
+    if(!BWLGetTimeStamp(ctx,&wake)){
+        I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+        goto error_exit;
+    }
+
+    if (is_first) {
+        if(app.opt.seriesInterval && app.opt.randomizeStart){
+            /*
+             * sleep for rand([0,1])*sessionInterval
+             * (spread out start time)
+             * Use a random 32 bit integer and normalize.
+             */
+            uint32_t    r;
+
+            if(I2RandomBytes(rsrc,(uint8_t*)&r,4) != 0){
+                exit(1);
+            }
+
+            wake.tstamp = BWLNum64Add(wake.tstamp,
+                    BWLDoubleToNum64((double)app.opt.seriesInterval*r/0xffffffff));
+        }
+    }
+    else {
+        BWLTimeStamp base = wake;
+
+        if(app.opt.continuous || app.opt.nIntervals){
+            wake.tstamp = next_start(rsrc,app.opt.seriesInterval,
+                    app.opt.randomizeStart,&base.tstamp);
+        }
+    }
+
+    /*
+     * Check if the test should run yet...
+     */
+    if(!BWLGetTimeStamp(ctx,&currtime)){
+        I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+        goto error_exit;
+    }
+
+    while (BWLNum64Cmp(wake.tstamp,currtime.tstamp) > 0){
+        struct timespec     tspec;
+
+        BWLNum64ToTimespec(&tspec,BWLNum64Sub(wake.tstamp,currtime.tstamp));
+
+        /*
+         * If the next period is more than 3 seconds from
+         * now, say something.
+         */
+        if(!app.opt.quiet && (tspec.tv_sec > 3)){
+            BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+                    "%lu seconds until next testing period",
+                    tspec.tv_sec);
+        }
+
+        if (nanosleep(&tspec,NULL) < 0 && errno != EINTR) {
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"nanosleep(): %M");
+            goto error_exit;
+        }
+
+        if(sig_check()){
+            exit_val = 1;
+            goto error_exit;
+        }
+
+        if(!BWLGetTimeStamp(ctx,&currtime)){
+            I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+            goto error_exit;
+        }
+    }
+
+    is_first = False;
+
+    return True;
+
+error_exit:
+    return False;
+}
+
+static BWLBoolean 
+start_testing(ipsess_t server_sess, ipsess_t client_sess)
+{
+    uint16_t dataport;
+
+    /* Start server */
+    if(BWLStartSession(server_sess->cntrl,&dataport) < BWLErrINFO){
+        I2ErrLog(eh,"BWLStartSessions: Failed");
+        goto error_exit;
+    }
+    if(sig_check()){
+        exit_val = 1;
+        goto error_exit;
+    }
+
+    /* Start client */
+    if(BWLStartSession(client_sess->cntrl,&dataport) < BWLErrINFO){
+        I2ErrLog(eh,"BWLStartSessions: Failed");
+        goto error_exit;
+    }
+    if(sig_check()){
+        exit_val = 1;
+        goto error_exit;
+    }
+
+    return True;
+
+error_exit:
+    return False;
+}
+
+static BWLBoolean 
+wait_for_results()
+{
+    struct timeval      reltime;
+    BWLNum64            endtime;
+    BWLTimeStamp        currtime;
+    BWLAcceptType       atype;
+    BWLErrSeverity      err_ret;
+
+    endtime = app.client_sess->tspec.req_time.tstamp;
+    endtime = BWLNum64Add(endtime,
+            BWLULongToNum64(app.client_sess->tspec.duration));
+    endtime = BWLNum64Add(endtime,
+            BWLULongToNum64(app.client_sess->tspec.omit));
+    endtime = BWLNum64Add(endtime,fuzz64);
+
+    /*
+     *     WaitForStopSessions
+     */
+    if(!BWLGetTimeStamp(ctx,&currtime)){
+        I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+        goto error_exit;
+    }
+
+    BWLNum64ToTimeval(&reltime,
+            BWLNum64Sub(endtime,currtime.tstamp));
+    if(!app.opt.quiet){
+        BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+                "%lu seconds until test results available",
+                reltime.tv_sec);
+    }
+
+    while(1){
+        int      rc;
+        fd_set   readfds,exceptfds;
+
+        FD_ZERO(&readfds);
+        FD_SET(app.client_sess->sockfd,&readfds);
+        FD_SET(app.server_sess->sockfd,&readfds);
+        exceptfds = readfds;
+
+        /*
+         * Wait until endtime, or until one of the sockets
+         * is readable.
+         */
+        rc = select(MAX(app.client_sess->sockfd,app.server_sess->sockfd)+1,
+                &readfds,NULL,&exceptfds,&reltime);
+
+        if(!BWLGetTimeStamp(ctx,&currtime)){
+            I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+            goto error_exit;
+        }
+
+        BWLNum64ToTimeval(&reltime,
+                BWLNum64Sub(endtime,currtime.tstamp));
+
+        if(sig_check()){
+            exit_val = 1;
+            goto error_exit;
+        }
+
+        if(rc > 0 || BWLNum64Cmp(currtime.tstamp, endtime) >= 0){
+            /*
+             * Either One of the sockets is readable. (Any i/o on either of
+             * these sockets indicates it is time to terminate the test.) Or
+             * we've run out of time.
+             */
+            break;
+        }
+    }
+
+    /*
+     * Send TerminateSession
+     */
+
+    atype = BWL_CNTRL_ACCEPT;
+
+    if( (err_ret =BWLEndSession(app.client_sess->cntrl,
+                    &ip_intr,&atype,app.client_sess->results_fp))
+            < BWLErrWARNING){
+        goto error_exit;
+    }
+
+    if(atype != BWL_CNTRL_ACCEPT && app.client_sess->results_fp){
+        fprintf(app.client_sess->results_fp,"bwctl: Session ended abnormally\n");
+    }
+
+    app.client_sess->session_requested = False;
+
+    if(sig_check()){
+        exit_val = 1;
+        goto error_exit;
+    }
+
+    atype = BWL_CNTRL_ACCEPT;
+
+    if( (err_ret =BWLEndSession(app.server_sess->cntrl,
+                    &ip_intr,&atype,app.server_sess->results_fp))
+            < BWLErrWARNING){
+        goto error_exit;
+    }
+
+    if(atype != BWL_CNTRL_ACCEPT && app.server_sess->results_fp){
+        fprintf(app.server_sess->results_fp,"bwctl: Session ended abnormally\n");
+    }
+
+    app.server_sess->session_requested = False;
+
+    return True;
+
+error_exit:
+    return False;
+}
+
+static BWLBoolean 
+setup_results_storage(ipsess_t sess)
+{
+    BWLTestSideData test_results_side = BWLToolGetResultsSideByID(ctx, sess->tspec.tool_id, &(sess->tspec));
+
+    if (app.opt.bidirectional_results ||
+        (test_results_side == BWL_DATA_ON_CLIENT && sess->is_client) ||
+        (test_results_side == BWL_DATA_ON_SERVER && !sess->is_client)) {
+
+       if(app.opt.printfiles){
+            char dirpath[PATH_MAX];
+            uint32_t file_offset,ext_offset;
+
+            strcpy(dirpath,app.opt.savedir);
+            strcat(dirpath,BWL_PATH_SEPARATOR);
+
+            file_offset = strlen(dirpath);
+            ext_offset = file_offset + BWL_TSTAMPCHARS;
+
+            strcpy(sess->results_fname,dirpath);
+            sprintf(&sess->results_fname[file_offset],BWL_TSTAMPFMT,
+                    sess->tspec.req_time.tstamp);
+
+            if(sess->is_receiver) {
+                sprintf(&sess->results_fname[ext_offset],"%s%s",
+                        RECV_EXT,BWL_FILE_EXT);
+            }
+            else {
+                sprintf(&sess->results_fname[ext_offset],"%s%s",
+                        SEND_EXT,BWL_FILE_EXT);
+            }
+
+            if(!(sess->results_fp = fopen(sess->results_fname,"w"))){
+                I2ErrLog(eh,"Unable to write to %s %M",
+                        sess->results_fname);
+                goto error_exit;
+            }
+        }
+        else {
+            if(!(sess->results_fp = tmpfile())){
+                I2ErrLog(eh,"Unable to create temporary file");
+                goto error_exit;
+            }
+        }
+    }
+
+    return True;
+
+error_exit:
+    return False;
+}
+
+static BWLBoolean 
+display_results(ipsess_t sess)
+{
+    if (sess->results_fp) {
+        if(app.opt.printfiles){
+            fflush(sess->results_fp);
+            fclose(sess->results_fp);
+            fprintf(stdout,"%s\n",sess->results_fname);
+            fflush(stdout);
+        }
+        else {
+            char tmpbuf[1024];
+            int n;
+
+            if (sess->is_receiver) {
+                fprintf(stdout,"\nRECEIVER START\n");
+            }
+            else {
+                fprintf(stdout,"\nSENDER START\n");
+            }
+
+            fseek(sess->results_fp, SEEK_SET, 0);
+            while((n = fread(tmpbuf, 1, sizeof(tmpbuf), sess->results_fp)) > 0) {
+                fwrite(tmpbuf, n, 1, stdout);
+            }
+
+            if (sess->is_receiver) {
+                fprintf(stdout,"\nRECEIVER END\n");
+            }
+            else {
+                fprintf(stdout,"\nSENDER END\n");
+            }
+        }
+
+        sess->results_fp = NULL;
+        sess->results_fname[0] = '\0';
+    }
+
+    return True;
+
+error_exit:
+    return False;
 }

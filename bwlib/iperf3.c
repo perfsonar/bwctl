@@ -210,15 +210,8 @@ Iperf3PreRunTest(
         }
     }
 
-    /*
-     * TODO: Fix this to allow UDP Iperf3 tests.
-     */
-    if(tsess->test_spec.udp){
-        fprintf(stderr,
-            "bwctl: There are some known problems with using iperf3 and UDP. Only run this if you're debugging the problem.\n");
-        BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
-            "Iperf3PreRunTest: There are some known problems with using Iperf3 and UDP. Only run this if you're debugging the problem.\n");
-    }
+    // set zero-copy to get better performance
+    iperf_set_test_zerocopy( iperf_test, 1 );
 
     if(tsess->conf_server){
         iperf_set_test_role( iperf_test, 's' ); // specify server side

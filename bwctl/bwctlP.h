@@ -91,8 +91,20 @@ typedef struct{
     BWLNum64	        rttbound;
     BWLNum64	        waketime;
     BWLBoolean	        is_client;
+    BWLBoolean	        is_local;
+    BWLBoolean	        is_receiver;
+    BWLBoolean	        session_requested;
     BWLTestSpec         tspec;
     BWLToolAvailability avail_tools;
+    FILE                *results_fp;
+    char                results_fname[PATH_MAX];
+    BWLTimeStamp        host_time;
+
+    BWLBoolean          require_endpoint;
+
+    BWLBoolean          fake_daemon;
+    BWLBoolean          fake_daemon_pid;
+    BWLBoolean          fake_daemon_pipe;
 } ipsess_trec, *ipsess_t;
 
 /*
@@ -111,6 +123,9 @@ typedef	struct {
         I2Boolean	childwait;	/* -W */
 #endif
 
+        I2Boolean	log_to_stderr;  /* -r */
+        int             log_facility;   /* -e */
+
         I2Boolean	v4only;	        /* -4 */
         I2Boolean	v6only;	        /* -6 */
         I2Boolean	printfiles;	/* -p */
@@ -123,6 +138,9 @@ typedef	struct {
         uint32_t	seriesWindow;	/* -L (seconds) */
 
         I2Boolean	flip_direction; /* -o */
+        I2Boolean       allow_one_sided; /* -E */
+
+        uint16_t        service_port;    /* -E */
 
         /* Determines how far into
          * a seriesInterval a test
@@ -141,6 +159,8 @@ typedef	struct {
         I2Boolean	version;	/* -V */
         I2Boolean	verbose;	/* -v */
         I2Boolean	quiet;		/* -q */
+
+        char            *tool;
         uint32_t	tool_id;   	/* -T iperf/nuttcp/thrulay */
 
         uint32_t	reportInterval;	/* -i (seconds) */
@@ -174,9 +194,11 @@ typedef	struct {
         uint8_t         traceroute_last_ttl;
     } opt;
 
-
     ipsess_t		receiver_sess;
     ipsess_t		sender_sess;
+
+    ipsess_t		server_sess;
+    ipsess_t		client_sess;
 
     aeskey_auth		def_auth;
 
@@ -191,5 +213,12 @@ typedef	struct {
     char		fname[PATH_MAX];
 
 } ipapp_trec, *ipapp_t;
+
+struct bwctl_option {
+     int    test_types;
+     struct option option;
+     char   *description;
+     char   *argument_description;
+};
 
 #endif

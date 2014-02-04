@@ -142,8 +142,7 @@ NuttcpPreRunTest(
                 "NuttcpPreRunTest: Invalid server I2Addr");
         return NULL;
     }
-    I2AddrNodeName(tsess->test_spec.server,recvhost,&hlen);
-    if(!hlen){
+    if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.server,recvhost,hlen, NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "NuttcpPreRunTest: Invalid server I2Addr");
         return NULL;
@@ -187,12 +186,13 @@ NuttcpPreRunTest(
 
     if(tsess->test_spec.udp){
         NuttcpArgs[a++] = "-u";
-        if((!tsess->conf_server) && (tsess->test_spec.bandwidth)){
-            NuttcpArgs[a++] = "-R";
-            /* nuttcp expects a number of Kbytes. */
-            NuttcpArgs[a++] = BWLUInt64Dup(ctx,
-                    tsess->test_spec.bandwidth / 1024);
-        }
+    }
+
+    if((!tsess->conf_server) && (tsess->test_spec.bandwidth)){
+        NuttcpArgs[a++] = "-R";
+        /* nuttcp expects a number of Kbytes. */
+        NuttcpArgs[a++] = BWLUInt64Dup(ctx,
+                tsess->test_spec.bandwidth / 1024);
     }
 
     if(tsess->test_spec.window_size){

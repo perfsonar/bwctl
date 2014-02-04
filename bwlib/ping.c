@@ -85,7 +85,7 @@ PingAvailable(
         ping6_cmd = PING6_DEFAULT_CMD;
     }
 
-    n = ExecCommand(ctx, buf, sizeof(buf), ping_cmd, "-V", NULL);
+    n = ExecCommand(ctx, buf, sizeof(buf), ping_cmd, "-c", "1", "127.0.0.1", NULL);
     if (n == 0) {
       ping_available = True;
     }
@@ -94,7 +94,7 @@ PingAvailable(
             "PingAvailable(): Unable to verify that '%s' is working. It may not be installed. exit status: %d: output: %s", ping_cmd, n, buf);
     }
 
-    n = ExecCommand(ctx, buf, sizeof(buf), ping6_cmd, "-V", NULL);
+    n = ExecCommand(ctx, buf, sizeof(buf), ping6_cmd, "-c", "1", "::1", NULL);
     if (n == 0) {
       ping6_available = True;
     }
@@ -152,6 +152,8 @@ PingPreRunTest(
     // should work.
     if((tsess->conf_server && !tsess->test_spec.server_sends) ||
         (tsess->conf_client && tsess->test_spec.server_sends)) {
+        // special case. We don't have to do anything, so we just fork a process
+        // that waits until killed, or times out after 'duration' seconds.
         fprintf(tsess->localfp,"bwctl: nothing to exec for ping server");
         PingArgs[0] = NULL;
         return (void *)PingArgs;
@@ -184,9 +186,6 @@ PingPreRunTest(
      */
     PingArgs[a++] = cmd;
 
-        // special case. We don't have to do anything, so we just fork a process
-        // that waits until killed, or times out after 'duration' seconds.
-
     PingArgs[a++] = "-c";
     if( !(PingArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.ping_packet_count))){
         return NULL;
@@ -196,6 +195,15 @@ PingPreRunTest(
     if( !(PingArgs[a++] = BWLDoubleDup(ctx,(tsess->test_spec.ping_interpacket_time/1000.0)))){
         return NULL;
     }
+
+#ifdef linux
+    /*
+     * On linux, set a more reasonable wait time so that in the 100% packet
+     * loss case, ping will finish in the allotted time.
+     */
+    PingArgs[a++] = "-W";
+    PingArgs[a++] = "1";
+#endif
 
     if(tsess->test_spec.ping_packet_size){
         PingArgs[a++] = "-s";
@@ -212,7 +220,14 @@ PingPreRunTest(
     }
 
     // Bind to the specified address
+#ifdef linux
+    // Linux ping version use -I to bind to the specific address
     PingArgs[a++] = "-I";
+#else
+    // BSD ping versions use -S to bind to the specific address
+    PingArgs[a++] = "-S";
+#endif
+
     if( BWLAddrNodeName(ctx, local_side, addr_str, sizeof(addr_str), NI_NUMERICHOST) == 0) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"PingPreRunTest():Problem resolving address");
         return NULL;
@@ -340,7 +355,7 @@ BWLToolDefinitionRec    BWLToolPing = {
     PingInitTest,            /* init_test        */
     PingPreRunTest,          /* pre_run          */
     PingRunTest,             /* run              */
-    BWL_TEST_PING,           /* test_types       */
+    BWL_TEST_LATENCY,        /* test_types       */
     BWLToolSenderSideData,      /* results_side     */
     True,                    /* supports_server_sends */
 };

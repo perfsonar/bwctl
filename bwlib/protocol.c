@@ -811,7 +811,7 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *	96|                    Tool selection bit-mask                    |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     100|    Verbose    | Reverse Flow  |                               |
+ *     100|    Verbose    | Reverse Flow  |  No Endpoint  |               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     104|                            Unused                             |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -824,6 +824,9 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  *        Recv Port only valid if Conf-Receiver is set
+ *  
+ *        No Endpoint is only valid if Conf-Sender is set, and Reverse Flow is
+ *        not.
  *
  *	  Dynamic is a bit mask.
  *	  BWL_DYNAMIC_WINSIZE = 0x1
@@ -1003,9 +1006,16 @@ _BWLWriteTestRequest(
         return BWLErrFATAL;
     }
 
-    buf[101] = tspec->server_sends;
+    if (!reverse_available && tspec->server_sends) {
+        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support firewall mode");
+        return BWLErrFATAL;
+    }
 
-    if (BWLToolUnparseRequestParameters(tspec->tool_id, cntrl->ctx,buf,tspec,cntrl->protocol_version) != BWLErrOK) {
+    buf[101] = tspec->server_sends;
+    buf[102] = tspec->no_server_endpoint;
+
+    if (BWLToolUnparseRequestParameters(tspec->tool_id, cntrl->ctx,buf,tspec,cntrl->protocol_version, tsession) != BWLErrOK) {
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
                 "Problem writing test request parameters");
         return BWLErrFATAL;
@@ -1030,7 +1040,8 @@ BWLGenericUnparseThroughputParameters(
         BWLContext          ctx,
         uint8_t             *buf,
         BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
+        BWLProtocolVersion  protocol_version,
+        BWLTestSession      tsession
         )
 {
     BWLBoolean	    tool_negotiation;
@@ -1050,6 +1061,14 @@ BWLGenericUnparseThroughputParameters(
 
     if(tspec->udp){	/* udp */
         buf[1] |= 0x10;
+    }
+
+    if (protocol_version < BWL_MODE_PROTOCOL_1_5_VERSION &&
+        (tspec->bandwidth > 0 && !tspec->udp) &&
+        tsession->conf_client) {
+        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support setting the TCP bandwidth");
+        return BWLErrFATAL;
     }
 
     bandwidth = tspec->bandwidth;
@@ -1114,7 +1133,8 @@ BWLGenericUnparseTracerouteParameters(
         BWLContext          ctx,
         uint8_t             *buf,
         BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
+        BWLProtocolVersion  protocol_version,
+        BWLTestSession      tsession
         )
 {
     *(uint32_t*)&buf[4] = htonl(tspec->duration);
@@ -1130,7 +1150,8 @@ BWLGenericUnparsePingParameters(
         BWLContext          ctx,
         uint8_t             *buf,
         BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
+        BWLProtocolVersion  protocol_version,
+        BWLTestSession      tsession
         )
 {
     *(uint16_t*)&buf[76] = htons((uint16_t)(tspec->ping_packet_count));
@@ -1406,6 +1427,7 @@ _BWLReadTestRequest(
 
         if (reverse_available) {
             tspec.server_sends = buf[101];
+            tspec.no_server_endpoint  = buf[102];
         }
 
         if(tool_negotiation){
@@ -1474,7 +1496,7 @@ _BWLReadTestRequest(
 
 error:
     if(tsession){
-        _BWLTestSessionFree(tsession,BWL_CNTRL_FAILURE);
+        _BWLTestSessionFree(cntrl->ctx,tsession,BWL_CNTRL_FAILURE);
     }else{
         I2AddrFree(SendAddr);
         I2AddrFree(RecvAddr);

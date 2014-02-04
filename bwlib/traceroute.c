@@ -85,7 +85,7 @@ TracerouteAvailable(
         traceroute6_cmd = TRACEROUTE6_DEFAULT_CMD;
     }
 
-    n = ExecCommand(ctx, buf, sizeof(buf), traceroute_cmd, "-V", NULL);
+    n = ExecCommand(ctx, buf, sizeof(buf), traceroute_cmd, "127.0.0.1", NULL);
     if (n == 0) {
         traceroute_available = True;
     }
@@ -96,7 +96,7 @@ TracerouteAvailable(
     }
 
 
-    n = ExecCommand(ctx, buf, sizeof(buf), traceroute6_cmd, "-V", NULL);
+    n = ExecCommand(ctx, buf, sizeof(buf), traceroute6_cmd, "::1", NULL);
     if (n == 0) {
         traceroute6_available = True;
     }
@@ -219,7 +219,6 @@ TraceroutePreRunTest(
                         "bwctl: tool(traceroute): Invalid out format (-y) specification %c",
                         (char)tsess->test_spec.outformat);
                 return NULL;
-                break;
         }
     }
 
@@ -245,6 +244,11 @@ TraceroutePreRunTest(
         return NULL;
     }
 
+    if(tsess->test_spec.traceroute_packet_size){
+        if( !(TracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.traceroute_packet_size))){
+            return NULL;
+        }
+    }
 
     TracerouteArgs[a++] = NULL;
 

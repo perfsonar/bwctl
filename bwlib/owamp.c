@@ -187,7 +187,12 @@ OwampPreRunTest(
 
         OwampArgs[a++] = cmd;
 
-        OwampArgs[a++] = "-t";
+        if (tsess->test_spec.server_sends) {
+            OwampArgs[a++] = "-f";
+        }
+        else {
+            OwampArgs[a++] = "-t";
+        }
 
         if(tsess->test_spec.outformat){
             switch((char)tsess->test_spec.outformat){
@@ -282,10 +287,18 @@ OwampRunTest(
     /*
      * Now run owping!
      */
-    execvp(ipargs[0],ipargs);
+    if(tsess->conf_server && tsess->test_spec.no_server_endpoint){
+        // Special case for the owamp server if we're under "no server
+        // endpoint" mode.
+        sleep(tsess->test_spec.duration);
 
-    BWLError(ctx,BWLErrFATAL,errno,"execvp(%s): %M",ipargs[0]);
-    exit(BWL_CNTRL_FAILURE);
+        exit(0);
+    }
+    else {
+        execvp(ipargs[0],ipargs);
+        BWLError(ctx,BWLErrFATAL,errno,"execvp(%s): %M",ipargs[0]);
+        exit(BWL_CNTRL_FAILURE);
+    }
 }
 
 /*
@@ -349,7 +362,7 @@ BWLToolDefinitionRec    BWLToolOwamp = {
     OwampInitTest,            /* init_test        */
     OwampPreRunTest,          /* pre_run          */
     OwampRunTest,             /* run              */
-    BWL_TEST_PING,           /* test_types       */
+    BWL_TEST_LATENCY,        /* test_types       */
     BWLToolClientSideData,      /* results_side     */
-    False,                   /* supports_server_sends */
+    True,                   /* supports_server_sends */
 };

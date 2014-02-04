@@ -366,6 +366,7 @@ _BWLTestSessionAlloc(
  */
 BWLErrSeverity
 _BWLTestSessionFree(
+        BWLContext      ctx,
         BWLTestSession  tsession,
         BWLAcceptType   aval
         )
@@ -383,7 +384,7 @@ _BWLTestSessionFree(
         tsession->cntrl->tests = NULL;
     }
 
-    (void)_BWLEndpointStop(tsession,aval,&err);
+    (void)_BWLEndpointStop(ctx,tsession,aval,&err);
 
     if(tsession->closure){
         _BWLCallTestComplete(tsession,aval);

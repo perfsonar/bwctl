@@ -35,6 +35,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <bwlib/bwlib.h>
+#include <netdb.h>
+#include <ifaddrs.h>
 
 #include <sys/socket.h>
 #include <netdb.h>
@@ -407,63 +409,136 @@ BWLAddrIsIPv6(
 char *
 BWLDiscoverSourceAddr(
         BWLContext ctx,
-        I2Addr     remote_addr,
+        const char *remote_addr,
         char       *buf,
         size_t     buflen
         )
 {
-    int                     temp_sd;
-    struct sockaddr         *remote_saddr;
-    socklen_t               remote_saddrlen;
-    I2Addr                  local_addr;
-    char                    *retval;
+    int rc;
+    struct addrinfo hints;
+    struct addrinfo *result, *rp;
+    char *retval;
+    char temp_port[10];
+    struct sockaddr_storage sbuff;
+    socklen_t               saddrlen = sizeof(sbuff);
 
-    if( !(remote_saddr = I2AddrSAddr(remote_addr,&remote_saddrlen))){
-        BWLError(ctx,BWLErrFATAL,EINVAL, "BWLDiscoverSourceAddr(): Invalid address");
+    snprintf(temp_port, sizeof(temp_port), "%d", (rand() % 16000 + 1));
+
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_flags = 0;
+    hints.ai_protocol = 0;
+    hints.ai_canonname = NULL;
+    hints.ai_addr = NULL;
+    hints.ai_next = NULL;
+    if( BWLContextConfigGetV(ctx,BWLIPv4Only)){
+        hints.ai_family = AF_INET;
+    }
+    else if( BWLContextConfigGetV(ctx,BWLIPv6Only)){
+        hints.ai_family = AF_INET6;
+    }
+    else {
+        hints.ai_family = AF_UNSPEC;
+    }
+
+    BWLError(ctx,BWLErrDEBUG,EINVAL, "BWLDiscoverSourceAddr(): Looking up address: %s", remote_addr);
+
+    if ((rc = getaddrinfo(remote_addr, temp_port, &hints, &result)) != 0) {
+        BWLError(ctx,BWLErrDEBUG,EINVAL, "BWLDiscoverSourceAddr(): Invalid address: %s", gai_strerror(rc));
         return NULL;
     }
 
-    temp_sd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (temp_sd < 0) {
-        BWLError(ctx,BWLErrFATAL,EINVAL, "BWLDiscoverSourceAddr(): Problem creating socket");
-        return NULL;
+    retval = NULL;
+
+    for(rp = result; rp != NULL; rp = rp->ai_next){
+        int temp_sd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (temp_sd < 0) {
+            continue;
+        }
+
+        if (connect(temp_sd, rp->ai_addr, rp->ai_addrlen) != 0) {
+            close(temp_sd);
+            continue;
+        }
+
+        if(getsockname(temp_sd,(void*)&sbuff,&saddrlen) == 0){
+            if (getnameinfo((struct sockaddr *)&sbuff, saddrlen, buf, buflen, NULL, 0, NI_NUMERICHOST) == 0) {
+                close(temp_sd);
+                retval = buf;
+                break;
+            }
+        }
+
+        close(temp_sd);
     }
 
-    if (connect(temp_sd, remote_saddr, remote_saddrlen) == -1) {
-        if (errno == EACCES) {
-            int broadcast = 1;
+    if (result) {
+        freeaddrinfo(result);
+    }
 
-            if (setsockopt(temp_sd, SOL_SOCKET, SO_BROADCAST,
-                       &broadcast, sizeof(broadcast)) < 0) {
-                BWLError(ctx,BWLErrFATAL,errno,"setsockopt(): %M");
-                return NULL;
-            }
-            if (connect(temp_sd, remote_saddr, remote_saddrlen) == -1) {
-                BWLError(ctx,BWLErrFATAL,EINVAL, "BWLDiscoverSourceAddr(): Problem setting up socket: %M");
-                return NULL;
-            }
-        } else {
-            BWLError(ctx,BWLErrFATAL,EINVAL, "BWLDiscoverSourceAddr(): Problem setting up socket: %M");
-            return NULL;
+    BWLError(ctx,BWLErrDEBUG,EINVAL, "BWLDiscoverSourceAddr(): Returning: %s", retval);
+
+    return retval;
+}
+
+BWLBoolean
+BWLIsInterface(
+        const char *interface
+        )
+{
+    BWLBoolean retval;
+    struct ifaddrs *ifaddr, *ifa;
+
+    if (getifaddrs(&ifaddr) == -1) {
+        return False;
+    }
+
+    retval = False;
+
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (strcmp(ifa->ifa_name, interface) == 0) {
+            retval = True;
+            break;
         }
     }
 
-    local_addr = I2AddrByLocalSockFD(BWLContextErrHandle(ctx), temp_sd, False);
-    if(!local_addr) {
-        BWLError(ctx,BWLErrFATAL,EINVAL,"getsockname(): %M");
-        return NULL;
+    freeifaddrs(ifaddr);
+
+    return retval;
+}
+
+BWLBoolean
+BWLAddrIsLoopback(
+        I2Addr    addr
+        )
+{
+    struct addrinfo *sai;
+    struct sockaddr *saddr;
+    socklen_t       saddrlen;
+    BWLBoolean      retval;
+
+    if(saddr = I2AddrSAddr(addr,&saddrlen)){
+        if (I2SockAddrIsLoopback(saddr, saddrlen)) {
+            retval = True;
+        }
+        else {
+            retval = False;
+        }
     }
+    else if (sai = I2AddrAddrInfo(addr, NULL, NULL)) {
+        retval = True;
 
-    close(temp_sd);
+        while(sai != NULL) {
+            if (!I2SockAddrIsLoopback(sai->ai_addr, sai->ai_addrlen)) {
+                // It has at least one non-loopback address
+                retval = False;
+            }
 
-    if (BWLAddrNodeName(ctx, local_addr, buf, buflen, NI_NUMERICHOST)) {
-        retval = buf;
+            sai = sai->ai_next;
+        }
     }
     else {
-        retval = NULL;
+        retval = False;
     }
-
-    I2AddrFree(local_addr);
 
     return retval;
 }

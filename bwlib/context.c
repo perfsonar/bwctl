@@ -259,7 +259,7 @@ BWLControlClose(
      * remove all test sessions
      */
     while(cntrl->tests){
-        lerr = _BWLTestSessionFree(cntrl->tests,BWL_CNTRL_FAILURE);
+        lerr = _BWLTestSessionFree(cntrl->ctx,cntrl->tests,BWL_CNTRL_FAILURE);
         err = MIN(err,lerr);
     }
 

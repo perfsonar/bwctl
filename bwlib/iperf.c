@@ -225,6 +225,11 @@ IperfPreRunTest(
         }
     }
 
+    if(!tsess->test_spec.udp && tsess->test_spec.bandwidth){
+        fprintf(tsess->localfp, "bwctl: iperf does not support setting TCP bandwidth");
+        return NULL;
+    }
+
     if(tsess->test_spec.outformat){
         switch((char)tsess->test_spec.outformat){
             case 'c':

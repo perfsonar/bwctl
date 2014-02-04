@@ -296,8 +296,9 @@ typedef enum{
 typedef enum{
     BWL_TEST_UNDEFINED=0,
     BWL_TEST_THROUGHPUT=0x1,
-    BWL_TEST_PING=0x2,
+    BWL_TEST_LATENCY=0x2,
     BWL_TEST_TRACEROUTE=0x4,
+    BWL_TEST_ALL=0x7,
 } BWLTestType;
 
 typedef enum{
@@ -343,6 +344,7 @@ typedef struct{
     BWLNum64        latest_time;
 
     BWLBoolean      server_sends;
+    BWLBoolean      no_server_endpoint;
 
     uint32_t        duration;
 
@@ -837,7 +839,6 @@ BWLControlRemoteAddr(
  *     If successful - even marginally - a valid BWLclient handle
  *     is returned. If unsuccessful, NULL is returned.
  *
- * local_addr can only be set using I2AddrByNode or I2AddrByAddrInfo
  * server_addr can use any of the I2AddrBy* functions.
  *
  * Once an I2Addr record is passed into this function - it is
@@ -848,7 +849,7 @@ BWLControlRemoteAddr(
 extern BWLControl
 BWLControlOpen(
         BWLContext          ctx,
-        I2Addr              local_addr,     /* src addr or NULL             */
+        const char          *local_addr,     /* src addr or NULL             */
         I2Addr              server_addr,    /* server addr or NULL          */
         uint32_t            mode_mask,      /* OR of BWLSessionMode vals    */
         BWLUserID           userid,         /* null if unwanted             */
@@ -1457,72 +1458,6 @@ BWLDoubleDup(
         double      n
         );
 
-extern BWLErrSeverity
-BWLGenericParseThroughputParameters(
-        BWLContext          ctx,
-        const uint8_t       *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        );
-
-extern BWLErrSeverity
-BWLGenericParseTracerouteParameters(
-        BWLContext          ctx,
-        const uint8_t       *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        );
-
-extern BWLErrSeverity
-BWLGenericParsePingParameters(
-        BWLContext          ctx,
-        const uint8_t       *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        );
-
-extern BWLErrSeverity
-BWLGenericUnparseThroughputParameters(
-        BWLContext          ctx,
-        uint8_t             *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        );
-
-extern BWLErrSeverity
-BWLGenericUnparseTracerouteParameters(
-        BWLContext          ctx,
-        uint8_t             *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        );
-
-extern BWLErrSeverity
-BWLGenericUnparsePingParameters(
-        BWLContext          ctx,
-        uint8_t             *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        );
-
-BWLErrSeverity
-BWLToolUnparseRequestParameters(
-        BWLToolType         id,
-        BWLContext          ctx,
-        uint8_t             *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        );
-
-BWLErrSeverity
-BWLToolParseRequestParameters(
-        BWLToolType         id,
-        BWLContext          ctx,
-        const uint8_t       *buf,
-        BWLTestSpec         *tspec,
-        BWLProtocolVersion  protocol_version
-        );
-
 BWLTestSideData
 BWLToolGetResultsSideByID(
         BWLContext  ctx,
@@ -1558,13 +1493,13 @@ BWLNTPIsSynchronized(
         BWLContext	ctx
         );
 
+double BWLNum64ToTimestampDouble(BWLNum64 tstamp);
+
 BWLBoolean
 BWLAddrIsIPv6(
         BWLContext ctx,
         I2Addr     addr
         );
-
-double BWLNum64ToTimestampDouble(BWLNum64 tstamp);
 
 time_t BWLNum64ToTimestamp(BWLNum64 tstamp);
 
@@ -1577,12 +1512,30 @@ BWLAddrNodeName(
         int        flags
         );
 
+BWLBoolean
+BWLAddrIsLoopback(
+        I2Addr    addr
+        );
+
 char *
 BWLDiscoverSourceAddr(
         BWLContext ctx,
-        I2Addr     remote_addr,
+        const char *remote_addr,
         char       *buf,
         size_t     buflen
+        );
+
+BWLToolAvailability
+BWLToolGetCommonTools(
+        BWLContext ctx,
+        BWLToolAvailability tools_1,
+        BWLToolAvailability tools_2,
+        BWLTestType test_type
+        );
+
+BWLBoolean
+BWLIsInterface(
+        const char *interface
         );
 
 #endif    /* OWAMP_H */
