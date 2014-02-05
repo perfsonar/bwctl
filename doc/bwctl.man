@@ -22,7 +22,7 @@
 .\"	Description:
 .\"
 .SH NAME
-bwctl \- Client application to request throughput tests.
+bwctl, bwping, bwtraceroute \- Client application to request throughput, traceroute, ping and owamp tests.
 .SH SYNOPSIS
 .B bwctl 
 [\fIoptions\fR] \fI\-c recvhost \-s sendhost\fR
@@ -32,11 +32,29 @@ bwctl \- Client application to request throughput tests.
 .br
 .B bwctl 
 [\fIoptions\fR] \fI\-s sendhost\fR
+.br
+.B bwping
+[\fIoptions\fR] \fI\-c recvhost \-s sendhost\fR
+.br
+.B bwping
+[\fIoptions\fR] \fI\-c recvhost\fR
+.br
+.B bwping
+[\fIoptions\fR] \fI\-s sendhost\fR
+.br
+.B bwtraceroute
+[\fIoptions\fR] \fI\-c recvhost \-s sendhost\fR
+.br
+.B bwtraceroute
+[\fIoptions\fR] \fI\-c recvhost\fR
+.br
+.B bwtraceroute
+[\fIoptions\fR] \fI\-s sendhost\fR
 .SH DESCRIPTION
 \fBbwctl\fR is a command line client application that is used to
 initiate throughput tests.
 .TP
-This version of \fBbwctl\fR is capable of initiating \fBIperf\fR, \fBNuttcp\fR, and \fBThrulay\fR tests.
+This version of \fBbwctl\fR is capable of initiating \fBIperf\fR, \fBNuttcp\fR, \fBIperf3\fR, \fBPing\fR, \fBTraceroute\fR, \fBTracepath\fR and \fBOwamp\fR tests.
 .PP
 .B bwctl
 works by
@@ -50,26 +68,25 @@ if it can. If there is no local \fBbwctld\fR running, \fBbwctl\fR assumes
 the local host does not require policy controls and will execute the
 \fBbwctld\fR functionality required to run the test directly.
 .PP
-If cases where \fBbwctl\fR is directly running the throughput test
-on the host, there are several configuration options that are shared
-with \fBbwctld\fR. Those configuration options
-can be set using the bwctlrc(5) configuration file in a way very similar
-to the way they are specified in the bwctld.conf(5) file.
+If cases where \fBbwctl\fR is directly running the test on the host, there are
+several configuration options that are shared with \fBbwctld\fR. Those
+configuration options can be set using the bwctlrc(5) configuration file in a
+way very similar to the way they are specified in the bwctld.conf(5) file.
 .PP
-The \fBbwctl\fR client is used to request the desired type of throughput
-test. Furthermore, it requests \fIwhen\fR the test is wanted.
-\fBbwctld\fR on each endpoint either responds with a tentative
-reservation or a \fBtest denied\fR message. Once \fBbwctl\fR is able to get
-a matching reservation from both \fBbwctld\fR processes (one for each
-host involved in the test), it confirms the
-reservation. Then, the \fBbwctld\fR processes run the test and return the
-results. The results are returned to the client from both sides of the
-test from the respective \fBbwctld\fR processes. Additionally, the
-\fBbwctld\fR processes share the results from
-their respective side of the test with each other.
+The \fBbwctl\fR, \fBbwping\fR and \fBbwtraceroute\fB clients are used to
+request the desired type of throughput, latency or traceroute test.
+Furthermore, it requests \fIwhen\fR the test is wanted.  \fBbwctld\fR on each
+endpoint either responds with a tentative reservation or a \fBtest denied\fR
+message. Once \fBbwctl\fR is able to get a matching reservation from both
+\fBbwctld\fR processes (one for each host involved in the test), it confirms
+the reservation. Then, the \fBbwctld\fR processes run the test and return the
+results. The results are returned to the client from both sides of the test
+from the respective \fBbwctld\fR processes. Additionally, the \fBbwctld\fR
+processes share the results from their respective side of the test with each
+other.
 .PP
 \fBBWCTL\fR (\fBbwctl\fR and \fBbwctld\fR) is used to enable
-non-specific throughput tests
+non-specific network measurement tests
 to hosts without having to give full user accounts on the given systems.
 Users want the ability to run throughput tests to determine the achievable
 or available bandwidth between a pair of hosts. It is often useful to test
@@ -83,13 +100,14 @@ multiple administrators. These hurdles have made this kind of testing
 difficult in practice. 
 .PP
 \fBBWCTL\fR was designed to help with this problem. It allows an
-administrator to configure a given host as an \fBIperf\fR, \fBThrulay\fR, or
-\fBNuttcp\fR endpoint.  The endpoint can be a packet sender (e.g. \fBIperf\fR
-client) or a packet receiver (e.g. \fBIperf\fR server). It can be shared by
-multiple users without concern that those users will interfere with each other.
-Specific policy limits can be applied to specific users, and individual tests
-are scheduled so they will not interfere with each other. Additionally, full
-user accounts are not required for the users running the tests.
+administrator to configure a given host as an \fBIperf\fR, \fBIperf3\fR, or
+\fBNuttcp\fR, or \fBOwamp\fR endpoint.  The endpoint can be a packet sender
+(e.g. \fBIperf\fR client) or a packet receiver (e.g. \fBIperf\fR server). It
+can be shared by multiple users without concern that those users will interfere
+with each other.  Specific policy limits can be applied to specific users, and
+individual tests are scheduled so they will not interfere with each other.
+Additionally, full user accounts are not required for the users running the
+tests.
 .PP
 \fBBWCTL\fR allows the administrator to classify incoming connections
 based upon a user name and AES key combination or, alternatively, based
@@ -204,7 +222,7 @@ Unspecified (wild-card address selection).
 .RE
 .TP
 \fB\-c, \-\-receiver\fR \fIrecvhost[:port] [authmethod]\fR
-Specifies the host that will run the \fBIperf\fR, \fBThrulay\fR or \fBNuttcp\fR server.
+Specifies the host that will run the \fBIperf\fR, \fBIperf3\fR or \fBNuttcp\fR server.
 The :port suffix is optional
 and is only needed if \fBbwctld\fR is being run on a non-default
 port number. If an IPv6 address is being specified, note that the accepted
@@ -236,7 +254,7 @@ methods are described with the \fB\-A\fR argument.
 .RE
 .TP
 \fB\-s, \-\-sender\fR \fIsendhost[:port] [authmethod]\fR
-Specifies the host that will run the \fBIperf\fR, \fBThrulay\fR or \fBNuttcp\fR client.
+Specifies the host that will run the \fBIperf\fR, \fBIperf3\fR or \fBNuttcp\fR client.
 The :port suffix is optional
 and is only needed if \fBbwctld\fR is being run on a non-default
 port number. If an IPv6 address is being specified, note that the accepted
@@ -266,19 +284,23 @@ The format for \fIauthmethod\fR and a description of the
 currently available authentication
 methods are described with the \fB\-A\fR argument.
 .RE
-.SS Throughput Test Arguments:
+.TP
+\fB\-o, \-\-flip\fR
+By default, the sender will connect to the receiver. The --flip option causes
+the receiver to connect to the sender. This option is not available for all
+test types (e.g. for iperf tests). This is most useful if the receiver is
+behind a firewall.
+.RE
+.SS bwctl Test Arguments:
 The arguments were named to match their counterparts in \fBIperf\fR
 as closely as possible.
 .PP
-Some of the options are not available for some of the
-throughput testers. BWCTL does not support UDP tests, changing the output format or
-changing the output units for either \fBNuttcp\fR or \fBThrulay\fR.
 .TP
 \fB\-T, \-\-tool\fR
 Specify which throughput tester to use:
 .RS
 .IP \fBiperf\fR
-.IP \fBthrulay\fR
+.IP \fBiperf3\fR
 .IP \fBnuttcp\fR
 .IP Default:
 None. Selects a tool that the client and server have in common
@@ -411,6 +433,96 @@ this sets the socket receive buffer size.
 .RS
 .IP Default:
 Unset (system defaults)
+.RE
+.SS bwping Test Arguments:
+.PP
+.TP
+\fB\-T, \-\-tool\fR
+Specify which throughput tester to use:
+.RS
+.IP \fBping\fR
+.IP \fBowamp\fR
+.IP Default:
+None. Selects a tool that the client and server have in common
+.RE
+.TP
+\fB\-E, \-\-no_endpoint\fR
+Allow a ping test to run where the receiver may not have bwctl available.
+.RS
+.RE
+.TP
+\fB\-l, \-\-packet_length\fR \fIlength\fR
+The size of the packets to send for the ping or owamp test
+.RS
+.IP Default:
+Minimally sized packets
+.RE
+.TP
+\fB\-N, \-\-num_packets\fR \fInPackets\fR
+The number of packets to send in this test
+.RS
+.IP Default:
+10
+.RE
+.TP
+\fB\-i, \-\-packet_interval\fR \fIseconds\fR
+The time between when each packet is sent for the test
+.RS
+.IP Default:
+1.0 seconds
+.RE
+.TP
+\fB\-t, \-\-ttl\fR \fIttl\fR
+The TTL value to tag each packet with. This only applies to ping tests.
+.RS
+.IP Default:
+None
+.RE
+.SS bwtraceroute Test Arguments:
+.PP
+.TP
+\fB\-T, \-\-tool\fR
+Specify which throughput tester to use:
+.RS
+.IP \fBtraceroute\fR
+.IP \fBtracepath\fR
+.IP Default:
+None. Selects a tool that the client and server have in common
+.RE
+.TP
+\fB\-E, \-\-no_endpoint\fR
+Allow a test to run where the receiver may not have bwctl available.
+.RS
+.RE
+.TP
+\fB\-l, \-\-packet_length\fR \fIlength\fR
+The size of the packets to send for the tests
+.RS
+.IP Default:
+Minimally sized packets
+.RE
+.TP
+\fB\-F, \-\-first_ttl\fR \fIttl\fR
+The minimum TTL to set for traceroute. This sets the first hop in the route
+that will be returned. This does not work for tracepath tests.
+.RS
+.IP Default:
+None
+.RE
+.TP
+\fB\-M, \-\-max_ttl\fR \fIttl\fR
+The maximum TTL to set for traceroute. This sets the last hop in the route that
+will be returned. This does not work for tracepath tests.
+.RS
+.IP Default:
+None
+.RE
+.TP
+\fB\-t, \-\-test_duration\fR \fIsecondsfR
+The maximum amount of time to wait for the traceroute test to finish.
+.RS
+.IP Default:
+10 seconds
 .RE
 .SS Scheduling Arguments:
 .TP
@@ -564,8 +676,6 @@ bwctl Environment Variable	use	default
 BWCTLRC	Config file	~/.bwctlrc
 BWCTL_DEBUG_TIMEOFFSET	Offset	0.0(seconds)
 .TE
-.SH LIMITATIONS
-Only tested with versions 1.7.0 and 2.0.b of \fBIperf\fR.
 .SH EXAMPLES
 .LP
 \fBbwctl \-c somehost.example.com\fR
@@ -601,6 +711,18 @@ the sender rate limited to 10 Mbits per second from somehost.example.com to
 Run the default 10 second TCP test. Authenticate using
 the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a passphrase
 that will be used to create an AES key.
+.LP
+\fBbwping \--no_endpoint \-N 30 \-i 0.5 --ttl 150 \-c somehost.example.com\fR
+.IP
+Run a ping test that sends 30 pings, one packet per half-second, with a TTL of
+150 to somehost.example.com from \fIlocal\fR. If somehost.example.com does not
+have bwctl running, the ping test runs anyway.
+.LP
+\fBbwtraceroute \-T tracepath \-E \-c somehost.example.com\fR
+.IP
+Run a tracepath test to somehost.example.com from \fIlocal\fR. If
+somehost.example.com does not have bwctl running, the tracepath test runs
+anyway.
 .SH SEE ALSO
 bwctld(8) and the \%http://e2epi.internet2.edu/bwctl/ web site.
 .PP
@@ -610,7 +732,7 @@ web site.
 For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
-For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/
+For details on \fBIperf3\fR, see the \%https://code.google.com/p/iperf/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

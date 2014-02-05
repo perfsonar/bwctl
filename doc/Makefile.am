@@ -18,7 +18,7 @@
 #
 #	Description:
 
-dist_man1_MANS = bwctl.man
+dist_man1_MANS = bwctl.man bwtraceroute.man bwping.man
 dist_man5_MANS = bwctlrc.man bwctld.conf.man bwctld.limits.man bwctld.keys.man
 dist_man8_MANS = bwctld.man
 

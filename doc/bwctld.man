@@ -50,13 +50,12 @@ bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
 .SH DESCRIPTION
 .B bwctld
 is a server program designed to schedule and run \fBIperf\fR, \fBThrulay\fR or
-\fBNuttcp\fR throughput tests. These tests can measure
-maximum TCP bandwidth, with various tunable options available, or, by doing a
-UDP test, he delay, jitter and datagram loss of a network.
+\fBNuttcp\fR, \fBPing\fR, \fBTraceroute\fR, \fBTracepath\fR, and \fBOwamp\fR
+tests.
 .PP
-Aside from actually running throughput tests, the main function of
-\fBbwctld\fR is to determine which tests are allowable based upon
-the policy restrictions configured by the system administrator.
+Aside from actually running network measurement tests, the main function of
+\fBbwctld\fR is to determine which tests are allowable based upon the policy
+restrictions configured by the system administrator.
 .PP
 \fBbwctld\fR was designed to be run as a stand-alone daemon process. It
 uses the classic accept/fork model of handling new requests.
@@ -181,7 +180,7 @@ web site.
 For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
-For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/
+For details on \fBIperf3\fR, see the \%https://code.google.com/p/iperf/
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

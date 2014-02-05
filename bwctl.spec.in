@@ -1,7 +1,7 @@
 Name: bwctl
 Summary: bwctl - network throughput tester
 Version: @VERSION@
-Release:        11%{?dist}
+Release:        12%{?dist}
 License: Apache License v2.0
 Group: *Development/Libraries*
 URL: http://e2epi.internet2.edu/bwctl/
@@ -93,6 +93,8 @@ fi
 %{_bindir}/bwping
 %{_bindir}/bwtraceroute
 %{_mandir}/man1/bwctl.1.gz
+%{_mandir}/man1/bwping.1.gz
+%{_mandir}/man1/bwtraceroute.1.gz
 
 %files server
 %defattr(-,root,root,0755)
