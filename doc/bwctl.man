@@ -111,14 +111,14 @@ tests to reserve their time slots further into the future.)
 .SH ARGUMENTS
 .SS Connection/Authentication Arguments:
 .TP
-\fB\-4\fR
+\fB\-4, \-\-ipv4\fR
 Forces bwctl to use IPv4 addresses only.
 .RS
 .IP Default:
 Unspecified (IPv6 is preferred).
 .RE
 .TP
-\fB\-6\fR
+\fB\-6, \-\-ipv6\fR
 Forces bwctl to use IPv6 addresses only.
 .RS
 .IP Default:
@@ -194,7 +194,7 @@ communication (\fBA\fR or \fBE\fR modes of \fIauthmode\fR)
 is wanted with \fIsendhost\fR and \fIrecvhost\fR.
 .RE
 .TP
-\fB\-B\fR \fIsrcaddr\fR
+\fB\-B, \-\-local_address\fR \fIsrcaddr\fR
 Bind the local address of the client socket to \fIsrcaddr\fR. \fIsrcaddr\fR
 can be specified using a DNS name or using standard textual notations for
 the IP addresses.
@@ -203,7 +203,7 @@ the IP addresses.
 Unspecified (wild-card address selection).
 .RE
 .TP
-\fB\-c\fR \fIrecvhost[:port] [authmethod]\fR
+\fB\-c, \-\-receiver\fR \fIrecvhost[:port] [authmethod]\fR
 Specifies the host that will run the \fBIperf\fR, \fBThrulay\fR or \fBNuttcp\fR server.
 The :port suffix is optional
 and is only needed if \fBbwctld\fR is being run on a non-default
@@ -235,17 +235,7 @@ currently available authentication
 methods are described with the \fB\-A\fR argument.
 .RE
 .TP
-\fB\-k\fR
-.br
-This option has been deprecated. Originally, it was used to specify the
-keyfile for authentication.
-All authentication options can now be specified
-using the \fB\-A\fR argument.
-For the next several versions this option will
-report an error. Eventually, it may be reclaimed for another purpose.
-.RE
-.TP
-\fB\-s\fR \fIsendhost[:port] [authmethod]\fR
+\fB\-s, \-\-sender\fR \fIsendhost[:port] [authmethod]\fR
 Specifies the host that will run the \fBIperf\fR, \fBThrulay\fR or \fBNuttcp\fR client.
 The :port suffix is optional
 and is only needed if \fBbwctld\fR is being run on a non-default
@@ -276,15 +266,6 @@ The format for \fIauthmethod\fR and a description of the
 currently available authentication
 methods are described with the \fB\-A\fR argument.
 .RE
-.TP
-\fB\-U\fR
-.br
-This option has been deprecated. Originally, it was used to specify the username
-to identify the AES key for authentication.
-All authentication options can now be specified
-using the \fB\-A\fR argument.
-For the next several versions this option will
-report an error. Eventually, it may be reclaimed for another purpose.
 .SS Throughput Test Arguments:
 The arguments were named to match their counterparts in \fBIperf\fR
 as closely as possible.
@@ -293,7 +274,7 @@ Some of the options are not available for some of the
 throughput testers. BWCTL does not support UDP tests, changing the output format or
 changing the output units for either \fBNuttcp\fR or \fBThrulay\fR.
 .TP
-\fB\-T\fR
+\fB\-T, \-\-tool\fR
 Specify which throughput tester to use:
 .RS
 .IP \fBiperf\fR
@@ -303,14 +284,14 @@ Specify which throughput tester to use:
 None. Selects a tool that the client and server have in common
 .RE
 .TP
-\fB\-S\fR \fITOS\fR
+\fB\-S, \-\-tos\fR \fITOS\fR
 .br
 Set the TOS byte in the sending packets.
 .IP Default:
 None.
 .RE
 .TP
-\fB\-D\fR \fIDSCP\fR
+\fB\-D, \-\-dscp\fR \fIDSCP\fR
 .br
 Set an RFC 2474 style DSCP value for the TOS byte in the sending packets. This
 can be set using a 6-bit numeric value in decimal, hex, or octal. Additionally,
@@ -367,52 +348,46 @@ CS7	111000
 Unset.
 .RE
 .TP
-\fB\-b\fR \fIbandwidth\fR
+\fB\-b, \-\-bandwidth\fR \fIbandwidth\fR
 Limit UDP send rate to \fIbandwidth\fR (bits/sec).
 .RS
 .IP Default:
 1 Mb
 .RE
 .TP
-\fB\-i\fR \fIinterval\fR
+\fB\-i, \-\-report_interval\fR \fIinterval\fR
 Report interval (seconds).
 .RS
 .IP Default:
 unset (no intervals reported)
 .RE
 .TP
-\fB\-l\fR \fIlen\fR
+\fB\-l, \-\-buffer_length\fR \fIlen\fR
 length of read/write buffers (bytes).
 .RS
 .IP Default:
 8 KB TCP, 1470 bytes UDP
 .RE
 .TP
-\fB\-O\fR \fIseconds\fR
+\fB\-O, \-\-omit\fR \fIseconds\fR
 Initial period of data to omit from the final statistics.
 This is so that you can skip past initial conditions
 such as TCP Slow Start.
 Currently only implemented by the \fBiperf3\fR tool.
 .TP
-\fB\-P\fR \fInStreams\fR
+\fB\-P, \-\-parallel\fR \fInStreams\fR
 Number of concurrent streams for the test. See the \fB\-P\fR option
 of \fBIperf\fR for details.
-.TP
-\fB\-S\fR \fITOS\fR
-Set the TOS (See RFC 1349) byte in packets.
-.RS
-.IP Default:
-0 (not set)
 .RE
 .TP
-\fB\-t\fR \fItime\fR
+\fB\-t,\-\-test_duration\fR \fItime\fR
 Duration of test (seconds).
 .RS
 .IP Default:
 10
 .RE
 .TP
-\fB\-u\fR
+\fB\-u, \-\-udp\fR
 .br
 UDP test.
 .RS
@@ -420,7 +395,7 @@ UDP test.
 TCP test
 .RE
 .TP
-\fB\-W\fR \fIwindow\fR
+\fB\-W,\-\-dynamic_window\fR \fIwindow\fR
 Same as the \fB\-w\fR option, except that the value is advisory. \fBbwctl\fR
 will attempt to dynamically determine the appropriate TCP window, based upon
 RTT information gathered from the control socket. If \fBbwctl\fR is unable
@@ -430,7 +405,7 @@ to dynamically determine a window, the value \fIwindow\fR will be used.
 Unset (system defaults)
 .RE
 .TP
-\fB\-w\fR \fIwindow\fR
+\fB\-w, \-\-window\fR \fIwindow\fR
 Socket buffer sizes (bytes). For TCP, this sets the TCP window size. For UDP,
 this sets the socket receive buffer size.
 .RS
@@ -439,7 +414,7 @@ Unset (system defaults)
 .RE
 .SS Scheduling Arguments:
 .TP
-\fB\-a\fR \fIsyncfuzz\fR
+\fB\-a, \-\-allow_ntp_unsync\fR \fIsyncfuzz\fR
 .br
 Allow \fBbwctl\fR to run without a synchronized system clock. Use this to
 specify how far off the local clock is from \fBUTC\fR. \fBbwctl\fR
@@ -465,7 +440,7 @@ timestamp error.
 Unset (Defaults to Set for systems without the \fBNTP\fR system calls)
 .RE
 .TP
-\fB\-I\fR \fIinterval\fR
+\fB\-I, \-\-test_interval\fR \fIinterval\fR
 Specifies that \fBbwctl\fR should attempt to run a throughput test every
 \fIinterval\fR seconds.
 .RS
@@ -473,7 +448,7 @@ Specifies that \fBbwctl\fR should attempt to run a throughput test every
 Unset. If it is unset, \fBbwctl\fR only runs the test once.
 .RE
 .TP
-\fB\-L\fR \fIlongest\fR
+\fB\-L, \-\-latest_time\fR \fIlongest\fR
 Specifies the longest amount of time the client is willing to wait for a
 reservation window. When \fBbwctl\fR requests a test from the \fBbwctld\fR
 server, it specifies the earliest time and the latest time it is willing
@@ -487,14 +462,14 @@ the default is twice the test duration \fItime\fR but no smaller than
 10 minutes. (See \fB\-t\fR.)
 .RE
 .TP
-\fB\-n\fR \fInIntervals\fR
+\fB\-n, \-\-num_tests\fR \fInIntervals\fR
 Number of tests to perform if the \fB\-I\fR option is set.
 .RS
 .IP Default:
 Continuous
 .RE
 .TP
-\fB\-R\fR \fIalpha\fR
+\fB\-R, \-\-randomize\fR \fIalpha\fR
 Randomize the start time of the test within this \fIalpha\fR percent of the
 \fIinterval\fR. Valid values for \fIalpha\fR are from 0\-50. \fBbwctl\fR
 will attempt to run the test every \fIinterval\fR +/\- \fIalpha\fR percent.
@@ -507,17 +482,17 @@ set to 10 percent, then \fBbwctl\fR will attempt to run a test every
 .RE
 .SS Output Arguments:
 .TP
-\fB\-d\fR \fIdir\fR
+\fB\-d, \-\-output_dir\fR \fIdir\fR
 Specifies directory for results files if the \fB\-p\fR option is set.
 .TP
-\fB\-e\fR \fIfacility\fR
+\fB\-e, \-\-facility\fR \fIfacility\fR
 Syslog \fIfacility\fR to log messages to.
 .RS
 .IP Default:
 LOG_USER
 .RE
 .TP
-\fB\-f\fR \fIunits\fR
+\fB\-f, \-\-units\fR \fIunits\fR
 Specify the units for the tool to use when displaying the results. The accepted values for \fIunits\fR are tool specific.
 .RS
 .IP Iperf:
@@ -537,40 +512,40 @@ Megabytes per second
 .RE
 .RE
 .TP
-\fB\-h\fR
+\fB\-h, \-\-help\fR
 .br
 Print a help message.
 .TP
-\fB\-p\fR
+\fB\-p, \-\-print\fR
 .br
 Place test results in files. Print the filenames to stdout when
 results are complete.
 .TP
-\fB\-q\fR
+\fB\-q, \-\-quiet\fR
 .br
 Quiet output. Output as little as possible.
 .TP
-\fB\-r\fR
+\fB\-r, \-\-syslog_to_stderr\fR
 .br
 Send syslog messages to stderr.  This is the default unless the \fB\-q\fR
 option is specified so this option is only useful with the \fB\-q\fR
 option.
 .TP
-\fB\-V\fR
+\fB\-V, \-\-version\fR
 .br
 Print version information and exit.
 .TP
-\fB\-v\fR
+\fB\-v, \-\-verbose\fR
 .br
 Verbose output. Specifying additional \fB\-v\fR's increases the verbosity.
 .TP
-\fB\-x\fR
+\fB\-x, \-\-both\fR
 .br
 Output both sender and receiver results.  By default, only the results from the
 appropriate side for the given tool are output. If the \fB\-p\fR option is
 specified, the sender results are placed in an additional file.
 .TP
-\fB\-y\fR \fIformat\fR
+\fB\-y, \-\-format\fR \fIformat\fR
 Specify the output format of the tool. The accepted values for \fIformat\fR are tool specific.
 .RS
 .IP Iperf:
