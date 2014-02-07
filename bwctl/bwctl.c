@@ -59,7 +59,7 @@ int optreset;
 
 static BWLControl spawn_local_server(BWLContext lctx, ipsess_t sess, BWLToolAvailability *avail_tools);
 static BWLBoolean close_local_server(BWLContext ctx, ipsess_t sess);
-static BWLBoolean wait_for_next_test();
+static BWLBoolean wait_for_next_test(BWLTimeStamp prev_test_start_time, BWLBoolean prev_test_failed);
 static BWLBoolean start_testing(ipsess_t server_sess, ipsess_t client_sess);
 static BWLBoolean negotiate_individual_test(ipsess_t sess, BWLSID sid, BWLTimeStamp *req_time, uint16_t *recv_port);
 static BWLBoolean negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_options);
@@ -110,6 +110,11 @@ struct bwctl_option bwctl_options[] = {
         { "test_interval", required_argument, 0, 'I' },
         "Time between repeated bwctl tests",
         "seconds",
+   },
+   {
+        BWL_TEST_ALL,
+        { "streaming", no_argument, 0, 0 },
+        "Request the next test as soon as the current test finishes",
    },
    {
         BWL_TEST_ALL,
@@ -718,64 +723,6 @@ sig_check(
     }
 
     return 0;
-}
-
-/*
- * Generate the next "interval" randomized by +-alpha
- */
-static BWLNum64
-next_start(
-        I2RandomSource  rsrc,
-        uint32_t       interval,
-        uint32_t       alpha,
-        BWLNum64        *base
-        )
-{
-    uint32_t   r;
-    double      a,b;
-    BWLNum64    inc;
-
-    if(alpha > 0){
-        /*
-         * compute normalized range for alpha
-         */
-        a = (double)interval * (double)alpha/100.0;
-
-        /*
-         * compute minimum start for interval
-         * (random number will be added to this).
-         */
-        b = (double)interval - a;
-
-        /*
-         * get a random uint32_t
-         */
-        if(I2RandomBytes(rsrc,(uint8_t*)&r,4) != 0){
-            exit(1);
-        }
-
-        /*
-         * Use the random number to pick a random value in the range
-         * of [0,2alpha]. Add that to b to get a value of
-         * interval +- alpha
-         */
-        inc = BWLDoubleToNum64(b + ((double)r /0xffffffff) * 2.0 * a);
-    }
-    else{
-        inc = BWLULongToNum64(interval);
-    }
-
-    /*
-     * Add the relative offset to the base to get the next "wake" time.
-     */
-    inc = BWLNum64Add(*base,inc);
-
-    /*
-     * Now update base for the next time through the loop.
-     */
-    *base = BWLNum64Add(*base,BWLULongToNum64(interval));
-
-    return inc;
 }
 
 /*
@@ -1639,6 +1586,13 @@ handle_scheduling_arg(const char arg, const char *long_name, const char *value) 
             handled = False;
     }
 
+    if (!handled) {
+        if (strcmp(long_name, "streaming") == 0) {
+            app.opt.streaming = True;
+            handled = True;
+        }
+    }
+
     return handled;
 }
 
@@ -1977,6 +1931,8 @@ main(
     sigset_t            sigs;
     double              syncfuzz;
     BWLTestSpec         test_options;
+    I2Boolean           prev_test_failed;
+    BWLTimeStamp        prev_test_start_time;
 
     /*
      * Make sure the signal mask is UNBLOCKING TERM/HUP/INT
@@ -2341,6 +2297,11 @@ main(
         exit(1);
     }
 
+    if (app.opt.seriesInterval && app.opt.streaming) {
+        usage("-I cannot be used with --streaming");
+        exit(1);
+    }
+
     /*
      * If seriesInterval is in use, verify the args and pick a
      * resonable default for seriesWindow if needed.
@@ -2377,11 +2338,16 @@ main(
             app.opt.seriesWindow = MAX(app.opt.timeDuration * 2,600);
         }
         /*
-         * If nIntervals not set, and seriesInterval not set
+         * If nIntervals not set, and streaming is not set
          * a single test is requested.
          */
         if(!app.opt.nIntervals){
-            app.opt.nIntervals = 1;
+            if(!app.opt.streaming) {
+                app.opt.nIntervals = 1;
+            }
+            else {
+                app.opt.continuous = True;
+            }
         }
     }
 
@@ -2496,6 +2462,8 @@ main(
         exit(1);
     }
 
+    prev_test_failed = False;
+
     while(app.opt.continuous || app.opt.nIntervals) {
 
         app.opt.nIntervals--;
@@ -2505,8 +2473,18 @@ main(
             goto finish;
         }
 
-        if (!wait_for_next_test()) {
+        if (!wait_for_next_test(prev_test_start_time, prev_test_failed)) {
             goto finish;
+        }
+
+        prev_test_failed = True;
+
+        /*
+         * Get current time for server greeting.
+         */
+        if(!BWLGetTimeStamp(ctx,&prev_test_start_time)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"BWLGetTimeStamp: %M");
+            goto next_test;
         }
 
         /*
@@ -2583,6 +2561,8 @@ main(
             else
                 goto next_test;
         }
+
+        prev_test_failed = False;
 
 next_test:
         if(sig_check()){
@@ -3108,23 +3088,22 @@ error_exit:
 }
 
 static BWLBoolean
-wait_for_next_test()
+wait_for_next_test(BWLTimeStamp prev_test_start_time, BWLBoolean prev_test_failed)
 {
     BWLTimeStamp currtime;
     BWLTimeStamp wake;
+    double       wait_time;
     static BWLBoolean is_first = True;
 
-    /*
-     * Initialize wake time to current time. If this is a single test,
-     * this will indicate an immediate test. If seriesInterval is set,
-     * this time will be adjusted to spread start times out.
-     */
-    if(!BWLGetTimeStamp(ctx,&wake)){
-        I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-        goto error_exit;
+    if (app.opt.streaming) {
+        if (prev_test_failed) {
+            wait_time = 60;
+        }
+        else {
+            wait_time = 0;
+        }
     }
-
-    if (is_first) {
+    else if (is_first) {
         if(app.opt.seriesInterval && app.opt.randomizeStart){
             /*
              * sleep for rand([0,1])*sessionInterval
@@ -3137,17 +3116,54 @@ wait_for_next_test()
                 exit(1);
             }
 
-            wake.tstamp = BWLNum64Add(wake.tstamp,
-                    BWLDoubleToNum64((double)app.opt.seriesInterval*r/0xffffffff));
+            wait_time = (double)app.opt.seriesInterval*r/0xffffffff;
         }
     }
     else {
-        BWLTimeStamp base = wake;
+        if(app.opt.randomizeStart > 0){
+            double alpha_time = app.opt.seriesInterval * (double) app.opt.randomizeStart / 100.0;
+            uint32_t r;
 
-        if(app.opt.continuous || app.opt.nIntervals){
-            wake.tstamp = next_start(rsrc,app.opt.seriesInterval,
-                    app.opt.randomizeStart,&base.tstamp);
+            /*
+             * compute minimum start for interval
+             * (random number will be added to this).
+             */
+            wait_time = app.opt.seriesInterval - alpha_time;
+
+            /*
+             * get a random uint32_t
+             */
+            if(I2RandomBytes(rsrc,(uint8_t*)&r,4) != 0){
+                exit(1);
+            }
+
+            /*
+             * Use the random number to pick a random value in the range
+             * of [0,2alpha]. Add that to b to get a value of
+             * interval +- alpha
+             */
+            wait_time += ((double) r/0xffffffff) * 2.0 * alpha_time;
         }
+        else{
+            wait_time = app.opt.seriesInterval;
+        }
+    }
+
+    /*
+     * Initialize wake time to current time. If this is a single test,
+     * this will indicate an immediate test. If seriesInterval is set,
+     * this time will be adjusted to spread start times out.
+     */
+    if(!BWLGetTimeStamp(ctx,&wake)){
+        I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
+        goto error_exit;
+    }
+
+    if (!is_first) {
+        wake.tstamp = BWLNum64Add(prev_test_start_time.tstamp, BWLDoubleToNum64(wait_time));
+    }
+    else {
+        wake.tstamp = BWLNum64Add(wake.tstamp, BWLDoubleToNum64(wait_time));
     }
 
     /*

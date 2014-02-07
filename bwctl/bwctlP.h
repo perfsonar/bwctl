@@ -132,9 +132,10 @@ typedef	struct {
         I2Boolean	bidirectional_results;	/* -x (xmit)*/
         char		*savedir;	/* -d */
         uint32_t	seriesInterval;	/* -I (seconds) */
+        I2Boolean	streaming; 	/* --streaming */
         uint32_t	randomizeStart;	/* -R (alpha[0-50])	*/
         uint32_t	nIntervals;	/* -n */
-        I2Boolean	continuous;	/* == !nIntervals && seriesI */
+        I2Boolean	continuous;	/* no intervals setup, but a seriesInterval or streaming option set */
         uint32_t	seriesWindow;	/* -L (seconds) */
 
         I2Boolean	flip_direction; /* -o */
