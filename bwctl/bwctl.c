@@ -2727,18 +2727,7 @@ get_session_address(ipsess_t current_sess, ipsess_t other_sess) {
     }
 
     if (BWLAddrIsLoopback(address)) {
-        I2Addr new_addr = BWLAddrByLocalControl(other_sess->cntrl);
-
-        session_address = BWLAddrNodeName(ctx, new_addr,buf,sizeof(buf), 0);
-
-        if (I2AddrPort(address)) {
-            char buf2[1024];
-
-            snprintf(buf2, sizeof(buf2), "[%s]:%d", session_address, I2AddrPort(address));
-            strncpy(buf, buf2, sizeof(buf));
-        }
-
-        I2AddrFree(address);
+        session_address = BWLDiscoverSourceAddr(ctx, other_sess->host, buf, sizeof(buf));
 
         I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s instead.", current_sess->host, session_address);
 

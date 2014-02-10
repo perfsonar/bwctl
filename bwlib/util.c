@@ -415,12 +415,28 @@ BWLDiscoverSourceAddr(
         )
 {
     int rc;
+    I2Addr temp_addr;
     struct addrinfo hints;
     struct addrinfo *result, *rp;
     char *retval;
+    char temp_address[1024];
+    int  temp_address_len;
     char temp_port[10];
     struct sockaddr_storage sbuff;
     socklen_t               saddrlen = sizeof(sbuff);
+
+    // An unorthodox way of parsing the address...
+    temp_addr = I2AddrByNode(NULL, remote_addr);
+    if (!temp_addr) {
+        BWLError(ctx,BWLErrDEBUG,EINVAL, "BWLDiscoverSourceAddr(): Invalid address: I2AddrByNode failed");
+        return NULL;
+    }
+
+    temp_address_len = sizeof(temp_address);
+
+    remote_addr = I2AddrNodeName(temp_addr, temp_address, &temp_address_len);
+
+    I2AddrFree(temp_addr);
 
     snprintf(temp_port, sizeof(temp_port), "%d", (rand() % 16000 + 1));
 
