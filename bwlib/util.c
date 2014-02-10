@@ -542,3 +542,72 @@ BWLAddrIsLoopback(
 
     return retval;
 }
+
+BWLBoolean
+BWLCntrlIsLocal(
+        BWLControl cntrl
+        )
+{
+    BWLBoolean      retval;
+    struct ifaddrs  *ifaddr, *ifa;
+    struct sockaddr *addr;
+    socklen_t       addr_len;
+
+    if (BWLAddrIsLoopback(cntrl->remote_addr)) {
+        return True;
+    }
+
+    if (getifaddrs(&ifaddr) == -1) {
+        return False;
+    }
+
+    retval = False;
+
+    addr = I2AddrSAddr(cntrl->remote_addr, &addr_len);
+
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL) {
+            continue;
+        }
+
+        if (BWLSockaddrCompare(ifa->ifa_addr, addr)) {
+            retval = True;
+            break;
+        }
+    }
+
+    freeifaddrs(ifaddr);
+ 
+    return retval;
+}
+
+BWLBoolean
+BWLSockaddrCompare(
+        struct sockaddr *sa,
+        struct sockaddr *sb
+        )
+{
+    if (sa->sa_family != sb->sa_family)
+        return False;
+
+    /*
+     * With IPv6 address structures, assume a non-hostile implementation that
+     * stores the address as a contiguous sequence of bits. Any holes in the
+     * sequence would invalidate the use of memcmp().
+     */
+    if (sa->sa_family == AF_INET) {
+        if (((struct sockaddr_in *)(sa))->sin_addr.s_addr == ((struct sockaddr_in *)(sb))->sin_addr.s_addr) {
+            return True;
+        }
+#ifdef HAS_IPV6
+    } else if (sa->sa_family == AF_INET6) {
+        if (0 == memcmp((char *) &(((struct sockaddr_in6 *)(sa))->sin6_addr),
+                         (char *) &(((struct sockaddr_in6 *)(sb))->sin6_addr),
+                         sizeof((((struct sockaddr_in6 *)(sa))->sin6_addr)))) {
+            return True;
+        }
+#endif
+    }
+
+    return False;
+}

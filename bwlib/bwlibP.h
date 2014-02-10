@@ -945,5 +945,10 @@ BWLToolParseRequestParameters(
         BWLProtocolVersion  protocol_version
         );
 
+BWLBoolean
+BWLSockaddrCompare(
+        struct sockaddr *sa,
+        struct sockaddr *sb
+        );
 
 #endif    /* IPCNTRLP_H */

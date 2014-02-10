@@ -1538,4 +1538,9 @@ BWLIsInterface(
         const char *interface
         );
 
+BWLBoolean
+BWLCntrlIsLocal(
+        BWLControl cntrl
+        );
+
 #endif    /* OWAMP_H */

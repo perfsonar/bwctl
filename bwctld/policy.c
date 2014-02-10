@@ -158,7 +158,7 @@ static struct limdesc	limkeys[] = {
     {BWLDLimAllowUDP,	     "allow_udp",	  LIMBOOL,        0},
     {BWLDLimMaxTimeError,    "max_time_error",	  LIMFIXEDINT,    0},
     {BWLDLimMinimumTTL,      "minimum_ttl",    	  LIMFIXEDINT,    0},
-    {BWLDLimAllowNoEndpoint, "allow_no_endpoint", LIMBOOL,        1}
+    {BWLDLimAllowNoEndpoint, "allow_no_endpoint", LIMBOOL,        0}
 };
 
 static BWLDLimitT
@@ -2314,12 +2314,14 @@ BWLDCheckTestPolicy(
     }
 
     if (local_client && tspec->no_server_endpoint) {
-        lim.limit = BWLDLimAllowNoEndpoint;
-        lim.value = True;
-        if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
-            BWLError(ctx,access_prio,BWLErrPOLICY,
-                    "BWLDCheckTestPolicy: Endpoint-less tests not allowed");
-            goto done;
+        if (BWLCntrlIsLocal(cntrl) == False) {
+            lim.limit = BWLDLimAllowNoEndpoint;
+            lim.value = True;
+            if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
+                BWLError(ctx,access_prio,BWLErrPOLICY,
+                        "BWLDCheckTestPolicy: Endpoint-less tests not allowed");
+                goto done;
+            }
         }
     }
 
