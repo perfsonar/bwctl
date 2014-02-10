@@ -3092,7 +3092,7 @@ wait_for_next_test(BWLTimeStamp prev_test_start_time, BWLBoolean prev_test_faile
 {
     BWLTimeStamp currtime;
     BWLTimeStamp wake;
-    double       wait_time;
+    double       wait_time = 0;
     static BWLBoolean is_first = True;
 
     if (app.opt.streaming) {
