@@ -159,8 +159,9 @@ struct bwctl_option bwctl_options[] = {
    },
    {
         BWL_TEST_ALL,
-        { "format", no_argument, 0, 'y' },
+        { "format", required_argument, 0, 'y' },
         "Output format to use (Default: tool specific)",
+        "format",
    },
 
 // Latency/Traceroute-specific options
