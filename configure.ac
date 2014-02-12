@@ -181,7 +181,7 @@ uname=`uname`
 AC_ARG_WITH(thrulay,
             AC_HELP_STRING([--with-thrulay=<path>],
                            [defaults to using sub-dir if avail, otherwise installed. If <path> specified, attempts to use that.]),
-                           with_thrulay=$withval, with_thrulay=yes)
+                           with_thrulay=$withval, with_thrulay=no)
 case $uname in
 	SunOS*) 
 		with_thrulay=no
