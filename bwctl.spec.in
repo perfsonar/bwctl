@@ -1,7 +1,7 @@
 Name: bwctl
 Summary: bwctl - network throughput tester
 Version: @VERSION@
-Release:        14%{?dist}
+Release:        16%{?dist}
 License: Apache License v2.0
 Group: *Development/Libraries*
 URL: http://e2epi.internet2.edu/bwctl/
@@ -51,6 +51,18 @@ applications that use the bwctl library.
 %patch0 -p1
 
 %build
+# The CFLAGS defined here enable some hardening options for gcc
+# -fstack-protector-all -Wstack-protector:
+#   Put numbers at the beginning of each stack frame and check that they
+#   are the same.  If a stack buffer if overflowed, it writes over the
+#   canary number and then on return when that number is checked, it won't
+#   be the same and the program will exit with a "Stack smashing detected"
+#   error instead of being exploited.
+# -D_FORTIFY_SOURCE=2
+#   Does some checking for potentially exploitable code patterns in the
+#   source such overflowing a statically defined buffer.
+
+CFLAGS="-fstack-protector-all -Wstack-protector -D_FORTIFY_SOURCE=2" 
 %configure --prefix=%{_prefix} --with-thrulay=no --with-I2util=no --with-iperf3 --enable-nuttcp --enable-debug
 
 make

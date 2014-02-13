@@ -126,7 +126,7 @@ AC_CHECK_DECLS([fseeko])
 
 AC_ARG_ENABLE(debug,
                 [  --enable-debug         turn on debugging],
-                [CFLAGS="-g -Wall -DDEBUG ${CFLAGS}"])
+                [CFLAGS="-g -Wall -DDEBUG $CFLAGS"])
 
 #
 # --with-I2util:

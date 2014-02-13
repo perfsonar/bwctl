@@ -216,8 +216,9 @@ Iperf3PreRunTest(
     if(tsess->conf_server){
         iperf_set_test_role( iperf_test, 's' ); // specify server side
     }else{
+        char *drh;
         iperf_set_test_role( iperf_test, 'c' ); // specify client side
-        char* drh = strdup(recvhost);
+        drh = strdup(recvhost);
         if( !drh ){
             BWLError(ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
             return NULL;
