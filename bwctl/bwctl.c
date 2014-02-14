@@ -273,12 +273,12 @@ struct bwctl_option bwctl_options[] = {
    },
    {
         BWL_TEST_THROUGHPUT,
-        { "window", no_argument, 0, 'w' },
+        { "window", required_argument, 0, 'w' },
         "TCP window size (Default: system default)",
    },
    {
         BWL_TEST_THROUGHPUT,
-        { "dynamic_window", no_argument, 0, 'W' },
+        { "dynamic_window", required_argument, 0, 'W' },
         "Dynamic TCP window fallback size (Default: system default)",
    },
 
