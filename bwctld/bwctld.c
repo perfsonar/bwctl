@@ -508,6 +508,7 @@ ChldReservationDemand(
      * Find an open slot        *
      ********************************/
     added = 0;
+    prev_slot = NULL;
 
     TAILQ_FOREACH(slot, &time_slots, entries) {
         /*
