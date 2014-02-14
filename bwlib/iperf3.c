@@ -291,6 +291,6 @@ BWLToolDefinitionRec    BWLToolIperf3 = {
     Iperf3PreRunTest,        /* pre_run          */
     Iperf3RunTest,           /* run              */
     BWL_TEST_THROUGHPUT,     /* test_types       */
-    BWLToolClientSideData,      /* results_side     */
+    BWLToolServerSideData,      /* results_side     */
     True,                    /* supports_server_sends */
 };
