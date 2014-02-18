@@ -1919,13 +1919,6 @@ main(
     int                 opt_index;
     char                opt_str[128];
     struct option       opt_list[128];
-    static char         *conn_opts = "46a:AB:";
-    static char         *misc_opts = "hV?";
-    static char         *out_opts = "d:e:f:I:L:n:pqrR:vxy:";
-    static char         *generic_test_opts = "c:s:T:o";
-    static char         *throughput_test_opts = "b:D:i:l:O:P:S:t:uw:W:";
-    static char         *ping_test_opts = "N:l:t:i:EQ:";
-    static char         *traceroute_test_opts = "F:M:l:t:i:E";
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
     char                dirpath[PATH_MAX];
@@ -2590,7 +2583,6 @@ static BWLBoolean
 establish_connection(ipsess_t current_sess, ipsess_t other_sess)
 {
     BWLErrSeverity err_ret = BWLErrOK;
-    I2Addr local_address;
     char *host_address;
     char temp[1024];
 
@@ -2706,8 +2698,6 @@ get_session_address(ipsess_t current_sess, ipsess_t other_sess) {
     I2Addr   address;
     char    *session_address;
     char    buf[1024];
-    char    buflen;;
-
 
     if (current_sess->is_local) {
         session_address = BWLDiscoverSourceAddr(ctx, other_sess->host, buf, sizeof(buf));

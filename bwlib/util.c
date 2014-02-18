@@ -420,7 +420,7 @@ BWLDiscoverSourceAddr(
     struct addrinfo *result, *rp;
     char *retval;
     char temp_address[1024];
-    int  temp_address_len;
+    size_t temp_address_len;
     char temp_port[10];
     struct sockaddr_storage sbuff;
     socklen_t               saddrlen = sizeof(sbuff);
