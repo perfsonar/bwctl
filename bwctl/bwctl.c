@@ -408,7 +408,7 @@ usage(
         fprintf(stderr, "%-32.34s %s\n", buf, bwctl_options[i].description);
 
         // The -T option is a special case
-        if (bwctl_options[i].option.name == "tool") {
+        if (strcmp(bwctl_options[i].option.name, "tool") == 0) {
             int j, n;
             fprintf(stderr, "%-34s Available Tools:\n", "");
             for(j=0,n = BWLToolGetNumTools(ctx);j<n;j++){
@@ -1638,7 +1638,7 @@ handle_generic_test_arg(const char arg, const char *long_name, const char *value
             break;
 
         case 'T':
-            if (!(app.opt.tool = strdup(optarg))) {
+            if (!(app.opt.tools = strdup(optarg))) {
                 fprintf(stderr,"malloc failed\n");
                 exit(1);
             }
@@ -2117,31 +2117,48 @@ main(
         app.server_sess = app.receiver_sess;
     }
 
-    if (app.opt.tool) {
-        if( (app.opt.tool_id = BWLToolGetID(ctx,app.opt.tool)) ==
-                BWL_TOOL_UNDEFINED){
-            char    buf[BWL_MAX_TOOLNAME + 20];
-            snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",app.opt.tool);
-            usage(buf);
-            exit(1);
+    app.opt.tool_ids[0] = BWL_TOOL_UNDEFINED;
+
+    if (app.opt.tools) {
+        int i;
+        char *tool;
+        char *tmp_str;
+
+        i = 0;
+        tmp_str = app.opt.tools;
+        while((tool = strtok(tmp_str, ",")) != NULL) {
+            tmp_str = NULL;
+
+            if( (app.opt.tool_ids[i] = BWLToolGetID(ctx,tool)) ==
+                    BWL_TOOL_UNDEFINED){
+                char    buf[BWL_MAX_TOOLNAME + 20];
+                snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",tool);
+                usage(buf);
+                exit(1);
+            }
+
+            if( test_type != BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) ) {
+                char buf[1024];
+                char *proper_cmd_name;
+                if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_TRACEROUTE) {
+                    proper_cmd_name = "bwtraceroute";
+                }
+                else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_LATENCY) {
+                    proper_cmd_name = "bwping";
+                }
+                else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_THROUGHPUT) {
+                    proper_cmd_name = "bwctl";
+                }
+                snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s. Tool should be used with %s",tool, proper_cmd_name);
+                printf("BUF: %X %s\n", progname, buf);
+                usage(buf);
+                exit(1);
+            }
+
+            i++;
         }
 
-        if( test_type != BWLToolGetTestTypesByID(ctx,app.opt.tool_id) ) {
-            char buf[1024];
-            char *proper_cmd_name;
-            if (BWLToolGetTestTypesByID(ctx,app.opt.tool_id) == BWL_TEST_TRACEROUTE) {
-                proper_cmd_name = "bwtraceroute";
-            }
-            else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_id) == BWL_TEST_LATENCY) {
-                proper_cmd_name = "bwping";
-            }
-            else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_id) == BWL_TEST_THROUGHPUT) {
-                proper_cmd_name = "bwctl";
-            }
-            snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s. Tool should be used with %s",app.opt.tool, proper_cmd_name);
-            usage(buf);
-            exit(1);
-        }
+        app.opt.tool_ids[i] = BWL_TOOL_UNDEFINED;
     }
 
 
@@ -2383,12 +2400,8 @@ main(
      * Initialize session records
      */
     /* skip req_time/latest_time - set per/test */
-    if(app.opt.tool_id){
-        test_options.tool_id = app.opt.tool_id;
-    }
-    else{
-        test_options.tool_id = BWL_TOOL_UNDEFINED;
-    }
+    test_options.tool_id = BWL_TOOL_UNDEFINED;
+
     test_options.verbose = app.opt.verbose > 0 ? 1 : 0;
 
     test_options.duration = app.opt.timeDuration;
@@ -2776,7 +2789,7 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
         I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
     }
 
-    if ( test_options->tool_id == BWL_TOOL_UNDEFINED ) {
+    if ( app.opt.tool_ids[0] == BWL_TOOL_UNDEFINED ) {
         uint32_t tid;
         const char *req_name;
 
@@ -2789,18 +2802,25 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
         test_options->tool_id = tid;
         req_name = BWLToolGetNameByID( ctx, test_options->tool_id );
         I2ErrLog( eh, "Using tool: %s", req_name );
-    } else if ( ! ( test_options->tool_id & common_tools ) ) {
-        char unknown[BWL_MAX_TOOLNAME];
+    } else {
         const char *req_name;
+        uint32_t tid;
+        int i;
 
-        req_name = BWLToolGetNameByID( ctx, test_options->tool_id );
-        if ( ! req_name ) {
-            sprintf( unknown, "unknown(id=%x)", test_options->tool_id );
-            req_name = unknown;
+        for( i = 0; app.opt.tool_ids[i] != BWL_TOOL_UNDEFINED; i++ ) {
+            if ( app.opt.tool_ids[i] & common_tools ) {
+                test_options->tool_id = app.opt.tool_ids[i];
+                req_name = BWLToolGetNameByID( ctx, test_options->tool_id );
+                I2ErrLog( eh, "Using tool: %s", req_name );
+                break;
+            }
         }
-        I2ErrLog( eh, "Requested tool \"%s\" not supported by both servers. See the \'-T\' option", req_name );
-        I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
-        goto error_exit;
+
+        if ( test_options->tool_id == BWL_TOOL_UNDEFINED ) {
+            I2ErrLog( eh, "Requested tools not supported by both servers. See the \'-T\' option" );
+            I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
+            goto error_exit;
+        }
     }
 
     /*

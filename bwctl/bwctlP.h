@@ -161,8 +161,8 @@ typedef	struct {
         I2Boolean	verbose;	/* -v */
         I2Boolean	quiet;		/* -q */
 
-        char            *tool;
-        uint32_t	tool_id;   	/* -T iperf/nuttcp/thrulay */
+        char            *tools;
+        uint32_t	tool_ids[32];   	/* -T iperf/nuttcp/thrulay */
 
         uint32_t	reportInterval;	/* -i (seconds) */
         I2numT  	lenBuffer;	/* -l (bytes)	*/
