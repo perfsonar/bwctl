@@ -183,6 +183,7 @@ Iperf3PreRunTest(
             case 'G':
             case 'a':
             case 'A':
+                iperf_set_test_unit_format( iperf_test, tsess->test_spec.units );
                 break;
             default:
                 fprintf(tsess->localfp,

@@ -1,0 +1,29 @@
+diff -r 02852230c305 src/iperf_api.c
+--- a/src/iperf_api.c	Fri Jan 10 13:22:11 2014 -0800
++++ b/src/iperf_api.c	Fri Feb 21 13:31:35 2014 -0500
+@@ -199,6 +199,12 @@
+     return ipt->may_use_sigalrm;
+ }
+ 
++char
++iperf_get_test_unit_format(struct iperf_test *ipt)
++{
++    return ipt->settings->unit_format;
++}
++
+ /************** Setter routines for some fields inside iperf_test *************/
+ 
+ void
+@@ -340,6 +346,12 @@
+     ipt->may_use_sigalrm = may_use_sigalrm;
+ }
+ 
++void
++iperf_set_test_unit_format(struct iperf_test *ipt, char unit_format)
++{
++    ipt->settings->unit_format = unit_format;
++}
++
+ /********************** Get/set test protocol structure ***********************/
+ 
+ struct protocol *

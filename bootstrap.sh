@@ -81,6 +81,8 @@ hg checkout $IPERF3_TAG
 hg revert -a
 # in-case glibtoolize isn't available, e.g. on linux
 patch -i ../iperf3_makefile.patch -p2
+patch -i ../iperf3_api_set_unit_format.patch -p1
+patch -i ../iperf3_tcp_congestion.patch -p2
 libtoolize --copy --force --automake
 popd
 
