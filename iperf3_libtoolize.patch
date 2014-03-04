@@ -1,0 +1,19 @@
+# HG changeset patch
+# User Bruce A. Mah <bmah@es.net>
+# Date 1391541824 28800
+# Node ID 44b6467002d480ea83663ed53c5d9a31dd069a93
+# Parent  34e52101f9e7619f43eb33f9c4795c44c11cf45c
+Make libtoolize actually get called correctly.
+
+diff -r 34e52101f9e7 -r 44b6467002d4 bootstrap.sh
+--- a/bootstrap.sh	Mon Feb 03 15:09:01 2014 -0800
++++ b/bootstrap.sh	Tue Feb 04 11:23:44 2014 -0800
+@@ -39,7 +39,7 @@
+ esac
+ 
+ set -x
+-glibtoolize --copy --force --automake
++libtoolize --copy --force --automake
+ aclocal -I config
+ autoheader
+ automake --foreign --add-missing --copy
