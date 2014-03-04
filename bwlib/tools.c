@@ -667,6 +667,19 @@ _BWLToolGenericParse(
         return 1;
     }
 
+    snprintf(confkey, sizeof(confkey) - 1, "test_port");
+    if(!strncasecmp(key,confkey,strlen(confkey))){
+        BWLPortRangeRec portrange;
+
+        if(!BWLPortsParse(ctx,val,&portrange)){
+            BWLError(ctx,BWLErrFATAL,errno,
+                    "BWLToolGenericParse: %s: \'%s\' - invalid port range",
+                    confkey,val);
+            return -1;
+        }
+
+        return save_ports(ctx,key,&portrange);
+    }
 
     /* key not handled */
 
@@ -704,11 +717,18 @@ _BWLToolGenericInitTest(
 
     prange = (BWLPortRange)BWLContextConfigGetV(ctx,optname);
 
+    // Check if a default "test_port" range is set
+    if( !prange ) {
+        strncpy(optname, "V.test_port", sizeof(optname));
+        prange = (BWLPortRange)BWLContextConfigGetV(ctx,optname);
+    }
+
     // If nothing has been specified for this tool, initialize it to a range of
     // 100 ports, starting with the tool's default port. This keeps it from
     // reusing the same port for every request, and potentially colliding.
     if( !prange ) {
-        if( prange = calloc(1,sizeof(BWLPortRangeRec))) {
+        prange = calloc(1,sizeof(BWLPortRangeRec));
+        if(prange) {
             prange->low  = tool->def_port - 1;
             prange->high = tool->def_port + 100;
             BWLPortsSetI(ctx,prange,tool->def_port);
