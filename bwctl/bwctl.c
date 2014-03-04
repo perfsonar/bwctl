@@ -1919,6 +1919,7 @@ main(
     int                 opt_index;
     char                opt_str[128];
     struct option       opt_list[128];
+    char                cwd[PATH_MAX];
     static char         *posixly_correct="POSIXLY_CORRECT=True";
 
     char                dirpath[PATH_MAX];
@@ -1971,6 +1972,7 @@ main(
     memset(&app,0,sizeof(app));
     app.opt.timeDuration = 10;
     app.opt.randomizeStart = 10;
+    app.opt.savedir = getcwd(cwd, sizeof(cwd));
 
     memset(&sessions[0],0,sizeof(sessions[0]));
     memset(&sessions[1],0,sizeof(sessions[1]));
