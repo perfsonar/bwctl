@@ -256,21 +256,12 @@ Iperf3RunTest(
 {
     struct iperf_test *iperf_test = closure;
 
-    // XXX: it would be better to receive the output from iperf3 than this, but
-    // this will do for now.
-    //dup2(fileno(stderr), STDOUT_FILENO);
-    //dup2(fileno(stderr), STDERR_FILENO);
-
-    fprintf(stderr, "Test initialized\n");
-
     switch (iperf_get_test_role(iperf_test))
     {
         case 's':
-            fprintf(stderr, "Running server\n");
             iperf_run_server(iperf_test);
             exit(0);
         case 'c':
-            fprintf(stderr, "Running client\n");
             iperf_run_client(iperf_test);
             exit(0);
         default:

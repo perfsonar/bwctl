@@ -267,7 +267,7 @@ ExecCommand(
     int      status;
     int      rc;
     int      i;
-    char     **argv;
+    char     **argv = NULL;
     va_list  ap;
 
     /* Count the number of commands so we know how much to allocate */
@@ -280,7 +280,7 @@ ExecCommand(
     argv = calloc(i + 1, sizeof(char *));
     if(argv == NULL) {
         BWLError(ctx,BWLErrFATAL,errno,"ExecCommand():pipe(): %M");
-        return -1;
+        goto error_out;
     }
 
     i = 1;
@@ -293,7 +293,7 @@ ExecCommand(
 
     if(pipe(fdpipe) < 0) {
         BWLError(ctx,BWLErrFATAL,errno,"ExecCommand():pipe(): %M");
-        return -1;
+        goto error_out;
     }
 
     pid = fork();
@@ -301,7 +301,7 @@ ExecCommand(
     /* fork error */
     if(pid < 0){
         BWLError(ctx,BWLErrFATAL,errno,"ExecCommand():fork(): %M");
-        return -1;
+        goto error_out;
     }
 
     if(0 == pid){
@@ -327,7 +327,7 @@ ExecCommand(
     if(rc < 0){
         BWLError(ctx,BWLErrFATAL,errno,
                 "ExecCommand(): waitpid(), rc = %d: %M",rc);
-        return -1;
+        goto error_out;
     }
 
     /*
@@ -340,7 +340,7 @@ ExecCommand(
                     command, WTERMSIG(status));
         }
         BWLError(ctx,BWLErrWARNING,errno,"ExecCommand(): %s unusable", command);
-        return -1;
+        goto error_out;
     }
 
     if (output_buf) {
@@ -352,7 +352,14 @@ ExecCommand(
         close(fdpipe[0]);
     }
         
+    free(argv);
+
     return WEXITSTATUS(status);
+
+error_out:
+    if (argv)
+        free(argv);
+    return -1;
 }
 
 char *
