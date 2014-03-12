@@ -11,15 +11,22 @@ my %time_series = ();
 foreach my $log_file (@log_files) {
     open(FILE, $log_file);
     while(<FILE>) {
-        next unless /Test Reservation Information/;
+        next unless /Test Reservation Information/ or /Time Slot (\d+):/;
+
+        my ($start, $end);
 
         if (/Reservation Start: (\d+), Reservation End: (\d+)/) {
-            my $start = $1;
-            my $end   = $2;
-            while($start < $end) {
-                $time_series{$start} = 1;
-                $start++;
-            }
+            $start = $1;
+            $end   = $2;
+        }
+        elsif (/Time Slot \d+: (\d+) to (\d+)/) {
+            $start = $1;
+            $end   = $2;
+        }
+
+        while($start < $end) {
+            $time_series{$start} = 1;
+            $start++;
         }
     }
     close(FILE);
