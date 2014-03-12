@@ -1,0 +1,63 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+my $max_plot_duration = 4*60*60;
+
+my @log_files = @ARGV;
+my %time_series = ();
+
+foreach my $log_file (@log_files) {
+    open(FILE, $log_file);
+    while(<FILE>) {
+        next unless /Test Reservation Information/;
+
+        if (/Reservation Start: (\d+), Reservation End: (\d+)/) {
+            my $start = $1;
+            my $end   = $2;
+            while($start < $end) {
+                $time_series{$start} = 1;
+                $start++;
+            }
+        }
+    }
+    close(FILE);
+}
+
+print <<EOF
+set terminal png size 10000,800
+set xdata time
+set timefmt "%s"
+set output "bwctl_utilization.png"
+set grid
+set yrange [0:2]
+set xlabel "Date\\nTime"
+set ylabel "Utilized"
+set title "BWCTL Utilization"
+set key left box
+plot "-" using 1:2 index 0 with dots
+EOF
+;
+
+my @times = sort keys %time_series;
+
+my $min_time = $times[0];
+my $max_time = $times[$#times];
+
+if ($max_plot_duration) {
+    if ($min_time < ($max_time - $max_plot_duration))  {
+        $min_time = $max_time - $max_plot_duration;
+    }
+}
+
+for(my $time = $min_time; $time < $max_time; $time++) {
+    if ($time_series{$time}) {
+      print $time." 1\n";
+    }
+    #else {
+    #  print $time." 0\n";
+    #}
+}
+print "e\n";
+
