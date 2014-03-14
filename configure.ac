@@ -47,6 +47,8 @@ AC_INIT(bwctl, 1.5.1, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
 AM_INIT_AUTOMAKE(bwctl, 1.5.1, [no-define])
 
+AC_DEFINE(PATCH_LEVEL, 20, "The RPM version number")
+AC_SUBST(PATCH_LEVEL, 20)
 
 AC_CONFIG_SRCDIR(bwlib/context.c)
 AM_CONFIG_HEADER(bwlib/config.h)
@@ -309,19 +311,7 @@ if test -n "${MAN2HTML}"; then
 fi
 AM_CONDITIONAL([HAVE_MAN2HTML], test x$do_man2html = xtrue)
 
-#BWLINCS='-I${ac_top_srcdir}'
-
-#BWL_dir='${ac_top_srcdir}/bwlib'
-#BWLLDFLAGS="-L$BWL_dir"
-#BWLLIBS="$BWLLDFLAGS -lbwlib"
-#BWLLIBDEPS="$BWLLIBDEPS $BWL_dir/libbwlib.a"
-
-#AC_SUBST(BWLINCS)
-#AC_SUBST(BWLLIBS)
-#AC_SUBST(BWLLIBDEPS)
-
 AC_SUBST(TOP_BUILD_DIRS)
-# AC_CONFIG_FILES([Makefile owamp/Makefile])
 
 AC_SUBST(ac_aux_dir)
 AC_OUTPUT([Makefile bwlib/Makefile bwctld/Makefile bwctl/Makefile conf/Makefile contrib/Makefile doc/Makefile bwctl.spec],

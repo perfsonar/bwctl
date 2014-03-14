@@ -80,7 +80,12 @@ int optreset;
 
 static void
 version(void){
-    fprintf(stderr, "\nVersion: %s\n\n", PACKAGE_VERSION);
+    if (PATCH_LEVEL) {
+        fprintf(stderr, "\nVersion: %s-%d\n\n", PACKAGE_VERSION, PATCH_LEVEL);
+    }
+    else {
+        fprintf(stderr, "\nVersion: %s\n\n", PACKAGE_VERSION);
+    }
     return;
 }
 

@@ -43,6 +43,7 @@
 #undef PACKAGE_STRING
 #undef PACKAGE_TARNAME
 #undef PACKAGE_VERSION
+#undef PATCH_LEVEL
 
 #include <bwlib/config.h>
 
