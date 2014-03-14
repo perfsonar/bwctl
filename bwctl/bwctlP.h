@@ -141,7 +141,7 @@ typedef	struct {
         I2Boolean	flip_direction; /* -o */
         I2Boolean       allow_one_sided; /* -E */
 
-        uint16_t        service_port;    /* -E */
+        uint16_t        tester_port;     /* --tester_port */
 
         /* Determines how far into
          * a seriesInterval a test

@@ -360,4 +360,6 @@ BWLToolDefinitionRec    BWLToolTraceroute = {
     BWL_TEST_TRACEROUTE,     /* test_types       */
     BWLToolSenderSideData,      /* results_side     */
     True,                    /* supports_server_sends */
+    True,                    /* supports_endpointless */
+    0,                       /* The server port to use in endpointless tests */
 };

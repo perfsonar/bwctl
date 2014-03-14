@@ -1544,4 +1544,16 @@ BWLCntrlIsLocal(
         BWLControl cntrl
         );
 
+uint16_t
+BWLToolStandardTesterPortByID(
+        BWLContext  ctx,
+        BWLToolType tool_id
+        );
+
+BWLBoolean
+BWLToolSupportsEndpointlessTestsByID(
+        BWLContext  ctx,
+        BWLToolType tool_id
+        );
+
 #endif    /* OWAMP_H */

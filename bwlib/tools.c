@@ -797,4 +797,49 @@ BWLToolGetCommonTools(
     return common_tools;
 }
 
+uint16_t BWLToolStandardTesterPort(
+        BWLContext          ctx,
+        BWLTestSpec         *spec
+        ) {
 
+     if (spec->server_sends) {
+         return BWL_DATA_ON_SERVER;
+     }
+     else {
+         return BWL_DATA_ON_CLIENT;
+     }
+}
+
+uint16_t
+BWLToolStandardTesterPortByID(
+        BWLContext  ctx,
+        BWLToolType tool_id
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(tool_id == ctx->tool_list[i].id){
+            return ctx->tool_list[i].tool->standard_tester_port;
+        }
+    }
+
+    return 0;
+}
+
+BWLBoolean
+BWLToolSupportsEndpointlessTestsByID(
+        BWLContext  ctx,
+        BWLToolType tool_id
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(tool_id == ctx->tool_list[i].id){
+            return ctx->tool_list[i].tool->supports_endpointless;
+        }
+    }
+
+    return False;
+}

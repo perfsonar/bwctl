@@ -141,11 +141,20 @@ struct bwctl_option bwctl_options[] = {
    },
    {
         BWL_TEST_ALL,
+        { "no_endpoint", no_argument, 0, 'E' },
+        "Allow tests to occur when the receiver isn't running bwctl (Default: False)",
+   },
+   {
+        BWL_TEST_ALL,
+        { "tester_port", required_argument, 0, 0 },
+        "For an endpoint-less test, use this port as the server port (Default: tool specific)"
+   },
+   {
+        BWL_TEST_ALL,
         { "allow_ntp_unsync", required_argument, 0, 'a' },
         "Allow unsynchronized clock - claim good within offset",
         "seconds"
    },
-
    {
         BWL_TEST_ALL,
         { "units", required_argument, 0, 'f' },
@@ -165,11 +174,6 @@ struct bwctl_option bwctl_options[] = {
    },
 
 // Latency/Traceroute-specific options
-   {
-        BWL_TEST_LATENCY | BWL_TEST_TRACEROUTE,
-        { "no_endpoint", no_argument, 0, 'E' },
-        "Allow tests to occur when the receiver isn't running bwctl (Default: False)",
-   },
    {
         BWL_TEST_LATENCY | BWL_TEST_TRACEROUTE,
         { "packet_length", required_argument, 0, 'l' },
@@ -1607,6 +1611,7 @@ handle_scheduling_arg(const char arg, const char *long_name, const char *value) 
 static BWLBoolean
 handle_generic_test_arg(const char arg, const char *long_name, const char *value, char **argv, int argc) {
     BWLBoolean handled = True;
+    char *tstr;
 
     switch (arg) {
         case 'c':
@@ -1656,9 +1661,23 @@ handle_generic_test_arg(const char arg, const char *long_name, const char *value
             }
             app.opt.outformat = optarg[0];
             break;
-
+        case 'E':
+            app.opt.allow_one_sided = True;
+            break;
         default:
             handled = False;
+    }
+
+    if (!handled) {
+        if (strcmp(long_name, "tester_port") == 0) {
+            app.opt.tester_port = strtoul(value,&tstr,10);
+            if(*tstr != '\0') {
+                usage("Invalid value. (--tester_port) positive integer expected");
+                exit(1);
+            }
+
+            handled = True;
+        }
     }
 
     return handled;
@@ -1811,16 +1830,6 @@ handle_ping_test_arg(const char arg, const char *long_name, const char *value) {
                 exit(1);
             }
             break;
-        case 'E':
-            app.opt.allow_one_sided = True;
-            break;
-        case 'Q':
-            app.opt.service_port = strtoul(optarg,&tstr,10);
-            if(*tstr != '\0') {
-                usage("Invalid value. (-t) positive integer expected");
-                exit(1);
-            }
-            break;
         default:
             handled = False;
     }
@@ -1854,9 +1863,6 @@ handle_traceroute_test_arg(const char arg, const char *long_name, const char *va
                 usage("Invalid value. (-l) positive integer expected");
                 exit(1);
             }
-            break;
-        case 'E':
-            app.opt.allow_one_sided = True;
             break;
         case 'M':
             app.opt.traceroute_last_ttl = strtoul(optarg,&tstr,10);
@@ -2168,13 +2174,6 @@ main(
         app.opt.tool_ids[i] = BWL_TOOL_UNDEFINED;
     }
 
-
-    if (app.opt.allow_one_sided &&
-          app.opt.flip_direction) {
-        I2ErrLog(eh,"-E and -o flags cannot be used together.");
-        exit(1);
-    }
-
     app.client_sess->require_endpoint = True;
     if (app.opt.allow_one_sided) {
         if (app.opt.verbose) {
@@ -2186,8 +2185,8 @@ main(
         app.server_sess->require_endpoint = True;
     }
 
-    if (!app.opt.allow_one_sided && app.opt.service_port) {
-        I2ErrLog(eh,"-Q flag can only be used with -E flag");
+    if (!app.opt.allow_one_sided && app.opt.tester_port) {
+        I2ErrLog(eh,"--tester_port flag can only be used with --no_endpoint flag");
         exit(1);
     }
 
@@ -2787,6 +2786,25 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
     /* Check if the requested tool is available at both servers. */
     common_tools = BWLToolGetCommonTools(ctx, client_sess->avail_tools,
                                          server_sess->avail_tools, test_type);
+
+    if (server_sess->fake_daemon && !server_sess->is_local) {
+        // We're faking the server endpoint so we need to make sure the tool we
+        // select supports it.
+        uint32_t tid;
+        for ( tid = 1; tid > 0; tid <<= 1 ) {
+            if ( tid & common_tools ) {
+                if (BWLToolSupportsEndpointlessTestsByID(ctx, tid) == False) {
+                    if (app.opt.verbose) {
+                        I2ErrLog( eh, "Removing %s because it doesn't support endpointless tests",
+                                   BWLToolGetNameByID( ctx, tid ));
+                    }
+
+                    common_tools &= ~tid;
+                }
+            }
+        }
+    }
+
     if(!common_tools){
         I2ErrLog(eh,"No tools in common");
         goto error_exit;
@@ -2952,10 +2970,15 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
 
             client_sess->tspec.req_time.tstamp = req_time.tstamp;
 
-            // override the service port in the case we're doing a one-sided
-            // test, and the -Q flag has been specified.
-            if (client_sess->tspec.no_server_endpoint && app.opt.service_port) {
-                recv_port = app.opt.service_port;
+            if (client_sess->tspec.no_server_endpoint) {
+                // If they've specified a port, use that. Otherwise, default to
+                // whatever the default port is for the given tester.
+                if (app.opt.tester_port) {
+                    recv_port = app.opt.tester_port;
+                }
+                else {
+                    recv_port = BWLToolStandardTesterPortByID(ctx, client_sess->tspec.tool_id);
+                }
             }
 
             if (!negotiate_individual_test(client_sess, sid, &req_time, &recv_port)) {
@@ -3374,7 +3397,8 @@ setup_results_storage(ipsess_t sess)
 
     if (app.opt.bidirectional_results ||
         (test_results_side == BWL_DATA_ON_CLIENT && sess->is_client) ||
-        (test_results_side == BWL_DATA_ON_SERVER && !sess->is_client)) {
+        (test_results_side == BWL_DATA_ON_SERVER && !sess->is_client && !sess->tspec.no_server_endpoint) ||
+        (test_results_side == BWL_DATA_ON_SERVER && sess->is_client && sess->tspec.no_server_endpoint)) {
 
        if(app.opt.printfiles){
             char dirpath[PATH_MAX];

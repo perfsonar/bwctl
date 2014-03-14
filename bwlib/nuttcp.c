@@ -315,4 +315,6 @@ BWLToolDefinitionRec    BWLToolNuttcp = {
     BWL_TEST_THROUGHPUT,     /* test_types       */
     BWLToolClientSideData,      /* results_side     */
     True,                   /* supports_server_sends */
+    False,                   /* supports_endpointless */ // XXX: we don't support it, because of the way nuttcp handles ports...
+    5000,                    /* The server port to use in endpointless tests */
 };

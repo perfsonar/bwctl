@@ -370,4 +370,6 @@ BWLToolDefinitionRec    BWLToolIperf = {
     BWL_TEST_THROUGHPUT,     /* test_types       */
     BWLToolServerSideData,      /* results_side     */
     False,                   /* supports_server_sends */
+    True,                    /* supports_endpointless */
+    5001,                    /* The server port to use in endpointless tests */
 };

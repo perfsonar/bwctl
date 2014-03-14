@@ -365,4 +365,6 @@ BWLToolDefinitionRec    BWLToolOwamp = {
     BWL_TEST_LATENCY,        /* test_types       */
     BWLToolClientSideData,      /* results_side     */
     True,                   /* supports_server_sends */
+    True,                    /* supports_endpointless */
+    861,                     /* The server port to use in endpointless tests */
 };

@@ -256,6 +256,8 @@ struct BWLToolDefinitionRec{
     BWLTestType               test_types;
     BWLToolTestSideDataFunc   results_side;
     BWLBoolean                supports_server_sends;
+    BWLBoolean                supports_endpointless;
+    uint16_t                  standard_tester_port;
 };
 
 
