@@ -540,17 +540,6 @@ ChldReservationDemand(
         }
 
         /*
-         * Skip this slot if it's already full
-         */
-        if (ReservationCanUseSlot(res, slot) == False) {
-            prev_slot = slot;
-            res->start = slot->end;
-            res->restime = BWLNum64Add(res->start,res->fuzz);
-            res->end = BWLNum64Add(res->start,dtime); 
-            continue;
-        }
-
-        /*
          * If this slot starts after our reservation ends, we just add a new
          * time slot covering this reservation since it doesn't overlap any
          * reservations.
@@ -564,6 +553,17 @@ ChldReservationDemand(
 
             added = 1;
             break;
+        }
+
+        /*
+         * Skip this slot if it's already full
+         */
+        if (ReservationCanUseSlot(res, slot) == False) {
+            prev_slot = slot;
+            res->start = slot->end;
+            res->restime = BWLNum64Add(res->start,res->fuzz);
+            res->end = BWLNum64Add(res->start,dtime); 
+            continue;
         }
         else {
             /*
@@ -670,6 +670,12 @@ ChldReservationDemand(
     }
 
     if (!added) {
+        // Error out if the new reservation time is too late
+        if(ltime && (BWLNum64Cmp(res->restime,ltime) > 0)){
+            *restime = res->restime;
+            goto denied;
+        }
+
         new_slot = TimeSlotCreate(res, res->start, res->end);
 
         /*
