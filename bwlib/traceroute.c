@@ -209,6 +209,13 @@ TraceroutePreRunTest(
         }
     }
 
+    if(tsess->test_spec.tos){
+        TracerouteArgs[a++] = "-t";
+        if( !(TracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos))){
+            return NULL;
+        }
+    }
+
     if(tsess->test_spec.outformat){
         switch((char)tsess->test_spec.outformat){
             case 'a':

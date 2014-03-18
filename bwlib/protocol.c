@@ -91,7 +91,7 @@ _BWLWriteServerGreeting(
     memset(buf,0,12);
 
     *((uint32_t *)&buf[12]) = htonl(avail_modes | 
-            BWL_MODE_PROTOCOL_1_5_VERSION);
+            BWL_MODE_PROTOCOL_1_5_2_VERSION);
     memcpy(&buf[16],challenge,16);
     if(I2Writeni(cntrl->sockfd,buf,32,retn_on_err) != 32){
         return BWLErrFATAL;
@@ -1015,6 +1015,10 @@ _BWLWriteTestRequest(
     buf[101] = tspec->server_sends;
     buf[102] = tspec->no_server_endpoint;
 
+    if(tspec->tos){
+        buf[93] = tspec->tos;
+    }
+
     if (BWLToolUnparseRequestParameters(tspec->tool_id, cntrl->ctx,buf,tspec,cntrl->protocol_version, tsession) != BWLErrOK) {
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
                 "Problem writing test request parameters");
@@ -1089,10 +1093,6 @@ BWLGenericUnparseThroughputParameters(
         buf[92] |= _BWL_DYNAMIC_WINDOW_SIZE;
     }
 
-    if(tspec->tos){
-        buf[93] = tspec->tos;
-    }
-
     if(tool_negotiation){
         buf[94] = tspec->parallel_streams;
         *(uint32_t*)&buf[96] = htonl(tspec->tool_id);
@@ -1137,6 +1137,17 @@ BWLGenericUnparseTracerouteParameters(
         BWLTestSession      tsession
         )
 {
+    BWLBoolean	    tos_available;
+
+    tos_available =  protocol_version >=
+        BWL_MODE_PROTOCOL_1_5_2_VERSION;
+
+    if(tspec->tos && !tos_available){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support setting TOS bit");
+        return BWLErrFATAL;
+    }
+
     *(uint32_t*)&buf[4] = htonl(tspec->duration);
     buf[76] = tspec->traceroute_first_ttl;
     buf[77] = tspec->traceroute_last_ttl;
@@ -1154,6 +1165,17 @@ BWLGenericUnparsePingParameters(
         BWLTestSession      tsession
         )
 {
+    BWLBoolean	    tos_available;
+
+    tos_available =  protocol_version >=
+        BWL_MODE_PROTOCOL_1_5_2_VERSION;
+
+    if(tspec->tos && !tos_available){
+        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support setting TOS bit");
+        return BWLErrFATAL;
+    }
+
     *(uint16_t*)&buf[76] = htons((uint16_t)(tspec->ping_packet_count));
     *(uint16_t*)&buf[78] = htons((uint16_t)(tspec->ping_packet_size));
     *(uint16_t*)&buf[80] = htons((uint16_t)(tspec->ping_interpacket_time));
@@ -1425,6 +1447,8 @@ _BWLReadTestRequest(
 
         tspec.duration = ntohl(*(uint32_t*)&buf[4]);
 
+        tspec.tos      = buf[93];
+
         if (reverse_available) {
             tspec.server_sends = buf[101];
             tspec.no_server_endpoint  = buf[102];
@@ -1538,7 +1562,6 @@ BWLGenericParseThroughputParameters(
     if (protocol_version < BWL_MODE_PROTOCOL_1_5_VERSION)
         tspec->report_interval = ntohl(*(uint32_t*)&buf[88]) * 1000;
     tspec->dynamic_window_size = buf[92] & _BWL_DYNAMIC_WINDOW_SIZE;
-    tspec->tos = buf[93];
 
     if(tool_negotiation){
         uint8_t bandwidth_exp;
@@ -1565,6 +1588,15 @@ BWLGenericParseTracerouteParameters(
         BWLProtocolVersion  protocol_version
         )
 {
+    BWLBoolean	    tos_available;
+
+    tos_available =  protocol_version >=
+        BWL_MODE_PROTOCOL_1_5_2_VERSION;
+
+    if(tspec->tos && !tos_available){
+        tspec->tos = 0;
+    }
+
     tspec->traceroute_first_ttl = buf[76];
     tspec->traceroute_last_ttl = buf[77];
     tspec->traceroute_packet_size = htons(*(uint16_t*)&buf[78]);
@@ -1580,6 +1612,15 @@ BWLGenericParsePingParameters(
         BWLProtocolVersion  protocol_version
         )
 {
+    BWLBoolean	    tos_available;
+
+    tos_available =  protocol_version >=
+        BWL_MODE_PROTOCOL_1_5_2_VERSION;
+
+    if(tspec->tos && !tos_available){
+        tspec->tos = 0;
+    }
+
     tspec->ping_packet_count = htons(*(uint16_t*)&buf[76]);
     tspec->ping_packet_size = htons(*(uint16_t*)&buf[78]);
     tspec->ping_interpacket_time = htons(*(uint16_t*)&buf[80]);

@@ -147,7 +147,8 @@ struct bwctl_option bwctl_options[] = {
    {
         BWL_TEST_ALL,
         { "tester_port", required_argument, 0, 0 },
-        "For an endpoint-less test, use this port as the server port (Default: tool specific)"
+        "For an endpoint-less test, use this port as the server port (Default: tool specific)",
+        "port"
    },
    {
         BWL_TEST_ALL,
@@ -171,6 +172,13 @@ struct bwctl_option bwctl_options[] = {
         { "format", required_argument, 0, 'y' },
         "Output format to use (Default: tool specific)",
         "format",
+   },
+
+   {
+        BWL_TEST_ALL,
+        { "tos", required_argument, 0, 'S' },
+        "Type-Of-Service for outgoing packets",
+        "tos",
    },
 
 // Latency/Traceroute-specific options
@@ -257,12 +265,6 @@ struct bwctl_option bwctl_options[] = {
         { "dscp", required_argument, 0, 'D' },
         "RFC 2474-style DSCP value for TOS byte",
         "dscp",
-   },
-   {
-        BWL_TEST_THROUGHPUT,
-        { "tos", required_argument, 0, 'S' },
-        "Type-Of-Service for outgoing packets",
-        "tos",
    },
    {
         BWL_TEST_THROUGHPUT,
@@ -1654,6 +1656,29 @@ handle_generic_test_arg(const char arg, const char *long_name, const char *value
             }
             break;
 
+        case 'D':
+            if(app.opt.tos){
+                usage("Invalid option \'-D\'. TOS byte already specified");
+                exit(1);
+            }
+            if(!parse_typeP(optarg)){
+                exit(1);
+            }
+            break;
+
+        case 'S':
+            if(app.opt.tos){
+                usage("Invalid option \'-S\'. TOS byte already specified");
+                exit(1);
+            }
+            app.opt.tos = strtoul(optarg, &tstr, 0);
+            if((*tstr != '\0') || (app.opt.tos > 0xff) ||
+                    (app.opt.tos & 0x01)){
+                usage("Invalid value for TOS. (-S)");
+                exit(1);
+            }
+            break;
+
         case 'y':
             if(strlen(optarg) != 1){
                 usage("Invalid value. (-y) Single character expected");
@@ -1701,15 +1726,6 @@ handle_throughput_test_arg(const char arg, const char *long_name, const char *va
             free(tstr);
             tstr = NULL;
             break;
-        case 'D':
-            if(app.opt.tos){
-                usage("Invalid option \'-D\'. TOS byte already specified");
-                exit(1);
-            }
-            if(!parse_typeP(optarg)){
-                exit(1);
-            }
-            break;
         case 'i':
             app.opt.reportInterval = strtod(optarg,&tstr) * 1000;
             if((optarg == tstr) || (errno == ERANGE) ||
@@ -1745,18 +1761,6 @@ handle_throughput_test_arg(const char arg, const char *long_name, const char *va
             app.opt.parallel =strtoul(optarg, &tstr, 10);
             if (*tstr != '\0') {
                 usage("Invalid value. Positive integer expected");
-                exit(1);
-            }
-            break;
-        case 'S':
-            if(app.opt.tos){
-                usage("Invalid option \'-S\'. TOS byte already specified");
-                exit(1);
-            }
-            app.opt.tos = strtoul(optarg, &tstr, 0);
-            if((*tstr != '\0') || (app.opt.tos > 0xff) ||
-                    (app.opt.tos & 0x01)){
-                usage("Invalid value for TOS. (-S)");
                 exit(1);
             }
             break;
@@ -2414,6 +2418,8 @@ main(
 
     test_options.outformat = app.opt.outformat;
 
+    test_options.tos = app.opt.tos;
+
     if (app.opt.flip_direction) {
         test_options.server_sends = True;
     }
@@ -2432,7 +2438,6 @@ main(
     }
     else {
         test_options.udp = app.opt.udpTest;
-        test_options.tos = app.opt.tos;
         test_options.bandwidth = app.opt.bandWidth;
         test_options.window_size = (uint32_t)app.opt.windowSize;
         if(app.opt.windowSize != (I2numT)test_options.window_size){

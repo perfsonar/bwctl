@@ -213,8 +213,23 @@ PingPreRunTest(
     }
 
     if(tsess->test_spec.ping_packet_ttl){
+#ifdef linux
         PingArgs[a++] = "-t";
+#else
+        PingArgs[a++] = "-m";
+#endif
         if( !(PingArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.ping_packet_ttl))){
+            return NULL;
+        }
+    }
+
+    if(tsess->test_spec.tos){
+#ifdef linux
+        PingArgs[a++] = "-Q";
+#else
+        PingArgs[a++] = "-z";
+#endif
+        if( !(PingArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos))){
             return NULL;
         }
     }
