@@ -622,7 +622,7 @@ BWLSockaddrCompare(
         if (((struct sockaddr_in *)(sa))->sin_addr.s_addr == ((struct sockaddr_in *)(sb))->sin_addr.s_addr) {
             return True;
         }
-#ifdef HAS_IPV6
+#ifdef AF_INET6
     } else if (sa->sa_family == AF_INET6) {
         if (0 == memcmp((char *) &(((struct sockaddr_in6 *)(sa))->sin6_addr),
                          (char *) &(((struct sockaddr_in6 *)(sb))->sin6_addr),
