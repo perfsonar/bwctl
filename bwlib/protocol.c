@@ -1140,7 +1140,7 @@ BWLGenericUnparseTracerouteParameters(
     *(uint32_t*)&buf[4] = htonl(tspec->duration);
     buf[76] = tspec->traceroute_first_ttl;
     buf[77] = tspec->traceroute_last_ttl;
-    *(uint16_t*)&buf[78] = htons((uint16_t)(tspec->ping_packet_size));
+    *(uint16_t*)&buf[78] = htons((uint16_t)(tspec->traceroute_packet_size));
 
     return BWLErrOK;
 }
