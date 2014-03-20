@@ -316,6 +316,7 @@ BWLToolDefinitionRec    BWLToolThrulay = {
     BWLGenericParseThroughputParameters,    /* parse_request */
     BWLGenericUnparseThroughputParameters,  /* unparse_request */
     ThrulayAvailable,       /* tool_avail       */
+    _BWLToolGenericValidateTest,   /* validate_test    */
     _BWLToolGenericInitTest, /* init_test        */
     ThrulayPreRunTest,      /* pre_run          */
     ThrulayRunTest,         /* run              */

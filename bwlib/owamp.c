@@ -359,6 +359,7 @@ BWLToolDefinitionRec    BWLToolOwamp = {
     BWLGenericParsePingParameters,    /* parse_request */
     BWLGenericUnparsePingParameters,  /* unparse_request */
     OwampAvailable,           /* tool_avail       */
+    _BWLToolGenericValidateTest,   /* validate_test    */
     OwampInitTest,            /* init_test        */
     OwampPreRunTest,          /* pre_run          */
     OwampRunTest,             /* run              */

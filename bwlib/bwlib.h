@@ -1243,6 +1243,13 @@ BWLToolParseArg(
         const char  *val
         );
 
+extern BWLBoolean
+BWLToolValidateTest(
+        BWLContext  ctx,
+        BWLToolType id,
+        BWLTestSpec test_spec
+        );
+
 extern BWLErrSeverity
 BWLToolInitTest(
         BWLContext  ctx,

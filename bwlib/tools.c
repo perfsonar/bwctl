@@ -407,6 +407,25 @@ BWLToolInitTest(
     return BWLErrFATAL;
 }
 
+BWLBoolean
+BWLToolValidateTest(
+        BWLContext  ctx,
+        BWLToolType id,
+        BWLTestSpec test_spec
+        )
+{
+    uint32_t    i;
+
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(ctx->tool_list[i].id == id){
+            return ctx->tool_list[i].tool->validate_test(ctx,ctx->tool_list[i].tool,
+                    test_spec);
+        }
+    }
+
+    return False;
+}
+
 BWLErrSeverity
 _BWLToolLookForTesters(
         BWLContext  ctx
@@ -842,4 +861,28 @@ BWLToolSupportsEndpointlessTestsByID(
     }
 
     return False;
+}
+
+BWLBoolean
+_BWLToolGenericValidateTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        BWLTestSpec         test_spec
+        )
+{
+    if (test_spec.server_sends &&
+        !tool->supports_server_sends) {
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                "%s does not support firewall mode", tool->name);
+        return False;
+    }
+
+    if (test_spec.no_server_endpoint &&
+        !tool->supports_endpointless) {
+        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
+                "%s does not support endpointless tests", tool->name);
+        return False;
+    }
+
+    return True;
 }

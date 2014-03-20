@@ -361,6 +361,7 @@ BWLToolDefinitionRec    BWLToolTraceroute = {
     BWLGenericParseTracerouteParameters,    /* parse_request */
     BWLGenericUnparseTracerouteParameters,  /* unparse_request */
     TracerouteAvailable,           /* tool_avail       */
+    _BWLToolGenericValidateTest,   /* validate_test    */
     TracerouteInitTest,            /* init_test        */
     TraceroutePreRunTest,          /* pre_run          */
     TracerouteRunTest,             /* run              */

@@ -58,6 +58,54 @@ Iperf3Available(
     return True;
 }
 
+static BWLBoolean
+Iperf3ValidateTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        BWLTestSpec         test_spec
+        )
+{
+    // validate the units
+    if(test_spec.units){
+        switch((char)test_spec.units){
+            case 'b':
+            case 'B':
+            case 'k':
+            case 'K':
+            case 'm':
+            case 'M':
+            case 'g':
+            case 'G':
+            case 'a':
+            case 'A':
+                break;
+            default:
+                BWLError(ctx,BWLErrFATAL,EINVAL,
+                    "Iperf3ValidateTest: Invalid units specification: %c",
+                    (char)test_spec.units);
+                return False;
+                break;
+        }
+    }
+
+    if(test_spec.outformat){
+        switch((char)test_spec.outformat){
+            case 'c':
+            case 'J':
+                break;
+            default:
+                BWLError(ctx,BWLErrFATAL,EINVAL,
+                        "Iperf3ValidateTest: Invalid output format specification %c",
+                        (char)test_spec.outformat);
+                return False;
+                break;
+        }
+    }
+
+    return _BWLToolGenericValidateTest(ctx, tool, test_spec);
+}
+
+
 /*
  * Function:    Iperf3PreRunTest
  *
@@ -172,42 +220,16 @@ Iperf3PreRunTest(
      * function chain?
      */
     if(tsess->test_spec.units){
-        switch((char)tsess->test_spec.units){
-            case 'b':
-            case 'B':
-            case 'k':
-            case 'K':
-            case 'm':
-            case 'M':
-            case 'g':
-            case 'G':
-            case 'a':
-            case 'A':
-                iperf_set_test_unit_format( iperf_test, tsess->test_spec.units );
-                break;
-            default:
-                fprintf(tsess->localfp,
-                        "bwctl: tool(iperf): Invalid units (-f) specification %c",
-                        (char)tsess->test_spec.units);
-                return NULL;
-                break;
-        }
+        iperf_set_test_unit_format( iperf_test, tsess->test_spec.units );
     }
 
     if(tsess->test_spec.outformat){
         switch((char)tsess->test_spec.outformat){
-            case 'c':
-                break;
             case 'J':
                 iperf_set_test_json_output( iperf_test, 1 );
                 break;
             default:
-                fprintf(tsess->localfp,
-                        "bwctl: tool(iperf3): Invalid out format (-y) specification %c",
-                        (char)tsess->test_spec.outformat);
-                return NULL;
                 break;
-
         }
     }
 
@@ -279,6 +301,7 @@ BWLToolDefinitionRec    BWLToolIperf3 = {
     BWLGenericParseThroughputParameters,    /* parse_request */
     BWLGenericUnparseThroughputParameters,  /* unparse_request */
     Iperf3Available,         /* tool_avail       */
+    Iperf3ValidateTest,      /* validate_test    */
     _BWLToolGenericInitTest, /* init_test        */
     Iperf3PreRunTest,        /* pre_run          */
     Iperf3RunTest,           /* run              */

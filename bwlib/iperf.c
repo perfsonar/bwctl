@@ -85,6 +85,53 @@ IperfAvailable(
    return False;
 }
 
+static BWLBoolean
+IperfValidateTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        BWLTestSpec         test_spec
+        )
+{
+    // validate the units
+    if(test_spec.units){
+        switch((char)test_spec.units){
+            case 'b':
+            case 'B':
+            case 'k':
+            case 'K':
+            case 'm':
+            case 'M':
+            case 'g':
+            case 'G':
+            case 'a':
+            case 'A':
+                break;
+            default:
+                BWLError(ctx,BWLErrFATAL,EINVAL,
+                    "IperfValidateTest: Invalid units specification: %c",
+                    (char)test_spec.units);
+                return False;
+                break;
+        }
+    }
+
+    if(test_spec.outformat){
+        switch((char)test_spec.outformat){
+            case 'c':
+                break;
+            default:
+                BWLError(ctx,BWLErrFATAL,EINVAL,
+                        "IperfValidateTest: Invalid output format specification %c",
+                        (char)test_spec.outformat);
+                return False;
+                break;
+
+        }
+    }
+
+    return _BWLToolGenericValidateTest(ctx, tool, test_spec);
+}
+
 /*
  * Function:    IperfPreRunTest
  *
@@ -364,6 +411,7 @@ BWLToolDefinitionRec    BWLToolIperf = {
     BWLGenericParseThroughputParameters,    /* parse_request */
     BWLGenericUnparseThroughputParameters,  /* unparse_request */
     IperfAvailable,         /* tool_avail       */
+    IperfValidateTest,      /* validate_test    */
     _BWLToolGenericInitTest, /* init_test        */
     IperfPreRunTest,        /* pre_run          */
     IperfRunTest,           /* run              */

@@ -98,6 +98,26 @@ NuttcpAvailable(
     return False;
 }
 
+static BWLBoolean
+NuttcpValidateTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        BWLTestSpec         test_spec
+        )
+{
+    /*
+     * TODO: Fix this to allow UDP Nuttcp tests.
+     */
+    if(test_spec.udp){
+        BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
+                "NuttcpPreRunTest: Does not support Nuttcp UDP connections");
+        return False;
+    }
+
+    return _BWLToolGenericValidateTest(ctx, tool, test_spec);
+}
+
+
 /*
  * Function:    NuttcpPreRunTest
  *
@@ -145,16 +165,6 @@ NuttcpPreRunTest(
     if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.server,recvhost,hlen, NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "NuttcpPreRunTest: Invalid server I2Addr");
-        return NULL;
-    }
-
-    /*
-     * TODO: Fix this to allow UDP Nuttcp tests.
-     */
-    if(tsess->test_spec.udp){
-        fprintf(tsess->localfp, "bwctl: Server does not currently support Nuttcp UDP connections\n");
-        BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
-                "NuttcpPreRunTest: Do not support Nuttcp UDP connections");
         return NULL;
     }
 
@@ -309,6 +319,7 @@ BWLToolDefinitionRec    BWLToolNuttcp = {
     BWLGenericParseThroughputParameters,    /* parse_request */
     BWLGenericUnparseThroughputParameters,  /* unparse_request */
     NuttcpAvailable,         /* tool_avail       */
+    NuttcpValidateTest,      /* validate_test    */
     _BWLToolGenericInitTest, /* init_test        */
     NuttcpPreRunTest,        /* pre_run          */
     NuttcpRunTest,           /* run              */

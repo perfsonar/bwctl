@@ -169,6 +169,17 @@ typedef BWLBoolean  (*BWLToolAvailableFunc)(
         );
 
 /*
+ * This function is used to validate a given test specifications can be run by
+ * the given tool.  It is called by the client and the server to make sure that
+ * invalid tests aren't being requested.
+ */
+typedef BWLBoolean (*BWLToolValidateTestFunc)(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        BWLTestSpec         test_spec
+        );
+
+/*
  * This function is used to initialize a test at the resource-broker
  * portion of the daemon. It is called once for each new 'test session' -
  * but it is called in the global portion of the daemon, not from the
@@ -250,6 +261,7 @@ struct BWLToolDefinitionRec{
     BWLToolParseRequestFunc   parse_request;
     BWLToolUnparseRequestFunc unparse_request;
     BWLToolAvailableFunc      tool_avail;
+    BWLToolValidateTestFunc   validate_test;
     BWLToolInitTestFunc       init_test;
     BWLToolPreRunTestFunc     pre_run;
     BWLToolRunTestFunc        run;
@@ -781,6 +793,12 @@ _BWLToolGenericInitTest(
         uint16_t            *toolport
         );
 
+extern BWLBoolean
+_BWLToolGenericValidateTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        BWLTestSpec         test_spec
+        );
 
 /* endpoint.c */
 

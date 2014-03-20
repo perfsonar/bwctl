@@ -607,16 +607,6 @@ BWLProcessTestRequest(
         }
     }
 
-    if (tsession->test_spec.server_sends &&
-        !BWLToolSupportsServerSendByID(cntrl->ctx,tsession->test_spec.tool_id)) {
-        BWLError(cntrl->ctx,BWLErrFATAL,BWLErrINVALID,
-                "Tool does not support firewall mode");
-        err_ret = BWLErrWARNING;
-        acceptval = BWL_CNTRL_UNSUPPORTED;
-        goto error;
-    }
-
-
     /*
      * compute "fuzz" time.
      */
@@ -639,6 +629,16 @@ BWLProcessTestRequest(
                 "Test not allowed");
         acceptval = BWL_CNTRL_REJECT;
         err_ret = BWLErrINFO;
+        goto error;
+    }
+
+    /*
+     * Validate the test after running CheckTestPolicy as CheckTestPolicy may
+     * set or change test spec parameters.
+     */
+    if (!BWLToolValidateTest(cntrl->ctx,tsession->test_spec.tool_id, tsession->test_spec)) {
+        err_ret = BWLErrWARNING;
+        acceptval = BWL_CNTRL_UNSUPPORTED;
         goto error;
     }
 

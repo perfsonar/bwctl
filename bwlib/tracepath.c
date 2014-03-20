@@ -326,6 +326,7 @@ BWLToolDefinitionRec    BWLToolTracepath = {
     BWLGenericParseTracerouteParameters,    /* parse_request */
     BWLGenericUnparseTracerouteParameters,  /* unparse_request */
     TracepathAvailable,           /* tool_avail       */
+    _BWLToolGenericValidateTest,   /* validate_test    */
     TracepathInitTest,            /* init_test        */
     TracepathPreRunTest,          /* pre_run          */
     TracepathRunTest,             /* run              */

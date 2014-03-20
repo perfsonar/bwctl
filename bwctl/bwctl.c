@@ -2792,24 +2792,6 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
     common_tools = BWLToolGetCommonTools(ctx, client_sess->avail_tools,
                                          server_sess->avail_tools, test_type);
 
-    if (server_sess->fake_daemon && !server_sess->is_local) {
-        // We're faking the server endpoint so we need to make sure the tool we
-        // select supports it.
-        uint32_t tid;
-        for ( tid = 1; tid > 0; tid <<= 1 ) {
-            if ( tid & common_tools ) {
-                if (BWLToolSupportsEndpointlessTestsByID(ctx, tid) == False) {
-                    if (app.opt.verbose) {
-                        I2ErrLog( eh, "Removing %s because it doesn't support endpointless tests",
-                                   BWLToolGetNameByID( ctx, tid ));
-                    }
-
-                    common_tools &= ~tid;
-                }
-            }
-        }
-    }
-
     if(!common_tools){
         I2ErrLog(eh,"No tools in common");
         goto error_exit;
@@ -2826,6 +2808,13 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
         /* Pick the first common tool to use. */
         tid = 1;
         for ( tid = 1; tid > 0; tid <<= 1 ) {
+            if (BWLToolValidateTest(ctx, tid, *test_options) == False) {
+                if (app.opt.verbose) {
+                    I2ErrLog( eh, "Skipping %s because it doesn't support the requested options",
+                               BWLToolGetNameByID( ctx, tid ));
+                }
+            }
+
             if ( tid & common_tools )
                 break;
         }
@@ -2834,21 +2823,30 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
         I2ErrLog( eh, "Using tool: %s", req_name );
     } else {
         const char *req_name;
-        uint32_t tid;
         int i;
 
         for( i = 0; app.opt.tool_ids[i] != BWL_TOOL_UNDEFINED; i++ ) {
-            if ( app.opt.tool_ids[i] & common_tools ) {
-                test_options->tool_id = app.opt.tool_ids[i];
-                req_name = BWLToolGetNameByID( ctx, test_options->tool_id );
-                I2ErrLog( eh, "Using tool: %s", req_name );
-                break;
+            if (!( app.opt.tool_ids[i] & common_tools ))
+                continue;
+
+            if (BWLToolValidateTest(ctx, app.opt.tool_ids[i], *test_options) == False) {
+                if (app.opt.verbose) {
+                    I2ErrLog( eh, "Skipping %s because it doesn't support the requested options",
+                               BWLToolGetNameByID( ctx, app.opt.tool_ids[i] ));
+                }
+                common_tools &= ~(app.opt.tool_ids[i]);
+                continue;
             }
+
+            test_options->tool_id = app.opt.tool_ids[i];
+            req_name = BWLToolGetNameByID( ctx, test_options->tool_id );
+            I2ErrLog( eh, "Using tool: %s", req_name );
+            break;
         }
 
         if ( test_options->tool_id == BWL_TOOL_UNDEFINED ) {
             I2ErrLog( eh, "Requested tools not supported by both servers. See the \'-T\' option" );
-            I2ErrLog( eh, "Available in-common: %s", BWLToolGetToolNames( ctx, common_tools ) );
+            I2ErrLog( eh, "Available tools that support the requested options: %s", BWLToolGetToolNames( ctx, common_tools ) );
             goto error_exit;
         }
     }

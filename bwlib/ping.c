@@ -367,6 +367,7 @@ BWLToolDefinitionRec    BWLToolPing = {
     BWLGenericParsePingParameters,    /* parse_request */
     BWLGenericUnparsePingParameters,  /* unparse_request */
     PingAvailable,           /* tool_avail       */
+    _BWLToolGenericValidateTest,   /* validate_test    */
     PingInitTest,            /* init_test        */
     PingPreRunTest,          /* pre_run          */
     PingRunTest,             /* run              */
