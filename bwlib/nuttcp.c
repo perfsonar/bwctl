@@ -247,7 +247,7 @@ NuttcpPreRunTest(
         }
 
         if (tsess->test_spec.server_sends) {
-            NuttcpArgs[a++] = "-F";
+            NuttcpArgs[a++] = "-r";
         }
         else {
             NuttcpArgs[a++] = "-t";
