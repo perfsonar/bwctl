@@ -194,6 +194,10 @@ NuttcpPreRunTest(
     NuttcpArgs[a++] = "-p";
     NuttcpArgs[a++] = BWLUInt32Dup(ctx,tsess->tool_port);
 
+    // explicitly set the control port
+    NuttcpArgs[a++] = "-P";
+    NuttcpArgs[a++] = "5000";
+
     if(tsess->test_spec.udp){
         NuttcpArgs[a++] = "-u";
     }
@@ -326,6 +330,6 @@ BWLToolDefinitionRec    BWLToolNuttcp = {
     BWL_TEST_THROUGHPUT,     /* test_types       */
     BWLToolClientSideData,      /* results_side     */
     True,                   /* supports_server_sends */
-    False,                   /* supports_endpointless */ // XXX: we don't support it, because of the way nuttcp handles ports...
-    5000,                    /* The server port to use in endpointless tests */
+    True,                    /* supports_endpointless */
+    5001,                    /* The server port to use in endpointless tests */
 };
