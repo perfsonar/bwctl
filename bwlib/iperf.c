@@ -129,6 +129,11 @@ IperfValidateTest(
         }
     }
 
+    if(!test_spec.udp && test_spec.bandwidth){
+        BWLError(ctx,BWLErrFATAL,EINVAL, "IperfValidateTest: iperf does not support setting TCP bandwidth");
+        return False;
+    }
+
     return _BWLToolGenericValidateTest(ctx, tool, test_spec);
 }
 
@@ -167,27 +172,14 @@ IperfPreRunTest(
     int             a = 0;
     char            recvhost[MAXHOSTNAMELEN];
     char            sendhost[MAXHOSTNAMELEN];
-    size_t          hlen;
-    struct sockaddr *rsaddr;
-    socklen_t       rsaddrlen;
 
-    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.server,&rsaddrlen))){
+    if(BWLAddrNodeName(ctx, tsess->test_spec.server, recvhost, sizeof(recvhost), NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "IperfPreRunTest(): Invalid server I2Addr");
         return NULL;
     }
 
-    hlen = sizeof(recvhost);
-    I2AddrNodeName(tsess->test_spec.server,recvhost,&hlen);
-    if(!hlen){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "IperfPreRunTest(): Invalid server I2Addr");
-        return NULL;
-    }
-
-    hlen = sizeof(sendhost);
-    I2AddrNodeName(tsess->test_spec.client,sendhost,&hlen);
-    if(!hlen){
+    if(BWLAddrNodeName(ctx, tsess->test_spec.client, sendhost, sizeof(sendhost), NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "IperfPreRunTest(): Invalid client I2Addr");
         return NULL;
@@ -234,63 +226,25 @@ IperfPreRunTest(
      * XXX: Perhaps these should be validated earlier, in the CheckTest
      * function chain?
      */
+    IperfArgs[a++] = "-f";
     if(!tsess->test_spec.units){
-        IperfArgs[a++] = "-f";
         IperfArgs[a++] = "b";
     }
     else{
-        char    temp[2];
+        char temp[2];
 
-        switch((char)tsess->test_spec.units){
-            case 'b':
-            case 'B':
-            case 'k':
-            case 'K':
-            case 'm':
-            case 'M':
-            case 'g':
-            case 'G':
-            case 'a':
-            case 'A':
-                IperfArgs[a++] = "-f";
-                temp[0] = (char)tsess->test_spec.units;
-                temp[1] = '\0';
-                if( !(IperfArgs[a++] = strdup(temp))){
-                    BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
-                            "IperfPreRunTest():strdup(): %M");
-                    return NULL;
-                }
-                break;
-
-            default:
-                fprintf(tsess->localfp,
-                        "bwctl: tool(iperf): Invalid units (-f) specification %c",
-                        (char)tsess->test_spec.units);
-                return NULL;
-                break;
-
+        temp[0] = (char)tsess->test_spec.units;
+        temp[1] = '\0';
+        if( !(IperfArgs[a++] = strdup(temp))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
+                    "IperfPreRunTest():strdup(): %M");
+            return NULL;
         }
-    }
-
-    if(!tsess->test_spec.udp && tsess->test_spec.bandwidth){
-        fprintf(tsess->localfp, "bwctl: iperf does not support setting TCP bandwidth");
-        return NULL;
     }
 
     if(tsess->test_spec.outformat){
-        switch((char)tsess->test_spec.outformat){
-            case 'c':
-                IperfArgs[a++] = "-y";
-                IperfArgs[a++] = "c";
-                break;
-            default:
-                fprintf(tsess->localfp,
-                        "bwctl: tool(iperf): Invalid out format (-y) specification %c",
-                        (char)tsess->test_spec.outformat);
-                return NULL;
-                break;
-
-        }
+        IperfArgs[a++] = "-y";
+        IperfArgs[a++] = "c";
     }
 
     if(tsess->test_spec.parallel_streams > 0){
@@ -346,15 +300,8 @@ IperfPreRunTest(
         }
     }
 
-    switch(rsaddr->sa_family){
-#ifdef    AF_INET6
-        case AF_INET6:
-            IperfArgs[a++] = "-V";
-            break;
-#endif
-        case AF_INET:
-        default:
-            break;
+    if (BWLAddrIsIPv6(ctx, tsess->test_spec.server)) {
+        IperfArgs[a++] = "-V";
     }
 
     IperfArgs[a++] = NULL;

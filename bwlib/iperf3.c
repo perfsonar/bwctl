@@ -134,27 +134,15 @@ Iperf3PreRunTest(
     char            recvhost[MAXHOSTNAMELEN];
     char            sendhost[MAXHOSTNAMELEN];
     size_t          hlen;
-    struct sockaddr *rsaddr;
-    socklen_t       rsaddrlen;
     struct iperf_test *iperf_test;
 
-    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.server,&rsaddrlen))){
+    if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.server,recvhost,sizeof(recvhost), NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "Iperf3PreRunTest(): Invalid server I2Addr");
         return NULL;
     }
 
-    hlen = sizeof(recvhost);
-    I2AddrNodeName(tsess->test_spec.server,recvhost,&hlen);
-    if(!hlen){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "Iperf3PreRunTest(): Invalid server I2Addr");
-        return NULL;
-    }
-
-    hlen = sizeof(sendhost);
-    I2AddrNodeName(tsess->test_spec.client,sendhost,&hlen);
-    if(!hlen){
+    if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.client,sendhost,sizeof(sendhost), NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "Iperf3PreRunTest(): Invalid client I2Addr");
         return NULL;
