@@ -310,4 +310,5 @@ BWLToolDefinitionRec    BWLToolIperf3 = {
     True,                    /* supports_server_sends */
     True,                    /* supports_endpointless */
     5201,                    /* The server port to use in endpointless tests */
+    'J',                     /* parsable format */
 };

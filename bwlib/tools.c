@@ -781,6 +781,22 @@ BWLTestSideData BWLToolClientSideData(
      return BWL_DATA_ON_CLIENT;
 }
 
+char
+BWLToolGetParsableFormatByID(
+        BWLContext ctx,
+        uint32_t    tool_id
+        )
+{
+    int i;
+    for(i=0;i<ctx->tool_list_size;i++){
+        if(tool_id == ctx->tool_list[i].id){
+            return ctx->tool_list[i].tool->parsable_format;
+        }
+    }
+
+    return '\0';
+}
+
 
 BWLTestSideData BWLToolSenderSideData(
         BWLContext          ctx,

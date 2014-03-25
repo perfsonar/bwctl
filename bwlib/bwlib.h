@@ -1474,6 +1474,12 @@ BWLToolGetResultsSideByID(
         BWLTestSpec *spec
         );
 
+char
+BWLToolGetParsableFormatByID(
+        BWLContext ctx,
+        uint32_t    i
+        );
+
 BWLTestSideData BWLToolServerSideData(
         BWLContext          ctx,
         BWLTestSpec         *spec

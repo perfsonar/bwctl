@@ -332,4 +332,5 @@ BWLToolDefinitionRec    BWLToolNuttcp = {
     True,                   /* supports_server_sends */
     True,                    /* supports_endpointless */
     5001,                    /* The server port to use in endpointless tests */
+    NULL,                    /* parsable format */
 };

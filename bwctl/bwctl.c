@@ -173,6 +173,12 @@ struct bwctl_option bwctl_options[] = {
         "Output format to use (Default: tool specific)",
         "format",
    },
+   {
+        BWL_TEST_ALL,
+        { "parsable", no_argument, 0, 0 },
+        "Set the output format to the machine parsable version for the select tool, if available",
+   },
+
 
    {
         BWL_TEST_ALL,
@@ -1508,6 +1514,13 @@ handle_output_arg(const char arg, const char *long_name, const char *value) {
             break;
         default:
             handled = False;
+    }
+
+    if (!handled) {
+        if (strcmp(long_name, "parsable") == 0) {
+            app.opt.parsable = True;
+            handled = True;
+        }
     }
 
     return handled;
@@ -2849,6 +2862,15 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
             I2ErrLog( eh, "Available tools that support the requested options: %s", BWLToolGetToolNames( ctx, common_tools ) );
             goto error_exit;
         }
+    }
+
+    // now that the tool has been selected, if the user wants the parsable
+    // format, select it.
+    if (app.opt.parsable) {
+        test_options->outformat = BWLToolGetParsableFormatByID(ctx, test_options->tool_id );
+    }
+    else {
+        test_options->outformat = app.opt.outformat;
     }
 
     /*
