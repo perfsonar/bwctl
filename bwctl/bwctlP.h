@@ -95,6 +95,13 @@ typedef struct regular_intervals_schedule {
   time_t    last_run_time;
 } RegularIntervalsSchedule;
 
+typedef struct scheduled_times_schedule {
+  uint32_t	randomize_start;
+
+  struct tm     *times;
+  int           num_times;
+} ScheduledTimesSchedule;
+
 typedef struct{
     char		*host;
     aeskey_auth	        auth;
@@ -145,6 +152,7 @@ typedef	struct {
         char		*savedir;	/* -d */
         uint32_t	seriesInterval;	/* -I (seconds) */
         I2Boolean	streaming; 	/* --streaming */
+        char            *schedule;      /* --schedule */
         uint32_t	randomizeStart;	/* -R (alpha[0-50])	*/
         uint32_t	nIntervals;	/* -n */
         I2Boolean	continuous;	/* no intervals setup, but a seriesInterval or streaming option set */

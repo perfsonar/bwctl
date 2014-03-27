@@ -70,12 +70,15 @@ static BWLBoolean establish_connection(ipsess_t current_sess, ipsess_t other_ses
 static BWLBoolean getclientkey(BWLContext lctx, const BWLUserID userid, BWLKey key_ret, BWLErrSeverity  *err_ret);
 
 /*
- * Schedule objects/functions
+ * Scheduling functions
  */
 static Scheduler *get_streaming_scheduler();
 static Scheduler *get_regular_intervals_scheduler(uint32_t interval, uint32_t randomize_start);
+static Scheduler *get_scheduled_times_scheduler(const char *schedule, uint32_t randomize_start);
 static BWLBoolean streaming_scheduler_get_next_runtime(Scheduler *schedule, struct timespec *tspec, BWLBoolean prev_test_failed);
 static BWLBoolean regular_intervals_scheduler_get_next_runtime(Scheduler *schedule, struct timespec *tspec, BWLBoolean prev_test_failed);
+static BWLBoolean scheduled_times_scheduler_get_next_runtime(Scheduler *schedule, struct timespec *tspec, BWLBoolean prev_test_failed);
+static BWLBoolean parse_scheduled_times(const char *schedule, struct tm **times, int *num_times);
 
 // The ordering here is the odering it will show when the usage is printed
 struct bwctl_option bwctl_options[] = {
@@ -123,6 +126,12 @@ struct bwctl_option bwctl_options[] = {
         BWL_TEST_ALL,
         { "streaming", no_argument, 0, 0 },
         "Request the next test as soon as the current test finishes",
+   },
+   {
+        BWL_TEST_ALL,
+        { "schedule", required_argument, 0, 0 },
+        "Specify the specific times when a test should be run (e.g. --schedule 11:00,13:00,15:00)",
+        "schedule"
    },
    {
         BWL_TEST_ALL,
@@ -1626,6 +1635,13 @@ handle_scheduling_arg(const char arg, const char *long_name, const char *value) 
             app.opt.streaming = True;
             handled = True;
         }
+        else if (strcmp(long_name, "schedule") == 0) {
+            if (!(app.opt.schedule = strdup(optarg))) {
+                fprintf(stderr,"malloc failed\n");
+                exit(1);
+            }
+            handled = True;
+        }
     }
 
     return handled;
@@ -2344,6 +2360,14 @@ main(
         usage("-I cannot be used with --streaming");
         exit(1);
     }
+    else if (app.opt.seriesInterval && app.opt.schedule) {
+        usage("-I cannot be used with --schedule");
+        exit(1);
+    }
+    else if (app.opt.streaming && app.opt.schedule) {
+        usage("--streaming cannot be used with --schedule");
+        exit(1);
+    }
 
     /*
      * If seriesInterval is in use, verify the args and pick a
@@ -2394,7 +2418,14 @@ main(
         }
     }
 
-    if (app.opt.streaming) {
+    if (app.opt.schedule) {
+        app.scheduler = get_scheduled_times_scheduler(app.opt.schedule, app.opt.randomizeStart);
+        if (!app.scheduler) {
+            I2ErrLog(eh,"Failed to initialize scheduler");
+            exit(1);
+        }
+    }
+    else if (app.opt.streaming) {
         app.scheduler = get_streaming_scheduler();
         if (!app.scheduler) {
             I2ErrLog(eh,"Failed to initialize scheduler");
@@ -3479,6 +3510,134 @@ error_exit:
     return NULL;
 }
 
+static Scheduler *get_scheduled_times_scheduler(const char *time_schedule, uint32_t randomize_start) {
+    Scheduler *schedule;
+    ScheduledTimesSchedule *scheduled_times_schedule;
+
+    schedule = calloc(1, sizeof(Scheduler));
+    if (!schedule)
+        goto error_exit;
+
+    scheduled_times_schedule = calloc(1, sizeof(ScheduledTimesSchedule));
+    if (!scheduled_times_schedule)
+        goto error_exit_scheduled_times;
+
+    if (parse_scheduled_times(time_schedule, &(scheduled_times_schedule->times), &(scheduled_times_schedule->num_times)) == False)
+        goto error_exit_schedule;
+
+    schedule->get_next_runtime = scheduled_times_scheduler_get_next_runtime;
+    schedule->private = scheduled_times_schedule;
+
+    return schedule;
+
+error_exit_scheduled_times:
+    free(scheduled_times_schedule);
+error_exit_schedule:
+    free(schedule);
+error_exit:
+    return NULL;
+}
+
+static BWLBoolean parse_scheduled_times(const char *schedule, struct tm **times, int *num_times) {
+    char temp_str[1024];
+    char *time;
+    char *temp;
+    int i, n;
+    struct tm *ret_times;
+
+    strncpy(temp_str, schedule, sizeof(temp_str) - 1);
+
+    n = 0;
+
+    time = strtok_r(temp_str, ",", &temp);
+    while (time != NULL) {
+        n++;
+        time = strtok_r(NULL, ",", &temp);
+    }
+
+    if (n <= 0) {
+        I2ErrLog(eh, "No times specified in schedule");
+        goto error_out;
+    }
+
+    ret_times = calloc(n, sizeof(struct tm));
+    if (!ret_times) {
+        I2ErrLog(eh, "Problem allocating schedule");
+        goto error_out;
+    }
+
+    strncpy(temp_str, schedule, sizeof(temp_str) - 1);
+
+    time = strtok_r(temp_str, ",", &temp);
+    while (time != NULL) {
+        char *time_segment;
+        char *temp2;
+        int hour = -1;
+        int minute = -1;
+        int second = -1;
+        char time_str[1024];
+
+        strncpy(time_str, time, sizeof(time_str));
+
+        time_segment = strtok_r(time_str, ":", &temp2);
+        while (time_segment != NULL) {
+            char *endptr;
+
+            int val = strtol(time_segment, &endptr, 10);
+            if (*endptr != '\0') {
+                I2ErrLog(eh, "Invalid time specification: %s", time);
+                goto error_out_tm;
+            }
+
+            if (val < 0) {
+                I2ErrLog(eh, "Invalid time specification: %s", time);
+                goto error_out_tm;
+            }
+
+            if (hour == -1) {
+                hour = val;
+            }
+            else if (minute == -1) {
+                minute = val;
+            }
+            else if (second == -1) {
+                second = val;
+            }
+            else {
+                I2ErrLog(eh, "Invalid time specification: %s", time);
+                goto error_out_tm;
+            }
+
+            time_segment = strtok_r(NULL, ":", &temp2);
+        }
+
+        if (hour == -1) {
+            I2ErrLog(eh, "Invalid time specification: %s", time);
+            goto error_out_tm;
+        }
+
+        ret_times[i].tm_hour = hour;
+        if (minute != -1)
+            ret_times[i].tm_min = minute;
+        if (second != -1)
+            ret_times[i].tm_sec = second;
+
+        i++;
+
+        time = strtok_r(NULL, ",", &temp);
+    }
+
+    *num_times = n;
+    *times = ret_times;
+
+    return True;
+
+error_out_tm:
+    free(ret_times);
+error_out:
+    return False;
+}
+
 // streaming doesn't wait
 static BWLBoolean streaming_scheduler_get_next_runtime(Scheduler *scheduler, struct timespec *tspec, BWLBoolean prev_test_failed) {
     if (prev_test_failed) {
@@ -3515,6 +3674,46 @@ static BWLBoolean regular_intervals_scheduler_get_next_runtime(Scheduler *schedu
     tspec->tv_nsec = (wait_time / 1000000);
 
     schedule->last_run_time = curr_time + tspec->tv_sec;
+
+    return True;
+}
+
+static BWLBoolean scheduled_times_scheduler_get_next_runtime(Scheduler *scheduler, struct timespec *tspec, BWLBoolean prev_test_failed) {
+    ScheduledTimesSchedule *schedule = scheduler->private;
+    double r, alpha;
+    double wait_time;
+    time_t curr_time;
+    struct tm now;
+    int i;
+    double min_diff;
+
+    curr_time = time(NULL);
+    localtime_r(&curr_time, &now);
+
+    min_diff = -1;
+
+    for(i = 0; i < schedule->num_times; i++) {
+        double diff;
+        struct tm schedule_time;
+
+        schedule_time = now;
+
+        schedule_time.tm_hour = schedule->times[i].tm_hour;
+        schedule_time.tm_min = schedule->times[i].tm_min;
+        schedule_time.tm_sec = schedule->times[i].tm_sec;
+
+        diff = difftime(mktime(&schedule_time), curr_time);
+
+        if (diff < 0) {
+           diff += 86400; // add a day for times that have already passed
+        }
+
+        if (diff < min_diff || min_diff == -1)
+            min_diff = diff;
+    }
+
+    tspec->tv_sec = (int) min_diff;
+    tspec->tv_nsec = 0;
 
     return True;
 }
