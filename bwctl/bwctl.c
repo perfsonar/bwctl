@@ -59,7 +59,7 @@ int optreset;
 
 static BWLControl spawn_local_server(BWLContext lctx, ipsess_t sess, BWLToolAvailability *avail_tools);
 static BWLBoolean close_local_server(BWLContext ctx, ipsess_t sess);
-static BWLBoolean wait_for_next_test(BWLTimeStamp prev_test_start_time, BWLBoolean prev_test_failed);
+static BWLBoolean wait_for_next_test(BWLBoolean prev_test_failed);
 static BWLBoolean start_testing(ipsess_t server_sess, ipsess_t client_sess);
 static BWLBoolean negotiate_individual_test(ipsess_t sess, BWLSID sid, BWLTimeStamp *req_time, uint16_t *recv_port);
 static BWLBoolean negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_options);
@@ -68,6 +68,14 @@ static BWLBoolean setup_results_storage(ipsess_t sess);
 static BWLBoolean display_results(ipsess_t sess);
 static BWLBoolean establish_connection(ipsess_t current_sess, ipsess_t other_sess);
 static BWLBoolean getclientkey(BWLContext lctx, const BWLUserID userid, BWLKey key_ret, BWLErrSeverity  *err_ret);
+
+/*
+ * Schedule objects/functions
+ */
+static Scheduler *get_streaming_scheduler();
+static Scheduler *get_regular_intervals_scheduler(uint32_t interval, uint32_t randomize_start);
+static BWLBoolean streaming_scheduler_get_next_runtime(Scheduler *schedule, struct timespec *tspec, BWLBoolean prev_test_failed);
+static BWLBoolean regular_intervals_scheduler_get_next_runtime(Scheduler *schedule, struct timespec *tspec, BWLBoolean prev_test_failed);
 
 // The ordering here is the odering it will show when the usage is printed
 struct bwctl_option bwctl_options[] = {
@@ -1957,7 +1965,6 @@ main(
     double              syncfuzz;
     BWLTestSpec         test_options;
     I2Boolean           prev_test_failed;
-    BWLTimeStamp        prev_test_start_time;
 
     /*
      * Make sure the signal mask is UNBLOCKING TERM/HUP/INT
@@ -2387,6 +2394,21 @@ main(
         }
     }
 
+    if (app.opt.streaming) {
+        app.scheduler = get_streaming_scheduler();
+        if (!app.scheduler) {
+            I2ErrLog(eh,"Failed to initialize scheduler");
+            exit(1);
+        }
+    }
+    else {
+        app.scheduler = get_regular_intervals_scheduler(app.opt.seriesInterval, app.opt.randomizeStart);
+        if (!app.scheduler) {
+            I2ErrLog(eh,"Failed to initialize scheduler");
+            exit(1);
+        }
+    }
+
     /*
      * Lock the directory for bwctl if it is in printfiles mode.
      */
@@ -2506,19 +2528,11 @@ main(
             goto finish;
         }
 
-        if (!wait_for_next_test(prev_test_start_time, prev_test_failed)) {
+        if (!wait_for_next_test(prev_test_failed)) {
             goto finish;
         }
 
         prev_test_failed = True;
-
-        /*
-         * Get current time for server greeting.
-         */
-        if(!BWLGetTimeStamp(ctx,&prev_test_start_time)){
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"BWLGetTimeStamp: %M");
-            goto next_test;
-        }
 
         /*
          * Check if NTP is synchronized, and if not, verify that we're running
@@ -2821,6 +2835,9 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
         /* Pick the first common tool to use. */
         tid = 1;
         for ( tid = 1; tid > 0; tid <<= 1 ) {
+            if (!( tid & common_tools ))
+                continue;
+
             if (BWLToolValidateTest(ctx, tid, *test_options) == False) {
                 if (app.opt.verbose) {
                     I2ErrLog( eh, "Skipping %s because it doesn't support the requested options",
@@ -3145,108 +3162,26 @@ error_exit:
 }
 
 static BWLBoolean
-wait_for_next_test(BWLTimeStamp prev_test_start_time, BWLBoolean prev_test_failed)
+wait_for_next_test(BWLBoolean prev_test_failed)
 {
-    BWLTimeStamp currtime;
-    BWLTimeStamp wake;
-    double       wait_time = 0;
-    static BWLBoolean is_first = True;
+    struct timespec sleep_time;
 
-    if (app.opt.streaming) {
-        if (prev_test_failed) {
-            wait_time = 60;
-        }
-        else {
-            wait_time = 0;
-        }
-    }
-    else if (is_first) {
-        if(app.opt.seriesInterval && app.opt.randomizeStart){
-            /*
-             * sleep for rand([0,1])*sessionInterval
-             * (spread out start time)
-             * Use a random 32 bit integer and normalize.
-             */
-            uint32_t    r;
+    app.scheduler->get_next_runtime(app.scheduler, &sleep_time, prev_test_failed);
 
-            if(I2RandomBytes(rsrc,(uint8_t*)&r,4) != 0){
-                exit(1);
-            }
-
-            wait_time = (double)app.opt.seriesInterval*r/0xffffffff;
-        }
-    }
-    else {
-        if(app.opt.randomizeStart > 0){
-            double alpha_time = app.opt.seriesInterval * (double) app.opt.randomizeStart / 100.0;
-            uint32_t r;
-
-            /*
-             * compute minimum start for interval
-             * (random number will be added to this).
-             */
-            wait_time = app.opt.seriesInterval - alpha_time;
-
-            /*
-             * get a random uint32_t
-             */
-            if(I2RandomBytes(rsrc,(uint8_t*)&r,4) != 0){
-                exit(1);
-            }
-
-            /*
-             * Use the random number to pick a random value in the range
-             * of [0,2alpha]. Add that to b to get a value of
-             * interval +- alpha
-             */
-            wait_time += ((double) r/0xffffffff) * 2.0 * alpha_time;
-        }
-        else{
-            wait_time = app.opt.seriesInterval;
-        }
-    }
-
-    /*
-     * Initialize wake time to current time. If this is a single test,
-     * this will indicate an immediate test. If seriesInterval is set,
-     * this time will be adjusted to spread start times out.
-     */
-    if(!BWLGetTimeStamp(ctx,&wake)){
-        I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-        goto error_exit;
-    }
-
-    if (!is_first) {
-        wake.tstamp = BWLNum64Add(prev_test_start_time.tstamp, BWLDoubleToNum64(wait_time));
-    }
-    else {
-        wake.tstamp = BWLNum64Add(wake.tstamp, BWLDoubleToNum64(wait_time));
-    }
-
-    /*
-     * Check if the test should run yet...
-     */
-    if(!BWLGetTimeStamp(ctx,&currtime)){
-        I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-        goto error_exit;
-    }
-
-    while (BWLNum64Cmp(wake.tstamp,currtime.tstamp) > 0){
-        struct timespec     tspec;
-
-        BWLNum64ToTimespec(&tspec,BWLNum64Sub(wake.tstamp,currtime.tstamp));
+    while (sleep_time.tv_sec > 0 || sleep_time.tv_nsec > 0) {
+        struct timespec remaining_time;
 
         /*
          * If the next period is more than 3 seconds from
          * now, say something.
          */
-        if(!app.opt.quiet && (tspec.tv_sec > 3)){
+        if(!app.opt.quiet && sleep_time.tv_sec > 3){
             BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
                     "%lu seconds until next testing period",
-                    tspec.tv_sec);
+                    sleep_time.tv_sec);
         }
 
-        if (nanosleep(&tspec,NULL) < 0 && errno != EINTR) {
+        if (nanosleep(&sleep_time,&remaining_time) < 0 && errno != EINTR) {
             BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"nanosleep(): %M");
             goto error_exit;
         }
@@ -3256,13 +3191,8 @@ wait_for_next_test(BWLTimeStamp prev_test_start_time, BWLBoolean prev_test_faile
             goto error_exit;
         }
 
-        if(!BWLGetTimeStamp(ctx,&currtime)){
-            I2ErrLogP(eh,errno,"BWLGetTimeOfDay: %M");
-            goto error_exit;
-        }
+        sleep_time = remaining_time;
     }
-
-    is_first = False;
 
     return True;
 
@@ -3510,4 +3440,81 @@ display_results(ipsess_t sess)
 
 error_exit:
     return False;
+}
+
+static Scheduler *get_streaming_scheduler() {
+    Scheduler *schedule;
+    schedule = calloc(1, sizeof(Scheduler));
+    if (!schedule) {
+        return NULL;
+    }
+
+    schedule->get_next_runtime = streaming_scheduler_get_next_runtime;
+    return schedule;
+}
+
+static Scheduler *get_regular_intervals_scheduler(uint32_t interval, uint32_t randomize_start) {
+    Scheduler *schedule;
+    RegularIntervalsSchedule *regular_intervals_schedule;
+
+    schedule = calloc(1, sizeof(Scheduler));
+    if (!schedule)
+        goto error_exit;
+
+    regular_intervals_schedule = calloc(1, sizeof(RegularIntervalsSchedule));
+    if (!regular_intervals_schedule)
+        goto error_exit_schedule;
+
+    regular_intervals_schedule->interval = interval;
+    regular_intervals_schedule->randomize_start = randomize_start;
+
+    schedule->get_next_runtime = regular_intervals_scheduler_get_next_runtime;
+    schedule->private = regular_intervals_schedule;
+
+    return schedule;
+
+error_exit_schedule:
+    free(schedule);
+error_exit:
+    return NULL;
+}
+
+// streaming doesn't wait
+static BWLBoolean streaming_scheduler_get_next_runtime(Scheduler *scheduler, struct timespec *tspec, BWLBoolean prev_test_failed) {
+    if (prev_test_failed) {
+        tspec->tv_nsec = 0;
+        tspec->tv_sec = 60;
+    }
+    else {
+        tspec->tv_nsec = 0;
+        tspec->tv_sec = 0;
+    }
+
+    return True;
+}
+
+static BWLBoolean regular_intervals_scheduler_get_next_runtime(Scheduler *scheduler, struct timespec *tspec, BWLBoolean prev_test_failed) {
+    RegularIntervalsSchedule *schedule = scheduler->private;
+    double r, alpha;
+    double wait_time;
+    time_t curr_time;
+
+    curr_time = time(NULL);
+    r = ((double) rand() / (RAND_MAX));
+    alpha = schedule->interval * schedule->randomize_start / 100.0;
+
+    if (schedule->last_run_time == 0) {
+        wait_time = alpha * r;
+    }
+    else {
+        wait_time = schedule->interval - alpha + 2 * r * alpha;
+        wait_time -= difftime(curr_time, schedule->last_run_time);
+    }
+
+    tspec->tv_sec = (long) wait_time;
+    tspec->tv_nsec = (wait_time / 1000000);
+
+    schedule->last_run_time = curr_time + tspec->tv_sec;
+
+    return True;
 }

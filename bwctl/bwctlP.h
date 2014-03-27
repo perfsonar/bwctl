@@ -83,6 +83,18 @@ typedef struct {
     uint8_t	aesbuff[16];
 } aeskey_auth_rec, *aeskey_auth;
 
+typedef struct schedule {
+  BWLBoolean (*get_next_runtime) (struct schedule *schedule, struct timespec *tspec, BWLBoolean prev_test_failed);
+  void *private;
+} Scheduler;
+
+typedef struct regular_intervals_schedule {
+  uint32_t	interval;
+  uint32_t	randomize_start;
+
+  time_t    last_run_time;
+} RegularIntervalsSchedule;
+
 typedef struct{
     char		*host;
     aeskey_auth	        auth;
@@ -204,6 +216,8 @@ typedef	struct {
 
     aeskey_auth		def_auth;
 
+    Scheduler           *scheduler;
+
     BWLScheduleContext	sctx;
     BWLSID			sid;
 
@@ -222,5 +236,6 @@ struct bwctl_option {
      char   *description;
      char   *argument_description;
 };
+
 
 #endif
