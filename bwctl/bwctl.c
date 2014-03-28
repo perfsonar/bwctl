@@ -28,6 +28,8 @@
  * limitations under the License.
  * 
  */
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -46,6 +48,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <pwd.h>
+
+#include <time.h>
 
 #include <I2util/addr.h>
 #include <bwlib/bwlib.h>
@@ -78,7 +82,7 @@ static Scheduler *get_scheduled_times_scheduler(const char *schedule, uint32_t r
 static BWLBoolean streaming_scheduler_get_next_runtime(Scheduler *schedule, struct timespec *tspec, BWLBoolean prev_test_failed);
 static BWLBoolean regular_intervals_scheduler_get_next_runtime(Scheduler *schedule, struct timespec *tspec, BWLBoolean prev_test_failed);
 static BWLBoolean scheduled_times_scheduler_get_next_runtime(Scheduler *schedule, struct timespec *tspec, BWLBoolean prev_test_failed);
-static BWLBoolean parse_scheduled_times(const char *schedule, struct tm **times, int *num_times);
+static BWLBoolean parse_time_schedule(const char *schedule, struct tm **times, int *num_times);
 
 // The ordering here is the odering it will show when the usage is printed
 struct bwctl_option bwctl_options[] = {
@@ -2418,7 +2422,7 @@ main(
          * a single test is requested.
          */
         if(!app.opt.nIntervals){
-            if(!app.opt.streaming) {
+            if(!app.opt.streaming && !app.opt.schedule) {
                 app.opt.nIntervals = 1;
             }
             else {
@@ -3205,33 +3209,33 @@ static BWLBoolean
 wait_for_next_test(BWLBoolean prev_test_failed)
 {
     struct timespec sleep_time;
+    struct timespec remaining_time;
+    int retval;
 
     app.scheduler->get_next_runtime(app.scheduler, &sleep_time, prev_test_failed);
 
-    while (sleep_time.tv_sec > 0 || sleep_time.tv_nsec > 0) {
-        struct timespec remaining_time;
+    /*
+     * If the next period is more than 3 seconds from
+     * now, say something.
+     */
+    if(!app.opt.quiet && sleep_time.tv_sec > 3){
+        BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
+                "%lu seconds until next testing period",
+                sleep_time.tv_sec);
+    }
 
-        /*
-         * If the next period is more than 3 seconds from
-         * now, say something.
-         */
-        if(!app.opt.quiet && sleep_time.tv_sec > 3){
-            BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
-                    "%lu seconds until next testing period",
-                    sleep_time.tv_sec);
-        }
-
-        if (nanosleep(&sleep_time,&remaining_time) < 0 && errno != EINTR) {
-            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"nanosleep(): %M");
-            goto error_exit;
-        }
-
+    while ((retval = nanosleep(&sleep_time, &remaining_time)) && errno == EINTR) {
         if(sig_check()){
             exit_val = 1;
             goto error_exit;
         }
 
         sleep_time = remaining_time;
+    }
+
+    if (retval < 0) {
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"nanosleep(): %M");
+        goto error_exit;
     }
 
     return True;
@@ -3531,7 +3535,7 @@ static Scheduler *get_scheduled_times_scheduler(const char *time_schedule, uint3
     if (!scheduled_times_schedule)
         goto error_exit_scheduled_times;
 
-    if (parse_scheduled_times(time_schedule, &(scheduled_times_schedule->times), &(scheduled_times_schedule->num_times)) == False)
+    if (parse_time_schedule(time_schedule, &(scheduled_times_schedule->times), &(scheduled_times_schedule->num_times)) == False)
         goto error_exit_schedule;
 
     schedule->get_next_runtime = scheduled_times_scheduler_get_next_runtime;
@@ -3547,7 +3551,7 @@ error_exit:
     return NULL;
 }
 
-static BWLBoolean parse_scheduled_times(const char *schedule, struct tm **times, int *num_times) {
+static BWLBoolean parse_time_schedule(const char *schedule, struct tm **times, int *num_times) {
     char temp_str[1024];
     char *time;
     char *temp;
@@ -3577,63 +3581,23 @@ static BWLBoolean parse_scheduled_times(const char *schedule, struct tm **times,
 
     strncpy(temp_str, schedule, sizeof(temp_str) - 1);
 
-    time = strtok_r(temp_str, ",", &temp);
-    while (time != NULL) {
-        char *time_segment;
-        char *temp2;
-        int hour = -1;
-        int minute = -1;
-        int second = -1;
-        char time_str[1024];
+    for(i = 0, time = strtok_r(temp_str, ",", &temp); time != NULL; i++, time = strtok_r(NULL, ",", &temp)) {
+        char *ret_str;
 
-        strncpy(time_str, time, sizeof(time_str));
+        ret_str = strptime(time, "%H:%M:%S", &(ret_times[i]));
+        if (ret_str != NULL && *ret_str == '\0')
+            continue;
 
-        time_segment = strtok_r(time_str, ":", &temp2);
-        while (time_segment != NULL) {
-            char *endptr;
+        ret_str = strptime(time, "%H:%M", &(ret_times[i]));
+        if (ret_str != NULL && *ret_str == '\0')
+            continue;
 
-            int val = strtol(time_segment, &endptr, 10);
-            if (*endptr != '\0') {
-                I2ErrLog(eh, "Invalid time specification: %s", time);
-                goto error_out_tm;
-            }
+        ret_str = strptime(time, "%H", &(ret_times[i]));
+        if (ret_str != NULL && *ret_str == '\0')
+            continue;
 
-            if (val < 0) {
-                I2ErrLog(eh, "Invalid time specification: %s", time);
-                goto error_out_tm;
-            }
-
-            if (hour == -1) {
-                hour = val;
-            }
-            else if (minute == -1) {
-                minute = val;
-            }
-            else if (second == -1) {
-                second = val;
-            }
-            else {
-                I2ErrLog(eh, "Invalid time specification: %s", time);
-                goto error_out_tm;
-            }
-
-            time_segment = strtok_r(NULL, ":", &temp2);
-        }
-
-        if (hour == -1) {
-            I2ErrLog(eh, "Invalid time specification: %s", time);
-            goto error_out_tm;
-        }
-
-        ret_times[i].tm_hour = hour;
-        if (minute != -1)
-            ret_times[i].tm_min = minute;
-        if (second != -1)
-            ret_times[i].tm_sec = second;
-
-        i++;
-
-        time = strtok_r(NULL, ",", &temp);
+        I2ErrLog(eh, "Invalid time specification: %s", time);
+        goto error_out_tm;
     }
 
     *num_times = n;
