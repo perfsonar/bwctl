@@ -516,7 +516,7 @@ parse_auth_args(
         I2ErrHandle leh,
         char        **argv,
         int         argc,
-        char        *hostref,
+        const char  *hostref,
         aeskey_auth *auth_ret
         )
 {
@@ -1267,10 +1267,11 @@ LoadConfig(
 
 static BWLBoolean
 parse_typeP(
-        char        *tspec
+        const char  *tspec
         )
 {
-    char            *tstr,*endptr;
+    const char      *tstr;
+    char            *endptr;
     unsigned long   tlng;
     uint8_t         tosbyte = 0;
 
@@ -1279,7 +1280,7 @@ parse_typeP(
     tstr = tspec;
     endptr = NULL;
     while(isspace((int)*tstr)) tstr++;
-    tlng = strtoul(optarg,&endptr,0);
+    tlng = strtoul(tspec,&endptr,0);
 
     /*
      * Try interpreting as hex DSCP value.
@@ -1492,7 +1493,7 @@ handle_conn_arg(const char arg, const char *long_name, const char *value, char *
             }
             break;
         case 'B':
-            if (!(app.opt.srcaddr = strdup(optarg))) {
+            if (!(app.opt.srcaddr = strdup(value))) {
                 fprintf(stderr,"malloc failed\n");
                 exit(1);
             }
@@ -1511,17 +1512,17 @@ handle_output_arg(const char arg, const char *long_name, const char *value) {
 
     switch (arg) {
         case 'd':
-            if (!(app.opt.savedir = strdup(optarg))) {
+            if (!(app.opt.savedir = strdup(value))) {
                 fprintf(stderr,"malloc failed\n");
                 exit(1);
             }
             break;
         case 'f':
-            if(strlen(optarg) != 1){
+            if(strlen(value) != 1){
                 usage("Invalid value. (-f) Single character expected");
                 exit(1);
             }
-            app.opt.units = optarg[0];
+            app.opt.units = value[0];
             break;
         case 'p':
             app.opt.printfiles = True;
@@ -1550,7 +1551,7 @@ handle_misc_arg(const char arg, const char *long_name, const char *value) {
 
     switch (arg) {
         case 'e':
-            if((fac = I2ErrLogSyslogFacility(optarg)) == -1){
+            if((fac = I2ErrLogSyslogFacility(value)) == -1){
                 fprintf(stderr, "Invalid -e: Unknown syslog facility");
                 exit(1);
             }
@@ -1587,22 +1588,22 @@ handle_scheduling_arg(const char arg, const char *long_name, const char *value) 
 
     switch (arg) {
         case 'a':
-            app.opt.allowUnsync = strtod(optarg,&tstr);
-            if((optarg == tstr) || (errno == ERANGE) ||
+            app.opt.allowUnsync = strtod(value,&tstr);
+            if((value == tstr) || (errno == ERANGE) ||
                     (app.opt.allowUnsync < 0.0)){
                 usage("Invalid value \'-a\'. Positive float expected");
                 exit(1);
             }
             break;
         case 'I':
-            app.opt.seriesInterval =strtoul(optarg, &tstr, 10);
+            app.opt.seriesInterval =strtoul(value, &tstr, 10);
             if (*tstr != '\0') {
                 usage("Invalid value. (-I) Positive integer expected");
                 exit(1);
             }
             break;
         case 'R':
-            app.opt.randomizeStart = strtoul(optarg,&tstr,10);
+            app.opt.randomizeStart = strtoul(value,&tstr,10);
             if(*tstr != '\0'){
                 usage("Invalid value. (-R) Positive integer expected");
                 exit(1);
@@ -1613,14 +1614,14 @@ handle_scheduling_arg(const char arg, const char *long_name, const char *value) 
             }
             break;
         case 'n':
-            app.opt.nIntervals =strtoul(optarg, &tstr, 10);
+            app.opt.nIntervals =strtoul(value, &tstr, 10);
             if (*tstr != '\0') {
                 usage("Invalid value. Positive integer expected");
                 exit(1);
             }
             break;
         case 'L':
-            app.opt.seriesWindow = strtoul(optarg,&tstr,10);
+            app.opt.seriesWindow = strtoul(value,&tstr,10);
             if(*tstr != '\0'){
                 usage("Invalid value. Positive integer expected");
                 exit(1);
@@ -1636,7 +1637,7 @@ handle_scheduling_arg(const char arg, const char *long_name, const char *value) 
             handled = True;
         }
         else if (strcmp(long_name, "schedule") == 0) {
-            if (!(app.opt.schedule = strdup(optarg))) {
+            if (!(app.opt.schedule = strdup(value))) {
                 fprintf(stderr,"malloc failed\n");
                 exit(1);
             }
@@ -1659,9 +1660,12 @@ handle_generic_test_arg(const char arg, const char *long_name, const char *value
                 exit(1);
             }
 
-            app.receiver_sess->host = optarg;
+            if (!(app.receiver_sess->host = strdup(value))) {
+                fprintf(stderr,"malloc failed\n");
+                exit(1);
+            }
 
-            if(parse_auth_args(eh,argv,argc,optarg,&app.receiver_sess->auth)
+            if(parse_auth_args(eh,argv,argc,value,&app.receiver_sess->auth)
                     != 0){
                 usage("invalid \'receiver\' authentication");
                 exit(1);
@@ -1673,9 +1677,12 @@ handle_generic_test_arg(const char arg, const char *long_name, const char *value
                 exit(1);
             }
 
-            app.sender_sess->host = optarg;
+            if (!(app.sender_sess->host = strdup(value))) {
+                fprintf(stderr,"malloc failed\n");
+                exit(1);
+            }
 
-            if(parse_auth_args(eh,argv,argc,optarg,&app.sender_sess->auth)
+            if(parse_auth_args(eh,argv,argc,value,&app.sender_sess->auth)
                     != 0){
                 usage("invalid \'sender\' authentication");
                 exit(1);
@@ -1687,7 +1694,7 @@ handle_generic_test_arg(const char arg, const char *long_name, const char *value
             break;
 
         case 'T':
-            if (!(app.opt.tools = strdup(optarg))) {
+            if (!(app.opt.tools = strdup(value))) {
                 fprintf(stderr,"malloc failed\n");
                 exit(1);
             }
@@ -1698,7 +1705,7 @@ handle_generic_test_arg(const char arg, const char *long_name, const char *value
                 usage("Invalid option \'-D\'. TOS byte already specified");
                 exit(1);
             }
-            if(!parse_typeP(optarg)){
+            if(!parse_typeP(value)){
                 exit(1);
             }
             break;
@@ -1708,7 +1715,7 @@ handle_generic_test_arg(const char arg, const char *long_name, const char *value
                 usage("Invalid option \'-S\'. TOS byte already specified");
                 exit(1);
             }
-            app.opt.tos = strtoul(optarg, &tstr, 0);
+            app.opt.tos = strtoul(value, &tstr, 0);
             if((*tstr != '\0') || (app.opt.tos > 0xff) ||
                     (app.opt.tos & 0x01)){
                 usage("Invalid value for TOS. (-S)");
@@ -1717,11 +1724,11 @@ handle_generic_test_arg(const char arg, const char *long_name, const char *value
             break;
 
         case 'y':
-            if(strlen(optarg) != 1){
+            if(strlen(value) != 1){
                 usage("Invalid value. (-y) Single character expected");
                 exit(1);
             }
-            app.opt.outformat = optarg[0];
+            app.opt.outformat = value[0];
             break;
         case 'E':
             app.opt.allow_one_sided = True;
@@ -1752,7 +1759,7 @@ handle_throughput_test_arg(const char arg, const char *long_name, const char *va
 
     switch (arg) {
         case 'b':
-            if( !(tstr = strdup(optarg))){
+            if( !(tstr = strdup(value))){
                 I2ErrLog(eh, "strdup(): %M");
                 exit(1);
             }
@@ -1764,15 +1771,15 @@ handle_throughput_test_arg(const char arg, const char *long_name, const char *va
             tstr = NULL;
             break;
         case 'i':
-            app.opt.reportInterval = strtod(optarg,&tstr) * 1000;
-            if((optarg == tstr) || (errno == ERANGE) ||
+            app.opt.reportInterval = strtod(value,&tstr) * 1000;
+            if((value == tstr) || (errno == ERANGE) ||
                     (app.opt.reportInterval < 0.0)){
                 usage("Invalid value. (-i) positive float expected");
                 exit(1);
             }
             break;
         case 'l':
-            if( !(tstr = strdup(optarg))){
+            if( !(tstr = strdup(value))){
                 I2ErrLog(eh, "strdup(): %M");
                 exit(1);
             }
@@ -1784,7 +1791,7 @@ handle_throughput_test_arg(const char arg, const char *long_name, const char *va
             tstr = NULL;
             break;
         case 'O':
-            app.opt.timeOmit = strtoul(optarg,&tstr,10);
+            app.opt.timeOmit = strtoul(value,&tstr,10);
             if(*tstr != '\0'){
                 usage("Invalid value. (-O) positive integer expected");
                 exit(1);
@@ -1795,14 +1802,14 @@ handle_throughput_test_arg(const char arg, const char *long_name, const char *va
             }
             break;
         case 'P':
-            app.opt.parallel =strtoul(optarg, &tstr, 10);
+            app.opt.parallel =strtoul(value, &tstr, 10);
             if (*tstr != '\0') {
                 usage("Invalid value. Positive integer expected");
                 exit(1);
             }
             break;
         case 't':
-            app.opt.timeDuration = strtoul(optarg, &tstr, 10);
+            app.opt.timeDuration = strtoul(value, &tstr, 10);
             if((*tstr != '\0') || (app.opt.timeDuration == 0)){
                 usage("Invalid value \'-t\'. Positive integer expected");
                 exit(1);
@@ -1819,7 +1826,7 @@ handle_throughput_test_arg(const char arg, const char *long_name, const char *va
                 exit(1);
             }
             app.opt.winset++;
-            if( !(tstr = strdup(optarg))){
+            if( !(tstr = strdup(value))){
                 I2ErrLog(eh, "strdup(): %M");
                 exit(1);
             }
@@ -1843,29 +1850,29 @@ handle_ping_test_arg(const char arg, const char *long_name, const char *value) {
 
     switch (arg) {
         case 'N':
-            app.opt.ping_packet_count = strtoul(optarg,&tstr,10);
+            app.opt.ping_packet_count = strtoul(value,&tstr,10);
             if(*tstr != '\0') {
                 usage("Invalid value. (-N) positive integer expected");
                 exit(1);
             }
             break;
         case 'i':
-            app.opt.ping_interpacket_time = strtod(optarg,&tstr) * 1000;
-            if((optarg == tstr) || (errno == ERANGE) ||
+            app.opt.ping_interpacket_time = strtod(value,&tstr) * 1000;
+            if((value == tstr) || (errno == ERANGE) ||
                     (app.opt.ping_interpacket_time < 0.0)){
                 usage("Invalid value. (-i) positive float expected");
                 exit(1);
             }
             break;
         case 'l':
-            app.opt.ping_packet_size = strtoul(optarg,&tstr,10);
+            app.opt.ping_packet_size = strtoul(value,&tstr,10);
             if(*tstr != '\0') {
                 usage("Invalid value. (-l) positive integer expected");
                 exit(1);
             }
             break;
         case 't':
-            app.opt.ping_packet_ttl = strtoul(optarg,&tstr,10);
+            app.opt.ping_packet_ttl = strtoul(value,&tstr,10);
             if(*tstr != '\0') {
                 usage("Invalid value. (-t) integer between 0 and 255 expected");
                 exit(1);
@@ -1884,7 +1891,7 @@ handle_traceroute_test_arg(const char arg, const char *long_name, const char *va
 
     switch (arg) {
         case 't':
-            app.opt.timeDuration = strtoul(optarg,&tstr,10);
+            app.opt.timeDuration = strtoul(value,&tstr,10);
             if(*tstr != '\0' ||
                app.opt.timeDuration < 0) {
                 usage("Invalid value. (-t) positive integer expected");
@@ -1892,21 +1899,21 @@ handle_traceroute_test_arg(const char arg, const char *long_name, const char *va
             }
             break;
         case 'F':
-            app.opt.traceroute_first_ttl = strtoul(optarg,&tstr,10);
+            app.opt.traceroute_first_ttl = strtoul(value,&tstr,10);
             if(*tstr != '\0') {
                 usage("Invalid value. (-F) integer between 0 and 255 expected");
                 exit(1);
             }
             break;
         case 'l':
-            app.opt.traceroute_packet_size = strtoul(optarg,&tstr,10);
+            app.opt.traceroute_packet_size = strtoul(value,&tstr,10);
             if(*tstr != '\0') {
                 usage("Invalid value. (-l) positive integer expected");
                 exit(1);
             }
             break;
         case 'M':
-            app.opt.traceroute_last_ttl = strtoul(optarg,&tstr,10);
+            app.opt.traceroute_last_ttl = strtoul(value,&tstr,10);
             if(*tstr != '\0') {
                 usage("Invalid value. (-F) integer between 0 and 255 expected");
                 exit(1);
@@ -2046,6 +2053,8 @@ main(
     opt_index = 0;
     while((ch = getopt_long(argc, argv, opt_str, opt_list, &opt_index)) != -1){
         const char *long_name = opt_list[opt_index].name;
+
+        opt_index = 0;
 
         if (handle_conn_arg(ch, long_name, optarg, argv, argc))
             continue;
