@@ -227,11 +227,13 @@ TracepathPreRunTest(
     /*
      * Report what will be run in the output file
      */
-    fprintf(tsess->localfp,"bwctl: exec_line:");
-    for(len=0;TracepathArgs[len];len++){
-        fprintf(tsess->localfp," %s",TracepathArgs[len]);
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: exec_line:");
+        for(len=0;TracepathArgs[len];len++){
+            fprintf(tsess->localfp," %s",TracepathArgs[len]);
+        }
+        fprintf(tsess->localfp,"\n");
     }
-    fprintf(tsess->localfp,"\n");
 
     return (void *)TracepathArgs;
 }

@@ -262,11 +262,13 @@ TraceroutePreRunTest(
     /*
      * Report what will be run in the output file
      */
-    fprintf(tsess->localfp,"bwctl: exec_line:");
-    for(len=0;TracerouteArgs[len];len++){
-        fprintf(tsess->localfp," %s",TracerouteArgs[len]);
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: exec_line:");
+        for(len=0;TracerouteArgs[len];len++){
+            fprintf(tsess->localfp," %s",TracerouteArgs[len]);
+        }
+        fprintf(tsess->localfp,"\n");
     }
-    fprintf(tsess->localfp,"\n");
 
     return (void *)TracerouteArgs;
 }

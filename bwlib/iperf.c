@@ -309,11 +309,13 @@ IperfPreRunTest(
     /*
      * Report what will be run in the output file
      */
-    fprintf(tsess->localfp,"bwctl: exec_line:");
-    for(len=0;IperfArgs[len];len++){
-        fprintf(tsess->localfp," %s",IperfArgs[len]);
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: exec_line:");
+        for(len=0;IperfArgs[len];len++){
+            fprintf(tsess->localfp," %s",IperfArgs[len]);
+        }
+        fprintf(tsess->localfp,"\n");
     }
-    fprintf(tsess->localfp,"\n");
 
     return (void *)IperfArgs;
 }
@@ -367,5 +369,5 @@ BWLToolDefinitionRec    BWLToolIperf = {
     False,                   /* supports_server_sends */
     True,                    /* supports_endpointless */
     5001,                    /* The server port to use in endpointless tests */
-    NULL,                    /* parsable format */
+    0,                       /* parsable format */
 };

@@ -268,11 +268,13 @@ PingPreRunTest(
     /*
      * Report what will be run in the output file
      */
-    fprintf(tsess->localfp,"bwctl: exec_line:");
-    for(len=0;PingArgs[len];len++){
-        fprintf(tsess->localfp," %s",PingArgs[len]);
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: exec_line:");
+        for(len=0;PingArgs[len];len++){
+            fprintf(tsess->localfp," %s",PingArgs[len]);
+        }
+        fprintf(tsess->localfp,"\n");
     }
-    fprintf(tsess->localfp,"\n");
 
     return (void *)PingArgs;
 }

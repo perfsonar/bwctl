@@ -342,7 +342,12 @@ BWLToolParseRequestParameters(
 
     for(i=0;i<ctx->tool_list_size;i++){
         if(ctx->tool_list[i].id == id){
-            return ctx->tool_list[i].tool->parse_request(ctx,buf,tspec,protocol_version);
+            if (ctx->tool_list[i].tool->parse_request) {
+                return ctx->tool_list[i].tool->parse_request(ctx,buf,tspec,protocol_version);
+            }
+            else {
+                return BWLErrOK;
+            }
         }
     }
 
@@ -366,7 +371,12 @@ BWLToolUnparseRequestParameters(
 
     for(i=0;i<ctx->tool_list_size;i++){
         if(ctx->tool_list[i].id == id){
-            return ctx->tool_list[i].tool->unparse_request(ctx,buf,tspec,protocol_version,tsession);
+            if (ctx->tool_list[i].tool->parse_request) {
+                return ctx->tool_list[i].tool->unparse_request(ctx,buf,tspec,protocol_version,tsession);
+            }
+            else {
+                return BWLErrOK;
+            }
         }
     }
 

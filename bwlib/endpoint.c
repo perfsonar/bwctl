@@ -558,21 +558,22 @@ run_tool(
     /*
      * Report some information about this test.
      */
-    tname = BWLToolGetNameByID(ctx,tsess->test_spec.tool_id);
-    fprintf(tsess->localfp,"bwctl: run_tool: tester: %s\n",((tname)?tname:"unknown"));
+    if (tsess->test_spec.verbose) {
+        tname = BWLToolGetNameByID(ctx,tsess->test_spec.tool_id);
+        fprintf(tsess->localfp,"bwctl: run_tool: tester: %s\n",((tname)?tname:"unknown"));
 
-    if( BWLAddrNodeName(ctx, tsess->test_spec.server, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
-        fprintf(tsess->localfp,"bwctl: run_tool: %s: %s\n", (tsess->test_spec.server_sends?"sender":"receiver"),addr_str);
+        if( BWLAddrNodeName(ctx, tsess->test_spec.server, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
+            fprintf(tsess->localfp,"bwctl: run_tool: %s: %s\n", (tsess->test_spec.server_sends?"sender":"receiver"),addr_str);
+        }
+
+        if( BWLAddrNodeName(ctx, tsess->test_spec.client, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
+            fprintf(tsess->localfp,"bwctl: run_tool: %s: %s\n", (tsess->test_spec.server_sends?"receiver":"sender"),addr_str);
+        }
+
+        BWLGetTimeStamp(ctx,&currtime);
+        fprintf(tsess->localfp,"bwctl: start_tool: %f\n",
+                BWLNum64ToDouble(currtime.tstamp));
     }
-
-    if( BWLAddrNodeName(ctx, tsess->test_spec.client, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
-        fprintf(tsess->localfp,"bwctl: run_tool: %s: %s\n", (tsess->test_spec.server_sends?"receiver":"sender"),addr_str);
-    }
-
-    BWLGetTimeStamp(ctx,&currtime);
-    fprintf(tsess->localfp,"bwctl: start_tool: %f\n",
-            BWLNum64ToDouble(currtime.tstamp));
-
 
     fflush(tsess->localfp);
 
@@ -775,18 +776,20 @@ _BWLEndpointStart(
         goto end;
     }
 
-    fprintf(tsess->localfp,"bwctl: start_endpoint: %f\n",
-            BWLNum64ToDouble(currtime.tstamp));
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: start_endpoint: %f\n",
+                BWLNum64ToDouble(currtime.tstamp));
 
-    if( BWLAddrNodeName(ctx, tsess->test_spec.server, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
-        fprintf(tsess->localfp,"bwctl: run_endpoint: %s: %s\n", (tsess->test_spec.server_sends?"sender":"receiver"),addr_str);
+        if( BWLAddrNodeName(ctx, tsess->test_spec.server, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
+            fprintf(tsess->localfp,"bwctl: run_endpoint: %s: %s\n", (tsess->test_spec.server_sends?"sender":"receiver"),addr_str);
+        }
+
+        if( BWLAddrNodeName(ctx, tsess->test_spec.client, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
+            fprintf(tsess->localfp,"bwctl: run_endpoint: %s: %s\n", (tsess->test_spec.server_sends?"receiver":"sender"),addr_str);
+        }
+
+        fflush(tsess->localfp);
     }
-
-    if( BWLAddrNodeName(ctx, tsess->test_spec.client, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
-        fprintf(tsess->localfp,"bwctl: run_endpoint: %s: %s\n", (tsess->test_spec.server_sends?"receiver":"sender"),addr_str);
-    }
-
-    fflush(tsess->localfp);
 
     if(BWLNum64Cmp(tsess->reserve_time,currtime.tstamp) < 0){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
@@ -1329,9 +1332,11 @@ ACCEPT:
      * Prepare data to send to peer
      * Print 'final' data of local tool
      */
-    fprintf(tsess->localfp,"bwctl: stop_tool: %f\n",
-            BWLNum64ToDouble(currtime.tstamp));
-    fflush(tsess->localfp);
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: stop_tool: %f\n",
+                BWLNum64ToDouble(currtime.tstamp));
+        fflush(tsess->localfp);
+    }
 
     if (ep->rcntrl) {
         /*
@@ -1398,8 +1403,10 @@ end:
 
     BWLGetTimeStamp(ctx,&currtime);
 
-    fprintf(tsess->localfp,"bwctl: stop_endpoint: %f\n",
-            BWLNum64ToDouble(currtime.tstamp));
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: stop_endpoint: %f\n",
+                BWLNum64ToDouble(currtime.tstamp));
+    }
 
     /*
      * aval == remote status

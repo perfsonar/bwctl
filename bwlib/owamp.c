@@ -253,11 +253,13 @@ OwampPreRunTest(
     /*
      * Report what will be run in the output file
      */
-    fprintf(tsess->localfp,"bwctl: exec_line:");
-    for(len=0;OwampArgs[len];len++){
-        fprintf(tsess->localfp," %s",OwampArgs[len]);
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: exec_line:");
+        for(len=0;OwampArgs[len];len++){
+            fprintf(tsess->localfp," %s",OwampArgs[len]);
+        }
+        fprintf(tsess->localfp,"\n");
     }
-    fprintf(tsess->localfp,"\n");
 
     return (void *)OwampArgs;
 }

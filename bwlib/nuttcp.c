@@ -274,11 +274,13 @@ NuttcpPreRunTest(
     /*
      * Report what will be run in the output file
      */
-    fprintf(tsess->localfp,"bwctl: exec_line:");
-    for(len=0;NuttcpArgs[len];len++){
-        fprintf(tsess->localfp," %s",NuttcpArgs[len]);
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: exec_line:");
+        for(len=0;NuttcpArgs[len];len++){
+            fprintf(tsess->localfp," %s",NuttcpArgs[len]);
+        }
+        fprintf(tsess->localfp,"\n");
     }
-    fprintf(tsess->localfp,"\n");
 
     return (void *)NuttcpArgs;
 }
