@@ -3564,7 +3564,16 @@ static BWLBoolean parse_time_schedule(const char *schedule, struct tm **times, i
 
     time = strtok_r(temp_str, ",", &temp);
     while (time != NULL) {
-        n++;
+        char *ret_str;
+        struct tm wildcard_tm;
+
+        ret_str = strptime(time, "*:%M", &wildcard_tm);
+        if (ret_str != NULL && *ret_str == '\0') {
+            n += 24; // a wildcard slot, add 24 entries
+        }
+        else {
+            n++; // not a wildcard slot, just add 1 entry
+        }
         time = strtok_r(NULL, ",", &temp);
     }
 
@@ -3583,6 +3592,20 @@ static BWLBoolean parse_time_schedule(const char *schedule, struct tm **times, i
 
     for(i = 0, time = strtok_r(temp_str, ",", &temp); time != NULL; i++, time = strtok_r(NULL, ",", &temp)) {
         char *ret_str;
+        struct tm wildcard_tm;
+
+        ret_str = strptime(time, "*:%M", &(ret_times[i]));
+        if (ret_str != NULL && *ret_str == '\0') {
+            int hour;
+
+            // add 24 hours worth of time specs to the queue
+            for(hour = 0; hour <= 23; hour++, i++) {
+                strptime(time, "*:%M", &(ret_times[i]));
+                ret_times[i].tm_hour = hour;
+            }
+
+            continue;
+        }
 
         ret_str = strptime(time, "%H:%M:%S", &(ret_times[i]));
         if (ret_str != NULL && *ret_str == '\0')
