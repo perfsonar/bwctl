@@ -3604,6 +3604,10 @@ static BWLBoolean parse_time_schedule(const char *schedule, struct tm **times, i
                 ret_times[i].tm_hour = hour;
             }
 
+            // push back the i pointer since it will be incremented by the
+            // outer for loop.
+            i--;
+
             continue;
         }
 
