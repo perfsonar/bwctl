@@ -52,39 +52,6 @@ if test -x I2util/bootstrap.sh; then
         echo
 fi
 
-if test -x thrulay/bootstrap.sh; then
-        echo
-        echo "## thrulay/bootstrap"
-        echo
-        cd thrulay
-        ./bootstrap.sh $*
-        cd ..
-        echo
-        echo "## Finished thrulay/bootstrap"
-        echo
-fi
-
-#iperf3 is in mecurial, so can't do svn external
-if [ ! -d "iperf3" ]; then
-    echo
-    echo "## Downloading iperf3"
-    git clone https://github.com/esnet/iperf.git iperf3
-    if [ "$?" != "0" ]; then
-        echo "## Unable to export iperf3. Please verify that git is installed."
-        echo "## Please ignore this message if you do not want to build with iperf3 support."
-    fi 
-    echo
-fi
-
-pushd iperf3
-git checkout -b 3.0.1 3.0.1
-# in-case glibtoolize isn't available, e.g. on linux
-patch -i ../iperf3_libtoolize.patch -p1
-patch -i ../iperf3_makefile.patch -p2
-patch -i ../iperf3_api_set_unit_format.patch -p1
-patch -i ../iperf3_tcp_congestion.patch -p2
-popd
-
 if test -x iperf3/bootstrap.sh; then
         echo
         echo "## iperf3/bootstrap"
