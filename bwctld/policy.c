@@ -1770,12 +1770,14 @@ BWLDReadReservationQuery(
         BWLNum64	*rtt_time,
         uint16_t	*recv_port,
         uint32_t        *tool_id,
+        char            *sender,
+        char            *receiver,
         int		*err
         )
 {
     BWLDMesgT   mark;
     ssize_t     i;
-    char        buf[64];
+    char        buf[156];
     int	        fail_on_intr=1;
     int	        *intr = &fail_on_intr;
 
@@ -1787,10 +1789,10 @@ BWLDReadReservationQuery(
     /*
      * Read message header
      */
-    if((i = I2Readni(fd,&buf[0],64,intr)) != 64)
+    if((i = I2Readni(fd,&buf[0],156,intr)) != 156)
         return False;
 
-    memcpy(&mark,&buf[60],4);
+    memcpy(&mark,&buf[152],4);
     if(mark != BWLDMESGMARK)
         return False;
 
@@ -1802,6 +1804,8 @@ BWLDReadReservationQuery(
     memcpy(rtt_time,&buf[44],8);
     memcpy(recv_port,&buf[52],2);
     memcpy(tool_id,&buf[56],4);
+    memcpy(sender,&buf[60],46);
+    memcpy(receiver,&buf[106],46);
 
     *err = 0;
 
@@ -1904,20 +1908,30 @@ BWLDReservationQuery(
         BWLNum64	rtt_time,
         BWLNum64	*reservation_ret,
         uint16_t	*toolport,
-        uint32_t        tool
+        uint32_t        tool,
+        I2Addr          sender,
+        I2Addr          receiver
         )
 {
     BWLDMesgT   val;
-    char	buf[72];
+    char	buf[164];
     int		fail_on_intr=1;
     int		*intr = &fail_on_intr;
+    char        sender_str[46]; // INET6_ADDRSTRLEN
+    char        receiver_str[46];
+
+    bzero(sender_str, sizeof(sender_str));
+    bzero(receiver_str, sizeof(receiver_str));
+
+    BWLAddrNodeName(policy->ctx, sender, sender_str, sizeof(sender_str), NI_NUMERICHOST);
+    BWLAddrNodeName(policy->ctx, receiver, receiver_str, sizeof(receiver_str), NI_NUMERICHOST);
 
     if(policy->retn_on_intr)
         intr = policy->retn_on_intr;
 
     val = BWLDMESGMARK;
     memcpy(&buf[0],&val,4);
-    memcpy(&buf[68],&val,4);
+    memcpy(&buf[160],&val,4);
     val = BWLDMESGRESERVATION;
     memcpy(&buf[4],&val,4);
     memcpy(&buf[8],sid,16);
@@ -1928,8 +1942,10 @@ BWLDReservationQuery(
     memcpy(&buf[52],&rtt_time,8);
     memcpy(&buf[60],toolport,2);
     memcpy(&buf[64],&tool,4);
+    memcpy(&buf[68],sender_str,46);
+    memcpy(&buf[114],receiver_str,46);
 
-    if(I2Writeni(policy->fd,buf,72,intr) != 72){
+    if(I2Writeni(policy->fd,buf,164,intr) != 164){
         BWLError(policy->ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "BWLDQuery: Unable to contact parent");
         return BWLDMESGINVALID;
@@ -2365,7 +2381,10 @@ reservation:
                     tspec->req_time.tstamp,fuzz_time,
                     tspec->latest_time,tspec->duration,
                     BWLGetRTTBound(cntrl),
-                    reservation_ret,&tool_port_loc,tspec->tool_id))
+                    reservation_ret,&tool_port_loc,tspec->tool_id,
+                    (tspec->server_sends?tspec->server:tspec->client),
+                    (tspec->server_sends?tspec->client:tspec->server)
+                ))
             != BWLDMESGOK){
         BWLError(ctx,access_prio,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: No reservation time available");

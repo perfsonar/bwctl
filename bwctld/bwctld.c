@@ -78,6 +78,9 @@ struct timeslots_head *time_slots_head;
 int optreset;
 #endif
 
+static void DisplayReservationStatus(Reservation res, const char *action);
+static void FreeReservation(Reservation res);
+
 static void
 version(void){
     if (PATCH_LEVEL) {
@@ -252,21 +255,35 @@ AllocReservation(
         ChldState   cstate,
         BWLSID      sid,
         BWLToolType tool_id,
-        uint16_t    *toolport
+        uint16_t    *toolport,
+        const char  *sender,
+        const char  *receiver
         )
 {
     BWLErrSeverity  err = BWLErrOK;
-    Reservation     res;
+    Reservation     res = NULL;
 
     if(cstate->res){
         BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
                 "AllocReservation: cstate->res != NULL");
-        return NULL;
+        goto error_exit;
     }
 
     if( !(res = calloc(1,sizeof(*res)))){
         BWLError(ctx,BWLErrFATAL,ENOMEM,"malloc(): %M");
-        return NULL;
+        goto error_exit;
+    }
+
+    res->sender = strdup(sender);
+    if (!res->sender) {
+        BWLError(ctx,err,BWLErrINVALID,"AllocReservation: strdup() failed");
+        goto error_exit;
+    }
+
+    res->receiver = strdup(receiver);
+    if (!res->receiver) {
+        BWLError(ctx,err,BWLErrINVALID,"AllocReservation: strdup() failed");
+        goto error_exit;
     }
 
     memcpy(res->sid,sid,sizeof(sid));
@@ -281,7 +298,7 @@ AllocReservation(
             (err = BWLToolInitTest(ctx,tool_id,toolport))){
         BWLError(ctx,err,BWLErrINVALID,
                 "AllocReservation: Tool initialization failed");
-        return NULL;
+        goto error_exit;
     }
     res->toolport = *toolport;
     res->tool = tool_id;
@@ -289,6 +306,13 @@ AllocReservation(
     cstate->res = res;
 
     return res;
+
+error_exit:
+    if (res) {
+        FreeReservation(res);
+    }
+
+    return NULL;
 }
 
 static void
@@ -306,6 +330,10 @@ FreeReservation(
      * this up, I could replace this with free().)
      */
 
+    if (res->receiver)
+        free(res->receiver);
+    if (res->sender)
+        free(res->sender);
     free(res);
 
     return;
@@ -340,11 +368,14 @@ ResRemove(
 
 static void
 DeleteReservation(
-        ChldState   cstate
+        ChldState   cstate,
+        char        *action
         )
 {
     if(!cstate->res)
         return;
+
+    DisplayReservationStatus(cstate->res, action);
 
     ResRemove(cstate->res);
     FreeReservation(cstate->res);
@@ -385,6 +416,30 @@ ReservationCanUseSlot(
    return True;
 }
 
+static void
+DisplayReservationStatus(
+    Reservation res,
+    const char *action
+) {
+    BWLTimeStamp    currtime;
+
+    if(!BWLGetTimeStamp(ctx,&currtime)){
+        I2ErrLogP(errhand, errno, "BWLGetTimeOfDay: %M");
+        return;
+    }
+
+    I2ErrLogP(errhand,LOG_INFO,
+            "Reservation Status: time=%lu action=%s sender=%s receiver=%s tool=%s res_start=%lu res_end=%lu test_start=%lu",
+            BWLNum64ToTimestamp(currtime.tstamp),
+            action,
+            res->sender,
+            res->receiver,
+            BWLToolGetNameByID(ctx,res->tool),
+            BWLNum64ToTimestamp(res->start),
+            BWLNum64ToTimestamp(res->end),
+            BWLNum64ToTimestamp(res->restime));
+}
+
 static BWLBoolean
 ChldReservationDemand(
         ChldState   cstate,
@@ -397,6 +452,8 @@ ChldReservationDemand(
         BWLNum64    *restime,
         uint16_t    *toolport,
         BWLToolType tool_id,
+        const char  *sender,
+        const char  *receiver,
         int         *err)
 {
     BWLTimeStamp    currtime;
@@ -408,6 +465,7 @@ ChldReservationDemand(
     TimeSlot        slot;
     int             added;
     TimeSlot        new_slot;
+    char            *action = "new";
 
     *err = 1;
 
@@ -423,8 +481,9 @@ ChldReservationDemand(
         if(!ResRemove(cstate->res))
             return False;
         cstate->res->toolport = *toolport;
+        action = "reschedule";
     }
-    else if(!AllocReservation(cstate,sid,tool_id,toolport)){
+    else if(!AllocReservation(cstate,sid,tool_id,toolport,sender,receiver)){
         /*
          * Alloc failed.
          */
@@ -695,7 +754,7 @@ ChldReservationDemand(
         }
     }
 
-    I2ErrLogT(errhand,LOG_DEBUG,0,
+    I2ErrLogP(errhand,LOG_DEBUG,
             "Test Reservation Information: Current Time: %lu, Fuzz: %f, Reservation Start: %lu, Reservation End: %lu, Test Start Time: %lu",
             BWLNum64ToTimestamp(currtime.tstamp),
             BWLNum64ToDouble(ftime),
@@ -703,6 +762,7 @@ ChldReservationDemand(
             BWLNum64ToTimestamp(res->end),
             BWLNum64ToTimestamp(res->restime));
 
+    DisplayReservationStatus(res, action);
     DisplayTimeSlots();
 
     *restime = res->restime;
@@ -714,7 +774,7 @@ denied:
     *err = 0;
     I2ErrLogP(errhand,errno,
             "Unable to find reservation before \"last time\"");
-    DeleteReservation(cstate);
+    DeleteReservation(cstate, "failed");
     return False;
 }
 
@@ -749,7 +809,7 @@ ChldReservationComplete(
     if(!cstate->res || memcmp(sid,cstate->res->sid,sizeof(sid)))
         return False;
 
-    DeleteReservation(cstate);
+    DeleteReservation(cstate, "remove");
 
     return True;
 }
@@ -838,7 +898,7 @@ FreeChldState(
      * and report errors if there are still any allocated?)
      */
 
-    DeleteReservation(cstate);
+    DeleteReservation(cstate, "failed");
 
     free(cstate);
 
@@ -931,6 +991,8 @@ CheckFD(
         uint16_t        toolport;
         BWLToolType     tool_id;
         BWLAcceptType   aval;
+        char            sender[46];
+        char            receiver[46];
 
         switch(BWLDReadReqType(cstate->fd,&ipfd_exit,&err)){
             case BWLDMESGRESOURCE:
@@ -960,7 +1022,8 @@ CheckFD(
                             &ipfd_exit,sid,
                             &rtime,&ftime,&ltime,
                             &duration,&rtttime,
-                            &toolport,&tool_id,&err)){
+                            &toolport,&tool_id,
+                            sender,receiver,&err)){
                     goto done;
                 }
 
@@ -970,7 +1033,8 @@ CheckFD(
                 if(ChldReservationDemand(cstate,
                             sid,rtime,ftime,ltime,
                             duration,rtttime,
-                            &restime,&toolport,tool_id,&err)){
+                            &restime,&toolport,tool_id,
+                            sender,receiver,&err)){
                     resp = BWLDMESGOK;
                 }
                 else if(err){

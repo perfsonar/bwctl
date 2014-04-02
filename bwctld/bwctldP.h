@@ -74,6 +74,8 @@ struct ReservationRec{
     BWLNum64    start;    /* fuzz applied */
     BWLNum64    end;    /* fuzz applied */
     BWLNum64    fuzz;
+    char        *sender;
+    char        *receiver;
     uint32_t    duration;
     uint16_t    toolport;
     Reservation next;
