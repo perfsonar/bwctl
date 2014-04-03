@@ -378,6 +378,7 @@ static    int           ip_intr = 0;
 static    int           ip_chld = 0;
 static    int           ip_reset = 0;
 static    int           ip_exit = 0;
+static    int           ip_alrm = 0;
 static    int           ip_error = SIGCONT;
 static    BWLContext    ctx;
 static    aeskey_auth   current_auth=NULL;
@@ -723,7 +724,6 @@ sig_catch(
     switch(signo){
         case SIGINT:
         case SIGTERM:
-        case SIGALRM:
             ip_exit++;
             break;
         case SIGCHLD:
@@ -731,6 +731,9 @@ sig_catch(
             break;
         case SIGHUP:
             ip_reset++;
+            break;
+        case SIGALRM:
+            ip_alrm++;
             break;
         default:
             ip_error = signo;
@@ -3350,6 +3353,10 @@ wait_for_results()
      * Send TerminateSession
      */
 
+    // Set an alarm so that the client doesn't hang waiting for results
+    ip_alrm = 0;
+    alarm(10);
+
     atype = BWL_CNTRL_ACCEPT;
 
     if( (err_ret =BWLEndSession(app.client_sess->cntrl,
@@ -3369,6 +3376,10 @@ wait_for_results()
         goto error_exit;
     }
 
+    // Set an alarm so that the client doesn't hang waiting for results
+    ip_alrm = 0;
+    alarm(10);
+
     atype = BWL_CNTRL_ACCEPT;
 
     if( (err_ret =BWLEndSession(app.server_sess->cntrl,
@@ -3383,9 +3394,16 @@ wait_for_results()
 
     app.server_sess->session_requested = False;
 
+    // unset the timeout
+    alarm(0);
+
     return True;
 
 error_exit:
+    if(ip_alrm) {
+        BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN, "Timed out waiting for results");
+    }
+
     return False;
 }
 
