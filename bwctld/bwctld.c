@@ -608,7 +608,7 @@ ChldReservationDemand(
          * time slot covering this reservation since it doesn't overlap any
          * reservations.
          */
-        if ((!prev_slot || BWLNum64Cmp(prev_slot->end, res->start) < 0) && BWLNum64Cmp(res->end, slot->start) < 0) {
+        if ((!prev_slot || BWLNum64Cmp(prev_slot->end, res->start) <= 0) && BWLNum64Cmp(res->end, slot->start) < 0) {
             // There is enough time between the end of the previous slot, and
             // the beginning of the next one to make a new slot.
             TimeSlot new_slot = TimeSlotCreate(res, res->start, res->end);
