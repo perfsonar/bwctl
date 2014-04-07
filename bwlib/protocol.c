@@ -992,6 +992,8 @@ _BWLWriteTestRequest(
 
     *(uint32_t*)&buf[4] = htonl(tspec->duration);
 
+    buf[100] = tspec->verbose;
+
     if(!tool_negotiation && tspec->outformat){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -y option");
@@ -1116,7 +1118,6 @@ BWLGenericUnparseThroughputParameters(
     }
 
     if(omit_available){
-        buf[100] = tspec->verbose;
         buf[110] = tspec->omit;
     }
     else if(tspec->omit){
@@ -1237,6 +1238,7 @@ _BWLReadTestRequest(
     BWLBoolean	            tool_negotiation;
     BWLBoolean	            omit_available;
     BWLBoolean	            reverse_available;
+    BWLBoolean	            verbose_available;
 
 
     if(!_BWLStateIs(_BWLStateTestRequest,cntrl)){
@@ -1279,6 +1281,9 @@ _BWLReadTestRequest(
     /* Is there support for the -O omit flag in this version? */
     reverse_available = cntrl->protocol_version >=
         BWL_MODE_PROTOCOL_1_5_VERSION;
+
+    verbose_available = cntrl->protocol_version >=
+        BWL_MODE_PROTOCOL_1_5_2_VERSION;
 
     /*
      * Already read the first block - read the rest for this message
@@ -1446,6 +1451,14 @@ _BWLReadTestRequest(
         }
 
         tspec.duration = ntohl(*(uint32_t*)&buf[4]);
+
+        if (verbose_available) {
+            tspec.verbose = buf[100];
+        }
+        else {
+            // before 1.5.2, verbose output was the default.
+            tspec.verbose = 1;
+        }
 
         tspec.tos      = buf[93];
 
