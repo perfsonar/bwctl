@@ -589,7 +589,7 @@ ChldReservationDemand(
          */
         if (BWLNum64Cmp(res->end, res->start) <= 0) {
             res->restime = BWLNum64Add(res->start,res->fuzz);
-            res->end = BWLNum64Add(res->start,dtime); 
+            res->end = BWLNum64Add(res->restime,dtime); 
             I2ErrLogT(errhand,LOG_DEBUG,0,"Reservation Time Set: %lu",
                     BWLNum64ToTimestamp(res->restime));
 
@@ -626,7 +626,7 @@ ChldReservationDemand(
             prev_slot = slot;
             res->start = slot->end;
             res->restime = BWLNum64Add(res->start,res->fuzz);
-            res->end = BWLNum64Add(res->start,dtime); 
+            res->end = BWLNum64Add(res->restime,dtime); 
             continue;
         }
         else {
@@ -666,7 +666,7 @@ ChldReservationDemand(
                 // might as well skip ahead to the end of the conflicting slot
                 res->start = conflicting_slot->end;
                 res->restime = BWLNum64Add(res->start,res->fuzz);
-                res->end = BWLNum64Add(res->start,dtime); 
+                res->end = BWLNum64Add(res->restime,dtime); 
             }
             else {
                 TimeSlot temp_slot;
