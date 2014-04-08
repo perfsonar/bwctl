@@ -34,6 +34,11 @@
 
 #include <sys/socket.h>
 #include <netdb.h>
+#include <unistd.h>
+
+static int do_mkdir(const char *path, mode_t mode);
+
+const char *tmp_dir = "/tmp/bwctl_owamp";
 
 /*
  * Function:    OwampAvailable
@@ -103,7 +108,6 @@ OwampAvailable(
             "OwampAvailable(): Unable to verify that '%s' is working. It may not be installed. exit status: %d: output: %s", owampd_cmd, n, buf);
     }
 
-
     return (owping_available && owampd_available);
 }
 
@@ -158,15 +162,38 @@ OwampPreRunTest(
     snprintf(server_str, sizeof(server_str), "[%s]:%u", rsaddr_str, tsess->tool_port);
 
     if(tsess->conf_server){
+        char buf[1024];
         char *cmd = (char*)BWLContextConfigGetV(ctx,"V.owampd_cmd");
         if(!cmd) cmd = tsess->tool->def_server_cmd;
+
+        snprintf(buf, sizeof(buf), "%s/%d", tmp_dir, tsess->tool_port);
+
+        if (do_mkdir(tmp_dir, 0700) != 0) {
+            BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+                "OwampAvailable(): Unable to create temporary directory for owampd");
+            return NULL;
+        }
+
+        if (do_mkdir(buf, 0700) != 0) {
+            BWLError(ctx,BWLErrWARNING,errno,
+                "OwampPreRunTest(): Unable to create temporary directory: %M");
+            return NULL;
+        }
 
         OwampArgs[a++] = cmd;
         OwampArgs[a++] = "-Z";
         OwampArgs[a++] = "-R";
-        OwampArgs[a++] = "/tmp";
+        if( !(OwampArgs[a++] = strdup(buf))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():strdup(): %M");
+            return NULL;
+        }
+ 
         OwampArgs[a++] = "-d";
-        OwampArgs[a++] = "/tmp";
+        if( !(OwampArgs[a++] = strdup(buf))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():strdup(): %M");
+            return NULL;
+        }
+ 
         OwampArgs[a++] = "-S";
         if( !(OwampArgs[a++] = strdup(server_str))){
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():strdup(): %M");
@@ -303,53 +330,20 @@ OwampRunTest(
     }
 }
 
-/*
- * Function:    OwampInitTest
- *
- * Description:    
- *
- * In Args:    
- *
- * Out Args:    
- *
- * Scope:    
- * Returns:    
- * Side Effect:    
- */
+static int do_mkdir(const char *path, mode_t mode) {
+    struct stat st;
+    int retval = 0;
 
-BWLErrSeverity
-OwampInitTest(
-        BWLContext          ctx,
-        BWLToolDefinition   tool,
-        uint16_t            *toolport
-        )
-{
-    char            optname[BWL_MAX_TOOLNAME + 12];
-    uint32_t        len;
-    BWLPortRange    prange=NULL;
-
-    prange = (BWLPortRange)BWLContextConfigGetV(ctx,"V.owamp_port");
-
-    // If nothing has been specified for this tool, initialize it to a range of
-    // 100 ports, starting with the tool's default port. This keeps it from
-    // reusing the same port for every request, and potentially colliding.
-    if( !prange ) {
-        if( prange = calloc(1,sizeof(BWLPortRangeRec))) {
-            prange->low  = tool->def_port - 1;
-            prange->high = tool->def_port + 100;
-            BWLPortsSetI(ctx,prange,tool->def_port);
-            BWLContextConfigSet(ctx,optname,prange);
-        }
+    if (stat(path, &st) != 0) {
+        /* Directory does not exist. EEXIST for race condition */
+        if (mkdir(path, mode) != 0 && errno != EEXIST)
+            retval = -1;
+    }
+    else if (!S_ISDIR(st.st_mode)) {
+        retval = -1;
     }
 
-    if( (prange = (BWLPortRange)BWLContextConfigGetV(ctx,optname))){
-        *toolport = BWLPortsNext(prange);
-    }
-    else{
-        *toolport = tool->def_port;
-    }
-
-    return BWLErrOK;
+    return retval;
 }
 
 BWLToolDefinitionRec    BWLToolOwamp = {
@@ -362,7 +356,7 @@ BWLToolDefinitionRec    BWLToolOwamp = {
     BWLGenericUnparsePingParameters,  /* unparse_request */
     OwampAvailable,           /* tool_avail       */
     _BWLToolGenericValidateTest,   /* validate_test    */
-    OwampInitTest,            /* init_test        */
+    _BWLToolGenericInitTest,  /* init_test        */
     OwampPreRunTest,          /* pre_run          */
     OwampRunTest,             /* run              */
     BWL_TEST_LATENCY,        /* test_types       */
