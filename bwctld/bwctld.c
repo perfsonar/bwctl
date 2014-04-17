@@ -2058,13 +2058,13 @@ LoadConfig(
 }
 
 static I2Boolean
-KillRemainingChildren(
+KillChildrenHandler(
         I2Datum key,
         I2Datum value       __attribute__((unused)),
         void    *app_data
         )
 {
-    int signal = (int) app_data;
+    int signal = *((int *) app_data);
     int pid = key.dsize;
 
     I2ErrLog(errhand, "Sending kill signal (%d) to %d", signal, pid);
@@ -2073,6 +2073,13 @@ KillRemainingChildren(
     return True;
 }
 
+static I2Boolean
+KillChildren(
+    int signal
+) {
+    I2HashIterate(pidtable,KillChildrenHandler,&signal);
+    killpg(mypid,signal);
+}
 
 int
 main(int argc, char *argv[])
@@ -2733,7 +2740,7 @@ main(int argc, char *argv[])
     /*
      * Signal the process group to exit.
      */
-    I2HashIterate(pidtable,KillRemainingChildren,(void *)SIGTERM);
+    KillChildren(SIGTERM);
 
     /*
      * Set an alarm to exit by even if graceful shutdown doesn't occur.
@@ -2765,7 +2772,7 @@ main(int argc, char *argv[])
     if(I2HashNumEntries(pidtable) > 0){
         I2ErrLog(errhand,
                 "Children still alive... Time for brute force.");
-        I2HashIterate(pidtable,KillRemainingChildren,(void *)SIGKILL);
+        KillChildren(SIGKILL);
         exit(1);
     }
 
