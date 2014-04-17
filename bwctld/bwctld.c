@@ -196,7 +196,7 @@ TimeSlotCreate(
     new_slot->start = start;
     new_slot->end   = end;
     new_slot->num_reservations = 0;
-    new_slot->max_reservations = 20;
+    new_slot->max_reservations = 30;
 
     TimeSlotAddReservation(new_slot, res);
 
