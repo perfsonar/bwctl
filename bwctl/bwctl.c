@@ -73,6 +73,9 @@ static BWLBoolean display_results(ipsess_t sess);
 static BWLBoolean establish_connection(ipsess_t current_sess, ipsess_t other_sess);
 static BWLBoolean getclientkey(BWLContext lctx, const BWLUserID userid, BWLKey key_ret, BWLErrSeverity  *err_ret);
 
+static void usage(const char  *msg);
+static void display_option_group(enum option_type option_type);
+
 /*
  * Scheduling functions
  */
@@ -88,114 +91,134 @@ static BWLBoolean parse_time_schedule(const char *schedule, struct tm **times, i
 struct bwctl_option bwctl_options[] = {
    {
         BWL_TEST_ALL,
+        OPTION_CONNECT,
         { "receiver", required_argument, 0, 'c' },
         "The host that will act as the receiving side for a test",
         "address",
    },
    {
         BWL_TEST_ALL,
+        OPTION_CONNECT,
         { "sender", required_argument, 0, 's' },
         "The host that will act as the sending side for a test",
         "address",
    },
    {
         BWL_TEST_ALL,
+        OPTION_CONNECT,
         { "ipv4", no_argument, 0, '4' },
         "Use IPv4 only",
    },
    {
         BWL_TEST_ALL,
+        OPTION_CONNECT,
         { "ipv6", no_argument, 0, '6' },
         "Use IPv6 only",
    },
    {
         BWL_TEST_ALL,
+        OPTION_CONNECT,
         { "local_address", required_argument, 0, 'B' },
         "Use this as a local address for control connection and tests",
         "address",
    },
    {
         BWL_TEST_ALL,
+        OPTION_SCHEDULING,
         { "num_tests", required_argument, 0, 'n' },
-        "Number of tests to perform (default: 1)",
+        "Number of tests to perform (Default: 1)",
         "num"
    },
    {
         BWL_TEST_ALL,
+        OPTION_SCHEDULING,
         { "test_interval", required_argument, 0, 'I' },
         "Time between repeated bwctl tests",
         "seconds",
    },
    {
         BWL_TEST_ALL,
+        OPTION_SCHEDULING,
         { "streaming", no_argument, 0, 0 },
         "Request the next test as soon as the current test finishes",
    },
    {
         BWL_TEST_ALL,
+        OPTION_SCHEDULING,
         { "schedule", required_argument, 0, 0 },
         "Specify the specific times when a test should be run (e.g. --schedule 11:00,13:00,15:00)",
         "schedule"
    },
    {
         BWL_TEST_ALL,
+        OPTION_SCHEDULING,
         { "latest_time", required_argument, 0, 'L' },
         "Latest time into an interval to allow a test to run",
         "seconds"
    },
    {
         BWL_TEST_ALL,
+        OPTION_SCHEDULING,
         { "randomize", required_argument, 0, 'R' },
         "Randomize the start time within this percentage of the test's interval (Default: 10%)",
         "percent",
    },
    {
         BWL_TEST_ALL,
+        OPTION_TEST,
         { "tool", required_argument, 0, 'T' },
         "The tool to use for the test",
         "tool",
    },
    {
         BWL_TEST_ALL,
+        OPTION_CONNECT,
         { "flip", no_argument, 0, 'o' },
-        "Have the receiver connect to the sender (default: False)"
+        "Have the receiver connect to the sender (Default: False)"
    },
    {
         BWL_TEST_ALL,
+        OPTION_CONNECT,
         { "no_endpoint", no_argument, 0, 'E' },
         "Allow tests to occur when the receiver isn't running bwctl (Default: False)",
    },
    {
         BWL_TEST_ALL,
+        OPTION_TEST,
         { "tester_port", required_argument, 0, 0 },
         "For an endpoint-less test, use this port as the server port (Default: tool specific)",
         "port"
    },
    {
         BWL_TEST_ALL,
+        OPTION_SCHEDULING,
         { "allow_ntp_unsync", required_argument, 0, 'a' },
         "Allow unsynchronized clock - claim good within offset",
         "seconds"
    },
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "units", required_argument, 0, 'f' },
         "Type of measurement units to return (Default: tool specific)",
         "unit"
    },
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "both", no_argument, 0, 'x' },
         "Output both sender and receiver results",
    },
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "format", required_argument, 0, 'y' },
         "Output format to use (Default: tool specific)",
         "format",
    },
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "parsable", no_argument, 0, 0 },
         "Set the output format to the machine parsable version for the select tool, if available",
    },
@@ -203,6 +226,7 @@ struct bwctl_option bwctl_options[] = {
 
    {
         BWL_TEST_ALL,
+        OPTION_TEST,
         { "tos", required_argument, 0, 'S' },
         "Type-Of-Service for outgoing packets",
         "tos",
@@ -211,6 +235,7 @@ struct bwctl_option bwctl_options[] = {
 // Latency/Traceroute-specific options
    {
         BWL_TEST_LATENCY | BWL_TEST_TRACEROUTE,
+        OPTION_TEST,
         { "packet_length", required_argument, 0, 'l' },
         "Length of packets",
         "bytes",
@@ -219,18 +244,21 @@ struct bwctl_option bwctl_options[] = {
 // Latency-specific options
    {
         BWL_TEST_LATENCY,
+        OPTION_TEST,
         { "num_packets", required_argument, 0, 'N' },
         "Number of packets to send (Default: 10)",
         "num",
    },
    {
         BWL_TEST_LATENCY,
+        OPTION_TEST,
         { "ttl", required_argument, 0, 't' },
         "TTL for the packets",
         "num",
    },
    {
         BWL_TEST_LATENCY,
+        OPTION_TEST,
         { "packet_interval", required_argument, 0, 'i' },
         "Delay between packets (Default: 1.0)",
         "seconds",
@@ -239,18 +267,21 @@ struct bwctl_option bwctl_options[] = {
 // Traceroute-specific options
    {
         BWL_TEST_TRACEROUTE,
+        OPTION_TEST,
         { "first_ttl", required_argument, 0, 'F' },
         "minimum TTL for traceroute (Default: none)",
         "num",
    },
    {
         BWL_TEST_TRACEROUTE,
+        OPTION_TEST,
         { "max_ttl", required_argument, 0, 'M' },
         "maximum TTL for traceroute (Default: none)",
         "num",
    },
    {
         BWL_TEST_TRACEROUTE,
+        OPTION_TEST,
         { "test_duration", required_argument, 0, 't' },
         "Maximum time to wait for traceroute to finish (Default: 10)",
         "seconds",
@@ -259,59 +290,69 @@ struct bwctl_option bwctl_options[] = {
 // Throughput-specific options
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "bandwidth", required_argument, 0, 'b' },
         "Bandwidth to use for tests (bits/sec KM) (Default: 1Mb for UDP tests, unlimited for TCP tests)",
         "bandwidth",
    },
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "report_interval", required_argument, 0, 'i' },
         "Tool reporting interval",
         "seconds",
    },
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "buffer_length", required_argument, 0, 'l' },
         "Length of read/write buffers",
         "bytes",
    },
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "omit", required_argument, 0, 'O' },
         "Omit time (currently only for iperf3)",
         "seconds",
    },
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "parallel", required_argument, 0, 'P' },
         "Number of concurrent connections",
         "num",
    },
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "dscp", required_argument, 0, 'D' },
         "RFC 2474-style DSCP value for TOS byte",
         "dscp",
    },
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "test_duration", required_argument, 0, 't' },
         "Duration for test (Default: 10)",
         "seconds",
    },
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "udp", no_argument, 0, 'u' },
         "Perform a UDP test",
    },
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "window", required_argument, 0, 'w' },
         "TCP window size (Default: system default)",
         "bytes"
    },
    {
         BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "dynamic_window", required_argument, 0, 'W' },
         "Dynamic TCP window fallback size (Default: system default)",
         "bytes"
@@ -321,46 +362,54 @@ struct bwctl_option bwctl_options[] = {
 // Lesser-used or minor options
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "verbose", no_argument, 0, 'v' },
         "Display verbose output",
    },
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "print", no_argument, 0, 'p' },
         "Print results filenames to stdout (Default: False)",
    },
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "output_dir", required_argument, 0, 'd' },
         "Directory to save session files to (only if -p)",
         "directory"
    },
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "facility", required_argument, 0, 'e' },
         "Syslog facility to log to",
         "facility"
    },
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "quiet", no_argument, 0, 'q' },
         "Silent mode (Default: False)",
    },
    {
         BWL_TEST_ALL,
+        OPTION_OUTPUT,
         { "syslog_to_stderr", no_argument, 0, 'r' },
         "Send syslog to stderr (Default: False)",
    },
 
    {
         BWL_TEST_ALL,
+        OPTION_MISC,
         { "version", no_argument, 0, 'V' },
         "Show version number",
    },
    {
         BWL_TEST_ALL,
+        OPTION_MISC,
         { "help", no_argument, 0, 'h' },
-        "Display the help message\n",
+        "Display the help message",
    },
    {
         BWL_TEST_UNDEFINED,
@@ -403,6 +452,32 @@ version(
     return;
 }
 
+static int option_comp(const void *elem1, const void *elem2) {
+   const struct bwctl_option *option1 = elem1;
+   const struct bwctl_option *option2 = elem2;
+
+   if (option1->option.val && option2->option.val) {
+       if (toupper(option1->option.val) > toupper(option2->option.val)) {
+           return 1;
+       }
+       else if (toupper(option1->option.val) < toupper(option2->option.val)) {
+           return -1;
+       }
+       else {
+           return 0;
+       }
+   }
+   else if (option1->option.val) {
+       return -1;
+   }
+   else if (option2->option.val) {
+       return 1;
+   }
+   else {
+       return strcmp(option1->option.name, option2->option.name);
+   }
+}
+
 static void
 usage(
         const char  *msg
@@ -425,10 +500,39 @@ usage(
     if(msg) fprintf(stderr, "%s: %s\n", progname, msg);
     fprintf(stderr,"usage: %s %s\n", progname, "[arguments]");
 
+    // sort the options so that they display nicely
+    qsort(bwctl_options, sizeof(bwctl_options)/sizeof(bwctl_options[0]) - 1, sizeof(bwctl_options[0]), option_comp);
+
+    fprintf(stderr,"\nConnection Arguments\n");
+    display_option_group(OPTION_CONNECT);
+    fprintf(stderr,"\nScheduling Arguments\n");
+    display_option_group(OPTION_SCHEDULING);
+    fprintf(stderr,"\nTest Arguments\n");
+    display_option_group(OPTION_TEST);
+    fprintf(stderr,"\nOutput Arguments\n");
+    display_option_group(OPTION_OUTPUT);
+    fprintf(stderr,"\nMisc Arguments\n");
+    display_option_group(OPTION_MISC);
+
+    version();
+
+    return;
+}
+
+static void
+display_option_group(
+        enum option_type option_type
+        )
+{
+    int i;
+
     for(i = 0; bwctl_options[i].test_types != BWL_TEST_UNDEFINED; i++) {
         char buf[50];
 
         if (!(bwctl_options[i].test_types & test_type))
+            continue;
+
+        if (!(bwctl_options[i].option_type == option_type))
             continue;
 
         if (bwctl_options[i].option.val) {
@@ -458,10 +562,6 @@ usage(
             }
         }
     }
-
-    version();
-
-    return;
 }
 
 static BWLBoolean

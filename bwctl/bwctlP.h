@@ -238,8 +238,11 @@ typedef	struct {
 
 } ipapp_trec, *ipapp_t;
 
+enum option_type { OPTION_CONNECT, OPTION_SCHEDULING, OPTION_TEST, OPTION_OUTPUT, OPTION_MISC };
+
 struct bwctl_option {
      int    test_types;
+     enum option_type option_type;
      struct option option;
      char   *description;
      char   *argument_description;
