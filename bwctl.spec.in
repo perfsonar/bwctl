@@ -21,7 +21,7 @@ that wraps Iperf, Thrulay or nuttcp.
 %package client
 Summary: bwctl client
 Group: Applications/Network
-Requires:   iperf, iperf3
+Requires:   iperf, iperf3-devel
 %description client
 bwctl command line tool for scheduling bandwidth measurements with a bwctl
 server.
@@ -30,7 +30,7 @@ server.
 Summary: bwctl server
 Group: Applications/Network
 Requires: I2util, chkconfig, initscripts, shadow-utils, coreutils
-Requires:   iperf, iperf3
+Requires:   iperf, iperf3-devel
 %description server
 bwctl server
 
