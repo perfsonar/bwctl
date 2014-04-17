@@ -934,3 +934,15 @@ double BWLNum64ToTimestampDouble(BWLNum64 tstamp)
 
     return retval;
 }
+
+BWLNum64 BWLTimestampToNum64(time_t ts)
+{
+    BWLNum64 retval;
+
+    /*
+     * Convert "epoch"'s - must do before conversion or there is the risk
+     * of overflow since time_t is a 32bit signed quantity instead of
+     * unsigned.
+     */
+    return BWLULongToNum64(ts + BWLJAN_1970);
+}

@@ -97,8 +97,8 @@ struct TimeSlotRec {
     TAILQ_ENTRY(TimeSlotRec) entries;
 
     time_slot_types type;
-    BWLNum64        start;
-    BWLNum64        end;
+    time_t          start;
+    time_t          end;
     int             num_reservations;
     int             max_reservations;
 };
