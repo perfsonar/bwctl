@@ -2534,6 +2534,12 @@ main(
         }
     }
 
+    /*
+     * Seed the RNG using the pid and the time since multiple bwctl instances
+     * get started simultaneously, and we don't want them running in lockstep.
+     */
+    srand( (unsigned) time(NULL) * getpid());
+
     if (app.opt.schedule) {
         app.scheduler = get_scheduled_times_scheduler(app.opt.schedule, app.opt.randomizeStart);
         if (!app.scheduler) {
