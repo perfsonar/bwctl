@@ -47,8 +47,8 @@ AC_INIT(bwctl, 1.5.2, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
 AM_INIT_AUTOMAKE(bwctl, 1.5.2, [no-define])
 
-AC_DEFINE(PATCH_LEVEL, 1, "The RPM version number")
-AC_SUBST(PATCH_LEVEL, 1)
+AC_DEFINE(PATCH_LEVEL, 2, "The RPM version number")
+AC_SUBST(PATCH_LEVEL, 2)
 
 AC_CONFIG_SRCDIR(bwlib/context.c)
 AM_CONFIG_HEADER(bwlib/config.h)
