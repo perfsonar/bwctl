@@ -3028,7 +3028,7 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
         }
 
         if ( test_options->tool_id == BWL_TOOL_UNDEFINED ) {
-            I2ErrLog( eh, "Requested tools not supported by both servers. See the \'-T\' option" );
+            I2ErrLog( eh, "Requested tools supporting the requested options not available by both servers. See the \'-T\' option" );
             I2ErrLog( eh, "Available tools that support the requested options: %s", BWLToolGetToolNames( ctx, common_tools ) );
             goto error_exit;
         }
