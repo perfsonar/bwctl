@@ -463,8 +463,6 @@ BWLDiscoverSourceAddr(
         hints.ai_family = AF_UNSPEC;
     }
 
-    BWLError(ctx,BWLErrDEBUG,EINVAL, "BWLDiscoverSourceAddr(): Looking up address: %s", remote_addr);
-
     if ((rc = getaddrinfo(remote_addr, temp_port, &hints, &result)) != 0) {
         BWLError(ctx,BWLErrDEBUG,EINVAL, "BWLDiscoverSourceAddr(): Invalid address: %s", gai_strerror(rc));
         return NULL;
@@ -497,8 +495,6 @@ BWLDiscoverSourceAddr(
     if (result) {
         freeaddrinfo(result);
     }
-
-    BWLError(ctx,BWLErrDEBUG,EINVAL, "BWLDiscoverSourceAddr(): Returning: %s", retval);
 
     return retval;
 }

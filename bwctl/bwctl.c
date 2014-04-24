@@ -2919,10 +2919,6 @@ get_session_address(ipsess_t current_sess, ipsess_t other_sess) {
 
     address = I2AddrByNode(eh, session_address);
 
-    if (app.opt.verbose) {
-        I2ErrLog(eh,"Resolving %s", session_address);
-    }
-
     if (BWLAddrIsLoopback(address)) {
         session_address = BWLDiscoverSourceAddr(ctx, other_sess->host, buf, sizeof(buf));
 
@@ -2932,10 +2928,10 @@ get_session_address(ipsess_t current_sess, ipsess_t other_sess) {
     }
 
     if (app.opt.verbose) {
-        I2ErrLog(eh,"Current session is %s, using %s as the address for %s.",
-                (current_sess->is_local?"local":"remote"),
+        I2ErrLog(eh,"Using %s as the address for %s %s",
                 session_address,
-                (current_sess->is_client?"client":"server"));
+                (current_sess->is_local?"local":"remote"),
+                (current_sess->is_receiver?"receiver":"sender"));
     }
 
     return address;
