@@ -902,24 +902,24 @@ ACCEPT:
          * and other fields for contacting remote host.
          */
         const char          *local = NULL;
-        char                addr_str[1024];
+        char                local_addr_str[1024];
         I2Addr              remote;
         struct sockaddr     *saddr;
         socklen_t           saddrlen;
         BWLToolAvailability tavail = 0;
 
-        if( BWLAddrNodeName(ctx, tsess->test_spec.client, addr_str, sizeof(addr_str), NI_NUMERICHOST) != 0) {
-            local = addr_str;
+        if( BWLAddrNodeName(ctx, tsess->test_spec.client, local_addr_str, sizeof(local_addr_str), NI_NUMERICHOST) != 0) {
+            local = local_addr_str;
         }
 
-        if( (saddr = I2AddrSAddr(tsess->test_spec.server,&saddrlen)) &&
-                (remote =I2AddrBySAddr(BWLContextErrHandle(ctx),
-                                       saddr,saddrlen,SOCK_STREAM,IPPROTO_TCP
-                                      ))){
+        remote = I2AddrCopy(tsess->test_spec.server);
+        if (remote) {
             if(!(I2AddrSetPort(remote,*peerport))){
                 I2AddrFree(remote);
                 remote = NULL;
             }
+
+            BWLAddrNodeName(ctx, remote, addr_str, sizeof(addr_str), NI_NUMERICHOST);
         }
 
         if(!local || !remote){
@@ -932,17 +932,14 @@ ACCEPT:
                 &tavail,err_ret);
 
         if(!ep->rcntrl){
-            nambuflen=sizeof(nambuf);
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
-                    "Endpoint: Unable to connect to Peer(%s): %M",
-                    I2AddrNodeServName(remote,nambuf,&nambuflen)
+                    "Endpoint: Unable to connect to Peer([%s]:%d): %M",
+                    addr_str, *peerport
                     );
-            nambuflen=sizeof(nambuf);
             fprintf(tsess->localfp,
-                    "bwctl: Unable to initiate peer handshake with %s - canceling\n",
-                    I2AddrNodeServName(remote,nambuf,&nambuflen)
+                    "bwctl: Unable to initiate peer handshake with [%s]:%d - canceling\n",
+                    addr_str, *peerport
                     );
-            nambuflen=sizeof(nambuf);
         }
     }
 
