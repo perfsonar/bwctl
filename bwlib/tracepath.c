@@ -110,6 +110,47 @@ TracepathAvailable(
     return (tracepath_available || tracepath6_available);
 }
 
+static BWLBoolean
+TracepathValidateTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        BWLTestSpec         test_spec
+        )
+{
+    if(test_spec.traceroute_first_ttl){
+        BWLError(ctx,BWLErrFATAL,EINVAL,
+                "TracepathValidateTest(): Tracepath does not support setting the TTL");
+        return False;
+    }
+
+    if(test_spec.traceroute_last_ttl){
+        BWLError(ctx,BWLErrFATAL,EINVAL,
+                "TracepathValidateTest(): Tracepath does not support setting the TTL");
+        return False;
+    }
+
+    if(test_spec.traceroute_packet_size){
+        BWLError(ctx,BWLErrFATAL,EINVAL,
+                "TracepathValidateTest(): Tracepath does not support setting the packet size");
+        return False;
+    }
+
+    if(test_spec.outformat){
+        switch((char)test_spec.outformat){
+            case 'a':
+                break;
+            default:
+                BWLError(ctx,BWLErrFATAL,EINVAL,
+                        "TracepathValidateTest(): Invalid out format (-y) specification %c",
+                        (char)test_spec.outformat);
+                return False;
+        }
+    }
+
+    return _BWLToolGenericValidateTest(ctx, tool, test_spec);
+}
+
+
 /*
  * Function:    TracepathPreRunTest
  *
@@ -200,19 +241,14 @@ TracepathPreRunTest(
      */
     TracepathArgs[a++] = cmd;
 
-    if(tsess->test_spec.traceroute_first_ttl){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "TracepathPreRunTest(): Tracepath does not support setting the TTL");
-    }
-
-    if(tsess->test_spec.traceroute_last_ttl){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "TracepathPreRunTest(): Tracepath does not support setting the TTL");
-    }
-
-    if(tsess->test_spec.traceroute_packet_size){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "TracepathPreRunTest(): Tracepath does not support setting the packet size");
+    if(tsess->test_spec.outformat){
+        switch((char)tsess->test_spec.outformat){
+            case 'a':
+                TracepathArgs[a++] = "-n";
+                break;
+            default:
+                break;
+        }
     }
 
     getnameinfo((struct sockaddr *)rsaddr, rsaddrlen, rsaddr_str, sizeof(rsaddr_str), 0, 0, NI_NUMERICHOST);
@@ -328,7 +364,7 @@ BWLToolDefinitionRec    BWLToolTracepath = {
     BWLGenericParseTracerouteParameters,    /* parse_request */
     BWLGenericUnparseTracerouteParameters,  /* unparse_request */
     TracepathAvailable,           /* tool_avail       */
-    _BWLToolGenericValidateTest,   /* validate_test    */
+    TracepathValidateTest,   /* validate_test    */
     TracepathInitTest,            /* init_test        */
     TracepathPreRunTest,          /* pre_run          */
     TracepathRunTest,             /* run              */
