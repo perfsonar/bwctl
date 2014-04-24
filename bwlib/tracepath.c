@@ -188,9 +188,7 @@ TracepathPreRunTest(
     char            *cmd_variable;
     int             a = 0;
     size_t          hlen;
-    struct sockaddr *rsaddr;
-    socklen_t       rsaddrlen;
-    char            rsaddr_str[INET6_ADDRSTRLEN];
+    char            addr_str[INET6_ADDRSTRLEN];
     I2Addr          remote_side;
 
     // If 'server sends' mode is in effect, the server runs the tracepath command,
@@ -210,26 +208,13 @@ TracepathPreRunTest(
         remote_side = tsess->test_spec.server;
     }
 
-    if( !(rsaddr = I2AddrSAddr(remote_side,&rsaddrlen))){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "TracepathPreRunTest(): Invalid server I2Addr");
-        return NULL;
+    if (BWLAddrIsIPv6(ctx, remote_side)) {
+        cmd_variable = "V.tracepath6_cmd";
+        default_cmd = TRACEPATH6_DEFAULT_CMD;
     }
-
-    switch(rsaddr->sa_family){
-#ifdef    AF_INET6
-        case AF_INET6:
-            cmd_variable = "V.tracepath6_cmd";
-            default_cmd = TRACEPATH6_DEFAULT_CMD;
-            break;
-#endif
-        case AF_INET:
-            cmd_variable = "V.tracepath_cmd";
-            default_cmd = TRACEPATH_DEFAULT_CMD;
-            break;
-        default:
-            return NULL;
-            break;
+    else {
+        cmd_variable = "V.tracepath_cmd";
+        default_cmd = TRACEPATH_DEFAULT_CMD;
     }
 
     /* Run tracepath */
@@ -251,9 +236,12 @@ TracepathPreRunTest(
         }
     }
 
-    getnameinfo((struct sockaddr *)rsaddr, rsaddrlen, rsaddr_str, sizeof(rsaddr_str), 0, 0, NI_NUMERICHOST);
+    if( BWLAddrNodeName(ctx, remote_side, addr_str, sizeof(addr_str), NI_NUMERICHOST) == 0) {
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"TracepathPreRunTest():Problem resolving address");
+        return NULL;
+    }
 
-    if( !(TracepathArgs[a++] = strdup(rsaddr_str))){
+    if( !(TracepathArgs[a++] = strdup(addr_str))){
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"TracepathPreRunTest():strdup(): %M");
         return NULL;
     }

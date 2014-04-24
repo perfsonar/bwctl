@@ -145,21 +145,16 @@ OwampPreRunTest(
     int             len;
     int             a = 0;
     size_t          hlen;
-    struct sockaddr *rsaddr;
-    socklen_t       rsaddrlen;
-    char            rsaddr_str[INET6_ADDRSTRLEN];
+    char            addr_str[INET6_ADDRSTRLEN];
     char            server_str[1024];
     char            *port_range;
 
-    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.server,&rsaddrlen))){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "OwampPreRunTest(): Invalid server I2Addr");
+    if( BWLAddrNodeName(ctx, tsess->test_spec.server, addr_str, sizeof(addr_str), NI_NUMERICHOST) == 0) {
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():Problem resolving address");
         return NULL;
     }
 
-    getnameinfo((struct sockaddr *)rsaddr, rsaddrlen, rsaddr_str, sizeof(rsaddr_str), 0, 0, NI_NUMERICHOST);
-
-    snprintf(server_str, sizeof(server_str), "[%s]:%u", rsaddr_str, tsess->tool_port);
+    snprintf(server_str, sizeof(server_str), "[%s]:%u", addr_str, tsess->tool_port);
 
     if(tsess->conf_server){
         char buf[1024];

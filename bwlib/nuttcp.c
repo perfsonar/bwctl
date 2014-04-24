@@ -154,14 +154,7 @@ NuttcpPreRunTest(
     int             a = 0;
     char            recvhost[MAXHOSTNAMELEN];
     size_t          hlen = sizeof(recvhost);
-    struct sockaddr *rsaddr;
-    socklen_t       rsaddrlen;
 
-    if( !(rsaddr = I2AddrSAddr(tsess->test_spec.server,&rsaddrlen))){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
-                "NuttcpPreRunTest: Invalid server I2Addr");
-        return NULL;
-    }
     if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.server,recvhost,hlen, NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "NuttcpPreRunTest: Invalid server I2Addr");
@@ -227,15 +220,8 @@ NuttcpPreRunTest(
     NuttcpArgs[a++] = "-T";
     NuttcpArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.duration);
 
-    switch(rsaddr->sa_family){
-#ifdef    AF_INET6
-        case AF_INET6:
-            NuttcpArgs[a++] = "-6";
-            break;
-#endif
-        case AF_INET:
-        default:
-            break;
+    if (BWLAddrIsIPv6(ctx, tsess->test_spec.server)) {
+        NuttcpArgs[a++] = "-6";
     }
 
     if(!tsess->conf_server){
