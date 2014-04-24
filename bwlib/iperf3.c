@@ -294,7 +294,7 @@ BWLToolDefinitionRec    BWLToolIperf3 = {
     Iperf3PreRunTest,        /* pre_run          */
     Iperf3RunTest,           /* run              */
     BWL_TEST_THROUGHPUT,     /* test_types       */
-    BWLToolServerSideData,      /* results_side     */
+    BWLToolClientSideData,      /* results_side     */
     True,                    /* supports_server_sends */
     True,                    /* supports_endpointless */
     5201,                    /* The server port to use in endpointless tests */
