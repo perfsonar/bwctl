@@ -3457,7 +3457,7 @@ wait_for_results()
 
     // Set an alarm so that the client doesn't hang waiting for results
     ip_alrm = 0;
-    alarm(10);
+    alarm(60);
 
     atype = BWL_CNTRL_ACCEPT;
 
@@ -3480,7 +3480,7 @@ wait_for_results()
 
     // Set an alarm so that the client doesn't hang waiting for results
     ip_alrm = 0;
-    alarm(10);
+    alarm(60);
 
     atype = BWL_CNTRL_ACCEPT;
 
