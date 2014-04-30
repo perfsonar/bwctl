@@ -356,6 +356,7 @@ BWLToolDefinitionRec    BWLToolTracepath = {
     TracepathInitTest,            /* init_test        */
     TracepathPreRunTest,          /* pre_run          */
     TracepathRunTest,             /* run              */
+    _BWLToolGenericKillTest, /* kill             */
     BWL_TEST_TRACEROUTE,    /* test_types       */
     BWLToolSenderSideData,      /* results_side     */
     True,                    /* supports_server_sends */

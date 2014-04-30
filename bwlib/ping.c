@@ -373,6 +373,7 @@ BWLToolDefinitionRec    BWLToolPing = {
     PingInitTest,            /* init_test        */
     PingPreRunTest,          /* pre_run          */
     PingRunTest,             /* run              */
+    _BWLToolGenericKillTest, /* kill             */
     BWL_TEST_LATENCY,        /* test_types       */
     BWLToolSenderSideData,      /* results_side     */
     True,                    /* supports_server_sends */

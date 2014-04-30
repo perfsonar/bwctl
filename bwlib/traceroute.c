@@ -367,6 +367,7 @@ BWLToolDefinitionRec    BWLToolTraceroute = {
     TracerouteInitTest,            /* init_test        */
     TraceroutePreRunTest,          /* pre_run          */
     TracerouteRunTest,             /* run              */
+    _BWLToolGenericKillTest, /* kill             */
     BWL_TEST_TRACEROUTE,     /* test_types       */
     BWLToolSenderSideData,      /* results_side     */
     True,                    /* supports_server_sends */

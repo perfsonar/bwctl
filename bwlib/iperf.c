@@ -351,6 +351,31 @@ IperfRunTest(
     exit(BWL_CNTRL_FAILURE);
 }
 
+BWLBoolean
+IperfKillTest(
+        BWLContext   ctx,
+        pid_t        pid,
+        int          force
+        ) {
+    int signal = force?SIGKILL:SIGTERM;
+
+    if(killpg(pid,signal) == 0){
+        /*
+         * Send the SIGTERM kill signal twice, iperf does not exit after
+         * receiving one
+         */
+        if (!force)
+            killpg(pid,signal);
+        return True;
+    }
+    else if (errno == ESRCH) {
+        return True;
+    }
+    else {
+        return False;
+    }
+}
+
 BWLToolDefinitionRec    BWLToolIperf = {
     "iperf",                /* name             */
     "iperf",                /* def_cmd          */
@@ -364,6 +389,7 @@ BWLToolDefinitionRec    BWLToolIperf = {
     _BWLToolGenericInitTest, /* init_test        */
     IperfPreRunTest,        /* pre_run          */
     IperfRunTest,           /* run              */
+    IperfKillTest,          /* kill             */
     BWL_TEST_THROUGHPUT,     /* test_types       */
     BWLToolServerSideData,      /* results_side     */
     False,                   /* supports_server_sends */

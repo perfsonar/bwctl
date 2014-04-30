@@ -341,6 +341,35 @@ static int do_mkdir(const char *path, mode_t mode) {
     return retval;
 }
 
+BWLBoolean
+OwampKillTest(
+        BWLContext   ctx,
+        pid_t        pid,
+        int          force
+        ) {
+    int signal = force?SIGKILL:SIGTERM;
+
+    /*
+     * When forcing, kill the process group instead of the top-level process.
+     * We only send SIGTERM to the top-level process to ensure that owping will
+     * get results. If we kill the entire process group, it won't receive
+     * results.
+     */
+    if (force) {
+        pid = -pid;
+    }
+
+    if(kill(pid,signal) == 0){
+        return True;
+    }
+    else if (errno == ESRCH) {
+        return True;
+    }
+    else {
+        return False;
+    }
+}
+
 BWLToolDefinitionRec    BWLToolOwamp = {
     "owamp",                  /* name             */
     "owping",                 /* def_cmd          */
@@ -354,6 +383,7 @@ BWLToolDefinitionRec    BWLToolOwamp = {
     _BWLToolGenericInitTest,  /* init_test        */
     OwampPreRunTest,          /* pre_run          */
     OwampRunTest,             /* run              */
+    OwampKillTest,           /* kill             */
     BWL_TEST_LATENCY,        /* test_types       */
     BWLToolClientSideData,      /* results_side     */
     True,                   /* supports_server_sends */

@@ -912,3 +912,22 @@ _BWLToolGenericValidateTest(
 
     return True;
 }
+
+BWLBoolean
+_BWLToolGenericKillTest(
+        BWLContext   ctx,
+        pid_t        pid,
+        int          force
+        ) {
+    int signal = force?SIGKILL:SIGTERM;
+
+    if(killpg(pid,signal) == 0){
+        return True;
+    }
+    else if (errno == ESRCH) {
+        return True;
+    }
+    else {
+        return False;
+    }
+}

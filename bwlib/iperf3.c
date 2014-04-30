@@ -293,6 +293,7 @@ BWLToolDefinitionRec    BWLToolIperf3 = {
     _BWLToolGenericInitTest, /* init_test        */
     Iperf3PreRunTest,        /* pre_run          */
     Iperf3RunTest,           /* run              */
+    _BWLToolGenericKillTest, /* kill             */
     BWL_TEST_THROUGHPUT,     /* test_types       */
     BWLToolClientSideData,      /* results_side     */
     True,                    /* supports_server_sends */

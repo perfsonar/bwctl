@@ -1209,20 +1209,10 @@ ACCEPT:
      * sending the StopSession message.
      */
     if(!ipf_chld && ep->child){
-
-        /*
-         * Send the kill signal twice, iperf does not exit after receiving one
-         */
-        if(killpg(ep->child,SIGTERM) == 0){
-            /*
-             * Ignore any errors from the second one since some testing tools
-             * will actually die from just the first one.
-             */
-            (void)killpg(ep->child,SIGTERM);
+        if(tsess->tool->kill(ctx,ep->child,0) == True) {
             ep->killed = True;
-
         }
-        else if(errno != ESRCH){
+        else {
             /* kill failed */
             BWLError(ctx,BWLErrFATAL,errno,
                     "PeerAgent: kill(): Unable to gracefully kill test endpoint, pid=%d: %M",
@@ -1251,6 +1241,11 @@ ACCEPT:
     }
 
     /*
+     * Wait for the child to exit
+     */
+    sleep(1);
+
+    /*
      *
      * Get child exit status
      *
@@ -1269,7 +1264,7 @@ ACCEPT:
         BWLError(ctx,BWLErrDEBUG,errno,
                 "PeerAgent: Killing tester with SIGKILL, pid=%d",
                 ep->child);
-        if((killpg(ep->child,SIGKILL) != 0) && (errno != ESRCH)){
+        if(tsess->tool->kill(ctx,ep->child,1) == False) {
             /* kill failed */
             BWLError(ctx,BWLErrFATAL,errno,
                     "PeerAgent: Unable to kill test endpoint, pid=%d: %M",

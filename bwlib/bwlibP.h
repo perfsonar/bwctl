@@ -248,6 +248,12 @@ typedef BWLTestSideData (*BWLToolTestSideDataFunc)(
         BWLTestSpec         *tspec
         );
 
+typedef BWLBoolean (*BWLToolKillTestFunc) (
+        BWLContext   ctx,
+        pid_t        pid,
+        int          force
+        );
+
 
 /*
  * This structure is used to actually define the 'Tool' abstraction
@@ -265,6 +271,7 @@ struct BWLToolDefinitionRec{
     BWLToolInitTestFunc       init_test;
     BWLToolPreRunTestFunc     pre_run;
     BWLToolRunTestFunc        run;
+    BWLToolKillTestFunc       kill;
     BWLTestType               test_types;
     BWLToolTestSideDataFunc   results_side;
     BWLBoolean                supports_server_sends;
@@ -799,6 +806,13 @@ _BWLToolGenericValidateTest(
         BWLContext          ctx,
         BWLToolDefinition   tool,
         BWLTestSpec         test_spec
+        );
+
+BWLBoolean
+_BWLToolGenericKillTest(
+        BWLContext   ctx,
+        pid_t        pid,
+        int          force
         );
 
 /* endpoint.c */
