@@ -21,7 +21,7 @@ clock.
             from http://software.internet2.edu/sources/I2util/
 
   * iperf3 (optional): You can install it via RPM, or download
-            the source from https://code.google.com/p/iperf/
+            the source from https://github.com/esnet/iperf/
 
 == Building ==
 
