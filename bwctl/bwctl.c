@@ -32,7 +32,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#if defined(HAVE_STDINT_H)
 #include <stdint.h>
+#endif
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
