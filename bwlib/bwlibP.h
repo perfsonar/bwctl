@@ -764,7 +764,7 @@ _BWLToolInitialize(
         BWLContext  ctx
         );
 
-extern BWLBoolean
+extern BWLErrSeverity
 _BWLToolLookForTesters(
         BWLContext  ctx
         );
