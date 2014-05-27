@@ -46,7 +46,11 @@
 #include <pwd.h>
 #include <grp.h>
 #include <syslog.h>
+#if defined(HAVE_SYS_QUEUE_H)
 #include <sys/queue.h>
+#else
+#include "missing_queue.h"
+#endif
 
 #include <I2util/util.h>
 #include <bwlib/bwlib.h>

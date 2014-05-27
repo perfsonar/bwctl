@@ -36,7 +36,11 @@
 #define	BWCTLD_IPERF_DEF_TESTPORT	(5001)
 #define	BWCTLD_THRULAYD_DEF_TESTPORT	(5003)
 
+#if defined(HAVE_SYS_QUEUE_H)
 #include <sys/queue.h>
+#else
+#include "missing_queue.h"
+#endif
 
 #include "policy.h"
 
