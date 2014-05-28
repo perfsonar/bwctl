@@ -30,6 +30,8 @@
  */
 #define _GNU_SOURCE
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 #if defined(HAVE_STDINT_H)
@@ -38,7 +40,11 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#if defined(HAVE_GETOPT_H)
 #include <getopt.h>
+#else
+#include <missing_getopt.h>
+#endif
 #include <sys/stat.h>
 #include <string.h>
 #include <ctype.h>
@@ -2160,7 +2166,11 @@ main(
     build_arguments(opt_str, opt_list);
 
     opt_index = 0;
+#if defined(HAVE_GETOPT_H)
     while((ch = getopt_long(argc, argv, opt_str, opt_list, &opt_index)) != -1){
+#else
+    while((ch = missing_getopt_long(argc, argv, opt_str, opt_list, &opt_index)) != -1){
+#endif
         const char *long_name = opt_list[opt_index].name;
 
         opt_index = 0;

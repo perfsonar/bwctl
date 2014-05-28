@@ -78,7 +78,7 @@ AC_SEARCH_LIBS(trunc, m)
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([errno.h netdb.h stdlib.h tgmath.h sys/param.h sys/socket.h sys/time.h sys/timex.h])
+AC_CHECK_HEADERS([errno.h getopt.h netdb.h stdlib.h tgmath.h sys/param.h sys/socket.h sys/time.h sys/timex.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 I2_C___ATTRIBUTE__
