@@ -38,7 +38,9 @@
 #ifndef    IPCNTRLP_H
 #define    IPCNTRLP_H
 
+#if defined(HAVE_STDINT_H)
 #include <stdint.h>
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
@@ -762,7 +764,7 @@ _BWLToolInitialize(
         BWLContext  ctx
         );
 
-extern BWLBoolean
+extern BWLErrSeverity
 _BWLToolLookForTesters(
         BWLContext  ctx
         );
