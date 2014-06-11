@@ -3802,8 +3802,14 @@ static BWLBoolean regular_intervals_scheduler_get_next_runtime(Scheduler *schedu
         wait_time -= difftime(curr_time, schedule->last_run_time);
     }
 
-    tspec->tv_sec = (long) wait_time;
-    tspec->tv_nsec = (wait_time / 1000000);
+    if (wait_time <= 0) {
+        tspec->tv_sec = 0;
+        tspec->tv_nsec = 0;
+    }
+    else {
+        tspec->tv_sec = (long) wait_time;
+        tspec->tv_nsec = (wait_time / 1000000);
+    }
 
     schedule->last_run_time = curr_time + tspec->tv_sec;
 
