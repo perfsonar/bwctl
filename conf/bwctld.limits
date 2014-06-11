@@ -46,8 +46,8 @@ limit jail with parent=root, \
 	allow_tcp=off, \
 	allow_open_mode=off
 
-# default everything to regular user access
-# this allows TCP for up to 30 seconds and 
+# Default everything to regular user access
+# this allows TCP for up to 60 seconds and 
 # no UDP tests
 assign default regular
 
