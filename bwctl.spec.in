@@ -7,7 +7,7 @@ Group: *Development/Libraries*
 URL: http://e2epi.internet2.edu/bwctl/
 Source: %{name}-%{version}.tar.gz
 Packager: Aaron Brown <aaron@internet2.edu>
-BuildRequires:  libtool, I2util, iperf3-devel
+BuildRequires:  libtool, I2util, iperf3-devel >= 3.0.5
 Requires: bwctl-client, bwctl-server
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
@@ -21,7 +21,7 @@ that wraps Iperf, Thrulay or nuttcp.
 %package client
 Summary: bwctl client
 Group: Applications/Network
-Requires:   iperf, iperf3-devel
+Requires:   iperf, iperf3-devel >= 3.0.5
 %description client
 bwctl command line tool for scheduling bandwidth measurements with a bwctl
 server.
@@ -30,7 +30,7 @@ server.
 Summary: bwctl server
 Group: Applications/Network
 Requires: I2util, chkconfig, initscripts, shadow-utils, coreutils
-Requires:   iperf, iperf3-devel
+Requires:   iperf, iperf3-devel >= 3.0.5
 %description server
 bwctl server
 
