@@ -287,7 +287,7 @@ else
 	    AC_DEFINE(USE_SYS_IPERF3, 1, [Use system installed iperf3 library])
 	fi
 
-	AC_CHECK_LIB(iperf, iperf_set_test_get_server_output, ,AC_MSG_ERROR([iperf3 too old. bwctl requires iperf3 version >= 3.0.4]))
+	AC_CHECK_LIB(iperf, iperf_set_test_get_server_output, ,AC_MSG_ERROR([iperf3 too old. bwctl requires iperf3 version >= 3.0.5]))
 
 	AC_CHECK_HEADERS([iperf_api.h], ,AC_MSG_ERROR([Couldn't find iperf3 header file]), [AC_INCLUDES_DEFAULT])
 	do_iperf3=true
