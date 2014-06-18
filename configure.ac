@@ -78,7 +78,7 @@ AC_SEARCH_LIBS(trunc, m)
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([errno.h netdb.h stdlib.h tgmath.h sys/param.h sys/socket.h sys/time.h sys/timex.h])
+AC_CHECK_HEADERS([errno.h getopt.h netdb.h stdlib.h tgmath.h sys/param.h sys/socket.h sys/time.h sys/timex.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 I2_C___ATTRIBUTE__
@@ -286,10 +286,14 @@ else
 	    use_sys_iperf3="true"
 	    AC_DEFINE(USE_SYS_IPERF3, 1, [Use system installed iperf3 library])
 	fi
+
+	AC_CHECK_LIB(iperf, iperf_set_test_get_server_output, ,AC_MSG_ERROR([iperf3 too old. bwctl requires iperf3 version >= 3.0.5]))
+
 	AC_CHECK_HEADERS([iperf_api.h], ,AC_MSG_ERROR([Couldn't find iperf3 header file]), [AC_INCLUDES_DEFAULT])
 	do_iperf3=true
 	AC_DEFINE(TOOL_IPERF3, 1, [IPERF3 throughput tool via libiperf])
 fi
+
 AM_CONDITIONAL(USE_SYS_IPERF3, test x$use_sys_iperf3 = xtrue)
 AM_CONDITIONAL(TOOL_IPERF3, test x$do_iperf3 = xtrue)
 

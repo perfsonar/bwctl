@@ -215,6 +215,8 @@ Iperf3PreRunTest(
         switch((char)tsess->test_spec.outformat){
             case 'J':
                 iperf_set_test_json_output( iperf_test, 1 );
+                // get the server side output as well
+                iperf_set_test_get_server_output ( iperf_test, 1 );
                 break;
             default:
                 break;

@@ -30,13 +30,21 @@
  */
 #define _GNU_SOURCE
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <stdio.h>
+#if defined(HAVE_STDINT_H)
 #include <stdint.h>
+#endif
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
+#if defined(HAVE_GETOPT_H)
 #include <getopt.h>
+#else
+#include <missing_getopt.h>
+#endif
 #include <sys/stat.h>
 #include <string.h>
 #include <ctype.h>
@@ -2158,7 +2166,11 @@ main(
     build_arguments(opt_str, opt_list);
 
     opt_index = 0;
+#if defined(HAVE_GETOPT_H)
     while((ch = getopt_long(argc, argv, opt_str, opt_list, &opt_index)) != -1){
+#else
+    while((ch = missing_getopt_long(argc, argv, opt_str, opt_list, &opt_index)) != -1){
+#endif
         const char *long_name = opt_list[opt_index].name;
 
         opt_index = 0;
@@ -3790,8 +3802,14 @@ static BWLBoolean regular_intervals_scheduler_get_next_runtime(Scheduler *schedu
         wait_time -= difftime(curr_time, schedule->last_run_time);
     }
 
-    tspec->tv_sec = (long) wait_time;
-    tspec->tv_nsec = (wait_time / 1000000);
+    if (wait_time <= 0) {
+        tspec->tv_sec = 0;
+        tspec->tv_nsec = 0;
+    }
+    else {
+        tspec->tv_sec = (long) wait_time;
+        tspec->tv_nsec = (wait_time / 1000000);
+    }
 
     schedule->last_run_time = curr_time + tspec->tv_sec;
 

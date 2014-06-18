@@ -1769,7 +1769,7 @@ BWLDReadReservationQuery(
         uint32_t	*duration,
         BWLNum64	*rtt_time,
         uint16_t	*recv_port,
-        uint32_t        *tool_id,
+        BWLToolType     *tool_id,
         char            *sender,
         char            *receiver,
         int		*err
