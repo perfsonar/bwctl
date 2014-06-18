@@ -903,6 +903,8 @@ ACCEPT:
          */
         const char          *local = NULL;
         char                local_addr_str[1024];
+        const char          *remote_str = NULL;
+        char                remote_addr_str[1024];
         I2Addr              remote;
         struct sockaddr     *saddr;
         socklen_t           saddrlen;
@@ -912,14 +914,19 @@ ACCEPT:
             local = local_addr_str;
         }
 
-        remote = I2AddrCopy(tsess->test_spec.server);
-        if (remote) {
-            if(!(I2AddrSetPort(remote,*peerport))){
-                I2AddrFree(remote);
-                remote = NULL;
-            }
+        if( BWLAddrNodeName(ctx, tsess->test_spec.server, remote_addr_str, sizeof(remote_addr_str), NI_NUMERICHOST) != 0) {
+            remote_str = remote_addr_str;
+        }
 
-            BWLAddrNodeName(ctx, remote, addr_str, sizeof(addr_str), NI_NUMERICHOST);
+        // create a new address for the endpoint (remote address + peerport)
+        if (remote_str) {
+            remote = I2AddrByNode(BWLContextErrHandle(ctx), remote_str);
+            if (remote) {
+                if(!(I2AddrSetPort(remote,*peerport))){
+                    I2AddrFree(remote);
+                    remote = NULL;
+                }
+            }
         }
 
         if(!local || !remote){
@@ -934,11 +941,11 @@ ACCEPT:
         if(!ep->rcntrl){
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
                     "Endpoint: Unable to connect to Peer([%s]:%d): %M",
-                    addr_str, *peerport
+                    remote_str, *peerport
                     );
             fprintf(tsess->localfp,
                     "bwctl: Unable to initiate peer handshake with [%s]:%d - canceling\n",
-                    addr_str, *peerport
+                    remote_str, *peerport
                     );
         }
     }
