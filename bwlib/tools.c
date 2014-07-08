@@ -748,8 +748,7 @@ _BWLToolGenericInitTest(
 
     // Check if a default "test_port" range is set
     if( !prange ) {
-        strncpy(optname, "V.test_port", sizeof(optname));
-        prange = (BWLPortRange)BWLContextConfigGetV(ctx,optname);
+        prange = (BWLPortRange)BWLContextConfigGetV(ctx,"V.test_port");
     }
 
     // If nothing has been specified for this tool, initialize it to a range of
@@ -758,14 +757,14 @@ _BWLToolGenericInitTest(
     if( !prange ) {
         prange = calloc(1,sizeof(BWLPortRangeRec));
         if(prange) {
-            prange->low  = tool->def_port - 1;
-            prange->high = tool->def_port + 100;
-            BWLPortsSetI(ctx,prange,tool->def_port);
-            BWLContextConfigSet(ctx,optname,prange);
+            prange->low  = 5001;
+            prange->high = 5900;
+            BWLPortsSetI(ctx,prange,5001);
+            BWLContextConfigSet(ctx,"V.test_port",prange);
         }
     }
 
-    if( (prange = (BWLPortRange)BWLContextConfigGetV(ctx,optname))){
+    if( prange ) {
         *toolport = BWLPortsNext(prange);
     }
     else{

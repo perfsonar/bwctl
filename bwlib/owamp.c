@@ -147,7 +147,7 @@ OwampPreRunTest(
     size_t          hlen;
     char            addr_str[INET6_ADDRSTRLEN];
     char            server_str[1024];
-    char            *port_range;
+    char            port_range[1024];
 
     if( BWLAddrNodeName(ctx, tsess->test_spec.server, addr_str, sizeof(addr_str), NI_NUMERICHOST) == 0) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():Problem resolving address");
@@ -155,6 +155,14 @@ OwampPreRunTest(
     }
 
     snprintf(server_str, sizeof(server_str), "[%s]:%u", addr_str, tsess->tool_port);
+
+    /*
+     * The test ports end up being "tool port + 1 -> tool port + 2", see in
+     * the OwampInitTest for how we ensure that these ports are available. We
+     * use the local_tool_port for this to handle the "--reverse" case for
+     * owamp since owamp will be sending UDP packets from server -> client.
+     */
+    snprintf(port_range, sizeof(port_range), "%u-%u", tsess->local_tool_port + 1, tsess->local_tool_port + 2);
 
     if(tsess->conf_server){
         char buf[1024];
@@ -194,13 +202,11 @@ OwampPreRunTest(
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():strdup(): %M");
             return NULL;
         }
-        port_range = (char*)BWLContextConfigGetV(ctx,"V.owamp_ports");
-        if (port_range) {
-            OwampArgs[a++] = "-P";
-            if( !(OwampArgs[a++] = strdup(port_range))){
-                BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():strdup(): %M");
-                return NULL;
-            }
+
+        OwampArgs[a++] = "-P";
+        if( !(OwampArgs[a++] = strdup(port_range))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():strdup(): %M");
+            return NULL;
         }
     }
     else {
@@ -255,13 +261,10 @@ OwampPreRunTest(
             BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL, "OwampPreRunTest(): owping does not support setting the TTL");
         }
 
-        port_range = (char*)BWLContextConfigGetV(ctx,"V.owamp_ports");
-        if (port_range) {
-            OwampArgs[a++] = "-P";
-            if( !(OwampArgs[a++] = strdup(port_range))){
-                BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():strdup(): %M");
-                return NULL;
-            }
+        OwampArgs[a++] = "-P";
+        if( !(OwampArgs[a++] = strdup(port_range))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"OwampPreRunTest():strdup(): %M");
+            return NULL;
         }
 
         if( !(OwampArgs[a++] = strdup(server_str))){
@@ -341,6 +344,55 @@ static int do_mkdir(const char *path, mode_t mode) {
     return retval;
 }
 
+BWLErrSeverity
+OwampInitTest(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        uint16_t            *toolport
+        )
+{
+    BWLPortRange    prange=NULL;
+    BWLErrSeverity  retval;
+    // We need 2 ports for owamp's test range
+    uint16_t min_port;
+    uint16_t max_port;
+
+    retval = _BWLToolGenericInitTest(ctx, tool, toolport);
+    if (retval != BWLErrOK) {
+        return retval;
+    }
+
+    /*
+     * We need to make sure that "toolport, toolport + 1 and toolport + 2" are
+     * available. toolport will be owamp's server control port, and toolport +
+     * 1/toolport + 2 are the owamp test ports. The reason we do it this way is
+     * that the only thing that gets passed between the various processes is
+     * "toolport", and so when it comes time to run the test, we need to be
+     * able to convert 'toolport' into all three ports.
+     */
+    prange = (BWLPortRange)BWLContextConfigGetV(ctx,"V.owamp_port");
+
+    if( !prange ) {
+        prange = (BWLPortRange)BWLContextConfigGetV(ctx,"V.test_port");
+    }
+
+    if ( prange ) { // this should always be true...
+        *toolport = BWLPortsNext(prange);
+        min_port  = BWLPortsNext(prange);
+        max_port  = BWLPortsNext(prange);
+
+        // handle the wraparound case
+        while (min_port != *toolport + 1 && max_port != min_port + 1) {
+            *toolport = min_port;
+            min_port = max_port;
+            max_port = BWLPortsNext(prange);
+        }
+
+    }
+
+    return BWLErrOK;
+}
+
 BWLBoolean
 OwampKillTest(
         BWLContext   ctx,
@@ -380,7 +432,7 @@ BWLToolDefinitionRec    BWLToolOwamp = {
     BWLGenericUnparsePingParameters,  /* unparse_request */
     OwampAvailable,           /* tool_avail       */
     _BWLToolGenericValidateTest,   /* validate_test    */
-    _BWLToolGenericInitTest,  /* init_test        */
+    OwampInitTest,            /* init_test        */
     OwampPreRunTest,          /* pre_run          */
     OwampRunTest,             /* run              */
     OwampKillTest,           /* kill             */

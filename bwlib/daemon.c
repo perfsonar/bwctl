@@ -95,6 +95,27 @@ BWLDaemonParseArg(
         return 1;
     }
 
+    if(!strncasecmp(key,"test_port",10)){
+        BWLPortRange    pports;
+
+        if( !(pports = calloc(1,sizeof(BWLPortRangeRec)))){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"calloc(1,%d): %M",sizeof(BWLPortRangeRec));
+            return -1;
+        }
+        if( !BWLPortsParse(ctx,val,pports) ||
+                !BWLContextConfigSet(ctx,BWLPeerPortRange,pports)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Unable to set test_port");
+            return -1;
+        }
+
+        if( !BWLContextRegisterMemory(ctx,pports)){
+            BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN,"Failed to \"register\" test_port cleanup");
+            return -1;
+        }
+
+        return 1;
+    }
+
     if( !strncasecmp(key,"control_timeout",16)){
         char        *end=NULL;
         uint32_t    tlng;
