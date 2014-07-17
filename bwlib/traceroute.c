@@ -203,12 +203,6 @@ TraceroutePreRunTest(
         }
     }
 
-    if(tsess->test_spec.traceroute_packet_size){
-        if( !(TracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.traceroute_packet_size))){
-            return NULL;
-        }
-    }
-
     if(tsess->test_spec.tos){
         TracerouteArgs[a++] = "-t";
         if( !(TracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos))){
