@@ -2182,6 +2182,7 @@ BWLDCheckTestPolicy(
         BWLNum64	fuzz_time,
         BWLNum64	*reservation_ret,
         uint16_t	*tool_port_ret,
+        uint16_t	*local_tool_port_ret,
         void		**closure,
         BWLErrSeverity	*err_ret
         )
@@ -2398,6 +2399,9 @@ reservation:
     if(!local_client){
         *tool_port_ret = tool_port_loc;
     }
+
+    *local_tool_port_ret = tool_port_loc;
+
     *closure = tinfo;
     return True;
 done:

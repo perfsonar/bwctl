@@ -574,6 +574,7 @@ typedef BWLBoolean (*BWLCheckTestPolicyFunc)(
         BWLNum64        fuzz_time,
         BWLNum64        *reservation_ret,
         uint16_t        *tool_port_ret,
+        uint16_t        *local_tool_port_ret,
         void            **closure,
         BWLErrSeverity  *err_ret
         );

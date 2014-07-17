@@ -1139,7 +1139,7 @@ _BWLCallCheckTestPolicy(
 
     return func(cntrl,tsess->sid,tsess->conf_client,lsaddr,rsaddr,
             lsaddrlen,&tsess->test_spec,tsess->fuzz,&tsess->reserve_time,
-            &tsess->tool_port,&tsess->closure,err_ret);
+            &tsess->tool_port,&tsess->local_tool_port,&tsess->closure,err_ret);
 }
 
 /*

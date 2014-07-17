@@ -403,6 +403,7 @@ struct BWLTestSessionRec{
     BWLNum64            fuzz;
     BWLToolDefinition   tool;
     uint16_t            tool_port;
+    uint16_t            local_tool_port;
 
     BWLBoolean          conf_client;
     BWLBoolean          conf_server;

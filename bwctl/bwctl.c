@@ -885,7 +885,7 @@ static BWLBoolean
 CheckTestPolicy(
         BWLControl      cntrl,
         BWLSID          lsid __attribute__((unused)),
-        BWLBoolean      local_sender,
+        BWLBoolean      local_client,
         struct sockaddr *local_sa_addr    __attribute__((unused)),
         struct sockaddr *remote_sa_addr __attribute__((unused)),
         socklen_t       sa_len    __attribute__((unused)),
@@ -893,6 +893,7 @@ CheckTestPolicy(
         BWLNum64        fuzz_time,
         BWLNum64        *reservation_ret,
         uint16_t        *tool_port_ret,
+        uint16_t        *local_tool_port_ret,
         void            **closure,
         BWLErrSeverity  *err_ret
         )
@@ -957,9 +958,11 @@ CheckTestPolicy(
         /*
          * Only update the tool port if configuring the receiver
          */
-        if(!local_sender){
+        if(!local_client){
             *tool_port_ret = tool_port_loc;
         }
+
+        *local_tool_port_ret = tool_port_loc;
     }
 
     return True;
