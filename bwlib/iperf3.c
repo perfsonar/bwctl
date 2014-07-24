@@ -131,18 +131,18 @@ Iperf3PreRunTest(
         BWLTestSession      tsess
         )
 {
-    char            recvhost[MAXHOSTNAMELEN];
-    char            sendhost[MAXHOSTNAMELEN];
+    char            serverhost[MAXHOSTNAMELEN];
+    char            clienthost[MAXHOSTNAMELEN];
     size_t          hlen;
     struct iperf_test *iperf_test;
 
-    if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.server,recvhost,sizeof(recvhost), NI_NUMERICHOST) == NULL) {
+    if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.server,serverhost,sizeof(serverhost), NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "Iperf3PreRunTest(): Invalid server I2Addr");
         return NULL;
     }
 
-    if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.client,sendhost,sizeof(sendhost), NI_NUMERICHOST) == NULL) {
+    if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.client,clienthost,sizeof(clienthost), NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "Iperf3PreRunTest(): Invalid client I2Addr");
         return NULL;
@@ -228,15 +228,32 @@ Iperf3PreRunTest(
 
     if(tsess->conf_server){
         iperf_set_test_role( iperf_test, 's' ); // specify server side
-    }else{
-        char *drh;
-        iperf_set_test_role( iperf_test, 'c' ); // specify client side
-        drh = strdup(recvhost);
-        if( !drh ){
+
+        iperf_set_test_bind_address( iperf_test, serverhost );
+        if( iperf_get_test_bind_address( iperf_test ) ){
+            // iperf_get_test_bind_address uses strdup which can fail
             BWLError(ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
             return NULL;
         }
-        iperf_set_test_server_hostname( iperf_test, drh );
+
+    }else{
+        iperf_set_test_role( iperf_test, 'c' ); // specify client side
+
+        iperf_set_test_server_hostname( iperf_test, serverhost );
+        if( iperf_get_test_server_hostname( iperf_test ) == NULL ){
+            // iperf_set_test_server_hostname uses strdup which can fail
+            BWLError(ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
+            return NULL;
+        }
+
+        BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,"Iperf3PreRunTest(): Setting  bind address to %s", clienthost);
+
+        iperf_set_test_bind_address( iperf_test, clienthost );
+        if( iperf_get_test_bind_address( iperf_test ) == NULL ){
+            // iperf_set_test_server_hostname uses strdup which can fail
+            BWLError(ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
+            return NULL;
+        }
 
         if (tsess->test_spec.server_sends) {
              iperf_set_test_reverse( iperf_test, 1 );
