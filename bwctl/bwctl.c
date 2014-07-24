@@ -2467,7 +2467,7 @@ main(
             app.opt.ping_interpacket_time = 1000;
         }
 
-        app.opt.timeDuration = app.opt.ping_packet_count * (app.opt.ping_interpacket_time / 1000.0) + 3;
+        app.opt.timeDuration = app.opt.ping_packet_count * (app.opt.ping_interpacket_time / 1000.0) + 5;
     }
     else {
         if(!app.opt.timeDuration){
