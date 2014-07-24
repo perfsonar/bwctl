@@ -230,7 +230,7 @@ Iperf3PreRunTest(
         iperf_set_test_role( iperf_test, 's' ); // specify server side
 
         iperf_set_test_bind_address( iperf_test, serverhost );
-        if( iperf_get_test_bind_address( iperf_test ) ){
+        if( iperf_get_test_bind_address( iperf_test ) == NULL ){
             // iperf_get_test_bind_address uses strdup which can fail
             BWLError(ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
             return NULL;
