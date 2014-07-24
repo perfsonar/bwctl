@@ -246,8 +246,6 @@ Iperf3PreRunTest(
             return NULL;
         }
 
-        BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,"Iperf3PreRunTest(): Setting  bind address to %s", clienthost);
-
         iperf_set_test_bind_address( iperf_test, clienthost );
         if( iperf_get_test_bind_address( iperf_test ) == NULL ){
             // iperf_set_test_server_hostname uses strdup which can fail
