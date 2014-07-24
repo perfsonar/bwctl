@@ -47,8 +47,8 @@ AC_INIT(bwctl, 1.5.2, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
 AM_INIT_AUTOMAKE(bwctl, 1.5.2, [no-define])
 
-AC_DEFINE(PATCH_LEVEL, 7, "The RPM version number")
-AC_SUBST(PATCH_LEVEL, 7)
+AC_DEFINE(PATCH_LEVEL, 8, "The RPM version number")
+AC_SUBST(PATCH_LEVEL, 8)
 
 AC_CONFIG_SRCDIR(bwlib/context.c)
 AM_CONFIG_HEADER(bwlib/config.h)
@@ -287,7 +287,7 @@ else
 	    AC_DEFINE(USE_SYS_IPERF3, 1, [Use system installed iperf3 library])
 	fi
 
-	AC_CHECK_LIB(iperf, iperf_set_test_get_server_output, ,AC_MSG_ERROR([iperf3 too old. bwctl requires iperf3 version >= 3.0.5]))
+	AC_CHECK_LIB(iperf, iperf_set_test_bind_address, ,AC_MSG_ERROR([iperf3 too old. bwctl requires iperf3 version >= 3.0.6]))
 
 	AC_CHECK_HEADERS([iperf_api.h], ,AC_MSG_ERROR([Couldn't find iperf3 header file]), [AC_INCLUDES_DEFAULT])
 	do_iperf3=true
