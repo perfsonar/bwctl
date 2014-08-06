@@ -166,7 +166,7 @@ OwampPreRunTest(
 
     if(tsess->conf_server){
         char buf[1024];
-        char *cmd = (char*)BWLContextConfigGetV(ctx,"V.owampd_cmd");
+        char *cmd = (char*)BWLContextConfigGetV(ctx,"V.owamp_server_cmd");
         if(!cmd) cmd = tsess->tool->def_server_cmd;
 
         snprintf(buf, sizeof(buf), "%s/%d", tmp_dir, tsess->tool_port);
