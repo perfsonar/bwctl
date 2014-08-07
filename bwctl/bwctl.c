@@ -2303,48 +2303,6 @@ main(
 
     app.opt.tool_ids[0] = BWL_TOOL_UNDEFINED;
 
-    if (app.opt.tools) {
-        int i;
-        char *tool;
-        char *tmp_str;
-
-        i = 0;
-        tmp_str = app.opt.tools;
-        while((tool = strtok(tmp_str, ",")) != NULL) {
-            tmp_str = NULL;
-
-            if( (app.opt.tool_ids[i] = BWLToolGetID(ctx,tool)) ==
-                    BWL_TOOL_UNDEFINED){
-                char    buf[BWL_MAX_TOOLNAME + 20];
-                snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",tool);
-                usage(buf);
-                exit(1);
-            }
-
-            if( test_type != BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) ) {
-                char buf[1024];
-                char *proper_cmd_name;
-                if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_TRACEROUTE) {
-                    proper_cmd_name = "bwtraceroute";
-                }
-                else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_LATENCY) {
-                    proper_cmd_name = "bwping";
-                }
-                else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_THROUGHPUT) {
-                    proper_cmd_name = "bwctl";
-                }
-                snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s. Tool should be used with %s",tool, proper_cmd_name);
-                printf("BUF: %X %s\n", progname, buf);
-                usage(buf);
-                exit(1);
-            }
-
-            i++;
-        }
-
-        app.opt.tool_ids[i] = BWL_TOOL_UNDEFINED;
-    }
-
     app.client_sess->require_endpoint = True;
     if (app.opt.allow_one_sided) {
         if (app.opt.verbose) {
@@ -2480,6 +2438,10 @@ main(
         if(app.opt.udpTest && !app.opt.bandWidth){
             app.opt.bandWidth = DEF_UDP_RATE;
         }
+
+        if (!app.opt.tools) {
+            app.opt.tools = strdup("iperf,iperf3,nuttcp");
+        }
     }
 
     if( !(rsrc = I2RandomSourceInit(eh,I2RAND_DEV,NULL))){
@@ -2547,6 +2509,47 @@ main(
                 app.opt.continuous = True;
             }
         }
+    }
+
+    if (app.opt.tools) {
+        int i;
+        char *tool;
+        char *tmp_str;
+
+        i = 0;
+        tmp_str = app.opt.tools;
+        while((tool = strtok(tmp_str, ",")) != NULL) {
+            tmp_str = NULL;
+
+            if( (app.opt.tool_ids[i] = BWLToolGetID(ctx,tool)) ==
+                    BWL_TOOL_UNDEFINED){
+                char    buf[BWL_MAX_TOOLNAME + 20];
+                snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s",tool);
+                usage(buf);
+                exit(1);
+            }
+
+            if( test_type != BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) ) {
+                char buf[1024];
+                char *proper_cmd_name;
+                if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_TRACEROUTE) {
+                    proper_cmd_name = "bwtraceroute";
+                }
+                else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_LATENCY) {
+                    proper_cmd_name = "bwping";
+                }
+                else if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_THROUGHPUT) {
+                    proper_cmd_name = "bwctl";
+                }
+                snprintf(buf,sizeof(buf)-1,"Invalid tool (-T): %s. Tool should be used with %s",tool, proper_cmd_name);
+                usage(buf);
+                exit(1);
+            }
+
+            i++;
+        }
+
+        app.opt.tool_ids[i] = BWL_TOOL_UNDEFINED;
     }
 
     /*
@@ -3007,6 +3010,8 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
                     I2ErrLog( eh, "Skipping %s because it doesn't support the requested options",
                                BWLToolGetNameByID( ctx, tid ));
                 }
+
+                continue;
             }
 
             if ( tid & common_tools )
