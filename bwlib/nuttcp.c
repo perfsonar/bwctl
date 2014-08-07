@@ -109,9 +109,8 @@ NuttcpValidateTest(
      * TODO: Fix this to allow UDP Nuttcp tests.
      */
     if(test_spec.udp){
-        BWLError(ctx,BWLErrDEBUG,BWLErrPOLICY,
-                "NuttcpPreRunTest: Does not support Nuttcp UDP connections");
-        return False;
+        BWLError(ctx,BWLErrWARNING,BWLErrPOLICY,
+                "NuttcpPreRunTest: Older bwctl instances don't support nuttcp UDP connections, and may deny the test.");
     }
 
     return _BWLToolGenericValidateTest(ctx, tool, test_spec);
@@ -197,9 +196,9 @@ NuttcpPreRunTest(
 
     if((!tsess->conf_server) && (tsess->test_spec.bandwidth)){
         NuttcpArgs[a++] = "-R";
-        /* nuttcp expects a number of Kbytes. */
+        /* nuttcp expects a number of Kbps */
         NuttcpArgs[a++] = BWLUInt64Dup(ctx,
-                tsess->test_spec.bandwidth / 1024);
+                tsess->test_spec.bandwidth / 1000);
     }
 
     if(tsess->test_spec.window_size){
@@ -224,7 +223,11 @@ NuttcpPreRunTest(
         NuttcpArgs[a++] = "-6";
     }
 
-    if(!tsess->conf_server){
+    if(tsess->conf_server){
+        NuttcpArgs[a++] = "--nofork";
+        NuttcpArgs[a++] = "-1";
+    }
+    else {
         if(tsess->test_spec.tos){
             NuttcpArgs[a++] = "-c";
             NuttcpArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos);
@@ -248,11 +251,6 @@ NuttcpPreRunTest(
                     "NuttcpPreRunTest():strdup(): %M");
             return NULL;
         }
-    }
-
-    if(tsess->conf_server){
-        NuttcpArgs[a++] = "--nofork";
-        NuttcpArgs[a++] = "-1";
     }
 
     NuttcpArgs[a++] = NULL;
