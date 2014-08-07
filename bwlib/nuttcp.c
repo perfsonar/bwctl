@@ -110,7 +110,7 @@ NuttcpValidateTest(
      */
     if(test_spec.udp){
         BWLError(ctx,BWLErrWARNING,BWLErrPOLICY,
-                "NuttcpPreRunTest: Older bwctl instances don't support nuttcp UDP connections, and may deny the test.");
+                "NuttcpPreRunTest: Older bwctl instances don't support nuttcp UDP connections, and may reject the test.");
     }
 
     return _BWLToolGenericValidateTest(ctx, tool, test_spec);
