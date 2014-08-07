@@ -930,6 +930,7 @@ BWLSessionRequest(
         BWLTimeStamp    *avail_time_ret,
         uint16_t        *tool_port,
         BWLSID          sid_ret,
+        BWLAcceptType   *acceptval,
         BWLErrSeverity  *err_ret
         );
 

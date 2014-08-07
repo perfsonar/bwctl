@@ -757,23 +757,23 @@ static int
 _BWLClientRequestTestReadResponse(
         BWLControl	cntrl,
         BWLTestSession	tsession,
-        BWLErrSeverity	*err_ret
+        BWLErrSeverity	*err_ret,
+        BWLAcceptType 	*acceptval
         )
 {
     int		rc;
-    BWLAcceptType	acceptval;
 
     if((rc = _BWLWriteTestRequest(cntrl,tsession)) < BWLErrOK){
         *err_ret = (BWLErrSeverity)rc;
         return 1;
     }
 
-    if((rc = _BWLReadTestAccept(cntrl,&acceptval,tsession)) < BWLErrOK){
+    if((rc = _BWLReadTestAccept(cntrl,acceptval,tsession)) < BWLErrOK){
         *err_ret = (BWLErrSeverity)rc;
         return 1;
     }
 
-    if(acceptval == BWL_CNTRL_ACCEPT)
+    if(*acceptval == BWL_CNTRL_ACCEPT)
         return 0;
 
     *err_ret = BWLErrOK;
@@ -805,6 +805,7 @@ BWLSessionRequest(
         BWLTimeStamp	*avail_time_ret,
         uint16_t	*tool_port,
         BWLSID		sid,
+        BWLAcceptType   *acceptval,
         BWLErrSeverity	*err_ret
         )
 {
@@ -820,9 +821,9 @@ BWLSessionRequest(
     struct sockaddr *ssaddr;
     socklen_t       saddrlen;
     BWLNum64	    zero64=BWLULongToNum64(0);
-    BWLAcceptType   acceptval = BWL_CNTRL_FAILURE;
     BWLBoolean	    retval = False;
 
+    *acceptval = BWL_CNTRL_FAILURE;
     *err_ret = BWLErrOK;
 
     /* will be set to non-zero if request params ok */
@@ -1006,7 +1007,7 @@ foundaddr:
      * client. (copy reservation time so a denied response can be
      * differentiated from a "busy" response.)
      */
-    rc = _BWLClientRequestTestReadResponse(cntrl,tsession,err_ret);
+    rc = _BWLClientRequestTestReadResponse(cntrl,tsession,err_ret,acceptval);
     avail_time_ret->tstamp = tsession->reserve_time;
 
     if(rc != 0){
@@ -1039,11 +1040,11 @@ cancel:
     if(_BWLWriteTestRequest(cntrl,tsession) < BWLErrOK){
         goto error;
     }
-    if(_BWLReadTestAccept(cntrl,&acceptval,tsession) < BWLErrOK){
+    if(_BWLReadTestAccept(cntrl,acceptval,tsession) < BWLErrOK){
         goto error;
     }
 
-    if(acceptval != BWL_CNTRL_REJECT){
+    if(*acceptval != BWL_CNTRL_REJECT){
         BWLError(cntrl->ctx,BWLErrFATAL,BWLErrUNKNOWN,
                 "Reservation Cancellation Error");
         _BWLFailControlSession(cntrl,BWLErrFATAL);
@@ -1051,7 +1052,7 @@ cancel:
 
 error:
     if(tsession){
-        _BWLTestSessionFree(cntrl->ctx, tsession,acceptval);
+        _BWLTestSessionFree(cntrl->ctx, tsession,*acceptval);
         if(cntrl->tests == tsession){
             cntrl->tests = NULL;
         }

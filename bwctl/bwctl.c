@@ -2964,6 +2964,7 @@ negotiate_test(ipsess_t server_sess, ipsess_t client_sess, BWLTestSpec *test_opt
     BWLErrSeverity      err_ret = BWLErrOK;
     uint16_t            recv_port = 0;
     BWLSID              sid;
+    BWLAcceptType       acceptval;
 
     test_options->client = get_session_address(client_sess, server_sess);
     test_options->server = get_session_address(server_sess, client_sess);
@@ -3227,6 +3228,7 @@ error_exit:
                             &req_time,
                             &recv_port,
                             sid,
+                            &acceptval,
                             &err_ret)){
                     I2ErrLog(eh,
                             "Problem cancelling requested test for \'%s\'",
@@ -3244,6 +3246,7 @@ error_exit:
                             &req_time,
                             &recv_port,
                             sid,
+                            &acceptval,
                             &err_ret)){
                     I2ErrLog(eh,
                             "Problem cancelling requested test for \'%s\'",
@@ -3258,6 +3261,7 @@ static BWLBoolean
 negotiate_individual_test(ipsess_t sess, BWLSID sid, BWLTimeStamp *req_time, uint16_t *recv_port)
 {
     BWLErrSeverity      err_ret = BWLErrOK;
+    BWLAcceptType       acceptval = BWL_CNTRL_ACCEPT;
 
     // presume that the request time is right
 
@@ -3266,7 +3270,7 @@ negotiate_individual_test(ipsess_t sess, BWLSID sid, BWLTimeStamp *req_time, uin
      */
     if(!BWLSessionRequest(sess->cntrl,sess->is_client,
                 &sess->tspec,req_time,recv_port,
-                sid,&err_ret)){
+                sid,&acceptval,&err_ret)){
         /*
          * Session was not accepted.
          */
@@ -3279,6 +3283,10 @@ negotiate_individual_test(ipsess_t sess, BWLSID sid, BWLTimeStamp *req_time, uin
                         "SessionRequest Control connection failure for \'%s\'. Skipping...",
                         sess->host);
         }
+        else if(acceptval == BWL_CNTRL_UNSUPPORTED) {
+            I2ErrLog(eh,"SessionRequest: Requested test options unsupported by %s",
+                    sess->host);
+        }
         else if(req_time->tstamp != zero64){
             /*
              * Request is ok, but server
@@ -3286,8 +3294,8 @@ negotiate_individual_test(ipsess_t sess, BWLSID sid, BWLTimeStamp *req_time, uin
              * and proceed to next session
              * interval.
              */
-            I2ErrLog(eh,"SessionRequest: %s busy. (Try -L flag)",
-                    sess->host);
+            I2ErrLog(eh,"SessionRequest: %s busy. (Try -L flag): %d",
+                    sess->host, err_ret);
         }
         else{
             /*
