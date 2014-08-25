@@ -56,6 +56,7 @@
 #include <bwlib/bwlib.h>
 #include <bwlib/bwlibP.h>
 
+#include "time_slot.h"
 #include "bwctldP.h"
 
 /* Global variable - the total number of allowed Control connections. */
@@ -165,106 +166,6 @@ signal_catch(
     return;
 }
 
-static BWLBoolean
-TimeSlotAddReservation(
-        TimeSlot slot,
-        Reservation res
-)
-{
-    BWLTestType test_type = BWLToolGetTestTypesByID(ctx,res->tool);
-
-    if (test_type == BWL_TEST_THROUGHPUT) {
-        slot->type = SLOT_BANDWIDTH;
-    }
-    else if (test_type == BWL_TEST_LATENCY) {
-        slot->type = SLOT_LATENCY;
-    }
-
-    slot->num_reservations++;
-
-    return True;
-}
-
-static TimeSlot
-TimeSlotCreate(
-        Reservation res,
-        time_t      start,
-        time_t      end
-)
-{
-    TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
-    if (!new_slot)
-        return NULL;
-
-    new_slot->type  = SLOT_ANY;
-    new_slot->start = start;
-    new_slot->end   = end;
-    new_slot->num_reservations = 0;
-    new_slot->max_reservations = 30;
-
-    TimeSlotAddReservation(new_slot, res);
-
-    return new_slot;
-}
-
-static TimeSlot
-TimeSlotSplit(
-        TimeSlot slot,
-        time_t   time
-)
-{
-    TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
-    if (!new_slot)
-        return NULL;
-
-    new_slot->start = time;
-    new_slot->end = slot->end;
-    new_slot->num_reservations = slot->num_reservations;
-    new_slot->max_reservations = slot->max_reservations;
-
-    slot->end = time - 1;
-
-    return new_slot;
-}
-
-static BWLBoolean
-TimeSlotHasReservation(
-        TimeSlot slot,
-        Reservation res
-)
-{
-    time_t res_start;
-    time_t res_end;
-
-    /*
-     * Convert the res start/end to a 'second' instead of the sub-second
-     * resolution. The slots are all on second 'granularity'.
-     */
-    res_start = BWLNum64ToTimestamp(res->start);
-    res_end   = BWLNum64ToTimestamp(res->end) + 1;
-
-
-    if (difftime(slot->start, res_end) > 0)
-        return False;
-
-    if (difftime(slot->end, res_start) < 0)
-        return False;
-
-    return True;
-}
-
-static BWLBoolean
-TimeSlotRemoveReservation(
-        TimeSlot slot,
-        Reservation res
-)
-{
-    slot->num_reservations--;
-
-    return True;
-}
-
-
 static Reservation
 AllocReservation(
         ChldState   cstate,
@@ -367,10 +268,10 @@ ResRemove(
         i++;
         slot_temp = TAILQ_NEXT(slot, entries);
 
-        if (TimeSlotHasReservation(slot, res) == False)
+        if (time_slot_has_reservation(ctx, slot, res) == False)
             continue;
 
-        TimeSlotRemoveReservation(slot, res);
+        time_slot_remove_reservation(ctx, slot, res);
 
         if (slot->num_reservations == 0) {
             TAILQ_REMOVE(&time_slots, slot, entries);
@@ -638,7 +539,7 @@ ChldReservationDemand(
         if ((!prev_slot || difftime(prev_slot->end, res_start) < 0) && difftime(res_end, slot->start) < 0) {
             // There is enough time between the end of the previous slot, and
             // the beginning of the next one to make a new slot.
-            TimeSlot new_slot = TimeSlotCreate(res, res_start, res_end);
+            TimeSlot new_slot = time_slot_create(ctx, res, res_start, res_end);
 
             TAILQ_INSERT_BEFORE(slot, new_slot, entries);
 
@@ -705,12 +606,12 @@ ChldReservationDemand(
                     // one that handles the time period up until the new
                     // reservation starts, and one that handles the time period
                     // after.
-                    TimeSlot new_slot = TimeSlotSplit(first_slot, res_start);
+                    TimeSlot new_slot = time_slot_split(ctx, first_slot, res_start);
 
                     TAILQ_INSERT_AFTER(&time_slots, first_slot, new_slot, entries);
 
                     // first_slot is meant to refer to the first slot that
-                    // overlaps the reservation. The TimeSlotSplit function
+                    // overlaps the reservation. The time_slot_split function
                     // will return the timeslot after the split point, i.e.
                     // it's the first slot that overlaps our reservation. Also,
                     // since we're changing the first slot, we might be
@@ -723,7 +624,7 @@ ChldReservationDemand(
                 else if (difftime(res_start, first_slot->start) < 0) {
                     // We need to create an additional slot to handle
                     // res->start to first_slot->start.
-                    TimeSlot new_slot = TimeSlotCreate(res, res_start, first_slot->start - 1);
+                    TimeSlot new_slot = time_slot_create(ctx, res, res_start, first_slot->start - 1);
 
                     TAILQ_INSERT_BEFORE(first_slot, new_slot, entries);
                 }
@@ -733,21 +634,21 @@ ChldReservationDemand(
                     // to split the existing slot to divide into two new slots:
                     // the slot up to when our reservation ends, and the slot
                     // after our reservation ends.
-                    TimeSlot new_slot = TimeSlotSplit(last_slot, res_end + 1);
+                    TimeSlot new_slot = time_slot_split(ctx, last_slot, res_end + 1);
 
                     TAILQ_INSERT_AFTER(&time_slots, last_slot, new_slot, entries);
                 }
                 else if (difftime(last_slot->end, res_end) < 0) {
                     // We need to create an additional slot to handle
                     // last_slot->end to res->end.
-                    TimeSlot new_slot = TimeSlotCreate(res, last_slot->end + 1, res_end);
+                    TimeSlot new_slot = time_slot_create(ctx, res, last_slot->end + 1, res_end);
 
                     TAILQ_INSERT_AFTER(&time_slots, last_slot, new_slot, entries);
                 }
 
                 temp_slot = first_slot;
                 while (temp_slot) {
-                    TimeSlotAddReservation(temp_slot, res);
+                    time_slot_add_reservation(ctx, temp_slot, res);
 
                     if (temp_slot == last_slot)
                         temp_slot = NULL;
@@ -778,7 +679,7 @@ ChldReservationDemand(
         res_start = BWLNum64ToTimestamp(res->start);
         res_end   = BWLNum64ToTimestamp(res->end) + 1;
 
-        new_slot = TimeSlotCreate(res, res_start, res_end);
+        new_slot = time_slot_create(ctx, res, res_start, res_end);
 
         /*
          * Two reasons it wasn't added: nothing in the list, or its start time
