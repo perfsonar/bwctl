@@ -57,6 +57,7 @@
 #include <bwlib/bwlibP.h>
 
 #include "time_slot.h"
+#include "scheduler.h"
 #include "bwctldP.h"
 
 /* Global variable - the total number of allowed Control connections. */
@@ -74,17 +75,9 @@ static BWLNum64             uptime;
 
 static BWLContext          ctx;
 
-static TAILQ_HEAD(timeslots_head, TimeSlotRec) time_slots = TAILQ_HEAD_INITIALIZER(time_slots);
-
-struct timeslots_head *time_slots_head;
-
-
 #if defined HAVE_DECL_OPTRESET && !HAVE_DECL_OPTRESET
 int optreset;
 #endif
-
-static void DisplayReservationStatus(Reservation res, const char *action);
-static void FreeReservation(Reservation res);
 
 static void
 version(void){
@@ -166,196 +159,6 @@ signal_catch(
     return;
 }
 
-static Reservation
-AllocReservation(
-        ChldState   cstate,
-        BWLSID      sid,
-        BWLToolType tool_id,
-        uint16_t    *toolport,
-        const char  *sender,
-        const char  *receiver
-        )
-{
-    BWLErrSeverity  err = BWLErrOK;
-    Reservation     res = NULL;
-
-    if(cstate->res){
-        BWLError(ctx,BWLErrFATAL,BWLErrINVALID,
-                "AllocReservation: cstate->res != NULL");
-        goto error_exit;
-    }
-
-    if( !(res = calloc(1,sizeof(*res)))){
-        BWLError(ctx,BWLErrFATAL,ENOMEM,"malloc(): %M");
-        goto error_exit;
-    }
-
-    res->sender = strdup(sender);
-    if (!res->sender) {
-        BWLError(ctx,err,BWLErrINVALID,"AllocReservation: strdup() failed");
-        goto error_exit;
-    }
-
-    res->receiver = strdup(receiver);
-    if (!res->receiver) {
-        BWLError(ctx,err,BWLErrINVALID,"AllocReservation: strdup() failed");
-        goto error_exit;
-    }
-
-    memcpy(res->sid,sid,sizeof(sid));
-
-    /*
-     * Invoke 'tool' one-time initialization phase
-     * Sets *toolport
-     *
-     * Done here so there is daemon-wide state for the 'last' port allocated.
-     */
-    if( BWLErrOK !=
-            (err = BWLToolInitTest(ctx,tool_id,toolport))){
-        BWLError(ctx,err,BWLErrINVALID,
-                "AllocReservation: Tool initialization failed");
-        goto error_exit;
-    }
-    res->toolport = *toolport;
-    res->tool = tool_id;
-
-    cstate->res = res;
-
-    return res;
-
-error_exit:
-    if (res) {
-        FreeReservation(res);
-    }
-
-    return NULL;
-}
-
-static void
-FreeReservation(
-        Reservation res
-        )
-{
-    if(!res)
-        return;
-
-    /*
-     * If there are any extended resources in a res record, free them here.
-     * (There were in previous versions of the code, so I just left this
-     * here when I removed those parts. If I really cared about cleaning
-     * this up, I could replace this with free().)
-     */
-
-    if (res->receiver)
-        free(res->receiver);
-    if (res->sender)
-        free(res->sender);
-    free(res);
-
-    return;
-}
-
-static BWLBoolean
-ResRemove(
-        Reservation res
-        )
-{
-    TimeSlot slot;
-    TimeSlot slot_temp;
-    int i;
-
-    for(slot = TAILQ_FIRST(&time_slots); slot; slot = slot_temp ) {
-        i++;
-        slot_temp = TAILQ_NEXT(slot, entries);
-
-        if (time_slot_has_reservation(ctx, slot, res) == False)
-            continue;
-
-        time_slot_remove_reservation(ctx, slot, res);
-
-        if (slot->num_reservations == 0) {
-            TAILQ_REMOVE(&time_slots, slot, entries);
-            free(slot);
-        }
-    }
-
-    return True;
-}
-
-static void
-DeleteReservation(
-        ChldState   cstate,
-        char        *action
-        )
-{
-    if(!cstate->res)
-        return;
-
-    DisplayReservationStatus(cstate->res, action);
-
-    ResRemove(cstate->res);
-    FreeReservation(cstate->res);
-    cstate->res = NULL;
-
-    return;
-}
-
-static BWLBoolean
-ReservationCanUseSlot(
-        Reservation res,
-        TimeSlot    slot
-        )
-{
-
-    BWLTestType test_type = BWLToolGetTestTypesByID(ctx,res->tool);
-
-    if (test_type == BWL_TEST_THROUGHPUT) {
-        // There is already a throughput test here.
-        if (slot->type == SLOT_BANDWIDTH) {
-            return False;
-        }
-        else if (slot->type == SLOT_LATENCY) {
-            return False;
-        }
-    }
-    else if (test_type == BWL_TEST_LATENCY) {
-        // There is already a throughput test here.
-        if (slot->type == SLOT_BANDWIDTH) {
-            return False;
-        }
-    }
-
-    if (slot->num_reservations == slot->max_reservations) {
-       return False;
-    }
-
-   return True;
-}
-
-static void
-DisplayReservationStatus(
-    Reservation res,
-    const char *action
-) {
-    BWLTimeStamp    currtime;
-
-    if(!BWLGetTimeStamp(ctx,&currtime)){
-        I2ErrLogP(errhand, errno, "BWLGetTimeOfDay: %M");
-        return;
-    }
-
-    I2ErrLogP(errhand,LOG_INFO,
-            "Reservation Status: time=%lu action=%s sender=%s receiver=%s tool=%s res_start=%lu res_end=%lu test_start=%lu",
-            BWLNum64ToTimestamp(currtime.tstamp),
-            action,
-            res->sender,
-            res->receiver,
-            BWLToolGetNameByID(ctx,res->tool),
-            BWLNum64ToTimestamp(res->start),
-            BWLNum64ToTimestamp(res->end),
-            BWLNum64ToTimestamp(res->restime));
-}
-
 static BWLBoolean
 ChldReservationDemand(
         ChldState   cstate,
@@ -372,21 +175,10 @@ ChldReservationDemand(
         const char  *receiver,
         int         *err)
 {
-    BWLTimeStamp    currtime;
-    Reservation     res;
-    TimeSlot        prev_slot;
     I2numT          hsecs;
-    BWLNum64        dtime;    /* duration with fuzz applied */
-    BWLNum64        minstart;
-    TimeSlot        slot;
-    int             added;
-    TimeSlot        new_slot;
     char            *action = "new";
 
     *err = 1;
-
-    if(!BWLDGetFixedLimit(cstate->node,BWLDLimEventHorizon,&hsecs))
-        return False;
 
     if(cstate->res){
         if(memcmp(sid,cstate->res->sid,sizeof(sid)))
@@ -394,347 +186,61 @@ ChldReservationDemand(
         /*
          * Remove cstate->res from pending_queue
          */
-        if(!ResRemove(cstate->res)) {
+        if(!scheduler_remove_reservation(ctx, cstate->res)) {
             return False;
         }
         cstate->res->toolport = *toolport;
         action = "reschedule";
     }
-    else if(!AllocReservation(cstate,sid,tool_id,toolport,sender,receiver)){
-        /*
-         * Alloc failed.
-         */
-        return False;
+    else {
+        cstate->res = reservation_create(ctx, sid, tool_id, sender, receiver);
+        if (!cstate->res)
+            return False;
     }
-
-    /*
-     * Initialize fields
-     */
-    res = cstate->res;
-
-    /*
-     * At this point cstate->res is ready to be inserted into
-     * the pending test queue.
-     */
-
-    if(!BWLGetTimeStamp(ctx,&currtime)){
-        I2ErrLogP(errhand, errno, "BWLGetTimeOfDay: %M");
-        FreeReservation(cstate->res);
-        cstate->res = NULL;
-        return False;
-    }
-
-    /*
-     * Determine earliest time the test can happen.
-     * This is the max of the earliest time the deamon is willing
-     * to have a test and the requested time.
-     * The algorithm being used to determine the "earliest time
-     * the daemon" is willing to have a test is:
-     *
-     *    2 X rtt(client) + fuzztime(otherserver)
-     *
-     * The actual message time is:
-     *    server            client
-     *    request response ->
-     *            <-    start sessions
-     *    start response    ->
-     *    (This is only 1.5 rtt, but rouding up to 2 rtt seems prudent)
-     *
-     * The reservation is defined by the following vars:
-     * res->restime == time of reservation
-     * res->start == fuzz applied to beginning of that
-     * res->end == fuzz applied to res->restime + duration
-     * The time period from res->start to res->end is completely
-     * allocated to this test.
-     */
-    res->start = BWLNum64Sub(rtime,ftime);
-    minstart =BWLNum64Add(currtime.tstamp,
-            BWLNum64Add(ftime,
-                BWLNum64Mult(rtttime,BWLULongToNum64(2))));
-    /*
-     * If the start time is less than the minimum start time, then
-     * reset the start time to one second past the minimum start time.
-     * minstart should take into account rtt times. The one second is
-     * simply a small buffer space so that rounding error and random
-     * extra delay to the other server will still allow a reservation.
-     */
-    if(BWLNum64Cmp(res->start,minstart) < 0){
-        res->start = BWLNum64Add(minstart,BWLULongToNum64(1));
-    }
-    res->restime = BWLNum64Add(res->start,ftime);
-
-    dtime = BWLNum64Add(BWLULongToNum64(duration),ftime);
-    res->end = BWLNum64Add(res->restime,dtime);
-    res->fuzz = ftime;
-    res->duration = duration;
 
     /*
      * Determine the latest time the test could happen.
      * (Min of the EventHorizon of the daemon and the latest time from
      * the request.)
      */
+    if(!BWLDGetFixedLimit(cstate->node,BWLDLimEventHorizon,&hsecs))
+        goto error_out;
+
     if(hsecs){
+        BWLTimeStamp currtime;    
+        if(!BWLGetTimeStamp(ctx,&currtime)){
+            goto error_out;
+        }
+
         ltime = BWLNum64Min(ltime,BWLNum64Add(currtime.tstamp,
                     BWLI2numTToNum64(hsecs)));
     }
 
-    /*
-     * Open slot too late
-     */
-    if(ltime && (BWLNum64Cmp(res->restime,ltime) > 0)){
-        *restime = res->restime;
-        goto denied;
+    BWLError(ctx,BWLErrFATAL,ENOMEM,"Tool: %d Res Tool: %d", tool_id, cstate->res->tool);
+
+    if (scheduler_add_reservation(
+            ctx,
+            cstate->res,
+            rtime,
+            ftime,
+            ltime,
+            duration,
+            rtttime,
+            toolport,
+            restime) == False) {
+        goto error_out;
     }
 
-    /********************************
-     * Find an open slot        *
-     ********************************/
-    added = 0;
-    prev_slot = NULL;
-
-    TAILQ_FOREACH(slot, &time_slots, entries) {
-        time_t res_start;
-        time_t res_end;
-
-        /*
-         * Make sure the reservation time, and end time matches what's expected
-         * based on its start time
-         */
-        if (BWLNum64Cmp(res->end, res->start) <= 0) {
-            res->restime = BWLNum64Add(res->start,res->fuzz);
-            res->end = BWLNum64Add(res->restime,dtime); 
-            I2ErrLogT(errhand,LOG_DEBUG,0,"Reservation Time Set: %lu",
-                    BWLNum64ToTimestamp(res->restime));
-
-        }
-
-        /*
-         * Check if the open slot too late
-         */
-        if(ltime && (BWLNum64Cmp(res->restime,ltime) > 0)) {
-            *restime = res->restime;
-            goto denied;
-        }
-
-        /*
-         * Convert the res start/end to a 'second' instead of the sub-second
-         * resolution. The slots are all on second 'granularity'.
-         */
-        res_start = BWLNum64ToTimestamp(res->start);
-        res_end   = BWLNum64ToTimestamp(res->end) + 1;
-
-        /*
-         * Skip ahead trying to find a slot that might overlap this reservation
-         */
-        if (difftime(slot->end, res_start) < 0) {
-            prev_slot = slot;
-            continue;
-        }
-
-        /*
-         * If this slot starts after our reservation ends, we just add a new
-         * time slot covering this reservation since it doesn't overlap any
-         * reservations.
-         */
-        if ((!prev_slot || difftime(prev_slot->end, res_start) < 0) && difftime(res_end, slot->start) < 0) {
-            // There is enough time between the end of the previous slot, and
-            // the beginning of the next one to make a new slot.
-            TimeSlot new_slot = time_slot_create(ctx, res, res_start, res_end);
-
-            TAILQ_INSERT_BEFORE(slot, new_slot, entries);
-
-            added = 1;
-
-            break;
-        }
-
-        /*
-         * Skip this slot if it's already full
-         */
-        if (ReservationCanUseSlot(res, slot) == False) {
-            prev_slot = slot;
-            res->start = BWLTimestampToNum64(slot->end + 1);
-            res->restime = BWLNum64Add(res->start,res->fuzz);
-            res->end = BWLNum64Add(res->restime,dtime); 
-            continue;
-        }
-        else {
-            /*
-             * Using the current slot as a starting point, check whether it's
-             * possible to run the test by going through all the slots that
-             * overlap the reservation, and make sure they're all copacetic
-             * with this test before performed as well.
-             */
-            TimeSlot first_slot = slot;
-            TimeSlot last_slot = slot;
-            TimeSlot conflicting_slot = NULL;
-
-            /*
-             * By the end of this loop, first_slot will be the first slot that
-             * overlaps the reservation, and last_slot will be the last slot
-             * that overlaps the reservation.
-             */
-            while (difftime(last_slot->end, res_end) <= 0) {
-                TimeSlot next_slot = TAILQ_NEXT(last_slot, entries);
-
-                if (!next_slot)
-                    break;
-
-                if (difftime(res_end, next_slot->start) < 0)
-                    break;
-
-                if (ReservationCanUseSlot(res, next_slot) == False) {
-                    conflicting_slot = next_slot;
-                    break;
-                }
-
-                last_slot = next_slot;
-            }
-
-            if (conflicting_slot) {
-                // might as well skip ahead to the end of the conflicting slot
-                res->start = BWLTimestampToNum64(conflicting_slot->end + 1);
-                res->restime = BWLNum64Add(res->start,res->fuzz);
-                res->end = BWLNum64Add(res->restime,dtime); 
-            }
-            else {
-                TimeSlot temp_slot;
-
-                if (difftime(first_slot->start, res_start) < 0) {
-                    // Our reservation partially overlaps this slot, so we need
-                    // to split the existing slot to divide into two new slots:
-                    // one that handles the time period up until the new
-                    // reservation starts, and one that handles the time period
-                    // after.
-                    TimeSlot new_slot = time_slot_split(ctx, first_slot, res_start);
-
-                    TAILQ_INSERT_AFTER(&time_slots, first_slot, new_slot, entries);
-
-                    // first_slot is meant to refer to the first slot that
-                    // overlaps the reservation. The time_slot_split function
-                    // will return the timeslot after the split point, i.e.
-                    // it's the first slot that overlaps our reservation. Also,
-                    // since we're changing the first slot, we might be
-                    // changing the last slot as well.
-                    if (last_slot == first_slot)
-                        last_slot = new_slot;
-
-                    first_slot = new_slot;
-                }
-                else if (difftime(res_start, first_slot->start) < 0) {
-                    // We need to create an additional slot to handle
-                    // res->start to first_slot->start.
-                    TimeSlot new_slot = time_slot_create(ctx, res, res_start, first_slot->start - 1);
-
-                    TAILQ_INSERT_BEFORE(first_slot, new_slot, entries);
-                }
-
-                if (difftime(res_end, last_slot->end) < 0) {
-                    // Our reservation partially overlaps this slot, so we need
-                    // to split the existing slot to divide into two new slots:
-                    // the slot up to when our reservation ends, and the slot
-                    // after our reservation ends.
-                    TimeSlot new_slot = time_slot_split(ctx, last_slot, res_end + 1);
-
-                    TAILQ_INSERT_AFTER(&time_slots, last_slot, new_slot, entries);
-                }
-                else if (difftime(last_slot->end, res_end) < 0) {
-                    // We need to create an additional slot to handle
-                    // last_slot->end to res->end.
-                    TimeSlot new_slot = time_slot_create(ctx, res, last_slot->end + 1, res_end);
-
-                    TAILQ_INSERT_AFTER(&time_slots, last_slot, new_slot, entries);
-                }
-
-                temp_slot = first_slot;
-                while (temp_slot) {
-                    time_slot_add_reservation(ctx, temp_slot, res);
-
-                    if (temp_slot == last_slot)
-                        temp_slot = NULL;
-                    else
-                        temp_slot = TAILQ_NEXT(temp_slot, entries);
-                }
-
-                added = 1;
-                break;
-            }
-        }
-    }
-
-    if (!added) {
-        time_t res_start;
-        time_t res_end;
-
-        // Error out if the new reservation time is too late
-        if(ltime && (BWLNum64Cmp(res->restime,ltime) > 0)){
-            *restime = res->restime;
-            goto denied;
-        }
-
-        /*
-         * Convert the res start/end to a 'second' instead of the sub-second
-         * resolution. The slots are all on second 'granularity'.
-         */
-        res_start = BWLNum64ToTimestamp(res->start);
-        res_end   = BWLNum64ToTimestamp(res->end) + 1;
-
-        new_slot = time_slot_create(ctx, res, res_start, res_end);
-
-        /*
-         * Two reasons it wasn't added: nothing in the list, or its start time
-         * is later than everything in the list.
-         */
-        if (TAILQ_EMPTY(&time_slots)) {
-            TAILQ_INSERT_HEAD(&time_slots, new_slot, entries);
-        }
-        else {
-            TAILQ_INSERT_TAIL(&time_slots, new_slot, entries);
-        }
-    }
-
-    I2ErrLogP(errhand,LOG_INFO,
-            "Test Reservation Information: Current Time: %lu, Fuzz: %f, Reservation Start: %lu, Reservation End: %lu, Test Start Time: %lu",
-            BWLNum64ToTimestamp(currtime.tstamp),
-            BWLNum64ToDouble(ftime),
-            BWLNum64ToTimestamp(res->start),
-            BWLNum64ToTimestamp(res->end) + 1,
-            BWLNum64ToTimestamp(res->restime));
-
-    DisplayReservationStatus(res, action);
-
-    DisplayTimeSlots();
-
-    *restime = res->restime;
-    *toolport = res->toolport;
+    *restime = cstate->res->restime;
+    *toolport = cstate->res->toolport;
 
     return True;
 
-denied:
+error_out:
     *err = 0;
-    I2ErrLogP(errhand,errno,
-            "Unable to find reservation before \"last time\"");
-    DeleteReservation(cstate, "failed");
+    reservation_free(ctx,cstate->res);
+    cstate->res = NULL;
     return False;
-}
-
-static void
-DisplayTimeSlots()
-{
-    TimeSlot slot;
-    int i;
-
-    I2ErrLogP(errhand, LOG_DEBUG, "Time Slots");
-
-    i = 1;
-
-    TAILQ_FOREACH(slot, &time_slots, entries) {
-        I2ErrLogP(errhand, LOG_DEBUG,
-                  "Time Slot %d: %lu to %lu: %d reservations\n",
-                  i, slot->start,
-                  slot->end, slot->num_reservations);
-        i++;
-    }
 }
 
 static BWLBoolean
@@ -749,7 +255,10 @@ ChldReservationComplete(
     if(!cstate->res || memcmp(sid,cstate->res->sid,sizeof(sid)))
         return False;
 
-    DeleteReservation(cstate, "remove");
+    if (cstate->res) {
+        scheduler_delete_reservation(ctx,cstate->res,"remove");
+        cstate->res = NULL;
+    }
 
     return True;
 }
@@ -838,7 +347,10 @@ FreeChldState(
      * and report errors if there are still any allocated?)
      */
 
-    DeleteReservation(cstate, "failed");
+    if (cstate->res) {
+        scheduler_delete_reservation(ctx,cstate->res, "failed");
+        cstate->res = NULL;
+    }
 
     free(cstate);
 
