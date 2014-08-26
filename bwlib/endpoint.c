@@ -1339,6 +1339,16 @@ ACCEPT:
 
     if (ep->rcntrl) {
         /*
+         * Make sure that the reading/writing StopSession doesn't hang indefinitely.
+         */
+        itval.it_value.tv_sec = 60;
+        itval.it_value.tv_usec = 0;
+        if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+            BWLError(ctx,BWLErrFATAL,errno,"setitimer(): %M");
+            goto end;
+        }
+
+        /*
          * Write StopSession to peer to send test results from this side.
          */
         *err_ret = _BWLWriteStopSession(ep->rcntrl,&ipf_intr,ep->acceptval,
@@ -1399,6 +1409,9 @@ ACCEPT:
     }
 
 end:
+    if (ep->rcntrl) {
+        BWLControlClose(ep->rcntrl);
+    }
 
     BWLGetTimeStamp(ctx,&currtime);
 
