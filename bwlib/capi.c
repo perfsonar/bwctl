@@ -279,6 +279,23 @@ TryAddr(
         goto cleanup;
     }
 
+    {
+        char            remotenode[NI_MAXHOST],remoteserv[NI_MAXSERV];
+        size_t          remotenodelen = sizeof(remotenode);
+        size_t          remoteservlen = sizeof(remoteserv);
+        char            localnode[NI_MAXHOST],localserv[NI_MAXSERV];
+        size_t          localnodelen = sizeof(localnode);
+        size_t          localservlen = sizeof(localserv);
+
+        I2AddrNodeName(cntrl->remote_addr,remotenode,&remotenodelen);
+        I2AddrServName(cntrl->remote_addr,remoteserv,&remoteservlen);
+        I2AddrNodeName(cntrl->local_addr,localnode,&localnodelen);
+        I2AddrServName(cntrl->local_addr,localserv,&localservlen);
+
+        BWLError(cntrl->ctx,BWLErrDEBUG,0, "Outbound connection to (%s:%s) from (%s:%s)",
+            remotenode,remoteserv,localnode,localserv);
+    }
+
     return 0;
 
 cleanup:
