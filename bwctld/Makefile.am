@@ -19,7 +19,7 @@
 #	Description:	bwctld build description
 
 bin_PROGRAMS	= bwctld
-bwctld_SOURCES	= bwctldP.h bwctld.c policy.h policy.c missing_queue.h time_slot.c time_slot.h
+bwctld_SOURCES	= bwctldP.h bwctld.c policy.h policy.c missing_queue.h
 bwctld_CFLAGS	= -I..
 
 if TOOL_THRULAY
