@@ -1,7 +1,6 @@
 #include <stdlib.h>
 
 #include "time_slot.h"
-#include "reservation.h"
 
 TimeSlot time_slot_create(BWLContext ctx, Reservation res, time_t start, time_t end) {
     TimeSlot new_slot = calloc(1, sizeof(struct TimeSlotRec));
@@ -32,10 +31,6 @@ TimeSlot time_slot_split(BWLContext ctx, TimeSlot slot, time_t time) {
     slot->end = time - 1;
 
     return new_slot;
-}
-
-void time_slot_free(TimeSlot slot) {
-    free(slot);
 }
 
 BWLBoolean time_slot_has_reservation(BWLContext ctx, TimeSlot slot, Reservation res) {
@@ -78,32 +73,6 @@ BWLBoolean time_slot_remove_reservation(BWLContext ctx, TimeSlot slot, Reservati
     slot->num_reservations--;
 
     return True;
-}
-
-BWLBoolean time_slot_reservation_usable(BWLContext ctx, Reservation res, TimeSlot slot) {
-    BWLTestType test_type = BWLToolGetTestTypesByID(ctx,res->tool);
-
-    if (test_type == BWL_TEST_THROUGHPUT) {
-        // There is already a throughput test here.
-        if (slot->type == SLOT_BANDWIDTH) {
-            return False;
-        }
-        else if (slot->type == SLOT_LATENCY) {
-            return False;
-        }
-    }
-    else if (test_type == BWL_TEST_LATENCY) {
-        // There is already a throughput test here.
-        if (slot->type == SLOT_BANDWIDTH) {
-            return False;
-        }
-    }
-
-    if (slot->num_reservations == slot->max_reservations) {
-       return False;
-    }
-
-   return True;
 }
 
 

@@ -33,7 +33,15 @@
 #define	BWCTLD_CONF_FILE	"bwctld.conf"
 #endif
 
-#include "reservation.h"
+#define	BWCTLD_IPERF_DEF_TESTPORT	(5001)
+#define	BWCTLD_THRULAYD_DEF_TESTPORT	(5003)
+
+#if defined(HAVE_SYS_QUEUE_H)
+#include <sys/queue.h>
+#else
+#include "missing_queue.h"
+#endif
+
 #include "policy.h"
 
 /*
@@ -62,6 +70,21 @@ typedef struct {
     int             posthook_count;
 } bwctld_opts;
 
+typedef struct ReservationRec ReservationRec, *Reservation;
+struct ReservationRec{
+    BWLToolType tool;
+    BWLSID      sid;
+    BWLNum64    restime;
+    BWLNum64    start;    /* fuzz applied */
+    BWLNum64    end;    /* fuzz applied */
+    BWLNum64    fuzz;
+    char        *sender;
+    char        *receiver;
+    uint32_t    duration;
+    uint16_t    toolport;
+    Reservation next;
+};
+
 typedef struct ChldStateRec ChldStateRec, *ChldState;
 struct ChldStateRec{
     BWLDPolicy      policy;
@@ -70,5 +93,7 @@ struct ChldStateRec{
     BWLDPolicyNode  node;
     Reservation     res;
 };
+
+static void DisplayTimeSlots();
 
 #endif	/*	_BWCTLDP_H_	*/
