@@ -172,7 +172,10 @@ bwctld.conf(5) manual page. Details on configuring the policy
 is in the bwctld.limits(5) and bwctld.keys(5) manual pages.
 Information on the client is in the bwctl(1) manual page.
 For more of an overview of the full functionality and architecture see
-the \%http://e2epi.internet2.edu/bwctl/ web site.
+the \%http://software.internet2.edu/bwctl/ web site.
+.PP
+For details on \fBIperf3\fR, see the \%https://github.com/esnet/iperf
+web site.
 .PP
 For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
@@ -180,7 +183,7 @@ web site.
 For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
-For details on \fBIperf3\fR, see the \%https://code.google.com/p/iperf/
+For details on \fBOwamp\fR, see the \%http://software.internet2.edu/owamp
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

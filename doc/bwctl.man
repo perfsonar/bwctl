@@ -100,7 +100,7 @@ multiple administrators. These hurdles have made this kind of testing
 difficult in practice. 
 .PP
 \fBBWCTL\fR was designed to help with this problem. It allows an
-administrator to configure a given host as an \fBIperf\fR, \fBIperf3\fR, or
+administrator to configure a given host as an \fBIperf\fR, \fBIperf3\fR,
 \fBNuttcp\fR, or \fBOwamp\fR endpoint.  The endpoint can be a packet sender
 (e.g. \fBIperf\fR client) or a packet receiver (e.g. \fBIperf\fR server). It
 can be shared by multiple users without concern that those users will interfere
@@ -724,7 +724,10 @@ Run a tracepath test to somehost.example.com from \fIlocal\fR. If
 somehost.example.com does not have bwctl running, the tracepath test runs
 anyway.
 .SH SEE ALSO
-bwctld(8) and the \%http://e2epi.internet2.edu/bwctl/ web site.
+bwctld(8) and the \%http://software/bwctl/ web site.
+.PP
+For details on \fBIperf3\fR, see the \%https://github.com/esnet/iperf
+web site.
 .PP
 For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
@@ -732,7 +735,7 @@ web site.
 For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
-For details on \fBIperf3\fR, see the \%https://code.google.com/p/iperf/
+For details on \fBOwamp\fR, see the \%http://software.internet2.edu/owamp
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

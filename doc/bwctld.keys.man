@@ -49,7 +49,7 @@ system and the discretion of the system administrator.
 \fBIdentity\fR names are restricted to 16 characters.
 .SH SEE ALSO
 aespasswd(1), bwctl(1), bwctld(8), bwctld.limits(5),
-and the \%http://e2epi.internet2.edu/bwctl/ web site.
+and the \%http://software/bwctl/ web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
 Foundation (NSF) under Grant No. ANI-0314723. Any opinions, findings, and
