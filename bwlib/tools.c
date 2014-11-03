@@ -74,6 +74,7 @@ extern BWLToolDefinitionRec BWLToolOwamp;
 extern BWLToolDefinitionRec BWLToolPing;
 extern BWLToolDefinitionRec BWLToolTraceroute;
 extern BWLToolDefinitionRec BWLToolTracepath;
+extern BWLToolDefinitionRec BWLToolParisTraceroute;
 
 #ifdef  TOOL_IPERF
 extern BWLToolDefinitionRec BWLToolIperf;
@@ -103,6 +104,7 @@ BWLToolRec tool_list[] = {
     {BWL_TOOL_OWAMP,  &BWLToolOwamp},
     {BWL_TOOL_TRACEPATH, &BWLToolTracepath},
     {BWL_TOOL_TRACEROUTE, &BWLToolTraceroute},
+    {BWL_TOOL_PARIS_TRACEROUTE, &BWLToolParisTraceroute},
     {BWL_TOOL_PING,  &BWLToolPing},
     {BWL_TOOL_IPERF, &BWLToolIperf},
     {BWL_TOOL_IPERF3, &BWLToolIperf3},

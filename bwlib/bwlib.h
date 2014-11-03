@@ -291,6 +291,7 @@ typedef enum{
     BWL_TOOL_TRACEROUTE=0x20,
     BWL_TOOL_TRACEPATH=0x40,
     BWL_TOOL_OWAMP=0x80,
+    BWL_TOOL_PARIS_TRACEROUTE=0x100,
 } BWLToolType;
 
 /* Supported test types. The values*/
