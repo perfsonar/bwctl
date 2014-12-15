@@ -33,7 +33,8 @@ class Endpoint(jsonobject.JsonObject):
     legacy_client_endpoint = jsonobject.BooleanProperty(exclude_if_none=True)
     posts_endpoint_status  = jsonobject.BooleanProperty(exclude_if_none=True)
 
-    client_time_offset     = jsonobject.IntegerProperty(exclude_if_none=True)
+    client_time_offset = jsonobject.IntegerProperty(exclude_if_none=True)
+    ntp_error = jsonobject.FloatProperty(exclude_if_none=True)
 
 class Test(jsonobject.JsonObject):
     id                    = jsonobject.StringProperty(exclude_if_none=True)

@@ -9,6 +9,7 @@ from bwctl.models import Test, BWCTLError, Results
 class GenericRequestMessage(jsonobject.JsonObject):
     requesting_address = jsonobject.StringProperty()
     test_id = jsonobject.StringProperty(required=False)
+    value   = jsonobject.ObjectProperty(jsonobject.JsonObject, required=False)
 
 class GenericResponseMessage(jsonobject.JsonObject):
     status  = jsonobject.ObjectProperty(BWCTLError, required=True)
@@ -18,13 +19,13 @@ class TestRequestMessage(GenericRequestMessage):
     value   = jsonobject.ObjectProperty(Test, required=True)
 
 class TestResponseMessage(GenericResponseMessage):
-    value   = jsonobject.ObjectProperty(Test, required=True)
+    value   = jsonobject.ObjectProperty(Test, required=False)
 
 class ResultsRequestMessage(GenericRequestMessage):
     value   = jsonobject.ObjectProperty(Results, required=True)
 
 class ResultsResponseMessage(GenericResponseMessage):
-    value   = jsonobject.ObjectProperty(Results, required=True)
+    value   = jsonobject.ObjectProperty(Results, required=False)
 
 message_types = {
     "get-test": GenericRequestMessage,
@@ -46,6 +47,7 @@ class CoordinatorClient:
         self.server_address = server_address
         self.server_port = server_port
         self.auth_key = auth_key
+        self.connected = False
 
     def connect(self):
         self.context = zmq.Context()
@@ -53,40 +55,41 @@ class CoordinatorClient:
 
         self.sock.connect("tcp://[%s]:%d" % (self.server_address, self.server_port))
 
-    def _test_action_request(self, test_id="", message_type=""):
-        msg = TestActionMessage(test_id=test_id)
-        result = self._send_msg(msg, message_type=message_type)
-        return { 'error_code': result.status.error_code, 'error_msg': result.status.error_msg }
+        self.connected = True
 
-    def get_test(self, test_id):
-        return self._send_msg(test_id=test_id, message_type="get-test")
+    def get_test(self, test_id, requesting_address=None):
+        return self._send_msg(test_id=test_id, message_type="get-test", requesting_address=requesting_address)
 
-    def get_test_results(self, test_id):
-        return self._send_msg(test_id=test_id, message_type="get-test-results")
+    def get_test_results(self, test_id, requesting_address=None):
+        return self._send_msg(test_id=test_id, message_type="get-test-results", requesting_address=requesting_address)
 
-    def request_test(self, test):
-        return self._send_msg(value=test, message_type="get-test-results")
+    def request_test(self, test, requesting_address=None):
+        return self._send_msg(value=test, message_type="request-test", requesting_address=requesting_address)
 
-    def client_confirm_test(self, test_id):
-        return self._send_msg(test_id=test_id, message_type="client-confirm-test")
+    def client_confirm_test(self, test_id, requesting_address=None):
+        return self._send_msg(test_id=test_id, message_type="client-confirm-test", requesting_address=requesting_address)
 
-    def server_confirm_test(self, test_id):
-        return self._send_msg(test_id=test_id, message_type="server-confirm-test")
+    def server_confirm_test(self, test_id, requesting_address=None):
+        return self._send_msg(test_id=test_id, message_type="server-confirm-test", requesting_address=requesting_address)
 
-    def cancel_test(self, test_id):
+    def cancel_test(self, test_id, requesting_address=None):
         value = Results()
-        return self._send_msg(test_id=test_id, value=value, message_type="finish-test")
+        return self._send_msg(test_id=test_id, value=value, message_type="finish-test", requesting_address=requesting_address)
 
-    def finish_test(self, test_id, results):
-        return self._send_msg(test_id=test_id, value=results, message_type="finish-test")
+    def finish_test(self, test_id, results, requesting_address=None):
+        return self._send_msg(test_id=test_id, value=results, message_type="finish-test", requesting_address=requesting_address)
 
-    def _send_msg(self, message_type="", test_id=None, value=None):
+    def _send_msg(self, message_type="", test_id=None, value=None, requesting_address=None):
+        if not self.connected:
+            self.connect()
+
         if not message_type in message_types:
             raise Exception("Invalid message type specified")
 
-        msg = message_types[message_type](test_id=test_id, value=value)
+        msg = message_types[message_type](test_id=test_id, value=value, requesting_address=requesting_address)
 
         coord_req = unparse_coordinator_msg(msg, message_type, self.auth_key)
+        print "Unparsed request: %s" % coord_req
         self.sock.send_json(coord_req)
         print "Waiting for %s message" % msg.test_id
         coord_resp = self.sock.recv_json()
@@ -123,7 +126,7 @@ def parse_coordinator_msg(json, auth_key):
 
     print "Message: %s" % msg
     if msg:
-        print "Message(json): %s" % msg.to_json
+        print "Message(json): %s" % msg.to_json()
 
     return msg_type, msg
 
@@ -143,6 +146,9 @@ class CoordinatorServer:
         self.server_port = server_port
         self.auth_key = auth_key
 
+        self.sock = None
+        self.context = None
+
         self.callbacks = {}
 
     def set_callbacks(self, get_test_cb=None, get_test_results_cb=None,
@@ -159,7 +165,7 @@ class CoordinatorServer:
         self.context = zmq.Context()
         self.sock = self.context.socket(zmq.REP)
 
-        self.sock.bind("tcp://[%s]:%d" % (server_address, server_port))
+        self.sock.bind("tcp://[%s]:%d" % (self.server_address, self.server_port))
 
     def run(self):
         while True:
@@ -170,6 +176,7 @@ class CoordinatorServer:
         status = None
         value  = None
 
+        print "We're in handle_msg"
         try:
             if not msg_type in self.callbacks:
                 raise Exception("Unknown message type: %s" % msg_type)
@@ -178,6 +185,8 @@ class CoordinatorServer:
 
             status, value = self.callbacks[msg_type](requesting_address=msg.requesting_address, test_id=msg.test_id, value=msg.value)
         except Exception as e:
+            import traceback
+            print "Traceback: %s" % traceback.format_exc()
             status = BWCTLError(error_code=-1, error_msg=str(e))
             value  = None
 
@@ -200,4 +209,5 @@ class CoordinatorServer:
 
     def get_msg(self):
         coord_msg = self.sock.recv_json()
+        print "Got coord message"
         return parse_coordinator_msg(coord_msg, self.auth_key)

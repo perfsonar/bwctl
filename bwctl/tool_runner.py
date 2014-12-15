@@ -5,7 +5,7 @@ import psutil
 import select
 from subprocess import Popen, PIPE
 import time
-from bwctl.utils import timedelta_seconds
+from bwctl.utils import timedelta_seconds, BwctlProcess
 
 # Generate a separate process to run the test itself so that we
 # pseudo-guarantee that the test will start at the right time.
@@ -16,7 +16,7 @@ class ToolResults(object):
         self.stdout     = stdout
         self.stderr     = stderr
 
-class ToolRunner(multiprocessing.Process):
+class ToolRunner(BwctlProcess):
     def __init__(self, test_id=None, start_time=None, end_time=None, cmd_line=[], results_queue=None):
         self.start_time    = start_time
         self.end_time      = end_time
@@ -81,12 +81,3 @@ class ToolRunner(multiprocessing.Process):
 
     def stop(self):
         self.stop_pipe_client.send_bytes('1')
-
-    def kill_children(self):
-        if not self.pid:
-            return
-
-	# Find all the processes spawned off by this process, and kill them
-        parent = psutil.Process(self.pid)
-        for child in parent.get_children(recursive=True):
-            child.kill()

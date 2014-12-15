@@ -41,6 +41,8 @@ class TestsDB:
         return True
 
     def get_results(self, test_id):
+        print "Test ID(results): %s" % test_id
+
         if not test_id in self.test_results.keys():
             return None
 

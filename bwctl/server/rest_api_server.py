@@ -1,14 +1,15 @@
 import cherrypy
-from cherrypy.process import wspbus, plugins
-from sqlalchemy.orm import scoped_session, sessionmaker
 
 import datetime
+import multiprocessing
+import traceback
 
-from protocol.models import ServerStatus
-
+from bwctl.models import Test
+from bwctl import jsonobject
+from bwctl.utils import BwctlProcess
 import bwctl.server
 
-class RestApiServer():
+class RestApiServer(BwctlProcess):
     def __init__(self, coordinator_client=None):
         status_controller = StatusController()
         tests_controller = TestsController()
@@ -19,7 +20,7 @@ class RestApiServer():
         dispatcher.connect('status', '/bwctl/status', controller=status_controller, action='status')
 
         # Test URLs
-        dispatcher.connect('new_test',    '/bwctl/tests', controller=tests_controller, action='status')
+        dispatcher.connect('new_test',    '/bwctl/tests', controller=tests_controller, action='new_test', conditions=dict(method=['POST']))
         dispatcher.connect('get_test'   , '/bwctl/tests/:id',   controller=tests_controller, action='get_test', conditions=dict(method=['GET']))
         dispatcher.connect('update_test', '/bwctl/tests/:id',   controller=tests_controller, action='update_test', conditions=dict(method=['PUT']))
         dispatcher.connect('cancel_test', '/bwctl/tests/:id/cancel',   controller=tests_controller, action='cancel_test', conditions=dict(method=['POST']))
@@ -33,16 +34,22 @@ class RestApiServer():
                 'tools.json_out.on': True,
 
                 'tools.encode.encoding': 'utf-8',
+
+                'coordinator_client': coordinator_client
             }
         })
 
-        self.coordinator_client = coordinator_client
+        super(RestApiServer, self).__init__()
 
     def run(self):
         cherrypy.engine.start()
+        cherrypy.engine.block()
 
     def stop(self):
         cherrypy.engine.exit()
+
+def get_coord_client():
+    return cherrypy.request.app.config['/']['coordinator_client']
 
 class ServerStatus(jsonobject.JsonObject):
     protocol = jsonobject.FloatProperty(exclude_if_none=True)
@@ -67,28 +74,90 @@ class StatusController:
 class TestsController:
   @cherrypy.expose
   def new_test(self):
-    pass
+    status = None
+    value  = None
+
+    # XXX: validate this somehow
+
+    try:
+        input_json = cherrypy.request.json
+        test = Test(input_json)
+
+        status, value = get_coord_client().request_test(test, requesting_address=cherrypy.request.remote.ip)
+    except Exception as e:
+        print "Exception when adding test: %s" % e
+        print traceback.format_exc()
+
+    return value.to_json()
 
   @cherrypy.expose
   def get_test(self, id):
-    return { "test": test }
+    status = None
+    value  = None
+
+    try:
+        status, value = get_coord_client().get_test(id, requesting_address=cherrypy.request.remote.ip)
+    except Exception as e:
+        print "Exception when getting test: %s" % e
+        print traceback.format_exc()
+
+    return value.to_json()
+
+  @cherrypy.expose
+  def get_results(self, id):
+    status = None
+    value  = None
+
+    try:
+        status, value = get_coord_client().get_test_results(id, requesting_address=cherrypy.request.remote.ip)
+    except:
+        print "Exception when getting results: %s" % e
+        print traceback.format_exc()
+
+    # XXX: properly respond to 404, etc.
+
+    return value.to_json()
 
   @cherrypy.expose
   def update_test(self, id):
-    cherrypy.request.remote.ip
+    try:
+        input_json = cherrypy.request.json
+        test = Test(input_json)
 
-    pass
+        test.id = id
+
+        status, value = get_coord_client().request_test(test, requesting_address=cherrypy.request.remote.ip)
+    except Exception as e:
+        print "Exception when adding test: %s" % e
+        print traceback.format_exc()
+
+    return value
 
   @cherrypy.expose
   def cancel_test(self, id):
     # Send a "cancel" message to the server
-    pass
+    status = None
+    value  = None
+
+    try:
+        status, value = get_coord_client().cancel_test(id, requesting_address=cherrypy.request.remote.ip)
+    except:
+        print "Exception when cancelling test: %s" % e
+        print traceback.format_exc()
+
+    return {}
 
   @cherrypy.expose
   def accept_test(self, id):
     # Send an "accept" message to the server
-    pass
+    status = None
+    value  = None
 
-  @cherrypy.expose
-  def get_results(self, id):
-    pass
+    try:
+        status, value = get_coord_client().client_confirm_test(id, requesting_address=cherrypy.request.remote.ip)
+    except:
+        print "Exception when accepting test: %s" % e
+        print traceback.format_exc()
+
+    return {}
+
