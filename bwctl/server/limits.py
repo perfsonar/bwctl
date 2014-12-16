@@ -181,7 +181,8 @@ class BandwidthLimit(MaximumLimit):
         return "bandwidth: %d" % self.value
 
     def check(self, test):
-       raise Exception("Bandwidth limit needs implemented")
+       if self.value < test.bandwidth:
+           raise LimitViolatedException("Bandwidth limit exceeds maximum: %s" % self.value)
 
 class DurationLimit(MaximumLimit):
     name = "duation"
@@ -190,7 +191,8 @@ class DurationLimit(MaximumLimit):
         return "duration: %d" % self.value
 
     def check(self, test):
-       raise Exception("Duration limit needs implemented")
+       if self.value < test.bandwidth:
+           raise LimitViolatedException("Duration limit exceeds maximum: %s" % self.value)
 
 class LimitsFile:
     def parse(file):

@@ -1,9 +1,16 @@
 tool_classes = [
     "bwctl.tool_types.iperf.Iperf",
+    "bwctl.tool_types.owamp.Owamp",
 ]
 
 tools = {}
 tools_initialized = False
+
+class ToolTypes:
+    UNKNOWN    = 0
+    THROUGHPUT = 1
+    LATENCY    = 2
+    TRACEROUTE = 3
 
 def init_tools():
     for tool_class_name in tool_classes:

@@ -7,7 +7,7 @@ import traceback
 from bwctl.models import Test
 from bwctl import jsonobject
 from bwctl.utils import BwctlProcess
-import bwctl.server
+from bwctl import server
 
 class RestApiServer(BwctlProcess):
     def __init__(self, coordinator_client=None):
@@ -44,9 +44,6 @@ class RestApiServer(BwctlProcess):
     def run(self):
         cherrypy.engine.start()
         cherrypy.engine.block()
-
-    def stop(self):
-        cherrypy.engine.exit()
 
 def get_coord_client():
     return cherrypy.request.app.config['/']['coordinator_client']
@@ -160,4 +157,3 @@ class TestsController:
         print traceback.format_exc()
 
     return {}
-

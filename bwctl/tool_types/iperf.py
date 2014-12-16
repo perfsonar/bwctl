@@ -1,11 +1,11 @@
 from bwctl.tool_types.base import Base
-from bwctl.server.test import TestTypes
+from bwctl.tools import ToolTypes
 
 from bwctl.config import get_config
 
 class Iperf(Base):
     name = "iperf"
-    type = TestTypes.THROUGHPUT
+    type = ToolTypes.THROUGHPUT
     known_parameters = [ "duration", "protocol", "bandwidth", "parallel_streams", "report_interval", "window_size", "buffer_size", "omit_seconds", "tos_bits", "units", "output_format", "receiver_connects" ]
     default_server_tool = "iperf"
     default_client_tool = "iperf"

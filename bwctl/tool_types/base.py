@@ -1,5 +1,8 @@
+from bwctl.tools import ToolTypes
+
 class Base:
     name = ""
+    type = ToolTypes.UNKNOWN
     known_parameters = []
 
     def check_parameters(self, parameters):
@@ -22,3 +25,21 @@ class Base:
         return {
             'tool_results': stderr + stdout,
         }
+
+    def duration(self, test):
+        """ Returns the test length, a required paramter. If 'duration' isn't an
+            available parameter for this tool, this function needs overwritten  """
+
+        if 'duration' in test.tool_parameters:
+            return test.tool_parameters['duration']
+        else:
+            raise Exception("Unknown test duration")
+
+    def bandwidth(self, test):
+        """ Returns the network bandwidth this test uses. If 'bandwidth' isn't an
+            available parameter for this tool.  """
+
+        if 'bandwidth' in test.tool_parameters:
+            return test.tool_parameters['bandwidth']
+        else:
+            return 0

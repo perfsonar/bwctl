@@ -10,7 +10,7 @@ class TestsDB:
 
     def get_test(self, test_id):
         if not test_id in self.tests.keys():
-            return None
+            raise Exception("Test not found")
 
         return self._copy_obj(self.tests[test_id])
 
@@ -44,6 +44,6 @@ class TestsDB:
         print "Test ID(results): %s" % test_id
 
         if not test_id in self.test_results.keys():
-            return None
+            raise Exception("Test results not found")
 
         return self._copy_obj(self.test_results[test_id])
