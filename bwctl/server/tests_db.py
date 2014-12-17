@@ -28,6 +28,16 @@ class TestsDB:
 
         return test.id
 
+    def replace_test(self, test_id, test):
+        test = self._copy_obj(test)
+
+        if not test.id:
+            test.id = test_id
+
+        self.tests[test_id] = test
+
+        return test.id
+
     def add_results(self, test_id, results):
         results = self._copy_obj(results)
 

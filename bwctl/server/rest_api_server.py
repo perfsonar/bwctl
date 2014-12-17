@@ -41,8 +41,6 @@ class RestApiServer(BwctlProcess):
         })
 
         super(RestApiServer, self).__init__()
-    def error_page(status, message, traceback, version):
-        return "Sorry, an error occured!" 
 
     def run(self):
         cherrypy.engine.start()
@@ -55,21 +53,16 @@ def handle_bwctl_exceptions(function):
     def decorated_func(*args, **kwargs):
         result = None
 
-        print "We're in the bwctl error handler decorator"
-
         try:
            result = function(*args, **kwargs)
         except BwctlException as e:
             result = e.as_bwctl_error().to_json()
             cherrypy.response.status = e.http_error
-            print "Setting bwctl exception to %d: %s" % (e.http_error, e)
         except Exception as e:
+            print "Got this other weird error"
             err = SystemProblemException(str(e))
             result = err.as_bwctl_error().to_json()
             cherrypy.response.status = err.http_error
-            print "Setting generic exception to %d" % err.http_error
-
-        print "We're returning the results from the bwctl error handler decorator"
 
         return result
 

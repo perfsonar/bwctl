@@ -96,9 +96,8 @@ class CoordinatorClient:
         coord_req = unparse_coordinator_msg(msg, message_type, self.auth_key)
         print "Unparsed request: %s" % coord_req
         self.sock.send_json(coord_req)
-        print "Waiting for %s message" % msg.test_id
         coord_resp = self.sock.recv_json()
-        print "Got %s" % coord_resp
+        print "Unparsed response: %s" % coord_resp
         msg_type, resp_msg = parse_coordinator_msg(coord_resp, self.auth_key)
 
         if msg_type == "" or resp_msg == None:
