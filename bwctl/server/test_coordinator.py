@@ -20,7 +20,7 @@ class TestCoordinator(CoordinatorServer):
         except Exception as e:
             raise e 
 
-        return BWCTLError(), test
+        return test
 
     def handle_get_test_results(self, requesting_address=None, test_id=None):
         # 1. Read test results from the DB
@@ -31,7 +31,7 @@ class TestCoordinator(CoordinatorServer):
         except Exception as e:
             raise e
 
-        return BWCTLError(), results
+        return results
 
 
     def handle_request_test(self, requesting_address=None, test=None):
@@ -48,19 +48,19 @@ class TestCoordinator(CoordinatorServer):
         # XXX: check limits
 
         if test.id:
-            raise Exception("New test shouldn't have an id")
+            raise ValidationException("New test shouldn't have an id")
 
         print "Adding test\n"
         test_id = self.tests_db.add_test(test)
         if not test_id:
-            raise Exception("Problem adding test to DB")
+            raise SystemProblemException("Problem adding test to DB")
 
         print "Test added\n"
         ret_test = self.tests_db.get_test(test_id)
 
         print "Ret_test: %s\n" % ret_test
 
-        return BWCTLError(), ret_test
+        return ret_test
 
     def handle_update_test(self, requesting_address=None, test_id=None, test=None):
         # 1. Check if the test's status is "client-confirmed" or higher
@@ -85,9 +85,9 @@ class TestCoordinator(CoordinatorServer):
         # 4. Return a client-confirm-response message
         test = self.tests_db.get_test(test_id)
         if not test:
-            raise Exception("Test not found")
+            raise ResourceNotFoundException("Test not found")
 
-        return BWCTLError(), None
+        return
 
     def handle_server_confirm_test(self, requesting_address=None, test_id=None):
         # 1. If the server status is already confirmed, goto #4
@@ -97,9 +97,9 @@ class TestCoordinator(CoordinatorServer):
         # 4. Return a client-confirm-response message
         test = self.tests_db.get_test(test_id)
         if not test:
-            raise Exception("Test not found")
+            raise ResourceNotFoundException("Test not found")
 
-        return BWCTLError(), None
+        return
 
     def handle_finish_test(self, requesting_address=None, test_id=None, results=None):
 	# 1. Make sure the test isn't already in a "finished" state
@@ -109,4 +109,4 @@ class TestCoordinator(CoordinatorServer):
         # 4. Unschedule this test
         # 5. Cleanly shut down -response message
         # 6. Return a fail-test-response message
-        return BWCTLError(), None
+        return

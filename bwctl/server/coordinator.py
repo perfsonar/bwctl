@@ -6,6 +6,7 @@ import time
 from bwctl import jsonobject
 from bwctl.models import Test, BWCTLError, Results
 from bwctl.utils import BwctlProcess
+from bwctl.exceptions import *
 
 class GenericRequestMessage(jsonobject.JsonObject):
     requesting_address = jsonobject.StringProperty()
@@ -67,6 +68,9 @@ class CoordinatorClient:
     def request_test(self, test, requesting_address=None):
         return self._send_msg(value=test, message_type="request-test", requesting_address=requesting_address)
 
+    def update_test(self, test, test_id=None, requesting_address=None):
+        return self._send_msg(value=test, message_type="update-test", test_id=test_id, requesting_address=requesting_address)
+
     def client_confirm_test(self, test_id, requesting_address=None):
         return self._send_msg(test_id=test_id, message_type="client-confirm-test", requesting_address=requesting_address)
 
@@ -98,25 +102,27 @@ class CoordinatorClient:
         msg_type, resp_msg = parse_coordinator_msg(coord_resp, self.auth_key)
 
         if msg_type == "" or resp_msg == None:
-            raise Exception("Invalid response received from coordinator")
+            raise SystemProblemException("Invalid response received from coordinator")
 
-        return resp_msg.status, resp_msg.value
+        BwctlException.from_bwctl_error(resp_msg.status).raise_if_error()
+
+        return resp_msg.value
 
 def parse_coordinator_msg(json, auth_key):
     msg = None
     msg_type = ""
     try:
         if json['auth_key'] != auth_key:
-            raise Exception("Invalid authentication key")
+            raise SystemProblemException("Invalid coordinator authentication key")
 
         if not 'message_type' in json:
-            raise Exception("No message type in message")
+            raise SystemProblemException("No message type in coordinator message")
 
         if not 'message' in json:
-            raise Exception("No message available")
+            raise SystemProblemException("No coordinator message available")
 
         if not json['message_type'] in message_types.keys():
-            raise Exception("Unknown message type")
+            raise SystemProblemException("Unknown coordinator message type")
 
         msg_type = json['message_type']
         msg = message_types[json['message_type']](json['message'])
@@ -177,30 +183,36 @@ class CoordinatorServer(BwctlProcess):
 
         try:
             if msg_type == 'get-test':
-                status, value = self.handle_get_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                value = self.handle_get_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'get-test-results':
-                status, value = self.handle_get_test_results(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                value = self.handle_get_test_results(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'request-test' and msg.test_id:
-                status, value = self.handle_update_test(requesting_address=msg.requesting_address, test_id=msg.test_id, test=msg.value)
+                value = self.handle_update_test(requesting_address=msg.requesting_address, test_id=msg.test_id, test=msg.value)
             elif msg_type == 'request-test':
-                status, value = self.handle_request_test(requesting_address=msg.requesting_address, test=msg.value)
+                value = self.handle_request_test(requesting_address=msg.requesting_address, test=msg.value)
             elif msg_type == 'client-confirm-test':
-                status, value = self.handle_client_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                self.handle_client_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'server-confirm-test':
-                status, value = self.handle_server_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                self.handle_server_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'finish-test':
-                status, value = self.handle_finish_test(requesting_address=msg.requesting_address, test_id=msg.test_id, results=msg.value)
+                self.handle_finish_test(requesting_address=msg.requesting_address, test_id=msg.test_id, results=msg.value)
             else:
-                raise Exception("Unknown message type: %s" % msg_type)
-        except Exception as e:
-            status = BWCTLError(error_code=-1, error_msg=str(e))
+                raise SystemProblemException("Unknown message type: %s" % msg_type)
+        except BwctlException as e:
+            status = e
             value  = None
+        except Exception as e:
+            status = SystemProblemException(str(e))
+            value  = None
+
+        if not status:
+            status = Success()
 
         response_msg_type = "%s-response" % msg_type
         if not response_msg_type in message_types:
-            response_msg = GenericResponseMessage(status=status, value=value)
+            response_msg = GenericResponseMessage(status=status.as_bwctl_error(), value=value)
         else:
-            response_msg = message_types[response_msg_type](status=status, value=value)
+            response_msg = message_types[response_msg_type](status=status.as_bwctl_error(), value=value)
 
         try:
             coord_resp = unparse_coordinator_msg(response_msg, response_msg_type, self.auth_key)

@@ -8,6 +8,7 @@ from bwctl.models import Test
 from bwctl import jsonobject
 from bwctl.utils import BwctlProcess
 from bwctl import server
+from bwctl.exceptions import BwctlException, SystemProblemException
 
 class RestApiServer(BwctlProcess):
     def __init__(self, coordinator_client=None):
@@ -40,6 +41,8 @@ class RestApiServer(BwctlProcess):
         })
 
         super(RestApiServer, self).__init__()
+    def error_page(status, message, traceback, version):
+        return "Sorry, an error occured!" 
 
     def run(self):
         cherrypy.engine.start()
@@ -47,6 +50,30 @@ class RestApiServer(BwctlProcess):
 
 def get_coord_client():
     return cherrypy.request.app.config['/']['coordinator_client']
+
+def handle_bwctl_exceptions(function):
+    def decorated_func(*args, **kwargs):
+        result = None
+
+        print "We're in the bwctl error handler decorator"
+
+        try:
+           result = function(*args, **kwargs)
+        except BwctlException as e:
+            result = e.as_bwctl_error().to_json()
+            cherrypy.response.status = e.http_error
+            print "Setting bwctl exception to %d: %s" % (e.http_error, e)
+        except Exception as e:
+            err = SystemProblemException(str(e))
+            result = err.as_bwctl_error().to_json()
+            cherrypy.response.status = err.http_error
+            print "Setting generic exception to %d" % err.http_error
+
+        print "We're returning the results from the bwctl error handler decorator"
+
+        return result
+
+    return decorated_func
 
 class ServerStatus(jsonobject.JsonObject):
     protocol = jsonobject.FloatProperty(exclude_if_none=True)
@@ -57,6 +84,7 @@ class ServerStatus(jsonobject.JsonObject):
 
 class StatusController:
   @cherrypy.expose
+  @handle_bwctl_exceptions
   def status(self):
     status = ServerStatus()
     status.protocol = 2.0
@@ -70,90 +98,59 @@ class StatusController:
 
 class TestsController:
   @cherrypy.expose
+  @handle_bwctl_exceptions
   def new_test(self):
-    status = None
-    value  = None
+    added_test = None
 
     # XXX: validate this somehow
 
+    test = None
     try:
-        input_json = cherrypy.request.json
-        test = Test(input_json)
-
-        status, value = get_coord_client().request_test(test, requesting_address=cherrypy.request.remote.ip)
+        test = Test(cherrypy.request.json)
     except Exception as e:
-        print "Exception when adding test: %s" % e
-        print traceback.format_exc()
+       raise ValidationException("Problem parsing test definition")
 
-    return value.to_json()
+    added_test = get_coord_client().request_test(test, requesting_address=cherrypy.request.remote.ip)
+
+    return added_test.to_json()
 
   @cherrypy.expose
+  @handle_bwctl_exceptions
   def get_test(self, id):
-    status = None
-    value  = None
+    test = get_coord_client().get_test(id, requesting_address=cherrypy.request.remote.ip)
 
-    try:
-        status, value = get_coord_client().get_test(id, requesting_address=cherrypy.request.remote.ip)
-    except Exception as e:
-        print "Exception when getting test: %s" % e
-        print traceback.format_exc()
-
-    return value.to_json()
+    return test.to_json()
 
   @cherrypy.expose
+  @handle_bwctl_exceptions
   def get_results(self, id):
-    status = None
-    value  = None
+    results = get_coord_client().get_test_results(id, requesting_address=cherrypy.request.remote.ip)
 
-    try:
-        status, value = get_coord_client().get_test_results(id, requesting_address=cherrypy.request.remote.ip)
-    except:
-        print "Exception when getting results: %s" % e
-        print traceback.format_exc()
-
-    # XXX: properly respond to 404, etc.
-
-    return value.to_json()
+    return results.to_json()
 
   @cherrypy.expose
+  @handle_bwctl_exceptions
   def update_test(self, id):
+    test = None
     try:
-        input_json = cherrypy.request.json
-        test = Test(input_json)
-
-        test.id = id
-
-        status, value = get_coord_client().request_test(test, requesting_address=cherrypy.request.remote.ip)
+        test = Test(cherrypy.request.json)
     except Exception as e:
-        print "Exception when adding test: %s" % e
-        print traceback.format_exc()
+       raise ValidationException("Problem parsing test definition")
 
-    return value
+    updated_test = get_coord_client().update_test(test, test_id=id, requesting_address=cherrypy.request.remote.ip)
+
+    return update_test.to_json()
 
   @cherrypy.expose
+  @handle_bwctl_exceptions
   def cancel_test(self, id):
-    # Send a "cancel" message to the server
-    status = None
-    value  = None
-
-    try:
-        status, value = get_coord_client().cancel_test(id, requesting_address=cherrypy.request.remote.ip)
-    except:
-        print "Exception when cancelling test: %s" % e
-        print traceback.format_exc()
+    get_coord_client().cancel_test(id, requesting_address=cherrypy.request.remote.ip)
 
     return {}
 
   @cherrypy.expose
+  @handle_bwctl_exceptions
   def accept_test(self, id):
-    # Send an "accept" message to the server
-    status = None
-    value  = None
-
-    try:
-        status, value = get_coord_client().client_confirm_test(id, requesting_address=cherrypy.request.remote.ip)
-    except:
-        print "Exception when accepting test: %s" % e
-        print traceback.format_exc()
+    get_coord_client().client_confirm_test(id, requesting_address=cherrypy.request.remote.ip)
 
     return {}

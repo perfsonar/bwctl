@@ -1,4 +1,5 @@
 import uuid
+from bwctl.exceptions import ResourceNotFoundException
 
 class TestsDB:
     def __init__(self):
@@ -10,7 +11,7 @@ class TestsDB:
 
     def get_test(self, test_id):
         if not test_id in self.tests.keys():
-            raise Exception("Test not found")
+            raise ResourceNotFoundException("Test not found")
 
         return self._copy_obj(self.tests[test_id])
 
@@ -41,9 +42,7 @@ class TestsDB:
         return True
 
     def get_results(self, test_id):
-        print "Test ID(results): %s" % test_id
-
         if not test_id in self.test_results.keys():
-            raise Exception("Test results not found")
+            raise ResourceNotFoundException("Test results not found")
 
         return self._copy_obj(self.test_results[test_id])
