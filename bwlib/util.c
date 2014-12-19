@@ -417,6 +417,7 @@ char *
 BWLDiscoverSourceAddr(
         BWLContext ctx,
         const char *remote_addr,
+        const char *local_interface,
         char       *buf,
         size_t     buflen
         )
@@ -471,25 +472,59 @@ BWLDiscoverSourceAddr(
     retval = NULL;
 
     for(rp = result; rp != NULL; rp = rp->ai_next){
-        int temp_sd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-        if (temp_sd < 0) {
-            continue;
-        }
+        if (local_interface) {
+            struct ifaddrs *ifaddr, *ifa;
 
-        if (connect(temp_sd, rp->ai_addr, rp->ai_addrlen) != 0) {
-            close(temp_sd);
-            continue;
-        }
-
-        if(getsockname(temp_sd,(void*)&sbuff,&saddrlen) == 0){
-            if (getnameinfo((struct sockaddr *)&sbuff, saddrlen, buf, buflen, NULL, 0, NI_NUMERICHOST) == 0) {
-                close(temp_sd);
-                retval = buf;
-                break;
+            if (getifaddrs(&ifaddr) == -1) {
+                return NULL;
             }
-        }
 
-        close(temp_sd);
+            for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+                size_t addrlen;
+
+                if (strcmp(ifa->ifa_name, local_interface) != 0)
+                    continue;
+    
+                if (ifa->ifa_addr == NULL)
+                    continue;
+    
+                if (rp->ai_family != ifa->ifa_addr->sa_family)
+                    continue;
+
+	        // This is a hacky method of getting the addrlen. It should match
+                // the remote_addrinfo's addrlen.
+                if (getnameinfo(ifa->ifa_addr, rp->ai_addrlen, buf, buflen, NULL, 0, NI_NUMERICHOST) == 0) {
+                    retval = buf;
+                    break;
+                }
+            }
+
+            freeifaddrs(ifaddr);
+
+            if (retval)
+                break;
+        }
+        else {
+            int temp_sd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+            if (temp_sd < 0) {
+                continue;
+            }
+
+            if (connect(temp_sd, rp->ai_addr, rp->ai_addrlen) != 0) {
+                close(temp_sd);
+                continue;
+            }
+
+            if(getsockname(temp_sd,(void*)&sbuff,&saddrlen) == 0){
+                if (getnameinfo((struct sockaddr *)&sbuff, saddrlen, buf, buflen, NULL, 0, NI_NUMERICHOST) == 0) {
+                    close(temp_sd);
+                    retval = buf;
+                    break;
+                }
+            }
+
+            close(temp_sd);
+        }
     }
 
     if (result) {
