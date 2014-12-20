@@ -2084,6 +2084,8 @@ KillChildren(
 ) {
     I2HashIterate(pidtable,KillChildrenHandler,&signal);
     killpg(mypid,signal);
+
+    return True;
 }
 
 int
