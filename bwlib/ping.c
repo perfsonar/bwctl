@@ -379,5 +379,5 @@ BWLToolDefinitionRec    BWLToolPing = {
     True,                    /* supports_server_sends */
     True,                    /* supports_endpointless */
     0,                       /* The server port to use in endpointless tests */
-    NULL,                    /* parsable format */
+    0,                       /* parsable format */
 };
