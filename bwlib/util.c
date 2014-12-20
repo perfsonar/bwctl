@@ -570,7 +570,7 @@ BWLAddrIsLoopback(
     socklen_t       saddrlen;
     BWLBoolean      retval;
 
-    if(saddr = I2AddrSAddr(addr,&saddrlen)){
+    if((saddr = I2AddrSAddr(addr,&saddrlen))){
         if (I2SockAddrIsLoopback(saddr, saddrlen)) {
             retval = True;
         }
@@ -578,7 +578,7 @@ BWLAddrIsLoopback(
             retval = False;
         }
     }
-    else if (sai = I2AddrAddrInfo(addr, NULL, NULL)) {
+    else if ((sai = I2AddrAddrInfo(addr, NULL, NULL))) {
         retval = True;
 
         while(sai != NULL) {
