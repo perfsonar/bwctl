@@ -1611,7 +1611,7 @@ BWLDExecPostHookScript(
     fprintf(pipe_fp, "receiver: %s\n", I2AddrNodeName(test_spec->server, buf, &buflen));
     fprintf(pipe_fp, "duration: %i\n", test_spec->duration);
     fprintf(pipe_fp, "use_udp: %s\n", (test_spec->udp)?"YES":"NO");
-    fprintf(pipe_fp, "bandwidth: %llu\n", test_spec->bandwidth);
+    fprintf(pipe_fp, "bandwidth: %llu\n", (unsigned long long)test_spec->bandwidth);
     fprintf(pipe_fp, "window: %i\n", test_spec->window_size);
     fprintf(pipe_fp, "len_buffer: %i\n", test_spec->len_buffer);
     fprintf(pipe_fp, "report_interval: %u\n", test_spec->report_interval);
@@ -2612,7 +2612,7 @@ main(int argc, char *argv[])
             exit(1);
         }
         uptime = currtime.tstamp;
-        fprintf(info_fp, "START="BWL_TSTAMPFMT"\n", currtime.tstamp);
+        fprintf(info_fp, "START="BWL_TSTAMPFMT"\n", (unsigned long long)currtime.tstamp);
         fprintf(info_fp, "PID=%lld\n", (long long)mypid);
         while ((rc = fclose(info_fp)) < 0 && errno == EINTR);
         if(rc < 0){

@@ -3573,7 +3573,7 @@ setup_results_storage(ipsess_t sess)
 
             strcpy(sess->results_fname,dirpath);
             sprintf(&sess->results_fname[file_offset],BWL_TSTAMPFMT,
-                    sess->tspec.req_time.tstamp);
+                    (unsigned long long)sess->tspec.req_time.tstamp);
 
             if(sess->is_receiver) {
                 sprintf(&sess->results_fname[ext_offset],"%s%s",
