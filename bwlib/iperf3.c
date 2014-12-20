@@ -135,7 +135,6 @@ Iperf3PreRunTest(
 {
     char            serverhost[MAXHOSTNAMELEN];
     char            clienthost[MAXHOSTNAMELEN];
-    size_t          hlen;
     struct iperf_test *iperf_test;
 
     if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.server,serverhost,sizeof(serverhost), NI_NUMERICHOST) == NULL) {

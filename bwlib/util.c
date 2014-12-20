@@ -480,8 +480,6 @@ BWLDiscoverSourceAddr(
             }
 
             for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-                size_t addrlen;
-
                 if (strcmp(ifa->ifa_name, local_interface) != 0)
                     continue;
     

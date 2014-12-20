@@ -136,13 +136,11 @@ PingPreRunTest(
         BWLTestSession      tsess
         )
 {
-    char            confkey[BWL_MAX_TOOLNAME + 10];
     int             len;
     char            *cmd;
     char            *default_cmd;
     char            *cmd_variable;
     int             a = 0;
-    size_t          hlen;
     I2Addr          remote_side;
     I2Addr          local_side;
     char            addr_str[INET6_ADDRSTRLEN];

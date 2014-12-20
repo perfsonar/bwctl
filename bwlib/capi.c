@@ -71,7 +71,6 @@ _BWLClientBind(
         BWLErrSeverity	*err_ret
         )
 {
-    struct addrinfo *fai;
     struct addrinfo *ai;
     BWLBoolean      retval = False;
 
@@ -335,8 +334,6 @@ _BWLClientConnect(
     int		rc;
     struct      addrinfo	*fai;
     struct      addrinfo	*ai;
-    char        buf[NI_MAXHOST+NI_MAXSERV+3];
-    size_t      buflen = sizeof(buf);
 
     if(!server_addr)
         goto error;
@@ -834,9 +831,11 @@ BWLSessionRequest(
     int		    rc=0;
     I2Addr	    server=NULL;
     I2Addr	    client=NULL;
+    /*
     struct sockaddr *rsaddr;
     struct sockaddr *ssaddr;
     socklen_t       saddrlen;
+    */
     BWLNum64	    zero64=BWLULongToNum64(0);
     BWLBoolean	    retval = False;
 
@@ -998,10 +997,10 @@ foundaddr:
 
         /*
          * Save direct pointers to recv/send saddr's for policy funcs
-         */
         rsaddr = rai->ai_addr;
         ssaddr = sai->ai_addr;
         saddrlen = sai->ai_addrlen;
+         */
 
         /*
          * Create a structure to store the stuff we need to keep for

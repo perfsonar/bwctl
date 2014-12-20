@@ -181,13 +181,11 @@ TracepathPreRunTest(
         BWLTestSession      tsess
         )
 {
-    char            confkey[BWL_MAX_TOOLNAME + 10];
     int             len;
     char            *cmd;
     char            *default_cmd;
     char            *cmd_variable;
     int             a = 0;
-    size_t          hlen;
     char            addr_str[INET6_ADDRSTRLEN];
     I2Addr          remote_side;
 

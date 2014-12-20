@@ -604,8 +604,6 @@ _BWLEndpointStart(
     fd_set              exceptfds;
     int                 max_readfd;
     int                 rc=0;
-    int                 do_read=0;
-    int                 do_write=0;
     BWLRequestType      msgtype = BWLReqInvalid;
     uint32_t            mode;
     int                 dead_child;
@@ -905,9 +903,7 @@ ACCEPT:
         char                local_addr_str[1024];
         const char          *remote_str = NULL;
         char                remote_addr_str[1024];
-        I2Addr              remote;
-        struct sockaddr     *saddr;
-        socklen_t           saddrlen;
+        I2Addr              remote = NULL;
         BWLToolAvailability tavail = 0;
 
         if( BWLAddrNodeName(ctx, tsess->test_spec.client, local_addr_str, sizeof(local_addr_str), NI_NUMERICHOST) != 0) {
@@ -1139,7 +1135,6 @@ ACCEPT:
        max_readfd = -1;
     }
     exceptfds = readfds;
-    do_read=do_write=1;
 
     /* Earliest time test should complete */
     currtime2.tstamp = BWLNum64Sub(tsess->reserve_time,tsess->fuzz);

@@ -491,8 +491,6 @@ usage(
         const char  *msg
         )
 {
-    int i;
-
     // Do a dummy load of ctx to make sure we can print out the list of
     // available tools...
     if (!ctx) {
@@ -3756,7 +3754,6 @@ static BWLBoolean parse_time_schedule(const char *schedule, struct tm **times, i
 
     for(i = 0, time = strtok_r(temp_str, ",", &temp); time != NULL; i++, time = strtok_r(NULL, ",", &temp)) {
         char *ret_str;
-        struct tm wildcard_tm;
 
         ret_str = strptime(time, "*:%M", &(ret_times[i]));
         if (ret_str != NULL && *ret_str == '\0') {
@@ -3850,8 +3847,6 @@ static BWLBoolean regular_intervals_scheduler_get_next_runtime(Scheduler *schedu
 
 static BWLBoolean scheduled_times_scheduler_get_next_runtime(Scheduler *scheduler, struct timespec *tspec, BWLBoolean prev_test_failed) {
     ScheduledTimesSchedule *schedule = scheduler->private;
-    double r, alpha;
-    double wait_time;
     time_t curr_time;
     struct tm now;
     int i;

@@ -142,10 +142,8 @@ OwampPreRunTest(
         BWLTestSession      tsess
         )
 {
-    char            confkey[BWL_MAX_TOOLNAME + 10];
     int             len;
     int             a = 0;
-    size_t          hlen;
     char            addr_str[INET6_ADDRSTRLEN];
     char            server_str[1024];
     char            port_range[1024];
