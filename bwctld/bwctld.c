@@ -1600,7 +1600,7 @@ BWLDExecPostHookScript(
     fprintf(pipe_fp, "tool: %s\n", BWLToolGetNameByID(ctx,test_spec->tool_id));
     fprintf(pipe_fp, "user: %s\n", ctrl->userid_buffer);
     fprintf(pipe_fp, "limit_class: %s\n", limit_class);
-    fprintf(pipe_fp, "start_time: %d\n", ts.tv_sec);
+    fprintf(pipe_fp, "start_time: %ld\n", (long)ts.tv_sec);
     fprintf(pipe_fp, "is_host_sender: %s\n", (is_sender)?"YES":"NO");
     fprintf(pipe_fp, "tos: %d\n", test_spec->tos);
     buflen = sizeof(buf);
