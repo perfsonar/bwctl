@@ -576,11 +576,11 @@ BWLControlOpen(
         char buf[255];
         buf[0] = '\0';
         if (mode_avail_orig & BWL_MODE_OPEN)
-		strncat(buf, " open", sizeof(buf));
+		strncat(buf, " open", sizeof(buf) - strlen(buf) - 1);
         if (mode_avail_orig & BWL_MODE_AUTHENTICATED)
-		strncat(buf, " authenticated", sizeof(buf));
+		strncat(buf, " authenticated", sizeof(buf) - strlen(buf) - 1);
         if (mode_avail_orig & BWL_MODE_ENCRYPTED)
-		strncat(buf, " encrypted", sizeof(buf));
+		strncat(buf, " encrypted", sizeof(buf) - strlen(buf) - 1);
 
         BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,
                 "Server denied access. No authentication modes in common. Modes available: %s", buf);

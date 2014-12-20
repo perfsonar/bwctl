@@ -608,7 +608,7 @@ save_path(
     }
 
     strcpy(optname,"V.");
-    strncat(optname,key,sizeof(optname));
+    strncat(optname,key,sizeof(optname) - strlen(optname) - 1);
     if(BWLContextConfigSet(ctx,optname,str)){
         return 1;
     }
@@ -638,7 +638,7 @@ save_ports(
     *ports = *portrangerec;
 
     strcpy(optname,"V.");
-    strncat(optname,key,sizeof(optname));
+    strncat(optname,key,sizeof(optname) - strlen(optname) - 1);
     if(BWLContextConfigSet(ctx,optname,ports)){
         return 1;
     }

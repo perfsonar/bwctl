@@ -551,9 +551,9 @@ display_option_group(
         }
 
         if (bwctl_options[i].option.has_arg == required_argument) {
-            strncat(buf, " <", sizeof(buf) - 1);
-            strncat(buf, bwctl_options[i].argument_description, sizeof(buf) - 1);
-            strncat(buf, ">", sizeof(buf) - 1);
+            strncat(buf, " <", sizeof(buf) - strlen(buf) - 1);
+            strncat(buf, bwctl_options[i].argument_description, sizeof(buf) - strlen(buf) - 1);
+            strncat(buf, ">", sizeof(buf) - strlen(buf) - 1);
         }
 
         fprintf(stderr, "%-32.34s %s\n", buf, bwctl_options[i].description);
