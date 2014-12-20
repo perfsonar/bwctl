@@ -1043,7 +1043,7 @@ spawn_local_server(
     BWLTimeStamp        currtime;
     struct itimerval    itval;
     BWLControl          cntrl;
-    BWLRequestType      msgtype;
+    BWLRequestType      msgtype = BWLReqInvalid;
     void                *childwait;
 
     /*

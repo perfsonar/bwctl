@@ -1027,7 +1027,7 @@ CheckFD(
         BWLDLimRec      lim;
 
         BWLSID          sid;
-        BWLNum64        rtime,ftime,ltime,restime,rtttime;
+        BWLNum64        rtime,ftime,ltime,restime=0,rtttime;
         uint32_t        duration;
         uint16_t        toolport;
         BWLToolType     tool_id;

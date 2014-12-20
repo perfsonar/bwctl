@@ -1496,7 +1496,7 @@ _BWLEndpointStop(
         )
 {
     int        teststatus;
-    BWLBoolean    retval;
+    BWLBoolean    retval = False;
     BWLEndpoint    ep = tsess->endpoint;
 
     if(!ep)
@@ -1504,6 +1504,7 @@ _BWLEndpointStop(
 
     if((ep->acceptval >= 0) || (ep->child == 0)){
         *err_ret = BWLErrOK;
+        retval = True;
         goto done;
     }
 

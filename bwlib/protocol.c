@@ -1227,7 +1227,7 @@ _BWLReadTestRequest(
     uint8_t                 ipvn;
     BWLSID                  sid;
     BWLTestSpec             tspec;
-    BWLTestSession          tsession;
+    BWLTestSession          tsession=NULL;
     int                     ival=0;
     int                     *intr=&ival;
     uint16_t                tool_port;
