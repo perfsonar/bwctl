@@ -2533,7 +2533,7 @@ main(
 
             if( test_type != BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) ) {
                 char buf[1024];
-                char *proper_cmd_name;
+                char *proper_cmd_name = "?";
                 if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_TRACEROUTE) {
                     proper_cmd_name = "bwtraceroute";
                 }
