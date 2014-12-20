@@ -1404,9 +1404,6 @@ ACCEPT:
     }
 
 end:
-    if (ep->rcntrl) {
-        BWLControlClose(ep->rcntrl);
-    }
 
     BWLGetTimeStamp(ctx,&currtime);
 
@@ -1421,7 +1418,13 @@ end:
      *
      * return status to parent.
      */
-    exit(aval & ep->acceptval);
+    rc = aval & ep->acceptval;
+
+    if (ep->rcntrl) {
+        BWLControlClose(ep->rcntrl);
+    }
+
+    exit(rc);
 }
 
 BWLBoolean
