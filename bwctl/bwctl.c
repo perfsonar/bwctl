@@ -2006,36 +2006,40 @@ static BWLBoolean
 handle_traceroute_test_arg(const char arg, const char *long_name, const char *value) {
     BWLBoolean handled = True;
     char *tstr;
+    long v;
 
     switch (arg) {
         case 't':
-            app.opt.timeDuration = strtoul(value,&tstr,10);
-            if(*tstr != '\0' ||
-               app.opt.timeDuration < 0) {
+            v = strtol(value,&tstr,10);
+            if(*tstr != '\0' || v < 0) {
                 usage("Invalid value. (-t) positive integer expected");
                 exit(1);
             }
+            app.opt.timeDuration = v;
             break;
         case 'F':
-            app.opt.traceroute_first_ttl = strtoul(value,&tstr,10);
-            if(*tstr != '\0') {
+            v = strtol(value,&tstr,10);
+            if(*tstr != '\0' || v < 0 || v > 255) {
                 usage("Invalid value. (-F) integer between 0 and 255 expected");
                 exit(1);
             }
+            app.opt.traceroute_first_ttl = v;
             break;
         case 'l':
-            app.opt.traceroute_packet_size = strtoul(value,&tstr,10);
-            if(*tstr != '\0') {
+            v = strtol(value,&tstr,10);
+            if(*tstr != '\0' || v < 0) {
                 usage("Invalid value. (-l) positive integer expected");
                 exit(1);
             }
+            app.opt.traceroute_packet_size = v;
             break;
         case 'M':
-            app.opt.traceroute_last_ttl = strtoul(value,&tstr,10);
-            if(*tstr != '\0') {
-                usage("Invalid value. (-F) integer between 0 and 255 expected");
+            v = strtol(value,&tstr,10);
+            if(*tstr != '\0' || v < 0 || v > 255) {
+                usage("Invalid value. (-M) integer between 0 and 255 expected");
                 exit(1);
             }
+            app.opt.traceroute_last_ttl = v;
             break;
         default:
             handled = False;
