@@ -35,6 +35,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <signal.h>
 
 static int do_mkdir(const char *path, mode_t mode);
 

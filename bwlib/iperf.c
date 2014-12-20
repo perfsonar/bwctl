@@ -31,6 +31,7 @@
  * 
  */
 #include <bwlib/bwlibP.h>
+#include <signal.h>
 
 /*
  * Function:    IperfAvailable

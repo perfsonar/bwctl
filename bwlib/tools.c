@@ -55,6 +55,7 @@
  */
 #include <bwlib/bwlibP.h>
 #include <assert.h>
+#include <signal.h>
 
 static BWLToolDefinitionRec BWLToolNone = {
     "",

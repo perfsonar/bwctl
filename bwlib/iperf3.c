@@ -32,6 +32,8 @@
  */
 #include <bwlib/bwlibP.h>
 #include <iperf_api.h>
+/* This one is missing from iperf_api.h */
+extern void iperf_set_test_unit_format(struct iperf_test *ipt, char unit_format);
 
 /*
  * Function:    Iperf3Available

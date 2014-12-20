@@ -1225,9 +1225,21 @@ BWLToolGetNameByID(
         BWLToolType id
         );
 
+extern BWLTestType
+BWLToolGetTestTypesByID(
+        BWLContext  ctx,
+        BWLToolType tool_id
+        );
+
 extern const char *
 BWLToolGetNameByIndex(
         BWLContext  ctx,
+        uint32_t    i
+        );
+
+extern BWLTestType
+BWLToolGetTestTypesByIndex(
+        BWLContext ctx,
         uint32_t    i
         );
 
@@ -1261,6 +1273,13 @@ BWLToolInitTest(
         BWLContext  ctx,
         BWLToolType tool_id,
         uint16_t    *toolport
+        );
+
+extern int
+save_path(
+        BWLContext  ctx,
+        const char  *key,
+        const char  *val
         );
 
 /*
