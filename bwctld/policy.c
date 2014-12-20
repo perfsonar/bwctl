@@ -2234,7 +2234,7 @@ BWLDCheckTestPolicy(
     }
 
     tinfo->node = node;
-    memcpy(tinfo->sid,sid,sizeof(sid));
+    memcpy(tinfo->sid,sid,sizeof(BWLSID));
 
     /* VALIDATE THE REQUEST! */
 

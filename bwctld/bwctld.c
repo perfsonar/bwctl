@@ -301,7 +301,7 @@ AllocReservation(
         goto error_exit;
     }
 
-    memcpy(res->sid,sid,sizeof(sid));
+    memcpy(res->sid,sid,sizeof(BWLSID));
 
     /*
      * Invoke 'tool' one-time initialization phase
@@ -488,6 +488,7 @@ ChldReservationDemand(
         return False;
 
     if(cstate->res){
+        /* FIXME: should be sizeof(BWLSID) */
         if(memcmp(sid,cstate->res->sid,sizeof(sid)))
             return False;
         /*
@@ -845,6 +846,7 @@ ChldReservationComplete(
 {
     *err = 1;
 
+    /* FIXME: should be sizeof(BWLSID) */
     if(!cstate->res || memcmp(sid,cstate->res->sid,sizeof(sid)))
         return False;
 
