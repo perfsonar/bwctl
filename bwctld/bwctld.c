@@ -2287,7 +2287,7 @@ main(int argc, char *argv[])
 #ifndef NDEBUG
             case 'w':
                 /* just non-null */
-                if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+                if( !BWLContextConfigSet(ctx,BWLChildWait,NOTNULL)){
                     I2ErrLog(errhand,
                             "ContextConfigSet(): Unable to set BWLChildWait");
                     exit(1);
@@ -2352,7 +2352,7 @@ main(int argc, char *argv[])
     };
 
     if(getenv("BWCTL_DEBUG_CHILDWAIT")){
-        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+        if( !BWLContextConfigSet(ctx,BWLChildWait,NOTNULL)){
             I2ErrLog(errhand,"BWLContextconfigSet(ChildWait): %M");
             exit(1);
         }

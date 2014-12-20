@@ -91,6 +91,9 @@
 #define MAX(a,b) ((a>b)?a:b)
 #endif
 
+/* A sentinel pointer which is different to NULL */
+#define NOTNULL ((void*)1L)
+
 /*
  * Filename/path component macros used by various parts of bwlib.
  */

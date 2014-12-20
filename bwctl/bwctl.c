@@ -953,7 +953,7 @@ CheckTestPolicy(
                     "CheckTestPolicy(): Tool initialization failed");
             return False;
         }
-        *closure = (void *)!NULL;
+        *closure = NOTNULL;
 
         /*
          * Only update the tool port if configuring the receiver
@@ -2393,7 +2393,7 @@ main(
     }
 
     if(getenv("BWCTL_DEBUG_CHILDWAIT")){
-        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+        if( !BWLContextConfigSet(ctx,BWLChildWait,NOTNULL)){
             I2ErrLog(eh,"BWLContextconfigSet(ChildWait): %M");
             exit(1);
         }
