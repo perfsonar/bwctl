@@ -1684,7 +1684,6 @@ PostHookAvailable(
         )
 {
     int             len;
-    char            *cmd;
     int             fdpipe[2];
     pid_t           pid;
     int             status;
@@ -1721,7 +1720,7 @@ PostHookAvailable(
 
         execlp(script,script,"--validate",NULL);
         buf[buf_size-1] = '\0';
-        snprintf(buf,buf_size-1,"exec(%s)",cmd);
+        snprintf(buf,buf_size-1,"exec(%s)",script);
         perror(buf);
         exit(1);
     }
