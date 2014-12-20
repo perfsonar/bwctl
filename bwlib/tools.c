@@ -212,7 +212,7 @@ BWLToolGetTestTypesByID(
         }
     }
 
-    return BWL_DATA_UNKNOWN;
+    return BWL_TEST_UNDEFINED;
 }
 
 
