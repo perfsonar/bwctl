@@ -152,7 +152,7 @@ PingPreRunTest(
         (tsess->conf_client && tsess->test_spec.server_sends)) {
         // special case. We don't have to do anything, so we just fork a process
         // that waits until killed, or times out after 'duration' seconds.
-        fprintf(tsess->localfp,"bwctl: nothing to exec for ping server");
+        fprintf(tsess->localfp,"bwctl: nothing to exec for ping server\n");
         PingArgs[0] = NULL;
         return (void *)PingArgs;
     }
