@@ -61,7 +61,7 @@ if (not $conf{"bwctl_path"}) {
     chomp($conf{"bwctl_path"});
     if ($conf{"bwctl_path"} =~ /no bwctl/) {
         print "Error: no bwctl specified or found in path\n";
-        exit(-1);
+        exit(1);
     }
 }
 
@@ -70,7 +70,7 @@ if (not $conf{"bwctld_path"}) {
     chomp($conf{"bwctld_path"});
     if ($conf{"bwctld_path"} =~ /no bwctld/) {
         print "Error: no bwctld specified or found in path\n";
-        exit(-1);
+        exit(1);
     }
 }
 
@@ -82,7 +82,7 @@ if ($skip) {
 my ($status, $tests) = parseTestFile($testfiles);
 if ($status != 0) {
     print "Couldn't parse test file: $tests\n";
-    exit(-1);
+    exit(1);
 }
 
 # Pre-emptively "skip" all the tests specified on the command-line
@@ -181,7 +181,7 @@ sub spawnBwctld {
         }
 
         exec($bwctld . " -R $var_dir -Z $args -c $conf_dir &> out.".int(rand(1000)));
-        exit(-1);
+        exit(1);
     }
 
     return $pid;

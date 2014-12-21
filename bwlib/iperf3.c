@@ -302,7 +302,7 @@ Iperf3RunTest(
             exit(0);
         default:
             BWLError(ctx,BWLErrFATAL,EINVAL,"invalid iperf test role: %c\n",iperf_get_test_role(iperf_test));
-            exit(-1);
+            exit(1);
     }
 }
 

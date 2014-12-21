@@ -1564,7 +1564,7 @@ BWLDExecPostHookScript(
 
         execlp(script, script, NULL);
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN, "Couldn't execute script \'%s\'", script);
-        exit(-1);
+        exit(1);
     }
 
     /*
