@@ -85,10 +85,10 @@
 #endif
 
 #ifndef MIN
-#define MIN(a,b) ((a<b)?a:b)
+#define MIN(a,b) (((a)<(b))?(a):(b))
 #endif
 #ifndef MAX
-#define MAX(a,b) ((a>b)?a:b)
+#define MAX(a,b) (((a)>(b))?(a):(b))
 #endif
 
 /* A sentinel pointer which is different to NULL */
@@ -173,12 +173,12 @@ typedef uint64_t BWLNum64;
  * type is changed from an uint64_t to some kind of structure.
  *
  */
-#define BWLNum64Diff(x,y)    ((x>y) ? (x-y) : (y-x))
-#define BWLNum64Add(x,y)    (x+y)
-#define BWLNum64Sub(x,y)    (x-y)
-#define BWLNum64Cmp(x,y)    ((x<y) ? -1 : ((x>y) ? 1 : 0))
-#define BWLNum64Min(x,y)    ((x<y) ? x : y)
-#define BWLNum64Max(x,y)    ((x>y) ? x : y)
+#define BWLNum64Diff(x,y)   (((x)>(y)) ? ((x)-(y)) : ((y)-(x)))
+#define BWLNum64Add(x,y)    ((x)+(y))
+#define BWLNum64Sub(x,y)    ((x)-(y))
+#define BWLNum64Cmp(x,y)    (((x)<(y)) ? -1 : (((x)>(y)) ? 1 : 0))
+#define BWLNum64Min(x,y)    (((x)<(y)) ? (x) : (y))
+#define BWLNum64Max(x,y)    (((x)>(y)) ? (x) : (y))
 
 extern BWLNum64
 BWLNum64Mult(
