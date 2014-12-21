@@ -57,7 +57,7 @@
 
 int     optreset;               /* reset getopt */
 
-static int getopt_internal(int, char **, const char *);
+static int missing_getopt_internal(int, char **, const char *);
 static int gcd(int, int);
 static void permute_args(int, int, int, char **);
 
