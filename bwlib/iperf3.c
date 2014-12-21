@@ -287,10 +287,18 @@ Iperf3RunTest(
     switch (iperf_get_test_role(iperf_test))
     {
         case 's':
-            iperf_run_server(iperf_test);
+            if (iperf_run_server(iperf_test) < 0) {
+                BWLError(ctx,BWLErrFATAL,i_errno,
+                    "iperf_run_server: %s", iperf_strerror(i_errno));
+                exit(1);
+            }
             exit(0);
         case 'c':
-            iperf_run_client(iperf_test);
+            if (iperf_run_client(iperf_test) < 0) {
+                BWLError(ctx,BWLErrFATAL,i_errno,
+                    "iperf_run_client: %s", iperf_strerror(i_errno));
+                exit(1);
+            }
             exit(0);
         default:
             BWLError(ctx,BWLErrFATAL,EINVAL,"invalid iperf test role: %c\n",iperf_get_test_role(iperf_test));
