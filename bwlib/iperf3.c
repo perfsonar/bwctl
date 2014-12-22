@@ -225,7 +225,9 @@ Iperf3PreRunTest(
     }
 
     // set zero-copy to get better performance
-    iperf_set_test_zerocopy( iperf_test, 1 );
+    if(iperf_has_zerocopy()) {
+        iperf_set_test_zerocopy( iperf_test, 1 );
+    }
 
     if(tsess->conf_server){
         iperf_set_test_role( iperf_test, 's' ); // specify server side
