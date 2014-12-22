@@ -67,16 +67,6 @@ static const char *place = EMSG; /* option letter processing */
 static int nonopt_start = -1; /* first non option argument (for permute) */
 static int nonopt_end = -1;   /* first option after non options (for permute) */
 
-/* Error messages */
-static const char recargchar[] = "option requires an argument -- %c";
-static const char recargstring[] = "option requires an argument -- %s";
-static const char ambig[] = "ambiguous option -- %.*s";
-static const char noarg[] = "option doesn't take an argument -- %.*s";
-static const char illoptchar[] = "unknown option -- %c";
-static const char illoptstring[] = "unknown option -- %s";
-
-char opterrmsg[128];
-
 /*
  * Compute the greatest common divisor of a and b.
  */
