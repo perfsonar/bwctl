@@ -69,7 +69,9 @@
 static struct timeval   timeoffset;
 static int              sign_timeoffset = 0;
 static int              ntpsyscall_fails; /* initialized in InitNTP */
+#ifdef HAVE_SYS_TIMEX_H
 static int              ntp_unsync = 1;
+#endif
 
 /*
  * Function:	_BWLInitNTP
