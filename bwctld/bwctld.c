@@ -361,10 +361,8 @@ ResRemove(
 {
     TimeSlot slot;
     TimeSlot slot_temp;
-    int i;
 
     for(slot = TAILQ_FIRST(&time_slots); slot; slot = slot_temp ) {
-        i++;
         slot_temp = TAILQ_NEXT(slot, entries);
 
         if (TimeSlotHasReservation(slot, res) == False)
