@@ -1,0 +1,30 @@
+Source: bwctl
+Section: net
+Priority: optional
+Maintainer: Raoul Gunnar Borenius <borenius@dfn.de>
+Build-Depends: debhelper (>= 9), dh-autoreconf, libiperf-dev, libi2util-dev
+Standards-Version: 3.9.6
+Homepage: http://www.internet2.edu/performance/bwctl/
+
+Package: bwctl-client
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Suggests: bwctl-server
+Description: bandwidth test controller (client)
+ The Bwctl suite works with nuttcp and iperf to test bandwidth without
+ the need for a shell account on the remote systems.
+ .
+ This package contains the command line tool for scheduling and controlling
+ tests. It requires the bwctl-server package to be installed on the
+ hosts at both ends of the network that you are trying to test.
+
+Package: bwctl-server
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, iperf, nuttcp, ntp
+Suggests: i2util-tools
+Description: bandwidth test controller (server)
+ The Bwctl suite works with nuttcp and iperf to test bandwidth without
+ the need for a shell account on the remote systems.
+ .
+ This package contains the scheduling and policy daemon that wraps these tools.
+ To schedule and control tests you need the bwctl-client package.

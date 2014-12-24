@@ -1,0 +1,4 @@
+usr/bin/bwctl usr/bin/bwping
+usr/bin/bwctl usr/bin/bwtraceroute
+usr/share/man/man1/bwctl.1 usr/share/man/man1/bwping.1
+usr/share/man/man1/bwctl.1 usr/share/man/man1/bwtraceroute.1

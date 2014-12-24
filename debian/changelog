@@ -1,0 +1,18 @@
+bwctl (1.5.2-10) unstalbe; urgency=low
+
+  * New upstream version
+  * Start bwctl-server by default
+
+ -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Wed, 24 Dec 2014 08:57:11 +0100
+
+bwctl (1.5.2+dfsg1-1) unstable; urgency=medium
+
+  * new upstream version (Closes: #747234)
+
+ -- Raoul Gunnar Borenius <borenius@dfn.de>  Sun, 05 Oct 2014 12:30:15 +0200
+
+bwctl (1.4.1~rc2-1) unstable; urgency=low
+
+  * Initial release (Closes: #662849)
+
+ -- Raoul Gunnar Borenius <borenius@dfn.de>  Thu, 29 Nov 2012 13:27:49 +0100

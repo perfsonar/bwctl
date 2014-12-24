@@ -1,0 +1,24 @@
+Rules:
+ rules:
+  -
+   Glob: bwlib/*
+   Contains: This code is hereby placed in the public domain.
+   License: public-domain
+  -
+   Glob: thrulay/ltmain.sh
+   CopyrightExtract: \#\s+Copyright\s+\(C\)\s+(\Y+\s*\#\s+Free\s+Software\s+Foundation,\s+Inc)\.\s*\#\s+Originally\s+by\s+(\w+\s\w+\s+\<\w+\@[\w\.]+\>),\s+\Y
+  -
+   Glob: &i2config
+   VerifyLicense: GPL (v2 or later)
+   License: GPL-2+
+   CopyrightExtract: &extract \#\s+Copyright\s+\(C\)\s+(\Y+\s*\#\s+\Y*\s*Free\s+Software\s+Foundation,\s+Inc)\.\s*\R+(?:\#\s+Originally\s+by\s+([\w,]+\s\w+\s+\<\w+\@[\w\.]+\>),\s+1996\.\s*\R+)?
+   CopyrightClean: &clean \s*\#\s*
+  -
+   Glob: bwlib/Makefile.in
+   License: GPL-2+
+   CopyrightExtract: *extract
+   CopyrightClean: *clean
+  -
+   Glob: bwlib/*
+   CopyrightExtract: '(?:\.")?[\#\*]\s+Copyright\s+\(C\)\s+(\Y+\s+[\#\*]\R+\s*(?:\.")?[\#\*]\s+Internet2)\s+[\#\*]\R+\s*(?:\.")?[\#\*]\s+All\s+Rights\s+Reserved\s+[\#\*]\R+(?:[\s\*\w\/:\.\"\-\`\(\)]{0,600}Copyright\s+(\Y+University\s+Corporation\s+for\s+Atmospheric\s+Research)\.)?'
+   CopyrightClean: *clean2

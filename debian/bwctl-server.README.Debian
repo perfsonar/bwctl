@@ -1,0 +1,61 @@
+bwctl for Debian
+----------------
+
+* For security reasons the daemon is not started automatically after
+  installation.
+
+* To start bwctld at boot edit /etc/default/bwctl-server.
+
+* Please edit /etc/bwctl/bwctld.limits before enabling the
+  daemon. The default bwctld.limits file allows anyone to
+  perform TCP tests for up to 30 seconds, you should probably
+  not run the daemon that way!
+
+* To create passwords for remote users you need the utility 'aespasswd'
+  which can be found in the 'i2util-tools' package.
+
+Quick Start Guide
+-----------------
+
+If you are behind a firewall that blocks incoming TCP connections
+to port 5001 or not connected to the public Internet at all,
+then here's a quick start guide for bwctl using the supplied
+unsafe default configuration:
+
+You need two hosts where you install bwctl-server. Enable
+the daemon on both hosts in /etc/default/bwctl and start them with
+
+  /etc/init.d/bwctl-server start
+
+You need to install bwctl-client on one of them (or on a third) and issue
+
+  /usr/bin/bwctl  -T iperf -s <sender-host> -c <receiver-host>
+
+for a basic 10 seconds test without authentication.
+
+The output should look something like:
+
+user@serverhost1:~$ /usr/bin/bwctl  -T iperf -s serverhost1 -c serverhost2
+bwctl: 16 seconds until test results available
+
+RECEIVER START
+bwctl: exec_line: /usr/bin/iperf -B serverhost2 -s -f b -m -p 5001 -t 10
+bwctl: start_tool: 3556267039.688849
+------------------------------------------------------------
+Server listening on TCP port 5001
+Binding to local address serverhost2
+TCP window size: 131072 Byte (default)
+------------------------------------------------------------
+[ 15] local 192.168.0.232 port 5001 connected with 192.168.0.45 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[ 15]  0.0-10.0 sec  118095872 Bytes  94088779 bits/sec
+[ 15] MSS size 1448 bytes (MTU 1500 bytes, ethernet)
+bwctl: stop_exec: 3556267053.765008
+
+RECEIVER END
+user@serverhost1:~$
+
+
+
+
+
