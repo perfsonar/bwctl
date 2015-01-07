@@ -2814,7 +2814,16 @@ establish_connection(ipsess_t current_sess, ipsess_t other_sess)
 
     if (current_sess->is_local) {
         current_sess->fake_daemon = False;
-        host_address = BWLDiscoverSourceAddr(ctx, other_sess->host, temp, sizeof(temp));
+        host_address = BWLDiscoverSourceAddr(ctx, other_sess->host, NULL, temp, sizeof(temp));
+        if (!host_address) {
+            I2ErrLog(eh,
+                    "Couldn't figure out address to use to connect to %s", other_sess->host);
+            goto error_exit;
+        }
+    }
+    else if (BWLIsInterface(current_sess->host)) {
+        current_sess->fake_daemon = False;
+        host_address = BWLDiscoverSourceAddr(ctx, other_sess->host, current_sess->host, temp, sizeof(temp));
         if (!host_address) {
             I2ErrLog(eh,
                     "Couldn't figure out address to use to connect to %s", other_sess->host);
@@ -2922,7 +2931,10 @@ get_session_address(ipsess_t current_sess, ipsess_t other_sess) {
     char    buf[1024];
 
     if (current_sess->is_local) {
-        session_address = BWLDiscoverSourceAddr(ctx, other_sess->host, buf, sizeof(buf));
+        session_address = BWLDiscoverSourceAddr(ctx, other_sess->host, NULL, buf, sizeof(buf));
+    }
+    else if (BWLIsInterface(current_sess->host)) {
+        session_address = BWLDiscoverSourceAddr(ctx, other_sess->host, current_sess->host, buf, sizeof(buf));
     }
     else {
         session_address = current_sess->host;
@@ -2938,7 +2950,7 @@ get_session_address(ipsess_t current_sess, ipsess_t other_sess) {
     address = I2AddrByNode(eh, session_address);
 
     if (BWLAddrIsLoopback(address)) {
-        session_address = BWLDiscoverSourceAddr(ctx, other_sess->host, buf, sizeof(buf));
+        session_address = BWLDiscoverSourceAddr(ctx, other_sess->host, NULL, buf, sizeof(buf));
 
         I2ErrLog(eh,"Hostname '%s' resolves to a loopback address, using %s instead.", current_sess->host, session_address);
 
