@@ -48,6 +48,7 @@
  * Types
  */
 typedef struct {
+    I2Boolean	    verbose;
     I2Boolean	    help;
 
     char	    cwd[MAXPATHLEN];

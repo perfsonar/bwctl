@@ -823,12 +823,12 @@ DisplayTimeSlots()
     TimeSlot slot;
     int i;
 
-    I2ErrLogP(errhand, LOG_DEBUG, "Time Slots");
+    BWLError(ctx,BWLErrDEBUG,BWLErrOK, "Time Slots");
 
     i = 1;
 
     TAILQ_FOREACH(slot, &time_slots, entries) {
-        I2ErrLogP(errhand, LOG_DEBUG,
+        BWLError(ctx,BWLErrDEBUG,BWLErrOK,
                   "Time Slot %d: %lu to %lu: %d reservations\n",
                   i, slot->start,
                   slot->end, slot->num_reservations);
@@ -1966,7 +1966,7 @@ LoadConfig(
             }
         }
         else if(!strncasecmp(key,"verbose",8)){
-            I2ErrLog(errhand,"The verbose option has been depricated, ignoring...");
+            opts.verbose = True;
         }
         else if(!strncasecmp(key,"authmode",9) ||
                 !strncasecmp(key,"auth_mode",10)){
@@ -2245,7 +2245,7 @@ main(int argc, char *argv[])
         switch (ch) {
             /* Connection options. */
             case 'v':    /* -v "verbose" */
-                I2ErrLog(errhand,"The verbose (-v) option has been depricated, ignoring...");
+                opts.verbose = True;
                 break;
             case 'f':
                 opts.allowRoot = True;
@@ -2356,6 +2356,13 @@ main(int argc, char *argv[])
             I2ErrLog(errhand,"BWLContextconfigSet(ChildWait): %M");
             exit(1);
         }
+    }
+
+    if(opts.verbose){
+        BWLContextSetErrMask(ctx,BWLErrOK);
+    }
+    else{
+        BWLContextSetErrMask(ctx,BWLErrINFO);
     }
 
     if( !BWLContextFinalize(ctx)){
