@@ -1539,6 +1539,7 @@ char *
 BWLDiscoverSourceAddr(
         BWLContext ctx,
         const char *remote_addr,
+        const char *local_interface,
         char       *buf,
         size_t     buflen
         );
