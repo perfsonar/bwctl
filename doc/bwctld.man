@@ -45,6 +45,8 @@ bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
 ] [
 .BI \-U " user"
 ] [
+.B \-v
+] [
 .B \-Z
 ]
 .SH DESCRIPTION
@@ -139,6 +141,10 @@ ensures the port number is distinct from the address specification.
 Specify the uid for the \fBbwctld\fR process. \fIuser\fR can
 be specified using a valid user name or by using \-uid. This option is
 only used if \fBbwctld\fR is started as root.
+.TP
+.B \-v
+Set verbose output. Messages will only go to syslog unless the \fB\-Z\fR
+option is specified.
 .TP
 .B \-Z
 Run the master \fBbwctld\fR process in the foreground. In this mode, error

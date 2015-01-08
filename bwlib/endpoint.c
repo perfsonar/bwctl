@@ -604,8 +604,6 @@ _BWLEndpointStart(
     fd_set              exceptfds;
     int                 max_readfd;
     int                 rc=0;
-    int                 do_read=0;
-    int                 do_write=0;
     BWLRequestType      msgtype = BWLReqInvalid;
     uint32_t            mode;
     int                 dead_child;
@@ -613,6 +611,7 @@ _BWLEndpointStart(
     char                nambuf[MAXHOSTNAMELEN+8]; /* 8 chars for '[]:port\0' */
     size_t              nambuflen = sizeof(nambuf);
     char                addr_str[INET6_ADDRSTRLEN];
+    BWLAcceptType       acceptval;
 
 
     if( !(tsess->localfp = tfile(tsess)) ||
@@ -905,9 +904,7 @@ ACCEPT:
         char                local_addr_str[1024];
         const char          *remote_str = NULL;
         char                remote_addr_str[1024];
-        I2Addr              remote;
-        struct sockaddr     *saddr;
-        socklen_t           saddrlen;
+        I2Addr              remote = NULL;
         BWLToolAvailability tavail = 0;
 
         if( BWLAddrNodeName(ctx, tsess->test_spec.client, local_addr_str, sizeof(local_addr_str), NI_NUMERICHOST) != 0) {
@@ -1139,7 +1136,6 @@ ACCEPT:
        max_readfd = -1;
     }
     exceptfds = readfds;
-    do_read=do_write=1;
 
     /* Earliest time test should complete */
     currtime2.tstamp = BWLNum64Sub(tsess->reserve_time,tsess->fuzz);
@@ -1339,6 +1335,16 @@ ACCEPT:
 
     if (ep->rcntrl) {
         /*
+         * Make sure that the reading/writing StopSession doesn't hang indefinitely.
+         */
+        itval.it_value.tv_sec = 60;
+        itval.it_value.tv_usec = 0;
+        if(setitimer(ITIMER_REAL,&itval,NULL) != 0){
+            BWLError(ctx,BWLErrFATAL,errno,"setitimer(): %M");
+            goto end;
+        }
+
+        /*
          * Write StopSession to peer to send test results from this side.
          */
         *err_ret = _BWLWriteStopSession(ep->rcntrl,&ipf_intr,ep->acceptval,
@@ -1399,13 +1405,21 @@ ACCEPT:
     }
 
 end:
-
-    BWLGetTimeStamp(ctx,&currtime);
-
     if (tsess->test_spec.verbose) {
         fprintf(tsess->localfp,"bwctl: stop_endpoint: %f\n",
                 BWLNum64ToDouble(currtime.tstamp));
     }
+
+    /* 
+     * Save acceptval because the BWLControlClose below can free the endpoint
+     */
+    acceptval = ep->acceptval;
+
+    if (ep->rcntrl) {
+        BWLControlClose(ep->rcntrl);
+    }
+
+    BWLGetTimeStamp(ctx,&currtime);
 
     /*
      * aval == remote status
@@ -1413,7 +1427,7 @@ end:
      *
      * return status to parent.
      */
-    exit(aval & ep->acceptval);
+    exit(aval & acceptval);
 }
 
 BWLBoolean
@@ -1488,7 +1502,7 @@ _BWLEndpointStop(
         )
 {
     int        teststatus;
-    BWLBoolean    retval;
+    BWLBoolean    retval = False;
     BWLEndpoint    ep = tsess->endpoint;
 
     if(!ep)
@@ -1496,6 +1510,7 @@ _BWLEndpointStop(
 
     if((ep->acceptval >= 0) || (ep->child == 0)){
         *err_ret = BWLErrOK;
+        retval = True;
         goto done;
     }
 

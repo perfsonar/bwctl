@@ -301,7 +301,7 @@ AllocReservation(
         goto error_exit;
     }
 
-    memcpy(res->sid,sid,sizeof(sid));
+    memcpy(res->sid,sid,sizeof(BWLSID));
 
     /*
      * Invoke 'tool' one-time initialization phase
@@ -361,10 +361,8 @@ ResRemove(
 {
     TimeSlot slot;
     TimeSlot slot_temp;
-    int i;
 
     for(slot = TAILQ_FIRST(&time_slots); slot; slot = slot_temp ) {
-        i++;
         slot_temp = TAILQ_NEXT(slot, entries);
 
         if (TimeSlotHasReservation(slot, res) == False)
@@ -488,6 +486,7 @@ ChldReservationDemand(
         return False;
 
     if(cstate->res){
+        /* FIXME: should be sizeof(BWLSID) */
         if(memcmp(sid,cstate->res->sid,sizeof(sid)))
             return False;
         /*
@@ -823,12 +822,12 @@ DisplayTimeSlots()
     TimeSlot slot;
     int i;
 
-    I2ErrLogP(errhand, LOG_DEBUG, "Time Slots");
+    BWLError(ctx,BWLErrDEBUG,BWLErrOK, "Time Slots");
 
     i = 1;
 
     TAILQ_FOREACH(slot, &time_slots, entries) {
-        I2ErrLogP(errhand, LOG_DEBUG,
+        BWLError(ctx,BWLErrDEBUG,BWLErrOK,
                   "Time Slot %d: %lu to %lu: %d reservations\n",
                   i, slot->start,
                   slot->end, slot->num_reservations);
@@ -845,6 +844,7 @@ ChldReservationComplete(
 {
     *err = 1;
 
+    /* FIXME: should be sizeof(BWLSID) */
     if(!cstate->res || memcmp(sid,cstate->res->sid,sizeof(sid)))
         return False;
 
@@ -1025,7 +1025,7 @@ CheckFD(
         BWLDLimRec      lim;
 
         BWLSID          sid;
-        BWLNum64        rtime,ftime,ltime,restime,rtttime;
+        BWLNum64        rtime,ftime,ltime,restime=0,rtttime;
         uint32_t        duration;
         uint16_t        toolport;
         BWLToolType     tool_id;
@@ -1537,7 +1537,10 @@ BWLDExecPostHookScript(
     char                *limit_class;
     struct timespec     ts;
 
-    pipe(pipe_fds);
+    if (pipe(pipe_fds) < 0) {
+        BWLError(ctx,BWLErrFATAL,errno,"pipe(): %M");
+        return;
+    }
 
     pid = fork();
     if (pid < 0) {
@@ -1562,7 +1565,7 @@ BWLDExecPostHookScript(
 
         execlp(script, script, NULL);
         BWLError(ctx,BWLErrFATAL,BWLErrUNKNOWN, "Couldn't execute script \'%s\'", script);
-        exit(-1);
+        exit(1);
     }
 
     /*
@@ -1598,7 +1601,7 @@ BWLDExecPostHookScript(
     fprintf(pipe_fp, "tool: %s\n", BWLToolGetNameByID(ctx,test_spec->tool_id));
     fprintf(pipe_fp, "user: %s\n", ctrl->userid_buffer);
     fprintf(pipe_fp, "limit_class: %s\n", limit_class);
-    fprintf(pipe_fp, "start_time: %d\n", ts.tv_sec);
+    fprintf(pipe_fp, "start_time: %ld\n", (long)ts.tv_sec);
     fprintf(pipe_fp, "is_host_sender: %s\n", (is_sender)?"YES":"NO");
     fprintf(pipe_fp, "tos: %d\n", test_spec->tos);
     buflen = sizeof(buf);
@@ -1609,7 +1612,7 @@ BWLDExecPostHookScript(
     fprintf(pipe_fp, "receiver: %s\n", I2AddrNodeName(test_spec->server, buf, &buflen));
     fprintf(pipe_fp, "duration: %i\n", test_spec->duration);
     fprintf(pipe_fp, "use_udp: %s\n", (test_spec->udp)?"YES":"NO");
-    fprintf(pipe_fp, "bandwidth: %llu\n", test_spec->bandwidth);
+    fprintf(pipe_fp, "bandwidth: %llu\n", (unsigned long long)test_spec->bandwidth);
     fprintf(pipe_fp, "window: %i\n", test_spec->window_size);
     fprintf(pipe_fp, "len_buffer: %i\n", test_spec->len_buffer);
     fprintf(pipe_fp, "report_interval: %u\n", test_spec->report_interval);
@@ -1682,7 +1685,6 @@ PostHookAvailable(
         )
 {
     int             len;
-    char            *cmd;
     int             fdpipe[2];
     pid_t           pid;
     int             status;
@@ -1719,7 +1721,7 @@ PostHookAvailable(
 
         execlp(script,script,"--validate",NULL);
         buf[buf_size-1] = '\0';
-        snprintf(buf,buf_size-1,"exec(%s)",cmd);
+        snprintf(buf,buf_size-1,"exec(%s)",script);
         perror(buf);
         exit(1);
     }
@@ -1966,7 +1968,7 @@ LoadConfig(
             }
         }
         else if(!strncasecmp(key,"verbose",8)){
-            I2ErrLog(errhand,"The verbose option has been depricated, ignoring...");
+            opts.verbose = True;
         }
         else if(!strncasecmp(key,"authmode",9) ||
                 !strncasecmp(key,"auth_mode",10)){
@@ -2083,6 +2085,8 @@ KillChildren(
 ) {
     I2HashIterate(pidtable,KillChildrenHandler,&signal);
     killpg(mypid,signal);
+
+    return True;
 }
 
 int
@@ -2245,7 +2249,7 @@ main(int argc, char *argv[])
         switch (ch) {
             /* Connection options. */
             case 'v':    /* -v "verbose" */
-                I2ErrLog(errhand,"The verbose (-v) option has been depricated, ignoring...");
+                opts.verbose = True;
                 break;
             case 'f':
                 opts.allowRoot = True;
@@ -2287,7 +2291,7 @@ main(int argc, char *argv[])
 #ifndef NDEBUG
             case 'w':
                 /* just non-null */
-                if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+                if( !BWLContextConfigSet(ctx,BWLChildWait,NOTNULL)){
                     I2ErrLog(errhand,
                             "ContextConfigSet(): Unable to set BWLChildWait");
                     exit(1);
@@ -2352,10 +2356,17 @@ main(int argc, char *argv[])
     };
 
     if(getenv("BWCTL_DEBUG_CHILDWAIT")){
-        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+        if( !BWLContextConfigSet(ctx,BWLChildWait,NOTNULL)){
             I2ErrLog(errhand,"BWLContextconfigSet(ChildWait): %M");
             exit(1);
         }
+    }
+
+    if(opts.verbose){
+        BWLContextSetErrMask(ctx,BWLErrOK);
+    }
+    else{
+        BWLContextSetErrMask(ctx,BWLErrINFO);
     }
 
     if( !BWLContextFinalize(ctx)){
@@ -2585,7 +2596,11 @@ main(int argc, char *argv[])
     if(mypid > 0){
 
         /* Record pid.  */
-        ftruncate(pid_fd, 0);
+        if (ftruncate(pid_fd, 0) < 0) {
+            I2ErrLogP(errhand, errno, "ftruncate: %M");
+            kill(mypid,SIGTERM);
+            exit(1);
+        }
         fprintf(pid_fp, "%lld\n", (long long)mypid);
         if (fflush(pid_fp) < 0) {
             I2ErrLogP(errhand, errno, "fflush: %M");
@@ -2609,7 +2624,7 @@ main(int argc, char *argv[])
             exit(1);
         }
         uptime = currtime.tstamp;
-        fprintf(info_fp, "START="BWL_TSTAMPFMT"\n", currtime.tstamp);
+        fprintf(info_fp, "START="BWL_TSTAMPFMT"\n", (unsigned long long)currtime.tstamp);
         fprintf(info_fp, "PID=%lld\n", (long long)mypid);
         while ((rc = fclose(info_fp)) < 0 && errno == EINTR);
         if(rc < 0){

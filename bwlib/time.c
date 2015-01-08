@@ -69,7 +69,9 @@
 static struct timeval   timeoffset;
 static int              sign_timeoffset = 0;
 static int              ntpsyscall_fails; /* initialized in InitNTP */
+#ifdef HAVE_SYS_TIMEX_H
 static int              ntp_unsync = 1;
+#endif
 
 /*
  * Function:	_BWLInitNTP
@@ -919,7 +921,6 @@ double BWLNum64ToTimestampDouble(BWLNum64 tstamp)
 {
     struct timespec ts;
     double retval;
-    double ts_nsec;
 
     /*
      * Convert "epoch"'s - must do before conversion or there is the risk
@@ -937,8 +938,6 @@ double BWLNum64ToTimestampDouble(BWLNum64 tstamp)
 
 BWLNum64 BWLTimestampToNum64(time_t ts)
 {
-    BWLNum64 retval;
-
     /*
      * Convert "epoch"'s - must do before conversion or there is the risk
      * of overflow since time_t is a 32bit signed quantity instead of

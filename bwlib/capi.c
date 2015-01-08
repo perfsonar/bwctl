@@ -71,7 +71,6 @@ _BWLClientBind(
         BWLErrSeverity	*err_ret
         )
 {
-    struct addrinfo *fai;
     struct addrinfo *ai;
     BWLBoolean      retval = False;
 
@@ -279,6 +278,23 @@ TryAddr(
         goto cleanup;
     }
 
+    {
+        char            remotenode[NI_MAXHOST],remoteserv[NI_MAXSERV];
+        size_t          remotenodelen = sizeof(remotenode);
+        size_t          remoteservlen = sizeof(remoteserv);
+        char            localnode[NI_MAXHOST],localserv[NI_MAXSERV];
+        size_t          localnodelen = sizeof(localnode);
+        size_t          localservlen = sizeof(localserv);
+
+        I2AddrNodeName(cntrl->remote_addr,remotenode,&remotenodelen);
+        I2AddrServName(cntrl->remote_addr,remoteserv,&remoteservlen);
+        I2AddrNodeName(cntrl->local_addr,localnode,&localnodelen);
+        I2AddrServName(cntrl->local_addr,localserv,&localservlen);
+
+        BWLError(cntrl->ctx,BWLErrDEBUG,0, "Outbound connection to (%s:%s) from (%s:%s)",
+            remotenode,remoteserv,localnode,localserv);
+    }
+
     return 0;
 
 cleanup:
@@ -318,8 +334,6 @@ _BWLClientConnect(
     int		rc;
     struct      addrinfo	*fai;
     struct      addrinfo	*ai;
-    char        buf[NI_MAXHOST+NI_MAXSERV+3];
-    size_t      buflen = sizeof(buf);
 
     if(!server_addr)
         goto error;
@@ -559,11 +573,11 @@ BWLControlOpen(
         char buf[255];
         buf[0] = '\0';
         if (mode_avail_orig & BWL_MODE_OPEN)
-		strncat(buf, " open", sizeof(buf));
+		strncat(buf, " open", sizeof(buf) - strlen(buf) - 1);
         if (mode_avail_orig & BWL_MODE_AUTHENTICATED)
-		strncat(buf, " authenticated", sizeof(buf));
+		strncat(buf, " authenticated", sizeof(buf) - strlen(buf) - 1);
         if (mode_avail_orig & BWL_MODE_ENCRYPTED)
-		strncat(buf, " encrypted", sizeof(buf));
+		strncat(buf, " encrypted", sizeof(buf) - strlen(buf) - 1);
 
         BWLError(cntrl->ctx,BWLErrINFO,BWLErrPOLICY,
                 "Server denied access. No authentication modes in common. Modes available: %s", buf);
@@ -817,9 +831,11 @@ BWLSessionRequest(
     int		    rc=0;
     I2Addr	    server=NULL;
     I2Addr	    client=NULL;
+    /*
     struct sockaddr *rsaddr;
     struct sockaddr *ssaddr;
     socklen_t       saddrlen;
+    */
     BWLNum64	    zero64=BWLULongToNum64(0);
     BWLBoolean	    retval = False;
 
@@ -981,10 +997,10 @@ foundaddr:
 
         /*
          * Save direct pointers to recv/send saddr's for policy funcs
-         */
         rsaddr = rai->ai_addr;
         ssaddr = sai->ai_addr;
         saddrlen = sai->ai_addrlen;
+         */
 
         /*
          * Create a structure to store the stuff we need to keep for

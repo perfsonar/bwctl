@@ -1,10 +1,10 @@
 /*
  * ex: set tabstop=4 ai expandtab softtabstop=4 shiftwidth=4:
  * -*- mode: c-basic-indent: 4; tab-width: 4; indent-tabs-mode: nil -*-
- *      $Id: traceroute.c 599 2013-08-02 17:27:12Z aaron $
+ *      $Id: paris-traceroute.c 599 2013-08-02 17:27:12Z aaron $
  */
 /*
- *    File:         traceroute.c
+ *    File:         paris-traceroute.c
  *
  *    Author:       Aaron Brown
  *                  Internet2
@@ -14,7 +14,7 @@
  *    Description:    
  *
  *    This file encapsulates the functionality required to run a
- *    traceroute test in bwctl.
+ *    paris traceroute test in bwctl.
  *
  *    License:
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,11 +35,10 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#define TRACEROUTE_DEFAULT_CMD         "traceroute"
-#define TRACEROUTE6_DEFAULT_CMD        "traceroute6"
+#define TRACEROUTE_DEFAULT_CMD         "paris-traceroute"
 
 /*
- * Function:    TracerouteAvailable
+ * Function:    ParisTracerouteAvailable
  * 
  * Description:
  *
@@ -53,36 +52,24 @@
  *
  */
 static BWLBoolean
-TracerouteAvailable(
+ParisTracerouteAvailable(
         BWLContext          ctx,
         BWLToolDefinition   tool
         )
 {
     BWLBoolean  traceroute_available = False;
-    BWLBoolean  traceroute6_available = False;
     char        *traceroute_cmd;
-    char        *traceroute6_cmd;
     int         n;
     char        buf[1024];
 
     /*
      * Fetch the 'traceroute'
      */
-    if( !(traceroute_cmd = (char *)BWLContextConfigGetV(ctx,"V.traceroute_cmd"))){
+    if( !(traceroute_cmd = (char *)BWLContextConfigGetV(ctx,"V.paris_traceroute_cmd"))){
         BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
-                "TracerouteAvailable(): %s unset, using \"%s\"",
+                "ParisTracerouteAvailable(): %s unset, using \"%s\"",
                 "traceroute_cmd",TRACEROUTE_DEFAULT_CMD);
         traceroute_cmd = TRACEROUTE_DEFAULT_CMD;
-    }
-
-    /*
-     * Fetch the 'traceroute6'
-     */
-    if( !(traceroute6_cmd = (char *)BWLContextConfigGetV(ctx,"V.traceroute6_cmd"))){
-        BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
-                "TracerouteAvailable(): %s unset, using \"%s\"",
-                "traceroute6_cmd",TRACEROUTE6_DEFAULT_CMD);
-        traceroute6_cmd = TRACEROUTE6_DEFAULT_CMD;
     }
 
     n = ExecCommand(ctx, buf, sizeof(buf), traceroute_cmd, "127.0.0.1", NULL);
@@ -92,34 +79,22 @@ TracerouteAvailable(
     else {
         traceroute_available = False;
         BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-            "TracerouteAvailable(): Unable to verify that '%s' is working. It may not be installed. exit status: %d: output: %s", traceroute_cmd, n, buf);
+            "ParisTracerouteAvailable(): Unable to verify that '%s' is working. It may not be installed. exit status: %d: output: %s", traceroute_cmd, n, buf);
     }
 
-
-    n = ExecCommand(ctx, buf, sizeof(buf), traceroute6_cmd, "::1", NULL);
-    if (n == 0) {
-        traceroute6_available = True;
-    }
-    else {
-        traceroute6_available = False;
-        BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-            "TracerouteAvailable(): Unable to verify that '%s' is working. It may not be installed. exit status: %d: output: %s", traceroute6_cmd, n, buf);
-    }
-
-
-    return (traceroute_available || traceroute6_available);
+    return traceroute_available;
 }
 
 
 /*
- * Function:    TraceroutePreRunTest
+ * Function:    ParisTraceroutePreRunTest
  *
  * Description:    
  *              Does all 'prep' work for running an traceroute test.
  *
  *              Returns a 'closure' pointer. NULL indicates
  *              failure.
- *              This 'closure' pointer is passed on to the TracerouteRunTest.
+ *              This 'closure' pointer is passed on to the ParisTracerouteRunTest.
  *
  *              (closure pointer is just the arg list for the exec)
  * In Args:    
@@ -130,34 +105,32 @@ TracerouteAvailable(
  * Returns:    
  * Side Effect:    
  */
-/* This TracerouteArgs can be a static because it is only used from within a
+/* This ParisTracerouteArgs can be a static because it is only used from within a
  * forked process. If bwctl ever goes to threads, this will need to be
  * made thread-local memory.
  */
-static char *TracerouteArgs[_BWL_MAX_TOOLARGS*2];
+static char *ParisTracerouteArgs[_BWL_MAX_TOOLARGS*2];
 static void *
-TraceroutePreRunTest(
+ParisTraceroutePreRunTest(
         BWLContext          ctx,
         BWLTestSession      tsess
         )
 {
     int             len;
     char            *cmd;
-    char            *default_cmd;
-    char            *cmd_variable;
     int             a = 0;
     I2Addr          remote_side;
     I2Addr          local_side;
     char            addr_str[INET6_ADDRSTRLEN];
 
-    // If 'server sends' mode is in effect, the server runs the traceroute command,
+    // If 'server sends' mode is in effect, the server runs the ping command,
     // because the client doesn't need to set anything up. It's a hack, but it
     // should work.
     if((tsess->conf_server && !tsess->test_spec.server_sends) ||
         (tsess->conf_client && tsess->test_spec.server_sends)) {
-        fprintf(tsess->localfp,"bwctl: nothing to exec for traceroute server\n");
-        TracerouteArgs[0] = NULL;
-        return (void *)TracerouteArgs;
+        fprintf(tsess->localfp,"bwctl: nothing to exec for paris traceroute server\n");
+        ParisTracerouteArgs[0] = NULL;
+        return (void *)ParisTracerouteArgs;
     }
 
     if (tsess->test_spec.server_sends) {
@@ -169,104 +142,90 @@ TraceroutePreRunTest(
         remote_side = tsess->test_spec.server;
     }
 
-    if (BWLAddrIsIPv6(ctx, remote_side)) {
-        cmd_variable = "V.traceroute6_cmd";
-        default_cmd = TRACEROUTE6_DEFAULT_CMD;
-    }
-    else {
-        cmd_variable = "V.traceroute_cmd";
-        default_cmd = TRACEROUTE_DEFAULT_CMD;
-    }
-
-    /* Run traceroute */
-    cmd = (char*)BWLContextConfigGetV(ctx,cmd_variable);
-    if(!cmd) cmd = default_cmd;
+    /* Run paris-traceroute */
+    cmd = (char*)BWLContextConfigGetV(ctx,"V.paris_traceroute_cmd");
+    if(!cmd) cmd = TRACEROUTE_DEFAULT_CMD;
 
     /*
      * First figure out the args for traceroute
      */
-    TracerouteArgs[a++] = cmd;
+    ParisTracerouteArgs[a++] = cmd;
 
     if(tsess->test_spec.traceroute_first_ttl){
-        TracerouteArgs[a++] = "-f";
-        if( !(TracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.traceroute_first_ttl))){
+        ParisTracerouteArgs[a++] = "-f";
+        if( !(ParisTracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.traceroute_first_ttl))){
             return NULL;
         }
     }
 
     if(tsess->test_spec.traceroute_last_ttl){
-        TracerouteArgs[a++] = "-m";
-        if( !(TracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.traceroute_last_ttl))){
+        ParisTracerouteArgs[a++] = "-m";
+        if( !(ParisTracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.traceroute_last_ttl))){
             return NULL;
         }
     }
 
+#if 0
+    /* No TOS bits supported */
     if(tsess->test_spec.tos){
-        TracerouteArgs[a++] = "-t";
-        if( !(TracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos))){
+        ParisTracerouteArgs[a++] = "-t";
+        if( !(ParisTracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos))){
             return NULL;
         }
     }
+#endif
 
-    if(tsess->test_spec.outformat){
-        switch((char)tsess->test_spec.outformat){
-            case 'a':
-                TracerouteArgs[a++] = "-n";
-                break;
-            default:
-                fprintf(tsess->localfp,
-                        "bwctl: tool(traceroute): Invalid out format (-y) specification %c\n",
-                        (char)tsess->test_spec.outformat);
-                return NULL;
+#if 0
+    // Bind to the specified address. Not supported currently.
+    ParisTracerouteArgs[a++] = "-s";
+    if( BWLAddrNodeName(ctx, local_side, addr_str, sizeof(addr_str), NI_NUMERICHOST) == 0) {
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"ParisTraceroutePreRunTest():Problem resolving address");
+        return NULL;
+    }
+
+    if( !(ParisTracerouteArgs[a++] = strdup(addr_str))){
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"ParisTraceroutePreRunTest():strdup(): %M");
+        return NULL;
+    }
+#endif
+
+#if 0
+    // unsupported
+    if(tsess->test_spec.traceroute_packet_size){
+        if( !(ParisTracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.traceroute_packet_size))){
+            return NULL;
         }
     }
-
-    // Bind to the specified address
-    TracerouteArgs[a++] = "-s";
-    if( BWLAddrNodeName(ctx, local_side, addr_str, sizeof(addr_str), NI_NUMERICHOST) == 0) {
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"TraceroutePreRunTest():Problem resolving address");
-        return NULL;
-    }
-
-    if( !(TracerouteArgs[a++] = strdup(addr_str))){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"TraceroutePreRunTest():strdup(): %M");
-        return NULL;
-    }
+#endif
 
     if( BWLAddrNodeName(ctx, remote_side, addr_str, sizeof(addr_str), NI_NUMERICHOST) == 0) {
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"TraceroutePreRunTest():Problem resolving address");
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"ParisTraceroutePreRunTest():Problem resolving address");
         return NULL;
     }
 
-    if( !(TracerouteArgs[a++] = strdup(addr_str))){
-        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"TraceroutePreRunTest():strdup(): %M");
+    if( !(ParisTracerouteArgs[a++] = strdup(addr_str))){
+        BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"ParisTraceroutePreRunTest():strdup(): %M");
         return NULL;
     }
 
-    if(tsess->test_spec.traceroute_packet_size){
-        if( !(TracerouteArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.traceroute_packet_size))){
-            return NULL;
-        }
-    }
-
-    TracerouteArgs[a++] = NULL;
+    ParisTracerouteArgs[a++] = NULL;
 
     /*
      * Report what will be run in the output file
      */
-    if (tsess->test_spec.verbose) {
+//    if (tsess->test_spec.verbose) {
         fprintf(tsess->localfp,"bwctl: exec_line:");
-        for(len=0;TracerouteArgs[len];len++){
-            fprintf(tsess->localfp," %s",TracerouteArgs[len]);
+        for(len=0;ParisTracerouteArgs[len];len++){
+            fprintf(tsess->localfp," %s",ParisTracerouteArgs[len]);
         }
         fprintf(tsess->localfp,"\n");
-    }
+//    }
 
-    return (void *)TracerouteArgs;
+    return (void *)ParisTracerouteArgs;
 }
 
 /*
- * Function:    TracerouteRunTest
+ * Function:    ParisTracerouteRunTest
  *
  * Description:    
  *
@@ -279,7 +238,7 @@ TraceroutePreRunTest(
  * Side Effect:    
  */
 static BWLBoolean
-TracerouteRunTest(
+ParisTracerouteRunTest(
         BWLContext          ctx,
         BWLTestSession      tsess,
         void                *closure
@@ -305,7 +264,7 @@ TracerouteRunTest(
 }
 
 /*
- * Function:    TracerouteInitTest
+ * Function:    ParisTracerouteInitTest
  *
  * Description:    
  *
@@ -318,7 +277,7 @@ TracerouteRunTest(
  * Side Effect:    
  */
 BWLErrSeverity
-TracerouteInitTest(
+ParisTracerouteInitTest(
         BWLContext          ctx,
         BWLToolDefinition   tool,
         uint16_t            *toolport
@@ -328,37 +287,33 @@ TracerouteInitTest(
 }
 
 int
-TracerouteParse(
+ParisTracerouteParse(
         BWLContext          ctx,
         BWLToolDefinition   tool,
         const char          *key,
         const char          *val
         )
 {
-    if(!strncasecmp(key,"traceroute_cmd",strlen(key))){
-        return save_path(ctx,key,val);
-    }
-
-    if(!strncasecmp(key,"traceroute6_cmd",strlen(key))){
+    if(!strncasecmp(key,"paris_traceroute_cmd",strlen(key))){
         return save_path(ctx,key,val);
     }
 
     return _BWLToolGenericParse(ctx, tool, key, val);
 }
 
-BWLToolDefinitionRec    BWLToolTraceroute = {
-    "traceroute",                  /* name             */
-    "traceroute",                  /* def_cmd          */
+BWLToolDefinitionRec    BWLToolParisTraceroute = {
+    "paris-traceroute",                  /* name             */
+    "paris-traceroute",                  /* def_cmd          */
     NULL,                    /* def_server_cmd   */
     0,                       /* def_port         */
-    TracerouteParse,               /* parse            */
+    ParisTracerouteParse,               /* parse            */
     BWLGenericParseTracerouteParameters,    /* parse_request */
     BWLGenericUnparseTracerouteParameters,  /* unparse_request */
-    TracerouteAvailable,           /* tool_avail       */
+    ParisTracerouteAvailable,           /* tool_avail       */
     _BWLToolGenericValidateTest,   /* validate_test    */
-    TracerouteInitTest,            /* init_test        */
-    TraceroutePreRunTest,          /* pre_run          */
-    TracerouteRunTest,             /* run              */
+    ParisTracerouteInitTest,            /* init_test        */
+    ParisTraceroutePreRunTest,          /* pre_run          */
+    ParisTracerouteRunTest,             /* run              */
     _BWLToolGenericKillTest, /* kill             */
     BWL_TEST_TRACEROUTE,     /* test_types       */
     BWLToolSenderSideData,      /* results_side     */
