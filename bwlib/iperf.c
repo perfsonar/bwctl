@@ -185,6 +185,9 @@ IperfPreRunTest(
         return NULL;
     }
 
+    /* Fill in any taskset options */
+    a = BWLToolGenericFillCPUAffinityCommand(ctx, tsess->tool, IperfArgs);
+
     /* Run iperf */
     cmd = (char*)BWLContextConfigGetV(ctx,"V.iperf_cmd");
     if(!cmd) cmd = tsess->tool->def_cmd;

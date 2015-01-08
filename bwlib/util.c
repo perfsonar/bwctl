@@ -665,3 +665,46 @@ BWLSockaddrCompare(
 
     return False;
 }
+
+BWLBoolean
+BWLParseCPUAffinityString(
+        const char *cpu_affinity
+        ) {
+    int i;
+    BWLBoolean retval = True;
+    BWLBoolean next_number = False;
+
+    if (strlen(cpu_affinity) == 0) {
+        retval = False;
+    }
+
+    for(i = 0; i < strlen(cpu_affinity); i++) {
+        switch (cpu_affinity[i]) {
+            case '-':
+            case ',':
+                if (next_number)
+                    retval = False;
+
+                next_number = True;
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                if (next_number)
+                    next_number = False;
+                break;
+
+            default:
+                retval = False;
+                break;
+        }
+    }
+
+    return retval;
+}

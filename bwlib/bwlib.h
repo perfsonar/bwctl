@@ -1574,6 +1574,13 @@ BWLToolSupportsEndpointlessTestsByID(
         BWLToolType tool_id
         );
 
+int
+BWLToolGenericFillCPUAffinityCommand(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        char **cmdline
+        );
+
 BWLNum64 BWLTimestampToNum64(time_t ts);
 
 #endif    /* OWAMP_H */

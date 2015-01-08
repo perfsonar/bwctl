@@ -160,6 +160,9 @@ NuttcpPreRunTest(
         return NULL;
     }
 
+    /* Fill in any taskset options */
+    a = BWLToolGenericFillCPUAffinityCommand(ctx, tsess->tool, NuttcpArgs);
+
     /*
      * Build conf-key name that is used to store the tool cmd
      */
