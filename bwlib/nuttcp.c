@@ -54,7 +54,6 @@ NuttcpAvailable(
         )
 {
     char            confkey[BWL_MAX_TOOLNAME + 10];
-    int             len;
     char            *cmd;
                     /* We expect 'nuttcp -V' to print to stdout something like
                     'nuttcp-.3.1' */
@@ -66,9 +65,8 @@ NuttcpAvailable(
      * Build conf-key name that is used to store the tool cmd
      */
     strcpy(confkey,"V.");
-    strncat(confkey,tool->name,sizeof(confkey));
-    len = strlen(confkey);
-    strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
+    strncat(confkey,tool->name,sizeof(confkey) - strlen(confkey) - 1);
+    strncat(confkey,"_cmd",sizeof(confkey) - strlen(confkey) - 1);
 
     /*
      * Fetch 'tool' name
@@ -167,9 +165,8 @@ NuttcpPreRunTest(
      * Build conf-key name that is used to store the tool cmd
      */
     strcpy(confkey,"V.");
-    strncat(confkey,tsess->tool->name,sizeof(confkey));
-    len = strlen(confkey);
-    strncpy(&confkey[len],"_cmd",sizeof(confkey)-len);
+    strncat(confkey,tsess->tool->name,sizeof(confkey) - strlen(confkey) - 1);
+    strncat(confkey,"_cmd",sizeof(confkey) - strlen(confkey) - 1);
 
     /* Run nuttcp */
     cmd = (char*)BWLContextConfigGetV(ctx,confkey);
@@ -322,5 +319,5 @@ BWLToolDefinitionRec    BWLToolNuttcp = {
     True,                   /* supports_server_sends */
     True,                    /* supports_endpointless */
     5001,                    /* The server port to use in endpointless tests */
-    NULL,                    /* parsable format */
+    0,                       /* parsable format */
 };

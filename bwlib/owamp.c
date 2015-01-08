@@ -35,6 +35,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <signal.h>
 
 static int do_mkdir(const char *path, mode_t mode);
 
@@ -141,10 +142,8 @@ OwampPreRunTest(
         BWLTestSession      tsess
         )
 {
-    char            confkey[BWL_MAX_TOOLNAME + 10];
     int             len;
     int             a = 0;
-    size_t          hlen;
     char            addr_str[INET6_ADDRSTRLEN];
     char            server_str[1024];
     char            port_range[1024];
@@ -441,5 +440,5 @@ BWLToolDefinitionRec    BWLToolOwamp = {
     True,                   /* supports_server_sends */
     True,                    /* supports_endpointless */
     861,                     /* The server port to use in endpointless tests */
-    NULL,                    /* parsable format */
+    0,                       /* parsable format */
 };

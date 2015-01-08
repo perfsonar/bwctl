@@ -36,6 +36,9 @@ case "$1" in
 		alias aclocal=aclocal17
 		export AUTOCONF=autoconf257
 		;;
+	homebrew)
+		alias libtoolize=glibtoolize
+		;;
 	*)
 		;;
 esac

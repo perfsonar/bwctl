@@ -31,6 +31,7 @@
  * 
  */
 #include <bwlib/bwlibP.h>
+#include <signal.h>
 
 /*
  * Function:    IperfAvailable
@@ -52,7 +53,6 @@ IperfAvailable(
         BWLToolDefinition   tool
         )
 {
-    int             len;
     char            *cmd;
     char            *pattern = "iperf version "; /* Expected begin of stderr */
                     /* We expect 'iperf -v' to print to stderr something like

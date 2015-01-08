@@ -480,8 +480,6 @@ BWLDiscoverSourceAddr(
             }
 
             for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-                size_t addrlen;
-
                 if (strcmp(ifa->ifa_name, local_interface) != 0)
                     continue;
     
@@ -570,7 +568,7 @@ BWLAddrIsLoopback(
     socklen_t       saddrlen;
     BWLBoolean      retval;
 
-    if(saddr = I2AddrSAddr(addr,&saddrlen)){
+    if((saddr = I2AddrSAddr(addr,&saddrlen))){
         if (I2SockAddrIsLoopback(saddr, saddrlen)) {
             retval = True;
         }
@@ -578,7 +576,7 @@ BWLAddrIsLoopback(
             retval = False;
         }
     }
-    else if (sai = I2AddrAddrInfo(addr, NULL, NULL)) {
+    else if ((sai = I2AddrAddrInfo(addr, NULL, NULL))) {
         retval = True;
 
         while(sai != NULL) {
