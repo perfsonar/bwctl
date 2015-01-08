@@ -613,6 +613,7 @@ _BWLEndpointStart(
     char                nambuf[MAXHOSTNAMELEN+8]; /* 8 chars for '[]:port\0' */
     size_t              nambuflen = sizeof(nambuf);
     char                addr_str[INET6_ADDRSTRLEN];
+    BWLAcceptType       acceptval;
 
 
     if( !(tsess->localfp = tfile(tsess)) ||
@@ -1409,16 +1410,21 @@ ACCEPT:
     }
 
 end:
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: stop_endpoint: %f\n",
+                BWLNum64ToDouble(currtime.tstamp));
+    }
+
+    /* 
+     * Save acceptval because the BWLControlClose below can free the endpoint
+     */
+    acceptval = ep->acceptval;
+
     if (ep->rcntrl) {
         BWLControlClose(ep->rcntrl);
     }
 
     BWLGetTimeStamp(ctx,&currtime);
-
-    if (tsess->test_spec.verbose) {
-        fprintf(tsess->localfp,"bwctl: stop_endpoint: %f\n",
-                BWLNum64ToDouble(currtime.tstamp));
-    }
 
     /*
      * aval == remote status
@@ -1426,7 +1432,7 @@ end:
      *
      * return status to parent.
      */
-    exit(aval & ep->acceptval);
+    exit(aval & acceptval);
 }
 
 BWLBoolean
