@@ -87,11 +87,7 @@ extern BWLToolDefinitionRec BWLToolIperf;
 #define BWLToolIperf    BWLToolNone
 #endif
 
-#ifdef  TOOL_IPERF3
 extern BWLToolDefinitionRec BWLToolIperf3;
-#else
-#define BWLToolIperf3    BWLToolNone
-#endif
 
 #ifdef  TOOL_NUTTCP
 extern BWLToolDefinitionRec BWLToolNuttcp;

@@ -32,17 +32,7 @@ else
 BWLIBTHRULAY =
 endif
 
-if TOOL_IPERF3
-if USE_SYS_IPERF3
-BWLIBIPERF3 = -liperf
-else
-BWLIBIPERF3 = ../iperf3/src/libiperf.a
-endif
-else
-BWLIBIPERF3 =
-endif
-
-bwctl_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) $(BWLIBIPERF3) -lI2util
+bwctl_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) -lI2util
 bwctl_LINKS     = bwtraceroute$(exeext) bwping$(exeext)
 
 bwtraceroute$(exeext): bwctl$(exeext)

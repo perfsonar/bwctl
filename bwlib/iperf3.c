@@ -52,9 +52,9 @@ Iperf3Available(
 {
     int             len;
     char            *cmd;
-    char            *pattern = "iperf 3"; /* Expected begin of stdout */
+    char            *patterns[] = { "iperf 3.0.11", "iperf 3.1" }; /* Expected begin of stdout */
                     /* We expect 'iperf3 -v' to print to stderr something like
-                    'iperf 3.0.9' */
+                    'iperf 3.0.11' or 'iperf 3.1*' */
     char            buf[1024];
     int             n;
 
@@ -72,16 +72,19 @@ Iperf3Available(
     if(n == 0 || n == 1) {
         int i;
         for(i = 0; i < strlen(buf); i++) {
-            if(0 == strncmp(buf + i,pattern,strlen(pattern))){
-                /* iperf3 found! */
-                return True;
+            int j;
+            for(j = 0; j < sizeof(patterns)/sizeof(char *); j++) {
+                if(0 == strncmp(buf + i,patterns[j],strlen(patterns[j]))){
+                    /* iperf3 found! */
+                    return True;
+                }
             }
         }
    }
 
    /* This is what we exit with if the exec fails so it likely means the tool isn't installed. */
    BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
-        "Iperf3Available(): Unable to verify that iperf3 is working. It may not be installed. exit status: %d: output: %s", n, buf);
+        "Iperf3Available(): An appropriate version of iperf3 is not available (>= 3.0.11). It may not be installed. exit status: %d: output: %s", n, buf);
 
    return False;
 }
@@ -199,6 +202,7 @@ Iperf3PreRunTest(
      */
     if(tsess->conf_server){
         Iperf3Args[a++] = "-s";
+        Iperf3Args[a++] = "-1"; // Make it a one-shot server
 
         Iperf3Args[a++] = "-B";
         if( !(Iperf3Args[a++] = strdup(recvhost))){
@@ -263,6 +267,8 @@ Iperf3PreRunTest(
      * set some client-specific parameters
      */
     if(!tsess->conf_server){
+        Iperf3Args[a++] = "-Z"; // Set the zerocopy mode by default (for backwards compatibility of results)
+
         if(tsess->test_spec.tos){
             Iperf3Args[a++] = "-S";
             if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos))){

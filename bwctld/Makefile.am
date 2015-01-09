@@ -32,17 +32,7 @@ else
 BWLIBTHRULAY =
 endif
 
-if TOOL_IPERF3
-if USE_SYS_IPERF3
-BWLIBIPERF3 = -liperf
-else
-BWLIBIPERF3 = ../iperf3/src/libiperf.a
-endif
-else
-BWLIBIPERF3 =
-endif
-
-bwctld_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) $(BWLIBIPERF3) -lI2util
+bwctld_LDADD	= -L../bwlib -lbwlib $(BWLIBTHRULAY) -lI2util
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
