@@ -1,15 +1,12 @@
 import datetime
 from bwctl.utils import timedelta_seconds
-from bwctl.tool_runner import ToolRunner
+from bwctl.cmd_runner import CmdRunner
 
 debug = True
 
 def run_test(start_time=None, end_time=None, cmd_line=None, timeout=0, callback=None):
-    tr = ToolRunner(start_time=start_time, end_time=end_time, cmd_line=cmd_line)
-    tr.run()
-    results = tr.get_results(timeout=0)
-    if callback:
-        callback(results)
+    tr = CmdRunner(start_time=start_time, end_time=end_time, cmd_line=cmd_line)
+    results = tr.run_cmd()
     if debug:
         print "Results:"
         print " - Command: %s" % " ".join(cmd_line)
@@ -18,6 +15,8 @@ def run_test(start_time=None, end_time=None, cmd_line=None, timeout=0, callback=
         print " - Return Code: %d" % results.return_code
         print " - Standard Out: %s" % results.stdout
         print " - Standard Err: %s" % results.stderr
+    if callback:
+        callback(results)
 
 def test_succeed():
     start_time=datetime.datetime.now()

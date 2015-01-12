@@ -8,7 +8,7 @@ from bwctl.models import Test
 from bwctl import jsonobject
 from bwctl.utils import BwctlProcess
 from bwctl import server
-from bwctl.exceptions import BwctlException, SystemProblemException
+from bwctl.exceptions import BwctlException, SystemProblemException, ValidationException
 
 class RestApiServer(BwctlProcess):
     def __init__(self, coordinator_client=None):
@@ -59,7 +59,6 @@ def handle_bwctl_exceptions(function):
             result = e.as_bwctl_error().to_json()
             cherrypy.response.status = e.http_error
         except Exception as e:
-            print "Got this other weird error"
             err = SystemProblemException(str(e))
             result = err.as_bwctl_error().to_json()
             cherrypy.response.status = err.http_error
@@ -101,7 +100,7 @@ class TestsController:
     try:
         test = Test(cherrypy.request.json)
     except Exception as e:
-       raise ValidationException("Problem parsing test definition")
+       raise ValidationException("Problem parsing test definition: %s" % e)
 
     added_test = get_coord_client().request_test(test, requesting_address=cherrypy.request.remote.ip)
 

@@ -114,7 +114,7 @@ class Test(jsonobject.JsonObject):
 
     # Tool parameters
     tool                  = jsonobject.StringProperty(exclude_if_none=True, required=True)
-    tool_parameters       = jsonobject.JsonObject(exclude_if_none=True, required=True)
+    tool_parameters       = jsonobject.DictProperty(exclude_if_none=True, required=True)
 
     def change_state(self, new_state):
         valid_state_change(self.status, new_state)

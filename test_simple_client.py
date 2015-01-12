@@ -6,21 +6,27 @@ client = SimpleClient('http://localhost:8080/bwctl')
 
 print client.get_status()
 
-test = Test(tool="owamp",
+test = Test(tool="iperf",
             client=ClientSettings(
                 address="127.0.0.1",
                 time=datetime.datetime.now()
             ),
+            local_sender=True,
             sender_endpoint=Endpoint(
                 address="127.0.0.1"
             ),
             receiver_endpoint=Endpoint(
                 address="127.0.0.1"
             ),
+            tool_parameters={
+                'duration': 30
+            },
             scheduling_parameters=SchedulingParameters(
-                requested_time=datetime.datetime.now()
+                requested_time=datetime.datetime.now()+datetime.timedelta(seconds=2)
             )
        )
+
+print "Test: %s" % test.to_json()
 
 ret_test = client.request_test(test)
 

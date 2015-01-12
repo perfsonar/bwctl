@@ -17,7 +17,7 @@ class CmdRunner:
     def __init__(self, start_time=None, end_time=None, cmd_line=[]):
         self.start_time = start_time
         self.end_time   = end_time
-        self.cmd_line   = cmd_line
+        self.cmd_line   = map(lambda x: str(x), cmd_line)
 
         self.results = None
 
@@ -35,6 +35,8 @@ class CmdRunner:
             if now < self.start_time:
                 sleep_time = timedelta_seconds(self.start_time - now)
                 time.sleep(sleep_time)
+
+            print "Command line: %s" % self.cmd_line
 
             p = Popen(self.cmd_line, shell=False, stdout=PIPE, stderr=PIPE, close_fds=True)
             stdout_pipe = p.stdout
@@ -62,10 +64,10 @@ class CmdRunner:
             return_code = p.poll()
             if return_code == None:
                return_code = -1
+               p.terminate()
 
-            # Kill off any children
-            self.kill_children()
-        except:  # XXX: handle this better
+        except Exception as e:  # XXX: handle this better
+            stdout = stdout + "\n" + str(e)
             return_code = -1
 
         results = CmdResults(start_time=actual_start_time, end_time=actual_end_time, return_code=return_code, stdout=stdout, stderr=stderr)

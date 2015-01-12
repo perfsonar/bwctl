@@ -1,5 +1,6 @@
 from bwctl.utils import BwctlProcess, timedelta_seconds
 from bwctl.server.scheduler import Scheduler
+from bwctl.tool_runner import ToolRunner
 from bwctl.server.coordinator import CoordinatorServer, CoordinatorClient
 from bwctl.models import BWCTLError, Results
 from bwctl.exceptions import *
@@ -16,21 +17,10 @@ class TestCoordinator(CoordinatorServer):
         super(TestCoordinator, self).__init__(server_address=server_address, server_port=server_port, auth_key=auth_key)
 
     def handle_get_test(self, requesting_address=None, test_id=None):
-        # 1. Read test from the DB
-        # 2. Return the test
-
-        test = self.tests_db.get_test(test_id)
-
-        return test
+        return self.tests_db.get_test(test_id)
 
     def handle_get_test_results(self, requesting_address=None, test_id=None):
-        # 1. Read test results from the DB
-        # 2. Return a get-test-response message
-
-        results = self.tests_db.get_results(test_id)
-
-        return results
-
+        return self.tests_db.get_results(test_id)
 
     def handle_request_test(self, requesting_address=None, test=None):
         # 1. Save the test to the DB with a 'pending' status
@@ -50,7 +40,9 @@ class TestCoordinator(CoordinatorServer):
 
         test.change_state("accepted")
 
-        test.scheduling_parameters.accepted_time = datetime.datetime.now() + datetime.timedelta(seconds=5)
+        test.scheduling_parameters.reservation_start_time = datetime.datetime.now() + datetime.timedelta(seconds=1)
+        test.scheduling_parameters.test_start_time = datetime.datetime.now() + datetime.timedelta(seconds=5)
+        test.scheduling_parameters.reservation_end_time = test.scheduling_parameters.test_start_time + datetime.timedelta(seconds=test.duration)
 
         test.change_state("scheduled")
 
@@ -78,7 +70,6 @@ class TestCoordinator(CoordinatorServer):
         pass
 
     def handle_client_confirm_test(self, requesting_address=None, test_id=None):
-        print "handle_client_confirm_test: %s" % test_id
         # 1. If the test's status is already confirmed, goto #4
         # 2. Mark the test's status as "client-confirmed"
         # 3. Spawn a process to validate the test with the other side
@@ -117,19 +108,22 @@ class TestCoordinator(CoordinatorServer):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
-        # XXX: we should check if we're past the test's start time, and fail if so.
-
         test.change_state("server-confirmed")
 
         self.tests_db.replace_test(test_id, test)
 
-        start_failure_proc = TestTimeoutFailureProcess(
-                                                       test_id=test_id,
-                                                       coordinator_address=self.server_address,
-                                                       coordinator_port=self.server_port,
-                                                       auth_key=self.auth_key
-                                                     )
-        start_failure_proc.start()
+        def handle_results_cb(results):
+            coordinator_client = CoordinatorClient(server_address=self.server_address,
+                                                   server_port=self.server_port,
+                                                   auth_key=self.auth_key)
+
+            coordinator_client.finish_test(test_id, results)
+
+        tool_runner_proc = ToolRunner(test=test, results_cb=handle_results_cb)
+
+        tool_runner_proc.start()
+
+        self.test_processes[test.id] = tool_runner_proc
 
         return
 
@@ -151,6 +145,14 @@ class TestCoordinator(CoordinatorServer):
         test.change_state("finished")
 
         self.tests_db.add_results(test_id, results)
+
+        if test.id in self.test_processes:
+            try:
+                self.test_processes[test.id].terminate()
+            except:
+                pass
+
+            del(self.test_processes[test.id])
 
         return
 
@@ -198,24 +200,6 @@ class TestActionHandlerProcess(BwctlProcess):
                   )
 
         self.coordinator_client.finish_test(self.test_id, results)
-
-class TestHandlerProcess(TestActionHandlerProcess):
-    def handler(self):
-        # Wait until a couple seconds past the time the test was supposed to start.
-        td = datetime.datetime.now() - self.test.scheduling_parameters.accepted_time
-        td = td + datetime.timedelta(seconds=2) # Wait for 2 seconds after
-
-        sleep_time = timedelta_seconds(td)
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-
-        # Check if the test is currently running or finished, and raise an
-        # error if not.
-        test = self.refresh_test()
-        if test.status != "running" and test.status != "finished":
-            raise TestStartTimeFailure
-
-        return
 
 class ValidateRemoteTestProcess(TestActionHandlerProcess):
     def handler(self):

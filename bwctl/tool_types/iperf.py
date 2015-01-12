@@ -6,45 +6,41 @@ from bwctl.config import get_config
 class Iperf(Base):
     name = "iperf"
     type = ToolTypes.THROUGHPUT
-    known_parameters = [ "duration", "protocol", "bandwidth", "parallel_streams", "report_interval", "window_size", "buffer_size", "omit_seconds", "tos_bits", "units", "output_format", "receiver_connects" ]
+    known_parameters = [ "duration", "protocol", "bandwidth", "parallel_streams", "report_interval", "window_size", "buffer_size", "omit_seconds", "tos_bits", "units", "output_format" ]
     default_server_tool = "iperf"
     default_client_tool = "iperf"
 
     def build_command_line(cls, test):
         cmd_line = []
 
-        is_sender = False
-        if test.sender_endpoint.is_local():
-            is_sender = True
-
-        cmd_line.append("iperf")
+        cmd_line.extend(["iperf"])
 
         # Print the MTU as well
-        cmd_line.append("-m")
+        cmd_line.extend(["-m"])
 
-        if is_sender:
-            cmd_line.append("-B", test.sender_endpoint.address)
+        if test.local_sender:
+            cmd_line.extend(["-B", test.sender_endpoint.address])
         else:
-            cmd_line.append("-B", test.receiver_endpoint.address)
+            cmd_line.extend(["-B", test.receiver_endpoint.address])
 
-        if is_sender:
-            cmd_line.append("-c", test.receiver_endpoint.address)
-            cmd_line.append("-p", test.receiver_endpoint.tool_port)
+        if test.local_sender:
+            cmd_line.extend(["-c", test.receiver_endpoint.address])
+            cmd_line.extend(["-p", test.receiver_endpoint.test_port])
         else:
-            cmd_line.append("-s")
+            cmd_line.extend(["-s"])
 
-        cmd_line.append("-t", test.test_parameters['duration'])
+        cmd_line.extend(["-t", test.tool_parameters['duration']])
 
-        if "units" in test.test_parameters:
-            cmd_line.append("-f", test.test_parameters['units'])
+        if "units" in test.tool_parameters:
+            cmd_line.extend(["-f", test.tool_parameters['units']])
 
-        #if "tos_bts" in test.test_parameters:
-        #    cmd_line.append("-S", test.test_parameters['units'])
+        #if "tos_bts" in test.tool_parameters:
+        #    cmd_line.extend(["-S", test.tool_parameters['units']])
 
-        if "output_format" in test.test_parameters:
-            cmd_line.append("-y", test.test_parameters['output_format'])
+        if "output_format" in test.tool_parameters:
+            cmd_line.extend(["-y", test.tool_parameters['output_format']])
 
-        if "parallel_streams" in test.test_parameters:
-            cmd_line.append("-P", test.test_parameters['parallel_streams'])
+        if "parallel_streams" in test.tool_parameters:
+            cmd_line.extend(["-P", test.tool_parameters['parallel_streams']])
 
         return cmd_line

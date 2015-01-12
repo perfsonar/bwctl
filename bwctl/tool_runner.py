@@ -1,9 +1,15 @@
+import datetime
+
 from bwctl.utils import BwctlProcess
+from bwctl.cmd_runner import CmdRunner
 from bwctl.tools import get_tool
-from bwctl.tools import get_tool
+from bwctl.models import Results
+from bwctl.exceptions import BwctlException, SystemProblemException, TestStartTimeFailure
 
 class ToolRunner(BwctlProcess):
     def __init__(self, test=None, results_cb=None):
+        super(ToolRunner, self).__init__()
+
         self.test = test
         self.results_cb = results_cb
 
@@ -27,13 +33,24 @@ class ToolRunner(BwctlProcess):
         test_results = None
 
         try:
+            if self.cmd_runner.start_time and self.cmd_runner.start_time < datetime.datetime.now():
+                raise TestStartTimeFailure
+
             cmd_results = self.cmd_runner.run_cmd()
             test_results = self.test.tool_obj.get_results(exit_status=cmd_results.return_code,
                                                           stdout=cmd_results.stdout,
                                                           stderr=cmd_results.stderr)
-        except Exception as e:
-            err = SystemProblemException(str(e))
+        except BwctlException as e:
+            print "BwctlException error"
+            err = e.as_bwctl_error()
             test_results = Results(status="failed", bwctl_errors=[ err ])
+        except Exception as e:
+            print "Exception error"
+            err = SystemProblemException(str(e))
+            print "Exception error: %s" % err
+            test_results = Results(status="failed", bwctl_errors=[ err ])
+
+        print "Results: %s" % test_results
 
         self.results_cb(test_results)
 
