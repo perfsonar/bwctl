@@ -96,11 +96,10 @@ class Endpoint(jsonobject.JsonObject):
     client_time_offset = jsonobject.IntegerProperty(exclude_if_none=True, default=0)
     ntp_error = jsonobject.FloatProperty(exclude_if_none=True)
 
+    local     = jsonobject.BooleanProperty(exclude_if_none=True)
+
 class Test(jsonobject.JsonObject):
     id                    = jsonobject.StringProperty(exclude_if_none=True)
-
-    # Whether the local bwctl server instance is the sender or the receiver
-    local_sender          = jsonobject.BooleanProperty(exclude_if_none=True)
 
     status                = jsonobject.StringProperty(exclude_if_none=True, validators=valid_status)
 
@@ -126,7 +125,11 @@ class Test(jsonobject.JsonObject):
 
     @property
     def local_client(self):
-        return self.local_sender and not self.tool_obj.receiver_is_client(self)
+        return self.receiver_endpoint.local and self.tool_obj.receiver_is_client(self)
+
+    @property
+    def local_receiver(self):
+        return self.receiver_endpoint.local
 
     @property
     def fuzz(self):

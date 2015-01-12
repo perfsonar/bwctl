@@ -11,9 +11,9 @@ test = Test(tool="iperf",
                 address="127.0.0.1",
                 time=datetime.datetime.now()
             ),
-            local_sender=True,
             sender_endpoint=Endpoint(
-                address="127.0.0.1"
+                address="127.0.0.1",
+                local=True
             ),
             receiver_endpoint=Endpoint(
                 address="127.0.0.1"

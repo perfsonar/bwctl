@@ -21,9 +21,9 @@ class ToolRunner(BwctlProcess):
         end_time   = None
 
         if test.local_client:
-            start_time = test.scheduling_parameters.reservation_start_time
-        else:
             start_time = test.scheduling_parameters.test_start_time
+        else:
+            start_time = test.scheduling_parameters.reservation_start_time
 
         end_time = test.scheduling_parameters.reservation_end_time
 
@@ -41,16 +41,11 @@ class ToolRunner(BwctlProcess):
                                                           stdout=cmd_results.stdout,
                                                           stderr=cmd_results.stderr)
         except BwctlException as e:
-            print "BwctlException error"
             err = e.as_bwctl_error()
             test_results = Results(status="failed", bwctl_errors=[ err ])
         except Exception as e:
-            print "Exception error"
             err = SystemProblemException(str(e))
-            print "Exception error: %s" % err
             test_results = Results(status="failed", bwctl_errors=[ err ])
-
-        print "Results: %s" % test_results
 
         self.results_cb(test_results)
 
