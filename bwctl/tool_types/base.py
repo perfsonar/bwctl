@@ -1,4 +1,5 @@
 from bwctl.tools import ToolTypes
+from bwctl.models import Results
 
 class Base:
     name = ""
@@ -12,6 +13,13 @@ class Base:
 
         return True
 
+    def receiver_is_client(self, test):
+        if "receiver_connects" in self.known_parameters and
+            "receiver_connects" in test.tool_parameters:
+            return test.tool_parameters["receiver_connects"]
+
+        return False
+
     def check_config(self, cfg):
         pass
 
@@ -22,9 +30,7 @@ class Base:
         raise Exception("build_command_line must be overwritten")
 
     def get_results(self, exit_status=0, stdout="", stderr=""):
-        return {
-            'tool_results': stderr + stdout,
-        }
+        return Results(status="finished", tool_results=stderr+stdout)
 
     def duration(self, test):
         """ Returns the test length, a required paramter. If 'duration' isn't an

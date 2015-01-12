@@ -77,7 +77,9 @@ class SchedulingParameters(jsonobject.JsonObject):
     priority               = jsonobject.FloatProperty(exclude_if_none=True)
     requested_time         = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True, required=True)
     latest_acceptable_time = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True)
-    accepted_time          = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True)
+    test_start_time        = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True)
+    reservation_start_time = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True)
+    reservation_end_time   = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True)
 
 class Endpoint(jsonobject.JsonObject):
     address   = jsonobject.StringProperty(exclude_if_none=True, required=True)
@@ -96,6 +98,9 @@ class Endpoint(jsonobject.JsonObject):
 
 class Test(jsonobject.JsonObject):
     id                    = jsonobject.StringProperty(exclude_if_none=True)
+
+    # Whether the local bwctl server instance is the sender or the receiver
+    local_sender          = jsonobject.BooleanProperty(exclude_if_none=True)
 
     status                = jsonobject.StringProperty(exclude_if_none=True, validators=valid_status)
 
@@ -116,6 +121,14 @@ class Test(jsonobject.JsonObject):
         self.status = new_state
 
     @property
+    def tool_obj(self):
+        return get_tool(self.tool)
+
+    @property
+    def local_client(self):
+        return self.local_sender and not self.tool_obj.receiver_is_client(self)
+
+    @property
     def fuzz(self):
         offset = 0
         if self.sender_endpoint:
@@ -132,16 +145,12 @@ class Test(jsonobject.JsonObject):
     @property
     def test_type(self):
         tool = get_tool(self.tool)
-        if not tool:
-            raise SystemProblemException("Unknown tool type")
 
         return tool.type
 
     @property
     def duration(self):
         tool = get_tool(self.tool)
-        if not tool:
-            raise SystemProblemException("Unknown tool type")
 
         return tool.duration(self)
 

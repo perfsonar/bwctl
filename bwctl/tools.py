@@ -1,3 +1,5 @@
+from bwctl.exceptions import InvalidToolException
+
 tool_classes = [
     "bwctl.tool_types.iperf.Iperf",
     "bwctl.tool_types.owamp.Owamp",
@@ -28,7 +30,7 @@ def get_tool_types():
 def get_tool(name):
     if name in tools.keys():
         return tools[name]
-    return None
+    raise InvalidToolException
 
 # Load the various tool modules
 if not tools_initialized:

@@ -108,7 +108,6 @@ class TestCoordinator(CoordinatorServer):
         return
 
     def handle_server_confirm_test(self, requesting_address=None, test_id=None):
-        print "handle_server_confirm_test: %s" % test_id
         # 1. If the server status is already confirmed, goto #4
         # 2. Mark the server status as "server-confirmed"
         # 3. Spawn a process to exec the tool at the specified time
@@ -156,7 +155,7 @@ class TestCoordinator(CoordinatorServer):
         return
 
 class TestActionHandlerProcess(BwctlProcess):
-    def __init__(self, test_id=None, coordinator_address=None,
+    def __init__(self, test_id=None, test=None, coordinator_address=None,
                        coordinator_port=None, auth_key=None):
 
         coordinator_client = CoordinatorClient(server_address=coordinator_address,
@@ -165,6 +164,7 @@ class TestActionHandlerProcess(BwctlProcess):
 
         self.coordinator_client = coordinator_client
         self.test_id            = test_id
+        self.test               = test
 
         super(TestActionHandlerProcess, self).__init__()
 
@@ -184,8 +184,9 @@ class TestActionHandlerProcess(BwctlProcess):
         if err:
             self.handle_failure(err.as_bwctl_error())
 
-    def get_test(self):
-        return self.coordinator_client.get_test(self.test_id)
+    def refresh_test(self):
+        self.test = self.coordinator_client.get_test(self.test_id)
+        return self.test
 
     def handler(self):
         raise SystemProblemException("The handler function needs overwritten")
@@ -198,22 +199,19 @@ class TestActionHandlerProcess(BwctlProcess):
 
         self.coordinator_client.finish_test(self.test_id, results)
 
-class TestTimeoutFailureProcess(TestActionHandlerProcess):
-    """ A process that waits until a little bit after the test should've
-    started, checks if the test is running, and fails the test if it is not. """
+class TestHandlerProcess(TestActionHandlerProcess):
     def handler(self):
-	# Wait until a couple seconds past the time the test was supposed to start.
-        test = self.get_test()
-        td = datetime.datetime.now() - test.scheduling_parameters.accepted_time
+        # Wait until a couple seconds past the time the test was supposed to start.
+        td = datetime.datetime.now() - self.test.scheduling_parameters.accepted_time
         td = td + datetime.timedelta(seconds=2) # Wait for 2 seconds after
 
         sleep_time = timedelta_seconds(td)
         if sleep_time > 0:
             time.sleep(sleep_time)
 
-	# Check if the test is currently running or finished, and raise an
-	# error if not.
-        test = self.get_test()
+        # Check if the test is currently running or finished, and raise an
+        # error if not.
+        test = self.refresh_test()
         if test.status != "running" and test.status != "finished":
             raise TestStartTimeFailure
 
@@ -222,6 +220,8 @@ class TestTimeoutFailureProcess(TestActionHandlerProcess):
 class ValidateRemoteTestProcess(TestActionHandlerProcess):
     def handler(self):
         # XXX: actually validate the test
+        # XXX: timeout if we'd be validating longer than the test would take to
+        #      start
 
         self.coordinator_client.server_confirm_test(self.test_id)
 
