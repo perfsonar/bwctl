@@ -112,6 +112,18 @@ class TestCoordinator(CoordinatorServer):
 
         self.tests_db.replace_test(test_id, test)
 
+        return
+
+    def handle_remote_confirm_test(self, requesting_address=None, test_id=None):
+        # 1. If the server status is already confirmed, goto #4
+        # 2. Mark the server status as "server-confirmed"
+        # 3. Spawn a process to exec the tool at the specified time
+        #    - Fail the test if the process can't be spawned
+        # 4. Return a server-confirm-response message
+        test = self.tests_db.get_test(test_id)
+        if not test:
+            raise ResourceNotFoundException("Test not found")
+
         def handle_results_cb(results):
             coordinator_client = CoordinatorClient(server_address=self.server_address,
                                                    server_port=self.server_port,
@@ -145,6 +157,7 @@ class TestCoordinator(CoordinatorServer):
         test.change_state("finished")
 
         self.tests_db.add_results(test_id, results)
+        self.tests_db.replace_test(test_id, test)
 
         if test.id in self.test_processes:
             try:
@@ -179,8 +192,6 @@ class TestActionHandlerProcess(BwctlProcess):
         except BwctlException as e:
             err = e
         except Exception as e:
-            import traceback
-            print "Stack trace: %s" % traceback.format_exc()
             err = SystemProblemException(str(e))
 
         if err:

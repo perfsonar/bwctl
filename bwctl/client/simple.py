@@ -54,6 +54,12 @@ class SimpleClient:
         r.raise_for_status()
         return True
 
+    def remote_accept_test(self, id):
+        url = urljoin(self.base_url, "tests", id, "remote_accept")
+        r = self.session.post(url, data="{}", headers={'Content-Type': 'application/json'})
+        r.raise_for_status()
+        return True
+
     def cancel_test(self, id):
         url = urljoin(self.base_url, "tests", id, "cancel")
         r = self.session.post(url, data="{}", headers={'Content-Type': 'application/json'})

@@ -1,6 +1,7 @@
 from bwctl.client.simple import SimpleClient
 from bwctl.models import Test, SchedulingParameters, Endpoint, ClientSettings
 import datetime
+import time
 
 client = SimpleClient('http://localhost:8080/bwctl')
 
@@ -34,4 +35,11 @@ print "Test ID: %s" % ret_test.id
 
 client.accept_test(ret_test.id)
 
-client.get_test_results(ret_test.id)
+client.remote_accept_test(ret_test.id)
+
+while ret_test.status != "finished":
+    time.sleep(1)
+    ret_test = client.get_test(ret_test.id)
+
+results = client.get_test_results(ret_test.id)
+print "Results: %s" % results

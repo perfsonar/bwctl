@@ -26,6 +26,7 @@ class RestApiServer(BwctlProcess):
         dispatcher.connect('update_test', '/bwctl/tests/:id',   controller=tests_controller, action='update_test', conditions=dict(method=['PUT']))
         dispatcher.connect('cancel_test', '/bwctl/tests/:id/cancel',   controller=tests_controller, action='cancel_test', conditions=dict(method=['POST']))
         dispatcher.connect('accept_test', '/bwctl/tests/:id/accept',   controller=tests_controller, action='accept_test', conditions=dict(method=['POST']))
+        dispatcher.connect('remote_accept_test', '/bwctl/tests/:id/remote_accept',   controller=tests_controller, action='remote_accept_test', conditions=dict(method=['POST']))
         dispatcher.connect('get_results', '/bwctl/tests/:id/results',   controller=tests_controller, action='get_results', conditions=dict(method=['GET']))
 
         cherrypy.tree.mount(root=None, config={
@@ -144,5 +145,12 @@ class TestsController:
   @handle_bwctl_exceptions
   def accept_test(self, id):
     get_coord_client().client_confirm_test(id, requesting_address=cherrypy.request.remote.ip)
+
+    return {}
+
+  @cherrypy.expose
+  @handle_bwctl_exceptions
+  def remote_accept_test(self, id):
+    get_coord_client().remote_confirm_test(id, requesting_address=cherrypy.request.remote.ip)
 
     return {}
