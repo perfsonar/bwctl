@@ -125,7 +125,8 @@ class Test(jsonobject.JsonObject):
 
     @property
     def local_client(self):
-        return self.receiver_endpoint.local and self.tool_obj.receiver_is_client(self)
+        return (self.receiver_endpoint.local and self.tool_obj.receiver_is_client(self)) or \
+               (self.sender_endpoint.local and not self.tool_obj.receiver_is_client(self))
 
     @property
     def local_receiver(self):
