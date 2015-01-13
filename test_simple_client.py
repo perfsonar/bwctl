@@ -13,10 +13,11 @@ test = Test(tool="iperf",
                 time=datetime.datetime.now()
             ),
             sender_endpoint=Endpoint(
-                address="127.0.0.1",
-                local=True
+                #local=True,
+                address="127.0.0.1"
             ),
             receiver_endpoint=Endpoint(
+                local=True,
                 address="127.0.0.1"
             ),
             tool_parameters={

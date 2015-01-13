@@ -33,26 +33,33 @@ class TestCoordinator(CoordinatorServer):
         # 5. Mark the test as "confirmed", and update the 'scheduled' times
         # 6. Return a get-test-request-response message
 
-        # XXX: check limits
-
         if test.id:
             raise ValidationException("New test shouldn't have an id")
 
+        # XXX: validate test
+
+        # XXX: check limits
+
+        # accept test, and add it to the DB (gets us an ID)
         test.change_state("accepted")
-
-        test.scheduling_parameters.reservation_start_time = datetime.datetime.now() + datetime.timedelta(seconds=1)
-        test.scheduling_parameters.test_start_time = datetime.datetime.now() + datetime.timedelta(seconds=5)
-        test.scheduling_parameters.reservation_end_time = test.scheduling_parameters.test_start_time + datetime.timedelta(seconds=test.duration)
-
-        test.change_state("scheduled")
 
         test_id = self.tests_db.add_test(test)
         if not test_id:
             raise SystemProblemException("Problem adding test to DB")
 
-        ret_test = self.tests_db.get_test(test_id)
+        test = self.tests_db.get_test(test_id)
 
-        return ret_test
+        # Try to schedule the test
+        times = self.scheduler.add_test(test)
+
+        test.change_state("scheduled")
+        test.scheduling_parameters.reservation_start_time = times.reservation_start_time
+        test.scheduling_parameters.reservation_end_time = times.reservation_end_time
+        test.scheduling_parameters.test_start_time = times.test_start_time
+
+        self.tests_db.replace_test(test_id, test)
+
+        return test
 
     def handle_update_test(self, requesting_address=None, test_id=None, test=None):
         # 1. Check if the test's status is "client-confirmed" or higher
@@ -115,6 +122,9 @@ class TestCoordinator(CoordinatorServer):
         return
 
     def handle_remote_confirm_test(self, requesting_address=None, test_id=None):
+	# XXX: We should really require that the requesting address either be
+	# the remote endpoint, or that
+
         # 1. If the server status is already confirmed, goto #4
         # 2. Mark the server status as "server-confirmed"
         # 3. Spawn a process to exec the tool at the specified time
@@ -156,9 +166,15 @@ class TestCoordinator(CoordinatorServer):
 
         test.change_state("finished")
 
+	# Add the results to the database, and update the test status to
+	# "finished"
         self.tests_db.add_results(test_id, results)
         self.tests_db.replace_test(test_id, test)
 
+        # Remove the test from the scheduler
+        self.scheduler.remove_test(test)
+
+        # Kill off the test process if it's still around
         if test.id in self.test_processes:
             try:
                 self.test_processes[test.id].terminate()

@@ -23,6 +23,8 @@ class TimeSlot:
         self.max_tests = max_tests
 
     def add_test(self, test):
+        assert test.id
+
         print "(TS) Adding test to %s-%s" % (self.start_time, self.end_time)
         if test.test_type == ToolTypes.THROUGHPUT:
             self.type = ToolTypes.THROUGHPUT
@@ -208,4 +210,5 @@ class Scheduler:
     def display_time_slots(self):
         print "Timeslots"
         for index, ts in enumerate(self.time_slots):
+            print "Slot: %s" % ts.tests
             print "%d) %s - %s: %s" % (index, ts.start_time, ts.end_time, ",".join(ts.tests))
