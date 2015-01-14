@@ -103,21 +103,21 @@ class TestsController:
     except Exception as e:
        raise ValidationException("Problem parsing test definition: %s" % e)
 
-    added_test = get_coord_client().request_test(test, requesting_address=cherrypy.request.remote.ip)
+    added_test = get_coord_client().request_test(test=test, requesting_address=cherrypy.request.remote.ip)
 
     return added_test.to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def get_test(self, id):
-    test = get_coord_client().get_test(id, requesting_address=cherrypy.request.remote.ip)
+    test = get_coord_client().get_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return test.to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def get_results(self, id):
-    results = get_coord_client().get_test_results(id, requesting_address=cherrypy.request.remote.ip)
+    results = get_coord_client().get_test_results(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return results.to_json()
 
@@ -130,27 +130,27 @@ class TestsController:
     except Exception as e:
        raise ValidationException("Problem parsing test definition")
 
-    updated_test = get_coord_client().update_test(test, test_id=id, requesting_address=cherrypy.request.remote.ip)
+    updated_test = get_coord_client().update_test(test=test, test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return update_test.to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def cancel_test(self, id):
-    get_coord_client().cancel_test(id, requesting_address=cherrypy.request.remote.ip)
+    get_coord_client().cancel_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return {}
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def accept_test(self, id):
-    get_coord_client().client_confirm_test(id, requesting_address=cherrypy.request.remote.ip)
+    get_coord_client().client_confirm_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return {}
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def remote_accept_test(self, id):
-    get_coord_client().remote_confirm_test(id, requesting_address=cherrypy.request.remote.ip)
+    get_coord_client().remote_confirm_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return {}

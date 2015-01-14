@@ -16,13 +16,13 @@ class TestCoordinator(CoordinatorServer):
 
         super(TestCoordinator, self).__init__(server_address=server_address, server_port=server_port, auth_key=auth_key)
 
-    def handle_get_test(self, requesting_address=None, test_id=None):
+    def get_test(self, requesting_address=None, test_id=None):
         return self.tests_db.get_test(test_id)
 
-    def handle_get_test_results(self, requesting_address=None, test_id=None):
+    def get_test_results(self, requesting_address=None, test_id=None):
         return self.tests_db.get_results(test_id)
 
-    def handle_request_test(self, requesting_address=None, test=None):
+    def request_test(self, requesting_address=None, test=None):
         # 1. Save the test to the DB with a 'pending' status
         # 2. Do an initial limit check for the test
         #   - Mark it as rejected if the limit check fails, skip to #6
@@ -61,7 +61,7 @@ class TestCoordinator(CoordinatorServer):
 
         return test
 
-    def handle_update_test(self, requesting_address=None, test_id=None, test=None):
+    def update_test(self, requesting_address=None, test_id=None, test=None):
         # 1. Check if the test's status is "client-confirmed" or higher
         #   - Return "update failed" if so
         # 2. Replace the test in the DB with the updated parameters, and a 'pending' status
@@ -76,7 +76,7 @@ class TestCoordinator(CoordinatorServer):
         # 8. Return a get-test-request-response message
         pass
 
-    def handle_client_confirm_test(self, requesting_address=None, test_id=None):
+    def client_confirm_test(self, requesting_address=None, test_id=None):
         # 1. If the test's status is already confirmed, goto #4
         # 2. Mark the test's status as "client-confirmed"
         # 3. Spawn a process to validate the test with the other side
@@ -105,7 +105,7 @@ class TestCoordinator(CoordinatorServer):
 
         return
 
-    def handle_server_confirm_test(self, requesting_address=None, test_id=None):
+    def server_confirm_test(self, requesting_address=None, test_id=None):
         # 1. If the server status is already confirmed, goto #4
         # 2. Mark the server status as "server-confirmed"
         # 3. Spawn a process to exec the tool at the specified time
@@ -121,7 +121,7 @@ class TestCoordinator(CoordinatorServer):
 
         return
 
-    def handle_remote_confirm_test(self, requesting_address=None, test_id=None):
+    def remote_confirm_test(self, requesting_address=None, test_id=None):
 	# XXX: We should really require that the requesting address either be
 	# the remote endpoint, or that
 
@@ -149,7 +149,13 @@ class TestCoordinator(CoordinatorServer):
 
         return
 
-    def handle_finish_test(self, requesting_address=None, test_id=None, results=None):
+    def cancel_test(self, requesting_address=None, test_id=None, results=None):
+        if not results:
+            results = Results(status="cancelled")
+
+        return self.finish_test(requesting_address=requesting_address, test_id=test_id, results=results, status="cancelled")
+
+    def finish_test(self, requesting_address=None, status="finished", test_id=None, results=None):
         # 1. Make sure the test isn't already in a "finished" state
         #   - If it is, send back a "failed" response
         # 2. Save the test results in the DB
@@ -161,10 +167,10 @@ class TestCoordinator(CoordinatorServer):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
-        if test.status == "finished":
+        if test.finished:
            raise TestAlreadyFinishedException
 
-        test.change_state("finished")
+        test.change_state(status)
 
 	# Add the results to the database, and update the test status to
 	# "finished"
@@ -226,7 +232,7 @@ class TestActionHandlerProcess(BwctlProcess):
                       bwctl_errors = [ err ],
                   )
 
-        self.coordinator_client.finish_test(self.test_id, results)
+        self.coordinator_client.finish_test(test_id=self.test_id, results=results)
 
 class ValidateRemoteTestProcess(TestActionHandlerProcess):
     def handler(self):

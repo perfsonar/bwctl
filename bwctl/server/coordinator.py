@@ -42,6 +42,8 @@ message_types = {
     "server-confirm-test-response": GenericResponseMessage,
     "request-test": TestRequestMessage,
     "request-test-response": TestResponseMessage,
+    "cancel-test": GenericRequestMessage,
+    "cancel-test-response": GenericResponseMessage,
     "finish-test": ResultsRequestMessage,
     "finish-test-response": GenericResponseMessage,
 }
@@ -61,32 +63,31 @@ class CoordinatorClient:
 
         self.connected = True
 
-    def get_test(self, test_id, requesting_address=None):
+    def get_test(self, test_id=None, requesting_address=None):
         return self._send_msg(test_id=test_id, message_type="get-test", requesting_address=requesting_address)
 
-    def get_test_results(self, test_id, requesting_address=None):
+    def get_test_results(self, test_id=None, requesting_address=None):
         return self._send_msg(test_id=test_id, message_type="get-test-results", requesting_address=requesting_address)
 
-    def request_test(self, test, requesting_address=None):
+    def request_test(self, test=None, requesting_address=None):
         return self._send_msg(value=test, message_type="request-test", requesting_address=requesting_address)
 
-    def update_test(self, test, test_id=None, requesting_address=None):
+    def update_test(self, test=None, test_id=None, requesting_address=None):
         return self._send_msg(value=test, message_type="update-test", test_id=test_id, requesting_address=requesting_address)
 
-    def client_confirm_test(self, test_id, requesting_address=None):
+    def client_confirm_test(self, test_id=None, requesting_address=None):
         return self._send_msg(test_id=test_id, message_type="client-confirm-test", requesting_address=requesting_address)
 
-    def remote_confirm_test(self, test_id, requesting_address=None):
+    def remote_confirm_test(self, test_id=None, requesting_address=None):
         return self._send_msg(test_id=test_id, message_type="remote-confirm-test", requesting_address=requesting_address)
 
-    def server_confirm_test(self, test_id, requesting_address=None):
+    def server_confirm_test(self, test_id=None, requesting_address=None):
         return self._send_msg(test_id=test_id, message_type="server-confirm-test", requesting_address=requesting_address)
 
-    def cancel_test(self, test_id, requesting_address=None):
-        value = Results()
-        return self._send_msg(test_id=test_id, value=value, message_type="finish-test", requesting_address=requesting_address)
+    def cancel_test(self, test_id=None, requesting_address=None):
+        return self._send_msg(test_id=test_id, message_type="cancel-test", requesting_address=requesting_address)
 
-    def finish_test(self, test_id, results, requesting_address=None):
+    def finish_test(self, test_id=None, results=None, requesting_address=None):
         return self._send_msg(test_id=test_id, value=results, message_type="finish-test", requesting_address=requesting_address)
 
     def _send_msg(self, message_type="", test_id=None, value=None, requesting_address=None):
@@ -187,21 +188,21 @@ class CoordinatorServer(BwctlProcess):
 
         try:
             if msg_type == 'get-test':
-                value = self.handle_get_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                value = self.get_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'get-test-results':
-                value = self.handle_get_test_results(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                value = self.get_test_results(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'request-test' and msg.test_id:
-                value = self.handle_update_test(requesting_address=msg.requesting_address, test_id=msg.test_id, test=msg.value)
+                value = self.update_test(requesting_address=msg.requesting_address, test_id=msg.test_id, test=msg.value)
             elif msg_type == 'request-test':
-                value = self.handle_request_test(requesting_address=msg.requesting_address, test=msg.value)
+                value = self.request_test(requesting_address=msg.requesting_address, test=msg.value)
             elif msg_type == 'client-confirm-test':
-                self.handle_client_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                self.client_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'remote-confirm-test':
-                self.handle_remote_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                self.remote_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'server-confirm-test':
-                self.handle_server_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                self.server_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'finish-test':
-                self.handle_finish_test(requesting_address=msg.requesting_address, test_id=msg.test_id, results=msg.value)
+                self.finish_test(requesting_address=msg.requesting_address, test_id=msg.test_id, results=msg.value)
             else:
                 raise SystemProblemException("Unknown message type: %s" % msg_type)
         except BwctlException as e:
