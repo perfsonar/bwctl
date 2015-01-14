@@ -9,6 +9,14 @@ class LimitsDB:
         self.networks = radix.Radix()
         self.default_limit = None
 
+    def check_test(self, test, address=None, user=None):
+        limits = self.get_limits(user=user, address=address, tool=test.tool)
+
+        for limit in limits:
+            limit.check(test)
+
+        return
+
     def create_limit_class(self, limit_class, parent=None):
         if limit_class in self.classes.keys():
             raise Exception("Class %s already exists" % limit_class)
@@ -34,17 +42,17 @@ class LimitsDB:
 
         return
 
-    def add_limit(self, limit_class, limit, tester=""):
+    def add_limit(self, limit_class, limit, tool=""):
         if not limit_class in self.classes.keys():
             raise Exception("Class %s does not exist" % limit_class)
 
         limit_class_obj = self.classes[limit_class]
 
-        limit_class_obj.add_limit(limit, tester=tester)
+        limit_class_obj.add_limit(limit, tool=tool)
 
         return
 
-    def get_limit_class(self, user=None, address=None, tester=""):
+    def get_limit_class(self, user=None, address=None, tool=""):
         # If they're logged in, use their limit class, if it exists
         if user and user in self.users.keys():
             return self.users[user]
@@ -61,13 +69,13 @@ class LimitsDB:
 
         return None
 
-    def get_limits(self, user=None, address=None, tester=""):
+    def get_limits(self, user=None, address=None, tool=""):
         limit_class = self.get_limit_class(user=user, address=address)
 
         limits = []
         # If they're logged in, use their limit class, if it exists
         if limit_class:
-            limits.extend(limit_class.get_limits(tester=tester))
+            limits.extend(limit_class.get_limits(tool=tool))
 
         return limits
 
@@ -102,39 +110,39 @@ class LimitClass:
         if self.parent:
             self.parent.children.append(self)
 
-    def get_limits(self, tester=""):
+    def get_limits(self, tool=""):
         limits = []
 
-        if tester in self.limits.keys():
-            limits.extend(self.limits[tester])
+        if tool in self.limits.keys():
+            limits.extend(self.limits[tool])
 
-        if tester != "" and "" in self.limits.keys():
+        if tool != "" and "" in self.limits.keys():
             limits.extend(self.limits[""])
 
         return limits
 
     # XXX: minimize the limits set
-    def add_limit(self, limit, tester=""):
+    def add_limit(self, limit, tool=""):
         print "Adding %s to %s" % (limit, self.name)
 
         # Make a copy of the limit
         limit = limit.duplicate()
 
-        if not tester in self.limits:
-            self.limits[tester] = []
+        if not tool in self.limits:
+            self.limits[tool] = []
 
         added = False
-        for old_limit in self.limits[tester]:
+        for old_limit in self.limits[tool]:
             if old_limit.name == limit.name:
                 print "Merging %s with %s" % (old_limit, limit)
                 old_limit.merge(limit)
                 added = True
 
         if not added:
-            self.limits[tester].append(limit)
+            self.limits[tool].append(limit)
 
         for child_class in self.children:
-            child_class.add_limit(limit, tester=tester)
+            child_class.add_limit(limit, tool=tool)
 
         return
 
