@@ -441,7 +441,7 @@ DisplayReservationStatus(
         return;
     }
 
-    I2ErrLogP(errhand,LOG_INFO,
+    BWLError(ctx,BWLErrDEBUG,BWLErrDEBUG,
             "Reservation Status: time=%lu action=%s sender=%s receiver=%s tool=%s res_start=%lu res_end=%lu test_start=%lu",
             BWLNum64ToTimestamp(currtime.tstamp),
             action,
@@ -601,9 +601,6 @@ ChldReservationDemand(
         if (BWLNum64Cmp(res->end, res->start) <= 0) {
             res->restime = BWLNum64Add(res->start,res->fuzz);
             res->end = BWLNum64Add(res->restime,dtime); 
-            I2ErrLogT(errhand,LOG_DEBUG,0,"Reservation Time Set: %lu",
-                    BWLNum64ToTimestamp(res->restime));
-
         }
 
         /*
@@ -791,7 +788,7 @@ ChldReservationDemand(
         }
     }
 
-    I2ErrLogP(errhand,LOG_INFO,
+    BWLError(ctx,BWLErrDEBUG,BWLErrDEBUG,
             "Test Reservation Information: Current Time: %lu, Fuzz: %f, Reservation Start: %lu, Reservation End: %lu, Test Start Time: %lu",
             BWLNum64ToTimestamp(currtime.tstamp),
             BWLNum64ToDouble(ftime),
