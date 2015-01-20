@@ -5,24 +5,29 @@ class Base:
     type = ToolTypes.UNKNOWN
     known_parameters = []
 
-    def check_parameters(self, parameters):
-        for parameter in parameters.keys():
-            if not parameter in self.known_parameters:
-                return False
+    def __init__(self):
+        self.config = {}
 
-        return True
+    def config_options(self):
+        return {}
 
-    def receiver_is_client(self, test):
-        if "receiver_connects" in self.known_parameters and "receiver_connects" in test.tool_parameters:
-            return test.tool_parameters["receiver_connects"]
-
-        return False
-
-    def check_config(self, cfg):
-        pass
+    def is_available(self):
+        raise SystemProblemException("'is_available' function needs to be overwritten")
 
     def validate_test(self, test):
-        return True
+        for parameter in test.tool_parameters.keys():
+            if not parameter in self.known_parameters:
+                raise ValidationException("Unknown parameter: %s" % parameter)
+
+        return
+
+    def configure(self, config):
+        self.config = config
+
+    def get_config_item(self, item):
+        if not item in self.config:
+            raise SystemProblemException("Unknown configuration item requested: %s" % item)
+        return self.config[item]
 
     def build_command_line(self, test):
         raise Exception("build_command_line must be overwritten")
@@ -31,6 +36,16 @@ class Base:
         from bwctl.models import Results
 
         return Results(status="finished", results={ 'output': stderr+stdout })
+
+    def receiver_is_client(self, test):
+        """ Returns which side of the test, sender or receiver, will be the
+            client. The default is the sender unless the 'receiver_connects'
+            option is available, and selected. """
+
+        if "receiver_connects" in self.known_parameters and "receiver_connects" in test.tool_parameters:
+            return test.tool_parameters["receiver_connects"]
+
+        return False
 
     def duration(self, test):
         """ Returns the test length, a required paramter. If 'duration' isn't an

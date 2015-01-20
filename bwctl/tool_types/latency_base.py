@@ -1,8 +1,6 @@
 from bwctl.tool_types.base import Base
 from bwctl.tools import ToolTypes
 
-from bwctl.config import get_config
-
 class LatencyBase(Base):
     type = ToolTypes.LATENCY
     known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "packet_ttl", "receiver_connects" ]

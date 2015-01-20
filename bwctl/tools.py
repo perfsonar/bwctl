@@ -6,7 +6,7 @@ tool_classes = [
 ]
 
 tools = {}
-tools_initialized = False
+tool_modules_initialized = False
 
 class ToolTypes:
     UNKNOWN    = 0
@@ -14,7 +14,7 @@ class ToolTypes:
     LATENCY    = 2
     TRACEROUTE = 3
 
-def init_tools():
+def init_tool_modules():
     for tool_class_name in tool_classes:
         (module_name, class_name) = tool_class_name.rsplit('.', 1)
 
@@ -24,8 +24,15 @@ def init_tools():
         # Create a "tool" object out of the imported class
         tools[tool_name] = tool_class()
 
+def configure_tools(config):
+    for tool in get_tools():
+        tool.configure(config)
+
 def get_tool_types():
     return tools.keys()
+
+def get_tools():
+    return tools.values()
 
 def get_tool(name):
     if name in tools.keys():
@@ -33,6 +40,6 @@ def get_tool(name):
     raise InvalidToolException
 
 # Load the various tool modules
-if not tools_initialized:
-    init_tools()
+if not tool_modules_initialized:
+    init_tool_modules()
     tools_initialized = True
