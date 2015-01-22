@@ -7,16 +7,20 @@ class Iperf(Base):
     known_parameters = [ "duration", "protocol", "bandwidth", "parallel_streams", "report_interval", "window_size", "buffer_size", "omit_seconds", "tos_bits", "units", "output_format" ]
 
     def config_options(self):
-        return {
+        options = Base.config_options(self).copy()
+
+        options.update({
             "iperf_cmd":  "string(default='iperf')",
-            "iperf_ports": "string(default='')",
+            "iperf_ports": "port_range(default=None)",
             "disable_iperf": "boolean(default=False)",
-        }
+        })
+
+        return options
 
     def build_command_line(self, test):
         cmd_line = []
 
-        cmd_line.extend(["iperf"])
+        cmd_line.append(self.get_config_item("iperf_cmd"))
 
         # Print the MTU as well
         cmd_line.extend(["-m"])
@@ -30,9 +34,9 @@ class Iperf(Base):
             cmd_line.extend(["-s"])
         else:
             cmd_line.extend(["-c", test.receiver_endpoint.address])
-            cmd_line.extend(["-p", test.receiver_endpoint.test_port])
+            cmd_line.extend(["-p", str(test.receiver_endpoint.test_port)])
 
-        cmd_line.extend(["-t", test.tool_parameters['duration']])
+        cmd_line.extend(["-t", str(test.tool_parameters['duration'])])
 
         if "units" in test.tool_parameters:
             cmd_line.extend(["-f", test.tool_parameters['units']])

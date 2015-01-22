@@ -202,15 +202,6 @@ class DurationLimit(MaximumLimit):
        if self.value < test.bandwidth:
            raise LimitViolatedException("Duration limit exceeds maximum: %s" % self.value)
 
-class LimitsFile:
-    def parse(file):
-        limits_db = LimitsDB()
-
-        with open(file) as fh:
-            # Read the limit classes
-            for line in fh.readlines():
-
-
 if __name__ == "__main__":
     limits_db = LimitsDB()
     limits_db.create_limit_class("root")

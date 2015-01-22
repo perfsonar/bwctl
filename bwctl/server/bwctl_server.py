@@ -41,7 +41,7 @@ class BwctlServer:
                                                 server_port=self.config['coordinator_port'],
                                                 auth_key=self.config['coordinator_auth_key'],
                                                 scheduler=self.scheduler, tests_db=self.tests_db,
-                                                limits_db=self.limits_db, config=self.config)
+                                                limits_db=self.limits_db)
 
     def run(self):
         try:

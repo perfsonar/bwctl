@@ -10,7 +10,7 @@ class LatencyBase(Base):
             the packet_count/inter_packet_time define the duration """
 
         if 'inter_packet_time' in test.tool_parameters and 'packet_count' in test.tool_parameters:
-            return test.tool_parameters['inter_packet_time'] * test.tool_parameters['packet_count']
+            return test.tool_parameters['inter_packet_time'] * test.tool_parameters['packet_count'] + 5
         else:
             raise Exception("Unknown test duration")
 

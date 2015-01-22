@@ -132,7 +132,7 @@ class TestsController:
 
     updated_test = get_coord_client().update_test(test=test, test_id=id, requesting_address=cherrypy.request.remote.ip)
 
-    return update_test.to_json()
+    return updated_test.to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions

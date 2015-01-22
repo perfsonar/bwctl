@@ -36,8 +36,6 @@ class CmdRunner:
                 sleep_time = timedelta_seconds(self.start_time - now)
                 time.sleep(sleep_time)
 
-            print "Command line: %s" % self.cmd_line
-
             p = Popen(self.cmd_line, shell=False, stdout=PIPE, stderr=PIPE, close_fds=True)
             stdout_pipe = p.stdout
             stderr_pipe = p.stderr
@@ -64,6 +62,7 @@ class CmdRunner:
             return_code = p.poll()
             if return_code == None:
                return_code = -1
+               stdout = stdout + "\nProcess timed out. Killing."
                p.terminate()
 
         except Exception as e:  # XXX: handle this better

@@ -9,7 +9,7 @@ class Base:
         self.config = {}
 
     def config_options(self):
-        return {}
+        return { "test_ports": "port_range(default='5100-6000')" }
 
     def is_available(self):
         raise SystemProblemException("'is_available' function needs to be overwritten")
@@ -46,6 +46,16 @@ class Base:
             return test.tool_parameters["receiver_connects"]
 
         return False
+
+    @property
+    def port_range(self):
+        tool_port_range = '%s_ports' % self.name
+        if tool_port_range in self.config and \
+            self.config[tool_port_range]:
+
+            return self.config[tool_port_range]
+
+        return self.config['test_ports']
 
     def duration(self, test):
         """ Returns the test length, a required paramter. If 'duration' isn't an

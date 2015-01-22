@@ -73,7 +73,7 @@ class CoordinatorClient:
         return self._send_msg(value=test, message_type="request-test", requesting_address=requesting_address)
 
     def update_test(self, test=None, test_id=None, requesting_address=None):
-        return self._send_msg(value=test, message_type="update-test", test_id=test_id, requesting_address=requesting_address)
+        return self._send_msg(value=test, message_type="request-test", test_id=test_id, requesting_address=requesting_address)
 
     def client_confirm_test(self, test_id=None, requesting_address=None):
         return self._send_msg(test_id=test_id, message_type="client-confirm-test", requesting_address=requesting_address)

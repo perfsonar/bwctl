@@ -17,6 +17,8 @@ class ToolRunner(BwctlProcess):
 
         cmd_line = tool.build_command_line(test)
 
+        print "Tool: %s" % " ".join(cmd_line)
+
         start_time = None
         end_time   = None
 

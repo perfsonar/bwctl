@@ -29,14 +29,14 @@ class TestsDB:
         return test.id
 
     def replace_test(self, test_id, test):
-        test = self._copy_obj(test)
+        if not test_id in self.tests.keys():
+            raise ResourceNotFoundException("Test not found")
 
-        if not test.id:
-            test.id = test_id
+        test = self._copy_obj(test)
 
         self.tests[test_id] = test
 
-        return test.id
+        return test_id
 
     def add_results(self, test_id, results):
         results = self._copy_obj(results)

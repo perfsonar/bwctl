@@ -23,25 +23,14 @@ class TestCoordinator(CoordinatorServer):
         return self.tests_db.get_results(test_id)
 
     def request_test(self, requesting_address=None, test=None):
-        # 1. Save the test to the DB with a 'pending' status
-        # 2. Do an initial limit check for the test
-        #   - Mark it as rejected if the limit check fails, skip to #6
-        # 3. Try scheduling the test
-        #   - Mark it as rejected if scheduling fails, skip to #6
-        # 4. Do a second limit check to make sure
-        #   - Mark it as rejected if the limit check fails, and unschedule it.
-        # 5. Mark the test as "confirmed", and update the 'scheduled' times
-        # 6. Return a get-test-request-response message
-
         if test.id:
             raise ValidationException("New test shouldn't have an id")
 
-        # XXX: validate test
-
-        # XXX: check limits
+        # Validate the test before we add it to the database
+        validate_test(test=test)
 
         # accept test, and add it to the DB (gets us an ID)
-        test.change_state("accepted")
+        test.change_state("pending")
 
         test_id = self.tests_db.add_test(test)
         if not test_id:
@@ -49,32 +38,115 @@ class TestCoordinator(CoordinatorServer):
 
         test = self.tests_db.get_test(test_id)
 
-        # Try to schedule the test
-        times = self.scheduler.add_test(test)
+        error_state = ""
+        err = None
 
-        test.change_state("scheduled")
-        test.scheduling_parameters.reservation_start_time = times.reservation_start_time
-        test.scheduling_parameters.reservation_end_time = times.reservation_end_time
-        test.scheduling_parameters.test_start_time = times.test_start_time
+        try:
+            # XXX: validate test
 
-        self.tests_db.replace_test(test_id, test)
+            # Check the limits before we schedule to make sure that we don't
+            # bother doing the scheduling if it's just going to fail anyway.
+            self.limits_db.check_test(test, address=requesting_address)
+
+            # Try to schedule the test
+            scheduled_time = self.scheduler.add_test(test)
+
+            # Set the times for the given test
+            test.scheduling_parameters.reservation_start_time = scheduled_time.reservation_start_time
+            test.scheduling_parameters.reservation_end_time = scheduled_time.reservation_end_time
+            test.scheduling_parameters.test_start_time = scheduled_time.test_start_time
+
+            # Allocate a test port for the test we're the server side
+            if not test.local_client:
+                test.test_port = test.tool_obj.port_range.get_port()
+
+            test.change_state("scheduled")
+
+            # Save the new test settings in the DB
+            self.tests_db.replace_test(test_id, test)
+
+            # Check the limits after it's been scheduled, and a test port
+            # allocated in case somehow that makes a limit fail.
+            self.limits_db.check_test(test, address=requesting_address)
+        except (LimitViolatedException, NoAvailablePortsException, NoAvailableTimeslotException) as e:
+            error_state = "rejected"
+            err = e
+        except BwctlException as e:
+            error_state = "failed"
+            err = e
+        except Exception as e:
+            error_state = "failed"
+            err = SystemProblemException(str(e))
+
+        # Save the error results and raise an exception
+        if err:
+            results = Results(status=error_state, bwctl_errors=[ err.as_bwctl_error() ])
+            self.finish_test(test_id=test_id, status=error_state, results=results)
+            raise err
 
         return test
 
     def update_test(self, requesting_address=None, test_id=None, test=None):
-        # 1. Check if the test's status is "client-confirmed" or higher
-        #   - Return "update failed" if so
-        # 2. Replace the test in the DB with the updated parameters, and a 'pending' status
-        # 3. Unschedule the test
-        # 4. Do an initial limit check for the test
-        #   - Mark it as rejected if the limit check fails, skip to #8
-        # 5. Try scheduling the test
-        #   - Mark it as rejected if scheduling fails, skip to #8
-        # 6. Do a second limit check to make sure
-        #   - Mark it as rejected if the limit check fails, and unschedule it.
-        # 7. Mark the test as "confirmed", and update the 'scheduled' times
-        # 8. Return a get-test-request-response message
-        pass
+        old_test = self.tests_db.get_test(test_id)
+        if not old_test:
+            raise ResourceNotFoundException("Test not found")
+
+        if not old_test.client_can_modify:
+            raise TestInvalidActionException("Test can not be modified")
+
+        err = None
+        error_state = ""
+
+        try:
+            validate_test(test=test)
+
+            validate_test_changes(new_test=test, old_test=old_test)
+
+            # Check if the new test exceeds any limits
+            self.limits_db.check_test(test, address=requesting_address)
+
+            # If the priority or fuzz changed (i.e. our scheduling assumptions
+            # are now wrong), or if the requested time is now later than the
+            # test time, we've given, we'll need to reschedule the test.
+            if test.fuzz != old_test.fuzz or \
+               test.scheduling_parameters.priority != test.scheduling_parameters.priority or \
+               old_test.scheduling_parameters.test_start_time < test.scheduling_parameters.requested_time or \
+               test.scheduling_parameters.latest_acceptable_time < old_test.scheduling_parameters.test_start_time:
+
+                self.scheduler.remove_test(old_test)
+
+            # Try to schedule the test
+            scheduled_time = self.scheduler.add_test(test)
+
+            # Set the times for the given test
+            test.scheduling_parameters.reservation_start_time = scheduled_time.reservation_start_time
+            test.scheduling_parameters.reservation_end_time = scheduled_time.reservation_end_time
+            test.scheduling_parameters.test_start_time = scheduled_time.test_start_time
+
+            test.change_state("scheduled")
+
+            # Save the new test settings in the DB
+            self.tests_db.replace_test(test_id, test)
+
+            # Check if the new test exceeds any limits
+            self.limits_db.check_test(test, address=requesting_address)
+        except (LimitViolatedException, NoAvailablePortsException, NoAvailableTimeslotException) as e:
+            error_state = "rejected"
+            err = e
+        except BwctlException as e:
+            error_state = "failed"
+            err = e
+        except Exception as e:
+            error_state = "failed"
+            err = SystemProblemException(str(e))
+
+        # Save the error results and raise an exception
+        if err:
+            results = Results(status=error_state, bwctl_errors=[ err.as_bwctl_error() ])
+            self.finish_test(test_id=test_id, status=error_state, results=results)
+            raise err
+
+        return test
 
     def client_confirm_test(self, requesting_address=None, test_id=None):
         # 1. If the test's status is already confirmed, goto #4
@@ -134,6 +206,8 @@ class TestCoordinator(CoordinatorServer):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
+        # The ToolRunner callback happens in a separate process so we need to
+        # use the coordinator to respond.
         def handle_results_cb(results):
             coordinator_client = CoordinatorClient(server_address=self.server_address,
                                                    server_port=self.server_port,
@@ -179,6 +253,9 @@ class TestCoordinator(CoordinatorServer):
 
         # Remove the test from the scheduler
         self.scheduler.remove_test(test)
+
+        if not test.local_client and test.local_endpoint.test_port:
+            test.tool_obj.port_range.release_port(test.local_endpoint.test_port)
 
         # Kill off the test process if it's still around
         if test.id in self.test_processes:
@@ -243,3 +320,46 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
         self.coordinator_client.server_confirm_test(self.test_id)
 
         return
+
+def validate_test(test=None):
+    if not test.sender_endpoint.local and not test.receiver_endpoint.local:
+        raise ValidationException("No local endpoints for this test")
+
+    if test.sender_endpoint.local and test.receiver_endpoint.local:
+        raise ValidationException("Both endpoints can't be local")
+
+    # Make sure that it's a known tool, and that the tool parameters are all
+    # valid.
+    try:
+        tool_obj = test.tool_obj
+
+        tool_obj.validate_test(test)
+    except InvalidToolException:
+        raise ValidationException("Unknown tool type: %s" % test.tool)
+
+def validate_endpoint(endpoint=None):
+    if endpoint.local and endpoint.legacy_client_endpoint:
+        raise ValidationException("Local endpoint isn't a legacy client")
+
+def validate_test_changes(new_test=None, old_test=None):
+    if old_test.id != new_test.id:
+        raise ValidationException("Can't change the test id")
+
+    if old_test.scheduling_parameters.test_start_time != new_test.scheduling_parameters.test_start_time or \
+       old_test.scheduling_parameters.reservation_start_time != new_test.scheduling_parameters.reservation_start_time or \
+       old_test.scheduling_parameters.reservation_end_time != new_test.scheduling_parameters.reservation_end_time:
+        raise ValidationException("Can't change the scheduling parameters")
+
+    validate_endpoint_changes(new_endpoint=new_test.sender_endpoint,
+                              old_endpoint=old_test.sender_endpoint)
+
+    validate_endpoint_changes(new_endpoint=new_test.receiver_endpoint,
+                              old_endpoint=old_test.receiver_endpoint)
+
+def validate_endpoint_changes(new_endpoint=None, old_endpoint=None):
+    if new_endpoint.local and not old_endpoint.local:
+        raise ValidationException("Can't change which endpoint is local")
+
+    if new_endpoint.local and \
+       new_endpoint.test_port != old_endpoint.test_port:
+        raise ValidationException("Can't change the local test port")

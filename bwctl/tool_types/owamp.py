@@ -5,34 +5,38 @@ class Owamp(LatencyBase):
     known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "receiver_connects" ]
 
     def config_options(self):
-        return {
+        options = LatencyBase.config_options(self).copy()
+
+        options.update({
             "owping_cmd":  "string(default='owping')",
             "owampd_cmd":  "string(default='owampd')",
-            "owamp_ports": "string(default='')",
+            "owamp_ports": "port_range(default=None)",
             "disable_owamp": "boolean(default=False)",
-        }
+        })
+
+        return options
 
     def build_command_line(self, test):
         cmd_line = []
 
         if test.local_client:
-            cmd_line.extend(self.get_config_item('owping_cmd'))
+            cmd_line.append(self.get_config_item('owping_cmd'))
 
             if "packet_count" in test.tool_parameters:
-                cmd_line.extend(["-c", test.tool_parameters['packet_count']])
+                cmd_line.extend(["-c", str(test.tool_parameters['packet_count'])])
 
             if "inter_packet_time" in test.tool_parameters:
-                cmd_line.extend(["-i", test.tool_parameters['inter_packet_time']])
+                cmd_line.extend(["-i", str(test.tool_parameters['inter_packet_time'])])
 
             if "packet_size" in test.tool_parameters:
-                cmd_line.extend(["-s", test.tool_parameters['packet_size']])
+                cmd_line.extend(["-s", str(test.tool_parameters['packet_size'])])
 
             if test.local_receiver:
                 cmd_line.extend([test.sender_endpoint.address])
             else:
                 cmd_line.extend(["-t", test.receiver_endpoint.address])
         else:
-            cmd_line.extend(self.get_config_item('owampd_cmd'))
+            cmd_line.append(self.get_config_item('owampd_cmd'))
 
             cmd_line.extend(["-S", test.receiver_endpoint.address])
 

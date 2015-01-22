@@ -79,6 +79,11 @@ class NoAvailableTimeslotException(BwctlException):
     http_error  = 400
     default_msg = "No available timeslots"
 
+class NoAvailablePortsException(BwctlException):
+    error_code  = 207
+    http_error  = 400
+    default_msg = "No available test ports"
+
 class TestAlreadyFinishedException(BwctlException):
     error_code  = 212
     http_error  = 409

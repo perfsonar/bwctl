@@ -13,9 +13,16 @@ from bwctl.jsonobject.exceptions import BadValueError
 
 valid_test_status_changes = {
     "":[
+         "pending",
          "accepted",
          "rejected",
          "failed"
+    ],
+    "pending":[
+        "accepted",
+        "rejected",
+        "scheduled",
+        "failed"
     ],
     "accepted":[
         "scheduled",
@@ -25,6 +32,7 @@ valid_test_status_changes = {
     "rejected":[],
     "failed":[],
     "scheduled":[
+         "scheduled",
          "client-confirmed",
          "rejected",
          "failed"
@@ -120,6 +128,14 @@ class Test(jsonobject.JsonObject):
         self.status = new_state
 
     @property
+    def client_can_modify(self):
+        return self.status in [ "pending", "accepted", "scheduled" ]
+
+    @property
+    def finished(self):
+        return self.status in [ "rejected", "failed", "cancelled", "finished" ]
+
+    @property
     def tool_obj(self):
         return get_tool(self.tool)
 
@@ -127,6 +143,13 @@ class Test(jsonobject.JsonObject):
     def local_client(self):
         return (self.receiver_endpoint.local and self.tool_obj.receiver_is_client(self)) or \
                (self.sender_endpoint.local and not self.tool_obj.receiver_is_client(self))
+
+    @property
+    def local_endpoint(self):
+        if self.receiver_endpoint.local:
+            return self.receiver_endpoint
+        elif self.sender_endpoint.local:
+            return self.sender_endpoint
 
     @property
     def local_receiver(self):

@@ -1,6 +1,7 @@
 import datetime
 
 from bwctl.tools import ToolTypes
+from bwctl.exceptions import NoAvailableTimeslotException
 
 class TimeSlotTypes:
     ANY           = 0
@@ -81,9 +82,16 @@ class Scheduler:
         reservation_start_time = test.scheduling_parameters.requested_time
         reservation_end_time = reservation_start_time + reservation_length
 
+        reservation_max_start_time = test.scheduling_parameters.latest_acceptable_time
+        if reservation_max_start_time:
+            reservation_max_start_time = reservation_max_start_time - datetime.timedelta(seconds=test.fuzz)
+
         added = False
 
         for index, ts in enumerate(self.time_slots):
+            if reservation_max_start_time and reservation_max_start_time < reservation_start_time:
+                raise NoAvailableTimeslotException
+
             if ts.end_time < reservation_start_time:
                 continue
 
