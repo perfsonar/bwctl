@@ -1,48 +1,63 @@
-import os
+from configobj import ConfigObj, flatten_errors
+from validate import Validator, ValidateError
+import re
 
-current_config = None
+from bwctl.tools import get_tools
+from bwctl.port_range import PortRange
 
-def get_config(config_file):
-    if current_config == None:
-        raise Exception("No configuration defined")
+port_range_re = re.compile('(\d+)-(\d+)')
+def port_range_check(value):
+    if not value:
+        return None
 
-    return current_config
+    if isinstance(value, list):
+        raise ValidateError('A list was passed when a port range was expected')
 
-def init_config(config_file, override={}):
-    if not os.path.exists(config_file):
-        raise ConfigError("Configuration file not found: %s" % config_file)
+    m = port_range_re.match(value)
+    if not m:
+        raise ValidateError('"%s" is not a port range' % value)
 
-    try:
-        conf = BwctlConfig(config_file, opts)
-    except ConfigParser.Error, e:
-        raise ConfigError("Unable to parse configuration file: %s" % e)
+    min = int(m.group(1))
+    max = int(m.group(2))
 
-    current_config = conf
+    if max <= min:
+        raise ValidateError('"%s" is an invalid port range' % value)
 
-    return
+    return PortRange(min=min, max=max)
 
-class BwctlConfig(object):
-    def __init__(self, file, override={}):
-        self.file = file
 
-        # XXX: Define parameters here
+def get_config(command_config_options={}, include_tool_options=True, config_file=None):
+    full_config_options = {}
 
-        self.read_config(opts)
-        self.convert_types()
-        self.validate_config()
+    for key, value in command_config_options.iteritems():
+        full_config_options[key] = value
 
-    def read_config(self):
-        """ Read in the configuration from an INI-style file"""
-        cfg = ConfigParser.SafeConfigParser()
-        cfg.read(self.file)
+    # Initialize the configuration spec
+    if include_tool_options:
+        for tool in get_tools():
+            for key, value in tool.config_options().iteritems():
+                if key in full_config_options and \
+                    value != full_config_options[key]:
+                    raise ValidationException("Two tools use the config option '%s' but with different types" % key)
 
-        # Read in server parameters
+                full_config_options[key] = value 
 
-        # Read in tool-specific parameters
+    config_spec = []
+    for option, type in full_config_options.iteritems():
+        config_spec.append("%s = %s" % (option, type))
 
-    def convert_configuration(self):
-        """convert_types -- convert input from config file format to appropriate internal format"""
+    validator = Validator({ 'port_range': port_range_check })
 
-    def validate_config(self):
-        """validate_config -- make sure that the configuration makes sense"""
+    config_lines = []
+    if config_file:
+        config_lines = [line.strip() for line in open(config_file)]
 
+    config = ConfigObj(config_lines, configspec=config_spec)
+    results = config.validate(validator)
+
+    if results != True:
+        for (section_list, key, _) in flatten_errors(config, results):
+            if key is not None:
+                raise ValidationException('The "%s" key in the section failed validation' % key)
+
+    return config
