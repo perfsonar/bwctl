@@ -1,6 +1,9 @@
 from bwctl.tool_types.base import Base
 from bwctl.tools import ToolTypes
 
+from subprocess import Popen, PIPE
+import re
+
 class Iperf(Base):
     name = "iperf"
     type = ToolTypes.THROUGHPUT
@@ -16,6 +19,30 @@ class Iperf(Base):
         })
 
         return options
+
+    def check_available(self):
+        retval = False
+
+        try:
+            cmd_line = [ self.get_config_item("iperf_cmd"), "-v" ]
+
+            p = Popen(cmd_line, stdout=PIPE, stderr=PIPE)
+
+            (stdout, stderr) = p.communicate()
+
+            if p.returncode != 0 and p.returncode != 1:
+                raise Exception("Invalid exit code from iperf")
+
+            for output in stdout, stderr:
+                if re.search("iperf version ", output):
+                    retval = True
+                    break
+        except Exception as e:
+            # XXX: log that we can't run it
+            print "Failure: %s" % e
+            pass
+
+        return retval
 
     def build_command_line(self, test):
         cmd_line = []

@@ -1,3 +1,5 @@
+from subprocess import Popen, PIPE
+
 from bwctl.tool_types.latency_base import LatencyBase
 
 class Owamp(LatencyBase):
@@ -15,6 +17,22 @@ class Owamp(LatencyBase):
         })
 
         return options
+
+    def check_available(self):
+        retval = True
+
+        for cmd in [ "owping_cmd", "owampd_cmd" ]:
+            cmd_line = [ self.get_config_item(cmd), "-h" ]
+            try:
+                p = Popen(cmd_line, stdout=PIPE, stderr=PIPE)
+                (stdout, stderr) = p.communicate()
+                if p.returncode != 0:
+                    raise Exception("Invalid exit code from command: %d" % p.returncode)
+            except Exception as e:
+                print "Problem running %s: %s" % (" ".join(cmd_line), e)
+                retval = False
+
+        return retval
 
     def build_command_line(self, test):
         cmd_line = []
