@@ -58,7 +58,7 @@ class TestCoordinator(CoordinatorServer):
 
             # Allocate a test port for the test we're the server side
             if not test.local_client:
-                test.test_port = test.tool_obj.port_range.get_port()
+                test.local_endpoint.test_port = test.tool_obj.port_range.get_port()
 
             test.change_state("scheduled")
 

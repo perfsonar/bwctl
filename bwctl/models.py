@@ -152,6 +152,13 @@ class Test(jsonobject.JsonObject):
             return self.sender_endpoint
 
     @property
+    def remote_endpoint(self):
+        if self.receiver_endpoint.local:
+            return self.sender_endpoint
+        elif self.sender_endpoint.local:
+            return self.receiver_endpoint
+
+    @property
     def local_receiver(self):
         return self.receiver_endpoint.local
 

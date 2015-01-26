@@ -34,11 +34,11 @@ test = Test(tool="owamp",
                 time=datetime.datetime.now()
             ),
             sender_endpoint=Endpoint(
-                local=True,
+                #local=True,
                 address="127.0.0.1"
             ),
             receiver_endpoint=Endpoint(
-                #local=True,
+                local=True,
                 address="127.0.0.1"
             ),
             tool_parameters={

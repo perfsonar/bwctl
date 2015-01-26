@@ -15,7 +15,6 @@ class Iperf(Base):
         options.update({
             "iperf_cmd":  "string(default='iperf')",
             "iperf_ports": "port_range(default=None)",
-            "disable_iperf": "boolean(default=False)",
         })
 
         return options
@@ -52,16 +51,13 @@ class Iperf(Base):
         # Print the MTU as well
         cmd_line.extend(["-m"])
 
-        if test.local_receiver:
-            cmd_line.extend(["-B", test.receiver_endpoint.address])
-        else:
-            cmd_line.extend(["-B", test.sender_endpoint.address])
+        cmd_line.extend(["-B", test.local_endpoint.address])
 
-        if test.local_receiver:
-            cmd_line.extend(["-s"])
+        if test.local_client:
+            cmd_line.extend(["-c", test.remote_endpoint.address])
+            cmd_line.extend(["-p", str(test.remote_endpoint.test_port)])
         else:
-            cmd_line.extend(["-c", test.receiver_endpoint.address])
-            cmd_line.extend(["-p", str(test.receiver_endpoint.test_port)])
+            cmd_line.extend(["-s"])
 
         cmd_line.extend(["-t", str(test.tool_parameters['duration'])])
 

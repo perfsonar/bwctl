@@ -1,10 +1,9 @@
 import datetime
+import time
 
-from bwctl.utils import BwctlProcess
-from bwctl.cmd_runner import CmdRunner
-from bwctl.tools import get_tool
+from bwctl.utils import BwctlProcess, timedelta_seconds
 from bwctl.models import Results
-from bwctl.exceptions import BwctlException, SystemProblemException, TestStartTimeFailure
+from bwctl.exceptions import SystemProblemException, BwctlException
 
 class ToolRunner(BwctlProcess):
     def __init__(self, test=None, results_cb=None):
@@ -13,35 +12,25 @@ class ToolRunner(BwctlProcess):
         self.test = test
         self.results_cb = results_cb
 
-        tool = get_tool(test.tool)
-
-        cmd_line = tool.build_command_line(test)
-
-        print "Tool: %s" % " ".join(cmd_line)
-
-        start_time = None
-        end_time   = None
-
         if test.local_client:
-            start_time = test.scheduling_parameters.test_start_time
+            self.start_time = test.scheduling_parameters.test_start_time
         else:
-            start_time = test.scheduling_parameters.reservation_start_time
+            self.start_time = test.scheduling_parameters.reservation_start_time
 
-        end_time = test.scheduling_parameters.reservation_end_time
-
-        self.cmd_runner = CmdRunner(start_time=start_time, end_time=end_time, cmd_line=cmd_line)
+        self.end_time = test.scheduling_parameters.reservation_end_time
 
     def run(self):
         test_results = None
 
         try:
-            if self.cmd_runner.start_time and self.cmd_runner.start_time < datetime.datetime.now():
-                raise TestStartTimeFailure
+            if self.start_time:
+                sleep_time = timedelta_seconds(self.start_time - datetime.datetime.now())
+                if sleep_time < 0:
+                    raise TestStartTimeFailure
 
-            cmd_results = self.cmd_runner.run_cmd()
-            test_results = self.test.tool_obj.get_results(exit_status=cmd_results.return_code,
-                                                          stdout=cmd_results.stdout,
-                                                          stderr=cmd_results.stderr)
+                time.sleep(sleep_time)
+
+            test_results = self.test.tool_obj.run_test(self.test, end_time=self.end_time)
         except BwctlException as e:
             err = e.as_bwctl_error()
             test_results = Results(status="failed", bwctl_errors=[ err ])

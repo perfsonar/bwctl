@@ -13,7 +13,6 @@ class Owamp(LatencyBase):
             "owping_cmd":  "string(default='owping')",
             "owampd_cmd":  "string(default='owampd')",
             "owamp_ports": "port_range(default=None)",
-            "disable_owamp": "boolean(default=False)",
         })
 
         return options
@@ -37,6 +36,12 @@ class Owamp(LatencyBase):
     def build_command_line(self, test):
         cmd_line = []
 
+        server_addr = ""
+        if test.local_client:
+            server_addr = "[%s]:%d" % (test.remote_endpoint.address, test.remote_endpoint.test_port)
+        else:
+            server_addr = "[%s]:%d" % (test.local_endpoint.address, test.local_endpoint.test_port)
+
         if test.local_client:
             cmd_line.append(self.get_config_item('owping_cmd'))
 
@@ -49,13 +54,13 @@ class Owamp(LatencyBase):
             if "packet_size" in test.tool_parameters:
                 cmd_line.extend(["-s", str(test.tool_parameters['packet_size'])])
 
-            if test.local_receiver:
-                cmd_line.extend([test.sender_endpoint.address])
-            else:
-                cmd_line.extend(["-t", test.receiver_endpoint.address])
+            if not test.local_receiver:
+                cmd_line.extend(["-t"])
+
+            cmd_line.extend([ server_addr ])
         else:
             cmd_line.append(self.get_config_item('owampd_cmd'))
 
-            cmd_line.extend(["-S", test.receiver_endpoint.address])
+            cmd_line.extend(["-S", server_addr])
 
         return cmd_line

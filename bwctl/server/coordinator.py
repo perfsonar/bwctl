@@ -100,7 +100,7 @@ class CoordinatorClient:
         msg = message_types[message_type](test_id=test_id, value=value, requesting_address=requesting_address)
 
         coord_req = unparse_coordinator_msg(msg, message_type, self.auth_key)
-        print "Unparsed request: %s" % coord_req
+        #print "Unparsed request: %s" % coord_req
         self.sock.send_json(coord_req)
         coord_resp = self.sock.recv_json()
         print "Unparsed response: %s" % coord_resp
@@ -133,12 +133,13 @@ def parse_coordinator_msg(json, auth_key):
         msg = message_types[json['message_type']](json['message'])
     except Exception as e:
         #print "json.auth_key: %s/self.auth_key: %s -- %s" % (json['auth_key'], auth_key, e)
-        print "json.auth_key: %s/self.auth_key: %s -- %s" % (json, auth_key, e)
+        #print "json.auth_key: %s/self.auth_key: %s -- %s" % (json, auth_key, e)
         msg = None
 
-    print "Message: %s" % msg
+    #print "Message: %s" % msg
     if msg:
-        print "Message(json): %s" % msg.to_json()
+        pass
+        #print "Message(json): %s" % msg.to_json()
 
     return msg_type, msg
 

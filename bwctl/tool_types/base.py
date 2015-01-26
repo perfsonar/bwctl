@@ -1,4 +1,10 @@
+import datetime
+import os
+import select
+from subprocess import Popen, PIPE
+
 from bwctl.tools import ToolTypes
+from bwctl.utils import timedelta_seconds
 
 class Base:
     name = ""
@@ -9,9 +15,16 @@ class Base:
         self.config = {}
 
     def config_options(self):
-        return { "test_ports": "port_range(default='5100-6000')" }
+        return {
+                  "test_ports": "port_range(default='5100-6000')",
+                  "disable_%s" % self.name: "boolean(default=False)",
+               }
 
-    def is_available(self):
+    def check_available(self):
+        disable_var = "disable_%s" % self.name
+        if self.get_config_item(disable_var):
+            return False
+
         raise SystemProblemException("'is_available' function needs to be overwritten")
 
     def validate_test(self, test):
@@ -31,6 +44,49 @@ class Base:
 
     def build_command_line(self, test):
         raise Exception("build_command_line must be overwritten")
+
+    def run_test(self, test, end_time=None):
+        return_code = None
+        stdout = ""
+        stderr = ""
+
+        try:
+            cmd_line = self.build_command_line(test)
+
+            print "Command line: %s" % " ".join(cmd_line)
+
+            p = Popen(cmd_line, shell=False, stdout=PIPE, stderr=PIPE, close_fds=True)
+            stdout_pipe = p.stdout
+            stderr_pipe = p.stderr
+
+            timeout=None
+
+            if end_time:
+                timeout = timedelta_seconds(end_time - datetime.datetime.now())
+
+            while p.poll() == None and (not timeout or timeout > 0):
+                (input, output, exceptions) = select.select([ stdout_pipe, stderr_pipe ], [], [], timeout)
+                for pipe in input:
+                    output = os.read(pipe.fileno(), 1024)
+                    if pipe is stdout_pipe:
+                        stdout = stdout + output
+                    elif pipe is stderr_pipe:
+                        stderr = stderr + output
+
+                if end_time:
+                    timeout = timedelta_seconds(end_time - datetime.datetime.now())
+
+            # The process wasn't killed, so timeout
+            return_code = p.poll()
+            if return_code == None:
+               return_code = -1
+               stdout = stdout + "\nProcess timed out. Killing."
+               p.terminate()
+        except Exception as e:  # XXX: handle this better
+            stderr = stderr + "\n" + str(e)
+            return_code = -1
+
+        return self.get_results(exit_status=return_code, stdout=stdout, stderr=stderr)
 
     def get_results(self, exit_status=0, stdout="", stderr=""):
         from bwctl.models import Results

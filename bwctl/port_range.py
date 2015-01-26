@@ -8,9 +8,11 @@ class PortRange:
         self.used = []
 
     def _next_index(self):
-        return (self.index + 1) % (self.max + 1)
+        self.index = (self.index + 1) % (self.max + 1)
 
-    def release_port(self):
+        return self.index
+
+    def release_port(self, port):
         self.used.remove(port)
 
     def get_port(self):
@@ -21,6 +23,8 @@ class PortRange:
         while port in self.used:
             port = self._next_index()
         self.used.append(port)
+
+        return port
 
     def copy(self):
         new_range = PortRange(min=self.min, max=self.max)

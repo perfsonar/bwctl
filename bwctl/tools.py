@@ -14,6 +14,14 @@ class ToolTypes:
     LATENCY    = 2
     TRACEROUTE = 3
 
+class ToolResults:
+    def __init__(self, start_time=None, end_time=None, return_code=0, stdout="", stderr=""):
+        self.start_time = start_time
+        self.end_time   = end_time
+        self.return_code = return_code
+        self.stdout     = stdout
+        self.stderr     = stderr
+
 def init_tool_modules():
     for tool_class_name in tool_classes:
         (module_name, class_name) = tool_class_name.rsplit('.', 1)
