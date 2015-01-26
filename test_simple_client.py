@@ -28,18 +28,18 @@ print client.get_status()
 #       )
 
 
-#test = Test(tool="owamp",
-test = Test(tool="ping",
+test = Test(tool="owamp",
+#test = Test(tool="ping",
             client=ClientSettings(
                 address="127.0.0.1",
                 time=datetime.datetime.now()
             ),
             sender_endpoint=Endpoint(
-                local=True,
+                #local=True,
                 address="127.0.0.1"
             ),
             receiver_endpoint=Endpoint(
-                #local=True,
+                local=True,
                 address="127.0.0.1"
             ),
             tool_parameters={
@@ -50,6 +50,30 @@ test = Test(tool="ping",
                 requested_time=datetime.datetime.now()+datetime.timedelta(seconds=2)
             )
        )
+
+#test = Test(tool="traceroute",
+#            client=ClientSettings(
+#                address="127.0.0.1",
+#                time=datetime.datetime.now()
+#            ),
+#            sender_endpoint=Endpoint(
+#                local=True,
+#                #address="127.0.0.1"
+#                address="207.75.165.179"
+#            ),
+#            receiver_endpoint=Endpoint(
+#                address="198.124.252.141" # chic-pt1.es.net
+#            ),
+#            tool_parameters={
+#                'packet_size': 20,
+#                'first_ttl': 1,
+#                'maximum_duration': 20
+#            },
+#            scheduling_parameters=SchedulingParameters(
+#                requested_time=datetime.datetime.now()+datetime.timedelta(seconds=2)
+#            )
+#       )
+
 
 print "Test: %s" % test.to_json()
 

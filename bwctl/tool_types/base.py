@@ -5,6 +5,7 @@ from subprocess import Popen, PIPE
 
 from bwctl.tools import ToolTypes
 from bwctl.utils import timedelta_seconds
+from bwctl.exceptions import ValidationException
 
 class Base:
     name = ""
@@ -53,8 +54,6 @@ class Base:
         try:
             cmd_line = self.build_command_line(test)
 
-            print "Command line: %s" % " ".join(cmd_line)
-
             p = Popen(cmd_line, shell=False, stdout=PIPE, stderr=PIPE, close_fds=True)
             stdout_pipe = p.stdout
             stderr_pipe = p.stderr
@@ -91,11 +90,15 @@ class Base:
     def get_results(self, test=None, exit_status=0, stdout="", stderr=""):
         from bwctl.models import Results
 
+        status = "finished"
+        if exit_status != 0:
+            status = "failed"
+
         results={ 'output': stderr+stdout,
                   'command_line': " ".join(self.build_command_line(test))
                 }
 
-        return Results(status="finished", results=results)
+        return Results(status=status, results=results)
 
     def receiver_is_client(self, test):
         """ Returns which side of the test, sender or receiver, will be the
@@ -118,11 +121,14 @@ class Base:
         return self.config['test_ports']
 
     def duration(self, test):
-        """ Returns the test length, a required paramter. If 'duration' isn't an
-            available parameter for this tool, this function needs overwritten  """
+	""" Returns the test length, a required paramter. If 'duration' or
+	    'maximum_duration' isn't an available parameter for this tool, this
+            function needs to be overwritten  """
 
         if 'duration' in test.tool_parameters:
             return test.tool_parameters['duration']
+        elif 'maximum_duration' in test.tool_parameters:
+            return test.tool_parameters['maximum_duration']
         else:
             raise Exception("Unknown test duration")
 

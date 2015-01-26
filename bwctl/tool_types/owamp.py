@@ -33,6 +33,12 @@ class Owamp(LatencyBase):
 
         return retval
 
+    def get_results(self, test=None, exit_status=0, stdout="", stderr=""):
+        if exit_status == -1 and "timed out" in stdout:
+            exit_status = 0
+
+        return LatencyBase.get_results(self, test=test, exit_status=exit_status, stdout=stdout, stderr=stderr)
+
     def build_command_line(self, test):
         cmd_line = []
 
@@ -62,5 +68,7 @@ class Owamp(LatencyBase):
             cmd_line.append(self.get_config_item('owampd_cmd'))
 
             cmd_line.extend(["-S", server_addr])
+
+            cmd_line.extend(["-Z"])
 
         return cmd_line
