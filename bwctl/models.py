@@ -159,6 +159,10 @@ class Test(jsonobject.JsonObject):
             return self.receiver_endpoint
 
     @property
+    def local_sender(self):
+        return self.sender_endpoint.local
+
+    @property
     def local_receiver(self):
         return self.receiver_endpoint.local
 

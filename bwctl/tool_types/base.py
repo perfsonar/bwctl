@@ -86,12 +86,16 @@ class Base:
             stderr = stderr + "\n" + str(e)
             return_code = -1
 
-        return self.get_results(exit_status=return_code, stdout=stdout, stderr=stderr)
+        return self.get_results(test=test, exit_status=return_code, stdout=stdout, stderr=stderr)
 
-    def get_results(self, exit_status=0, stdout="", stderr=""):
+    def get_results(self, test=None, exit_status=0, stdout="", stderr=""):
         from bwctl.models import Results
 
-        return Results(status="finished", results={ 'output': stderr+stdout })
+        results={ 'output': stderr+stdout,
+                  'command_line': " ".join(self.build_command_line(test))
+                }
+
+        return Results(status="finished", results=results)
 
     def receiver_is_client(self, test):
         """ Returns which side of the test, sender or receiver, will be the

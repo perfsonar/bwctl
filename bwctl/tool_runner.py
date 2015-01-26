@@ -33,10 +33,10 @@ class ToolRunner(BwctlProcess):
             test_results = self.test.tool_obj.run_test(self.test, end_time=self.end_time)
         except BwctlException as e:
             err = e.as_bwctl_error()
-            test_results = Results(status="failed", bwctl_errors=[ err ])
+            test_results = Results(status="failed", bwctl_errors=[ err.as_bwctl_error() ])
         except Exception as e:
             err = SystemProblemException(str(e))
-            test_results = Results(status="failed", bwctl_errors=[ err ])
+            test_results = Results(status="failed", bwctl_errors=[ err.as_bwctl_error() ])
 
         self.results_cb(test_results)
 

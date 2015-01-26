@@ -1,5 +1,6 @@
 import multiprocessing
 import psutil
+from IPy import IP
 
 def timedelta_seconds(td):
     """ Returns the time difference, in floating-point seconds, of a datetime timedelta object. This is needed for Python 2.6 support."""
@@ -28,3 +29,7 @@ def urljoin(*args):
     """
 
     return "/".join(map(lambda x: str(x).rstrip('/'), args))
+
+def is_ipv6(addr):
+    ip = IP(addr)
+    return ip.version() == 6

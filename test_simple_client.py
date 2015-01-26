@@ -28,22 +28,23 @@ print client.get_status()
 #       )
 
 
-test = Test(tool="owamp",
+#test = Test(tool="owamp",
+test = Test(tool="ping",
             client=ClientSettings(
                 address="127.0.0.1",
                 time=datetime.datetime.now()
             ),
             sender_endpoint=Endpoint(
-                #local=True,
-                address="127.0.0.1"
-            ),
-            receiver_endpoint=Endpoint(
                 local=True,
                 address="127.0.0.1"
             ),
+            receiver_endpoint=Endpoint(
+                #local=True,
+                address="127.0.0.1"
+            ),
             tool_parameters={
-                'packet_count': 200,
-                'inter_packet_time': 0.1
+                'packet_count': 20,
+                'inter_packet_time': 0.5
             },
             scheduling_parameters=SchedulingParameters(
                 requested_time=datetime.datetime.now()+datetime.timedelta(seconds=2)
