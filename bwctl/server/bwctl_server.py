@@ -1,4 +1,6 @@
+import optparse
 from random import randint
+import sys
 import uuid
 
 from bwctl.config import get_config
@@ -58,3 +60,18 @@ class BwctlServer:
         finally:
             self.test_coordinator.kill_children()
             self.test_coordinator.terminate()
+
+
+def bwctld():
+    """Entry point for bwctld."""
+    argv = sys.argv
+    oparse = optparse.OptionParser()
+    oparse.add_option("-f", "--config-file", dest="config_file", default="")
+    (opts, args) = oparse.parse_args(args=argv)
+
+    try:
+        bwctld = BwctlServer(config_file=opts.config_file)
+        bwctld.run()
+    except Exception, e:
+        print "Problem with bwctld: %s" % e
+        sys.exit(1)
