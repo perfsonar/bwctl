@@ -11,6 +11,8 @@ from bwctl.server.tests_db import TestsDB
 from bwctl.tools import get_tools, configure_tools
 
 config_options = {
+    "server_address": "string(default='')",
+    "server_port": "integer(default=4824)",
     "coordinator_address": "string(default='127.0.0.1')",
     "coordinator_port":    "integer(default=%d)" % (randint(1025, 65535)),
     "coordinator_auth_key":    "string(default=%s)" % (uuid.uuid4().hex)
@@ -35,7 +37,9 @@ class BwctlServer:
         self.tests_db  = TestsDB()
         self.limits_db = LimitsDB()
 
-        self.rest_api_server = RestApiServer(coordinator_client=self.coord_client)
+        self.rest_api_server = RestApiServer(coordinator_client=self.coord_client,
+                                             server_address=self.config['server_address'],
+                                             server_port=self.config['server_port'])
 
         self.test_coordinator = TestCoordinator(server_address=self.config['coordinator_address'],
                                                 server_port=self.config['coordinator_port'],
@@ -48,11 +52,9 @@ class BwctlServer:
             self.test_coordinator.start()
             self.rest_api_server.start()
 
-            self.test_coordinator.join()
+            self.rest_api_server.join()
         except Exception as e:
             print "Exception: %s" % e
         finally:
-            self.rest_api_server.kill_children()
-            self.rest_api_server.terminate()
             self.test_coordinator.kill_children()
             self.test_coordinator.terminate()

@@ -11,7 +11,7 @@ from bwctl import server
 from bwctl.exceptions import BwctlException, SystemProblemException, ValidationException
 
 class RestApiServer(BwctlProcess):
-    def __init__(self, coordinator_client=None):
+    def __init__(self, coordinator_client=None, server_address='', server_port=4824):
         status_controller = StatusController()
         tests_controller = TestsController()
 
@@ -28,6 +28,13 @@ class RestApiServer(BwctlProcess):
         dispatcher.connect('accept_test', '/bwctl/tests/:id/accept',   controller=tests_controller, action='accept_test', conditions=dict(method=['POST']))
         dispatcher.connect('remote_accept_test', '/bwctl/tests/:id/remote_accept',   controller=tests_controller, action='remote_accept_test', conditions=dict(method=['POST']))
         dispatcher.connect('get_results', '/bwctl/tests/:id/results',   controller=tests_controller, action='get_results', conditions=dict(method=['GET']))
+
+        if server_address:
+            cherrypy.config.update({'server.bind_addr': ( server_address, server_port )})
+        else:
+	    # Default to "ipv6 any" which should encompass ipv4 addresses to.
+	    # If not, we'll need to rethink how this gets done.
+            cherrypy.config.update({'server.bind_addr': ( "::", server_port ) })
 
         cherrypy.tree.mount(root=None, config={
             '/': {

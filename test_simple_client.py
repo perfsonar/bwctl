@@ -3,7 +3,7 @@ from bwctl.models import Test, SchedulingParameters, Endpoint, ClientSettings
 import datetime
 import time
 
-client = SimpleClient('http://localhost:8080/bwctl')
+client = SimpleClient('http://localhost:4824/bwctl')
 
 print client.get_status()
 #test = Test(tool="iperf",

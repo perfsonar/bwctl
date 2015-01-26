@@ -4,6 +4,7 @@ import re
 
 from bwctl.tools import get_tools
 from bwctl.port_range import PortRange
+from bwctl.exceptions import ValidationException
 
 port_range_re = re.compile('(\d+)-(\d+)')
 def port_range_check(value):
