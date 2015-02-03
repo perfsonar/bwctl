@@ -1,6 +1,8 @@
 import datetime
 import time
 
+from subprocess import Popen, PIPE
+
 from bwctl.tool_types.latency_base import LatencyBase
 from bwctl.utils import is_ipv6, timedelta_seconds
 

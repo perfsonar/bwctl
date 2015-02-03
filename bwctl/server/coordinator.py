@@ -5,7 +5,7 @@ import time
 
 from bwctl import jsonobject
 from bwctl.models import Test, BWCTLError, Results
-from bwctl.utils import BwctlProcess
+from bwctl.utils import BwctlProcess, get_logger
 from bwctl.exceptions import *
 
 class GenericRequestMessage(jsonobject.JsonObject):
@@ -54,6 +54,7 @@ class CoordinatorClient:
         self.server_port = server_port
         self.auth_key = auth_key
         self.connected = False
+        self.logger = get_logger()
 
     def connect(self):
         self.context = zmq.Context()
@@ -100,10 +101,10 @@ class CoordinatorClient:
         msg = message_types[message_type](test_id=test_id, value=value, requesting_address=requesting_address)
 
         coord_req = unparse_coordinator_msg(msg, message_type, self.auth_key)
-        #print "Unparsed request: %s" % coord_req
+        self.logger.debug("Sending request: %s" % coord_req)
         self.sock.send_json(coord_req)
         coord_resp = self.sock.recv_json()
-        print "Unparsed response: %s" % coord_resp
+        self.logger.debug("Received response: %s" % coord_resp)
         msg_type, resp_msg = parse_coordinator_msg(coord_resp, self.auth_key)
 
         if msg_type == "" or resp_msg == None:
@@ -132,14 +133,7 @@ def parse_coordinator_msg(json, auth_key):
         msg_type = json['message_type']
         msg = message_types[json['message_type']](json['message'])
     except Exception as e:
-        #print "json.auth_key: %s/self.auth_key: %s -- %s" % (json['auth_key'], auth_key, e)
-        #print "json.auth_key: %s/self.auth_key: %s -- %s" % (json, auth_key, e)
         msg = None
-
-    #print "Message: %s" % msg
-    if msg:
-        pass
-        #print "Message(json): %s" % msg.to_json()
 
     return msg_type, msg
 

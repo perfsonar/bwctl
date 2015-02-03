@@ -1,12 +1,16 @@
 import datetime
 import time
 
+from subprocess import Popen, PIPE
+
+from bwctl.tools import ToolTypes
 from bwctl.tool_types.base import Base
 from bwctl.utils import is_ipv6, timedelta_seconds
 
 class Traceroute(Base):
     name = "traceroute"
     known_parameters = [ "first_ttl", "last_ttl", "packet_size", "tos_bits", "maximum_duration" ]
+    type = ToolTypes.TRACEROUTE
 
     def config_options(self):
         options = Base.config_options(self).copy()

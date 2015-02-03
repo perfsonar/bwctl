@@ -5,7 +5,7 @@ from subprocess import Popen, PIPE
 
 from bwctl.tools import ToolTypes
 from bwctl.utils import timedelta_seconds
-from bwctl.exceptions import ValidationException
+from bwctl.exceptions import ValidationException, SystemProblemException
 
 class Base:
     name = ""
@@ -50,6 +50,8 @@ class Base:
         return_code = None
         stdout = ""
         stderr = ""
+        bwctl_errors = []
+        timed_out = False
 
         try:
             cmd_line = self.build_command_line(test)
@@ -79,26 +81,30 @@ class Base:
             return_code = p.poll()
             if return_code == None:
                return_code = -1
-               stdout = stdout + "\nProcess timed out. Killing."
+               timed_out = True
                p.terminate()
         except Exception as e:  # XXX: handle this better
-            stderr = stderr + "\n" + str(e)
+            bwctl_errors.append(SystemProblemException(str(e)).as_bwctl_error())
             return_code = -1
 
-        return self.get_results(test=test, exit_status=return_code, stdout=stdout, stderr=stderr)
+        return self.get_results(test=test, timed_out=timed_out, errors=bwctl_errors, exit_status=return_code, stdout=stdout, stderr=stderr)
 
-    def get_results(self, test=None, exit_status=0, stdout="", stderr=""):
+    def get_results(self, test=None, timed_out=False, errors=[], exit_status=0, stdout="", stderr=""):
         from bwctl.models import Results
 
         status = "finished"
-        if exit_status != 0:
+        if exit_status != 0 or timed_out:
             status = "failed"
+
+        output = stderr+stdout
+        if timed_out:
+            output = output + "\nProcess timed out. Killing.\n"
 
         results={ 'output': stderr+stdout,
                   'command_line': " ".join(self.build_command_line(test))
                 }
 
-        return Results(status=status, results=results)
+        return Results(status=status, bwctl_errors=errors, results=results)
 
     def receiver_is_client(self, test):
         """ Returns which side of the test, sender or receiver, will be the

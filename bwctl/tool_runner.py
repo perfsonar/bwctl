@@ -19,6 +19,8 @@ class ToolRunner(BwctlProcess):
 
         self.end_time = test.scheduling_parameters.reservation_end_time
 
+        print "Duration: %s" % (timedelta_seconds(self.end_time - self.start_time))
+
     def run(self):
         test_results = None
 
@@ -30,7 +32,11 @@ class ToolRunner(BwctlProcess):
 
                 time.sleep(sleep_time)
 
+            print "Run test: %s" % datetime.datetime.now()
+
             test_results = self.test.tool_obj.run_test(self.test, end_time=self.end_time)
+
+            print "Finished run test: %s" % datetime.datetime.now()
         except BwctlException as e:
             err = e.as_bwctl_error()
             test_results = Results(status="failed", bwctl_errors=[ err.as_bwctl_error() ])

@@ -37,14 +37,12 @@ class SimpleClient:
     def request_test(self, test):
         url = urljoin(self.base_url, "tests")
         r = self.session.post(url, data=simplejson.dumps(test.to_json()), headers={'Content-Type': 'application/json'})
-        print "request_test: %s" % r.json()
         r.raise_for_status()
         return Test(r.json())
 
     def update_test(self, id, test):
         url = urljoin(self.base_url, "tests", id)
         r = self.session.put(url, data=simplejson.dumps(test.to_json()), headers={'Content-Type': 'application/json'})
-        print "update_test: %s" % r.json()
         r.raise_for_status()
         return Test(r.json())
 

@@ -8,6 +8,7 @@ from bwctl.models import Test
 from bwctl import jsonobject
 from bwctl.utils import BwctlProcess
 from bwctl import server
+from bwctl.tools import get_available_tools
 from bwctl.exceptions import BwctlException, SystemProblemException, ValidationException
 
 class RestApiServer(BwctlProcess):
@@ -35,6 +36,8 @@ class RestApiServer(BwctlProcess):
 	    # Default to "ipv6 any" which should encompass ipv4 addresses to.
 	    # If not, we'll need to rethink how this gets done.
             cherrypy.config.update({'server.bind_addr': ( "::", server_port ) })
+
+        cherrypy.config.update({'log.screen': False})
 
         cherrypy.tree.mount(root=None, config={
             '/': {
@@ -90,8 +93,7 @@ class StatusController:
     status.protocol = 2.0
     status.time = datetime.datetime.now()
     status.ntp_error = 0.0
-    #status.available_tools = server.get_available_tools()
-    status.available_tools = []
+    status.available_tools = get_available_tools()
     status.version = server.__version__
 
     return status.to_json()

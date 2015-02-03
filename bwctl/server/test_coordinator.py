@@ -6,6 +6,7 @@ from bwctl.models import BWCTLError, Results
 from bwctl.exceptions import *
 
 import datetime
+from IPy import IP
 
 class TestCoordinator(CoordinatorServer):
     def __init__(self, server_address="127.0.0.1", server_port=5678, auth_key="", scheduler=Scheduler(), limits_db=None, tests_db=None):
@@ -25,6 +26,9 @@ class TestCoordinator(CoordinatorServer):
     def request_test(self, requesting_address=None, test=None):
         if test.id:
             raise ValidationException("New test shouldn't have an id")
+
+        # Fill in the client address
+        test.client.address = requesting_address
 
         # Validate the test before we add it to the database
         validate_test(test=test)
@@ -249,6 +253,7 @@ class TestCoordinator(CoordinatorServer):
 	# Add the results to the database, and update the test status to
 	# "finished"
         self.tests_db.add_results(test_id, results)
+
         self.tests_db.replace_test(test_id, test)
 
         # Remove the test from the scheduler
@@ -338,6 +343,11 @@ def validate_test(test=None):
         raise ValidationException("Unknown tool type: %s" % test.tool)
 
 def validate_endpoint(endpoint=None):
+    try:
+        ip = IP(endpoint.address)
+    except:
+        raise ValidationException("Invalid address for endpoint")
+
     if endpoint.local and endpoint.legacy_client_endpoint:
         raise ValidationException("Local endpoint isn't a legacy client")
 

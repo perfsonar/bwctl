@@ -2,6 +2,7 @@ import datetime
 
 from bwctl.tools import ToolTypes
 from bwctl.exceptions import NoAvailableTimeslotException
+from bwctl.utils import get_logger
 
 class TimeSlotTypes:
     ANY           = 0
@@ -26,7 +27,6 @@ class TimeSlot:
     def add_test(self, test):
         assert test.id
 
-        print "(TS) Adding test to %s-%s" % (self.start_time, self.end_time)
         if test.test_type == ToolTypes.THROUGHPUT:
             self.type = ToolTypes.THROUGHPUT
         elif test.test_type == ToolTypes.LATENCY:
@@ -75,16 +75,49 @@ class TimeSlot:
 class Scheduler:
     def __init__(self):
         self.time_slots = []
+        self.logger = get_logger()
 
     def add_test(self, test):
-        reservation_length = datetime.timedelta(seconds=test.fuzz + test.duration)
+        # Make sure that we can start the test later than the minimum start
+        # time. The idea is that we'll give the client some time to do the
+        # back-and-forth of coordinating the test with the other server as well
+        # as this server to validate the test and whatnot. XXX: Currently, this
+        # is 2 seconds out, but it'd make sense to
+        # have a better lower bound.
+        test_min_start_time = datetime.datetime.now() + datetime.timedelta(seconds=2)
+        if test.scheduling_parameters.latest_acceptable_time < test_min_start_time:
+            raise NoAvailableTimeslotException
 
-        reservation_start_time = test.scheduling_parameters.requested_time
-        reservation_end_time = reservation_start_time + reservation_length
+        if test.local_client:
+            # For the client, the reservation starts at the same time as the
+            # test. For the server, the reservation starts earlier to ensure
+            # that the server is up and running in time for the client to
+            # connect.
+            server_time_offset = datetime.timedelta(seconds=0)
+
+            # The reservation length is slightly longer than the test duration to
+            # account for the "fuzziness" of time, the server offset, and 
+            # a tacked on half second for the server to finish up processing.
+            reservation_length = datetime.timedelta(seconds=test.duration + 0.5)
+        else:
+            # We want the test to start at the requested time. The client will
+            # start at the test start time, but the server will start listening 
+            # a half second or so before that to account for time differences
+            # between the two hosts. Since the client is going to use the "test
+            # start time" of the other server as the start time for the test,
+            server_time_offset = datetime.timedelta(seconds=test.fuzz + 0.5)
+
+            # The reservation length is slightly longer than the test duration to
+            # account for the "fuzziness" of time, the server offset, and 
+            # a tacked on half second for the server to finish up processing.
+            reservation_length = datetime.timedelta(seconds=test.fuzz + test.duration + 0.5)
+
+        reservation_start_time = test.scheduling_parameters.requested_time - server_time_offset
+        reservation_end_time = reservation_start_time + server_time_offset + reservation_length
 
         reservation_max_start_time = test.scheduling_parameters.latest_acceptable_time
         if reservation_max_start_time:
-            reservation_max_start_time = reservation_max_start_time - datetime.timedelta(seconds=test.fuzz)
+            reservation_max_start_time = reservation_max_start_time - server_time_offset
 
         added = False
 
@@ -197,7 +230,7 @@ class Scheduler:
         # XXX: check latest time
         self.display_time_slots()
 
-        test_start_time = reservation_start_time + datetime.timedelta(seconds=test.fuzz)
+        test_start_time = reservation_start_time + server_time_offset
 
         return ReservationTime(reservation_start_time=reservation_start_time,
                                reservation_end_time=reservation_end_time,
@@ -216,7 +249,7 @@ class Scheduler:
         return True
 
     def display_time_slots(self):
-        print "Timeslots"
+        self.logger.debug("Timeslots")
         for index, ts in enumerate(self.time_slots):
-            print "Slot: %s" % ts.tests
-            print "%d) %s - %s: %s" % (index, ts.start_time, ts.end_time, ",".join(ts.tests))
+            self.logger.debug("Slot: %s" % ts.tests)
+            self.logger.debug("%d) %s - %s: %s" % (index, ts.start_time, ts.end_time, ",".join(ts.tests)))

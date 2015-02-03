@@ -76,7 +76,7 @@ class Results(jsonobject.JsonObject):
     bwctl_errors = jsonobject.ListProperty(BWCTLError, exclude_if_none=True)
 
 class ClientSettings(jsonobject.JsonObject):
-    address   = jsonobject.StringProperty(exclude_if_none=True, required=True)
+    address   = jsonobject.StringProperty(exclude_if_none=True)
     protocol  = jsonobject.FloatProperty(exclude_if_none=True, default=2.0, required=True)
     time      = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True, required=True)
     ntp_error = jsonobject.FloatProperty(exclude_if_none=True)
@@ -101,7 +101,7 @@ class Endpoint(jsonobject.JsonObject):
     legacy_client_endpoint = jsonobject.BooleanProperty(exclude_if_none=True)
     posts_endpoint_status  = jsonobject.BooleanProperty(exclude_if_none=True)
 
-    client_time_offset = jsonobject.IntegerProperty(exclude_if_none=True, default=0)
+    client_time_offset = jsonobject.FloatProperty(exclude_if_none=True, default=0)
     ntp_error = jsonobject.FloatProperty(exclude_if_none=True)
 
     local     = jsonobject.BooleanProperty(exclude_if_none=True)
@@ -169,11 +169,11 @@ class Test(jsonobject.JsonObject):
     @property
     def fuzz(self):
         offset = 0
-        if self.sender_endpoint:
-            offset = offset + self.sender_endpoint.client_time_offset
+        if self.sender_endpoint.ntp_error:
+            offset = offset + self.sender_endpoint.ntp_error
 
-        if self.sender_endpoint:
-            offset = offset - self.sender_endpoint.client_time_offset
+        if self.receiver_endpoint.ntp_error:
+            offset = offset - self.receiver_endpoint.ntp_error
 
         if offset < 0:
             offset = -offset

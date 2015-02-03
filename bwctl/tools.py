@@ -10,6 +10,9 @@ tool_classes = [
 tools = {}
 tool_modules_initialized = False
 
+available_tools = []
+available_tools_initialized = False
+
 class ToolTypes:
     UNKNOWN    = 0
     THROUGHPUT = 1
@@ -34,6 +37,19 @@ def init_tool_modules():
         # Create a "tool" object out of the imported class
         tools[tool_name] = tool_class()
 
+def get_available_tools():
+    global available_tools_initialized
+    global available_tools
+
+    if not available_tools_initialized:
+        for tool in get_tools():
+            if tool.check_available():
+                available_tools.append(tool.name)
+
+        available_tools_initialized = True
+
+    return available_tools
+ 
 def configure_tools(config):
     for tool in get_tools():
         tool.configure(config)

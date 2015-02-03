@@ -43,6 +43,14 @@ class Iperf(Base):
 
         return retval
 
+    def get_results(self, test=None, timed_out=False, errors=[], exit_status=0, stdout="", stderr=""):
+        if not test.local_client:
+            if timed_out:
+                timed_out = False
+                exit_status = 0
+
+        return Base.get_results(self, test=test, errors=errors, exit_status=exit_status, stdout=stdout, stderr=stderr)
+
     def build_command_line(self, test):
         cmd_line = []
 
@@ -51,6 +59,8 @@ class Iperf(Base):
         # Print the MTU as well
         cmd_line.extend(["-m"])
 
+        cmd_line.extend(["-i", "1"])
+
         cmd_line.extend(["-B", test.local_endpoint.address])
 
         if test.local_client:
@@ -58,19 +68,20 @@ class Iperf(Base):
             cmd_line.extend(["-p", str(test.remote_endpoint.test_port)])
         else:
             cmd_line.extend(["-s"])
+            cmd_line.extend(["-p", str(test.local_endpoint.test_port)])
 
         cmd_line.extend(["-t", str(test.tool_parameters['duration'])])
 
         if "units" in test.tool_parameters:
-            cmd_line.extend(["-f", test.tool_parameters['units']])
+            cmd_line.extend(["-f", str(test.tool_parameters['units'])])
 
         if "tos_bts" in test.tool_parameters:
-            cmd_line.extend(["-S", test.tool_parameters['tos_bits']])
+            cmd_line.extend(["-S", str(test.tool_parameters['tos_bits'])])
 
         if "output_format" in test.tool_parameters:
-            cmd_line.extend(["-y", test.tool_parameters['output_format']])
+            cmd_line.extend(["-y", str(test.tool_parameters['output_format'])])
 
         if "parallel_streams" in test.tool_parameters:
-            cmd_line.extend(["-P", test.tool_parameters['parallel_streams']])
+            cmd_line.extend(["-P", str(test.tool_parameters['parallel_streams'])])
 
         return cmd_line

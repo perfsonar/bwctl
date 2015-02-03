@@ -1,0 +1,5 @@
+#!/bin/env python
+
+from bwctl.client.bwctl_client import bwctl_client
+
+bwctl_client()
