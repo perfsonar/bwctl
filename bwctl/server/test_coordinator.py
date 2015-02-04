@@ -98,6 +98,9 @@ class TestCoordinator(CoordinatorServer):
         if not old_test.client_can_modify:
             raise TestInvalidActionException("Test can not be modified")
 
+        if old_test.client.address != requesting_address:
+            raise TestInvalidActionException("Not permitted to modify test")
+
         err = None
         error_state = ""
 
@@ -162,6 +165,9 @@ class TestCoordinator(CoordinatorServer):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
+        if test.client.address != requesting_address:
+            raise TestInvalidActionException("Not permitted to confirm test")
+
         if not test.status == "scheduled":
             raise TestInvalidActionException
 
@@ -210,6 +216,10 @@ class TestCoordinator(CoordinatorServer):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
+        if test.client.address != requesting_address and \
+           test.remote_endpoint.address != requesting_address:
+            raise TestInvalidActionException("Not permitted to confirm test")
+
         # The ToolRunner callback happens in a separate process so we need to
         # use the coordinator to respond.
         def handle_results_cb(results):
@@ -231,7 +241,11 @@ class TestCoordinator(CoordinatorServer):
         if not results:
             results = Results(status="cancelled")
 
-        return self.finish_test(requesting_address=requesting_address, test_id=test_id, results=results, status="cancelled")
+        if test.client.address != requesting_address and \
+           test.remote_endpoint.address != requesting_address:
+            raise TestInvalidActionException("Not permitted to cancel test")
+
+        return self.finish_test(requesting_address=None, test_id=test_id, results=results, status="cancelled")
 
     def finish_test(self, requesting_address=None, status="finished", test_id=None, results=None):
         # 1. Make sure the test isn't already in a "finished" state
@@ -244,6 +258,11 @@ class TestCoordinator(CoordinatorServer):
         test = self.tests_db.get_test(test_id)
         if not test:
             raise ResourceNotFoundException("Test not found")
+
+        if requesting_address and \
+            test.client.address != requesting_address and \
+            test.remote_endpoint.address != requesting_address:
+            raise TestInvalidActionException("Not permitted to finish test")
 
         if test.finished:
            raise TestAlreadyFinishedException
