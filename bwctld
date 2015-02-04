@@ -1,5 +1,0 @@
-#!/bin/env python
-
-from bwctl.server.bwctl_server import bwctld
-
-bwctld()
