@@ -4,7 +4,7 @@ import select
 from subprocess import Popen, PIPE
 
 from bwctl.tools import ToolTypes
-from bwctl.utils import timedelta_seconds
+from bwctl.utils import timedelta_seconds, get_logger
 from bwctl.exceptions import ValidationException, SystemProblemException
 
 class Base:
@@ -14,6 +14,7 @@ class Base:
 
     def __init__(self):
         self.config = {}
+        self.logger = get_logger()
 
     def config_options(self):
         return {
@@ -56,6 +57,8 @@ class Base:
         try:
             cmd_line = self.build_command_line(test)
 
+            self.logger.debug("Executing %s" % " ".join(cmd_line))
+
             p = Popen(cmd_line, shell=False, stdout=PIPE, stderr=PIPE, close_fds=True)
             stdout_pipe = p.stdout
             stderr_pipe = p.stderr
@@ -84,6 +87,8 @@ class Base:
                timed_out = True
                p.terminate()
         except Exception as e:  # XXX: handle this better
+            self.logger.debug("Test %s failed: %s" % (test.id, str(e)))
+
             bwctl_errors.append(SystemProblemException(str(e)).as_bwctl_error())
             return_code = -1
 
@@ -103,6 +108,8 @@ class Base:
         results={ 'output': stderr+stdout,
                   'command_line': " ".join(self.build_command_line(test))
                 }
+
+        self.logger.debug("Test %s %s:\n%s" % (test.id, status, results['output']))
 
         return Results(status=status, bwctl_errors=errors, results=results)
 
