@@ -252,7 +252,7 @@ def bwctl_client():
                       help="Use IPv6 only")
     oparse.add_option("-L", "--latest_time", dest="latest_time", default=300, type="int",
                       help="Latest time into an interval to allow a test to run (seconds) (Default: 300)")
-    oparse.add_option("-r", "--receiver", dest="receiver", type="string",
+    oparse.add_option("-c", "--receiver", dest="receiver", type="string",
                       help="The host that will act as the receiving side for a test")
     oparse.add_option("-s", "--sender", dest="sender", type="string",
                       help="The host that will act as the sending side for a test")
@@ -269,11 +269,13 @@ def bwctl_client():
     (opts, args) = oparse.parse_args(args=argv)
 
     if not opts.receiver:
-        print "-c|--receiver is a required option"
+        print "Error: -c|--receiver is a required option\n"
+        oparse.print_help()
         sys.exit(1)
 
     if not opts.sender:
-        print "-s|--sender is a required option"
+        print "Error: -s|--sender is a required option\n"
+        oparse.print_help()
         sys.exit(1)
 
     (receiver_address, receiver_port) = parse_endpoint(opts.receiver)
