@@ -4,6 +4,7 @@ from bwctl.tool_runner import ToolRunner
 from bwctl.server.coordinator import CoordinatorServer, CoordinatorClient
 from bwctl.models import BWCTLError, Results
 from bwctl.exceptions import *
+from bwctl.client.simple import SimpleClient
 
 import datetime
 from IPy import IP
@@ -33,8 +34,7 @@ class TestCoordinator(CoordinatorServer):
         # Validate the test before we add it to the database
         validate_test(test=test)
 
-        # accept test, and add it to the DB (gets us an ID)
-        test.change_state("pending")
+        test.change_state("accepted")
 
         test_id = self.tests_db.add_test(test)
         if not test_id:
@@ -178,7 +178,7 @@ class TestCoordinator(CoordinatorServer):
         self.tests_db.replace_test(test_id, test)
 
         validation_proc = ValidateRemoteTestProcess(
-                                                     test_id=test_id,
+                                                     test=test,
                                                      coordinator_address=self.server_address,
                                                      coordinator_port=self.server_port,
                                                      auth_key=self.auth_key
@@ -197,9 +197,12 @@ class TestCoordinator(CoordinatorServer):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
-        test.change_state("server-confirmed")
+        if test.status == "remote-confirmed":
+            self.spawn_tool_runner(requesting_address=requesting_address, test_id=test_id) 
+        else:
+            test.change_state("server-confirmed")
 
-        self.tests_db.replace_test(test_id, test)
+            self.tests_db.replace_test(test_id, test)
 
         return
 
@@ -219,6 +222,24 @@ class TestCoordinator(CoordinatorServer):
         if test.client.address != requesting_address and \
            test.remote_endpoint.address != requesting_address:
             raise TestInvalidActionException("Not permitted to confirm test")
+
+        if test.status == "server-confirmed":
+            self.spawn_tool_runner(requesting_address=requesting_address, test_id=test_id) 
+        else:
+            test.change_state("remote-confirmed")
+
+            self.tests_db.replace_test(test_id, test)
+
+        return
+
+    def spawn_tool_runner(self, requesting_address=None, test_id=None):
+        test = self.tests_db.get_test(test_id)
+        if not test:
+            raise ResourceNotFoundException("Test not found")
+
+        test.change_state("pending")
+
+        self.tests_db.replace_test(test_id, test)
 
         # The ToolRunner callback happens in a separate process so we need to
         # use the coordinator to respond.
@@ -247,7 +268,7 @@ class TestCoordinator(CoordinatorServer):
 
         return self.finish_test(requesting_address=None, test_id=test_id, results=results, status="cancelled")
 
-    def finish_test(self, requesting_address=None, status="finished", test_id=None, results=None):
+    def finish_test(self, requesting_address=None, status=None, test_id=None, results=None):
         # 1. Make sure the test isn't already in a "finished" state
         #   - If it is, send back a "failed" response
         # 2. Save the test results in the DB
@@ -266,6 +287,9 @@ class TestCoordinator(CoordinatorServer):
 
         if test.finished:
            raise TestAlreadyFinishedException
+
+        if not status:
+            status = results.status
 
         test.change_state(status)
 
@@ -293,7 +317,7 @@ class TestCoordinator(CoordinatorServer):
         return
 
 class TestActionHandlerProcess(BwctlProcess):
-    def __init__(self, test_id=None, test=None, coordinator_address=None,
+    def __init__(self, test=None, coordinator_address=None,
                        coordinator_port=None, auth_key=None):
 
         coordinator_client = CoordinatorClient(server_address=coordinator_address,
@@ -301,7 +325,6 @@ class TestActionHandlerProcess(BwctlProcess):
                                                auth_key=auth_key)
 
         self.coordinator_client = coordinator_client
-        self.test_id            = test_id
         self.test               = test
 
         super(TestActionHandlerProcess, self).__init__()
@@ -320,10 +343,6 @@ class TestActionHandlerProcess(BwctlProcess):
         if err:
             self.handle_failure(err.as_bwctl_error())
 
-    def refresh_test(self):
-        self.test = self.coordinator_client.get_test(self.test_id)
-        return self.test
-
     def handler(self):
         raise SystemProblemException("The handler function needs overwritten")
 
@@ -333,7 +352,7 @@ class TestActionHandlerProcess(BwctlProcess):
                       bwctl_errors = [ err ],
                   )
 
-        self.coordinator_client.finish_test(test_id=self.test_id, results=results)
+        self.coordinator_client.finish_test(test_id=self.test.id, results=results)
 
 class ValidateRemoteTestProcess(TestActionHandlerProcess):
     def handler(self):
@@ -341,7 +360,21 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
         # XXX: timeout if we'd be validating longer than the test would take to
         #      start
 
-        self.coordinator_client.server_confirm_test(self.test_id)
+        client_url = "http://[%s]:%d%s" % (self.test.remote_endpoint.address, \
+                                          self.test.remote_endpoint.peer_port, \
+                                          self.test.remote_endpoint.base_path)
+
+        client = SimpleClient(client_url)
+
+        try:
+            remote_test = client.get_test(self.test.remote_endpoint.test_id)
+
+            if datetime.datetime.now() > self.test.scheduling_parameters.reservation_start_time:
+                raise TestStartTimeFailure
+
+            self.coordinator_client.server_confirm_test(self.test.id)
+        except:
+            raise TestRemoteEndpointValidationFailure
 
         return
 

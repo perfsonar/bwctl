@@ -109,3 +109,7 @@ class TestStartTimeFailure(BwctlException):
     http_error  = 500
     default_msg = "Test didn't start at expected time"
 
+class TestRemoteEndpointValidationFailure(BwctlException):
+    error_code  = 508
+    http_error  = 500
+    default_msg = "Couldn't validate remote endpoint"

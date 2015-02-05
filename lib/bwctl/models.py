@@ -7,22 +7,16 @@ from bwctl.jsonobject.exceptions import BadValueError
 #  rejected:
 #  failed:
 #  scheduled: client-confirmed, failed
-#  client-confirmed: server-confirmed, finished, failed
-#  server-confirmed: finished, failed
+#  client-confirmed: server-confirmed, failed
+#  server-confirmed: pending, failed
+#  pending: finished, failed
 #  finished:
 
 valid_test_status_changes = {
     "":[
-         "pending",
          "accepted",
          "rejected",
          "failed"
-    ],
-    "pending":[
-        "accepted",
-        "rejected",
-        "scheduled",
-        "failed"
     ],
     "accepted":[
         "scheduled",
@@ -42,8 +36,19 @@ valid_test_status_changes = {
          "rejected",
          "failed"
     ],
+    "remote-confirmed":[
+         "rejected",
+         "failed",
+         "server-confirmed",
+         "pending"
+    ],
     "server-confirmed":[
          "rejected",
+         "failed",
+         "remote-confirmed",
+         "pending"
+    ],
+    "pending":[
          "failed",
          "finished"
     ],
@@ -62,6 +67,7 @@ def valid_state_change(old_state, new_state):
         raise BadValueError("Test can't go to state %s" % new_state)
 
     if not new_state in valid_test_status_changes[old_state]:
+        print "Valid test status changes: %s" % valid_test_status_changes[old_state]
         raise BadValueError("Test can't go from state %s to state %s" % (old_state, new_state))
 
     return
@@ -129,7 +135,7 @@ class Test(jsonobject.JsonObject):
 
     @property
     def client_can_modify(self):
-        return self.status in [ "pending", "accepted", "scheduled" ]
+        return self.status in [ "accepted", "scheduled" ]
 
     @property
     def finished(self):

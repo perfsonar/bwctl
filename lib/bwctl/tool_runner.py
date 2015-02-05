@@ -3,7 +3,7 @@ import time
 
 from bwctl.utils import BwctlProcess, timedelta_seconds, get_logger
 from bwctl.models import Results
-from bwctl.exceptions import SystemProblemException, BwctlException
+from bwctl.exceptions import SystemProblemException, BwctlException, TestStartTimeFailure
 
 class ToolRunner(BwctlProcess):
     def __init__(self, test=None, results_cb=None):
@@ -38,8 +38,7 @@ class ToolRunner(BwctlProcess):
         except BwctlException as e:
             self.logger.debug("Test %s failed: %s" % (self.test.id, str(e)))
 
-            err = e.as_bwctl_error()
-            test_results = Results(status="failed", bwctl_errors=[ err.as_bwctl_error() ])
+            test_results = Results(status="failed", bwctl_errors=[ e.as_bwctl_error() ])
         except Exception as e:
             self.logger.debug("Test %s failed: %s" % (self.test.id, str(e)))
 

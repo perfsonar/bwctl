@@ -298,27 +298,33 @@ def bwctl_client():
         print "Could not find a suitable address for %s" % sender_address
         sys.exit(1)
 
-    sender_endpoint=ClientEndpoint(
+    endpoints = {}
+
+    endpoints['sender']=ClientEndpoint(
                         address=sender_ip,
                         port=sender_port,
                         path="/bwctl",
                         is_sender=True,
                     )
-    sender_endpoint.initialize()
+    endpoints['sender'].initialize()
 
-    receiver_endpoint=ClientEndpoint(
+    endpoints['receiver']=ClientEndpoint(
                         address=receiver_ip,
                         port=receiver_port,
                         path="/bwctl",
                         is_sender=False,
                     )
-    receiver_endpoint.initialize()
+    endpoints['receiver'].initialize()
+
+    # Have the endpoint objects point at each other
+    endpoints['receiver'].remote_endpoint = endpoints['sender']
+    endpoints['sender'].remote_endpoint   = endpoints['receiver']
 
     requested_tools = opts.tools.split(",")
 
     selected_tool, common_tools = select_tool(requested_tools=requested_tools,
-                                              receiver_tools=receiver_endpoint.available_tools,
-                                              sender_tools=sender_endpoint.available_tools,
+                                              receiver_tools=endpoints['receiver'].available_tools,
+                                              sender_tools=endpoints['sender'].available_tools,
                                               tool_type=tool_type)
 
     if not selected_tool:
@@ -338,42 +344,52 @@ def bwctl_client():
     requested_time=datetime.datetime.now()+datetime.timedelta(seconds=3)
     latest_time=requested_time+datetime.timedelta(seconds=opts.latest_time)
 
-    sender_test_start = requested_time
-    sender_test_end   = None
-    receiver_test_start = None
-    receiver_test_end   = None
+    reservation_time = requested_time
+    reservation_end_time = None
+    reservation_completed = False
 
-    while sender_test_start != receiver_test_start:
-        receiver_test_start, receiver_test_end = receiver_endpoint.request_test(tool=selected_tool,
-                                                                                tool_parameters=tool_parameters, 
-                                                                                remote_endpoint=sender_endpoint.endpoint_obj(local=False),
-                                                                                requested_time=sender_test_start, latest_time=latest_time)
+    while not reservation_completed:
+        for endpoint in endpoints.values():
+            reservation_time, reservation_end_time = endpoint.request_test(tool=selected_tool,
+                                                                           tool_parameters=tool_parameters, 
+                                                                           requested_time=reservation_time,
+                                                                           latest_time=latest_time)
 
-        if receiver_test_start == sender_test_start and sender_endpoint.test_id:
-            break
+            if endpoint.remote_endpoint.has_complete_reservation and \
+               endpoint.has_complete_reservation and \
+               reservation_time == endpoint.remote_endpoint.test_start_time:
 
-        sender_test_start, sender_test_end = sender_endpoint.request_test(tool=selected_tool,
-                                                                          tool_parameters=tool_parameters, 
-                                                                          remote_endpoint=receiver_endpoint.endpoint_obj(local=False),
-                                                                          requested_time=receiver_test_start, latest_time=latest_time)
+               reservation_completed = True
+               break
 
-    # Accept the tests
-    sender_endpoint.accept_test()
-    receiver_endpoint.accept_test()
+    # Let the servers know that we're accepting the test time/parameters
+    for endpoint in endpoints.values():
+        endpoint.accept_test()
 
-    time.sleep(1)
+    # Wait for the servers to accept the test
+    reservation_confirmed = False
+    while not reservation_confirmed:
+        time.sleep(.5)
 
-    sender_endpoint.remote_accept_test()
-    receiver_endpoint.remote_accept_test()
+        reservation_confirmed = True
 
-    sleep_time = timedelta_seconds(receiver_test_end - datetime.datetime.now() + datetime.timedelta(seconds=1))
+        for endpoint in endpoints.values():
+            if not endpoint.is_confirmed():
+                reservation_confirmed = False
+
+    # Update the server to let it know the remote side has accepted
+    for endpoint in endpoints.values():
+        endpoint.remote_accept_test()
+
+    # Wait until the just after the end of the test for the results to be available
+    sleep_time = timedelta_seconds(reservation_end_time - datetime.datetime.now() + datetime.timedelta(seconds=1))
 
     print "Waiting %s seconds for results" % sleep_time
 
     time.sleep(sleep_time)
 
-    sender_results = sender_endpoint.get_test_results()
-    receiver_results = receiver_endpoint.get_test_results()
+    sender_results = endpoints['sender'].get_test_results()
+    receiver_results = endpoints['receiver'].get_test_results()
 
     print "Sender:"
     if not sender_results:
@@ -421,10 +437,20 @@ class ClientEndpoint:
 
        self.server_test_description = None
 
+       self.sent_accept = False
+       self.sent_remote_accept = False
+
        self.test_start_time = None
        self.test_finish_time = None
        client_url = "http://[%s]:%d%s" % (self.address, self.port, self.path)
        self.client = SimpleClient(client_url)
+
+   @property
+   def has_complete_reservation(self):
+       return self.server_test_description != None and \
+              self.test_start_time != None and \
+              self.server_test_description.sender_endpoint.test_id != None and \
+              self.server_test_description.receiver_endpoint.test_id != None
 
    def initialize(self):
        # XXX: handle failure condition
@@ -445,7 +471,7 @@ class ClientEndpoint:
    def time_s2c(self, time):
        return time + datetime.timedelta(seconds=self.time_offset)
 
-   def request_test(self, remote_endpoint=None, requested_time=None, latest_time=None, tool="", tool_parameters={}):
+   def request_test(self, requested_time=None, latest_time=None, tool="", tool_parameters={}):
        # Convert our time to the time that the server expects
        if requested_time:
            requested_time = self.time_c2s(requested_time)
@@ -456,10 +482,10 @@ class ClientEndpoint:
        test = self.server_test_description
        if test == None:
            if self.is_sender:
-               receiver_endpoint = remote_endpoint
+               receiver_endpoint = self.remote_endpoint.endpoint_obj(local=False)
                sender_endpoint = self.endpoint_obj(local=True)
            else:
-               sender_endpoint = remote_endpoint
+               sender_endpoint = self.remote_endpoint.endpoint_obj(local=False)
                receiver_endpoint = self.endpoint_obj(local=True)
 
            test = Test(
@@ -483,11 +509,12 @@ class ClientEndpoint:
        if latest_time:
            test.scheduling_parameters.latest_acceptable_time = latest_time
 
-       if remote_endpoint:
-           if self.is_sender:
-               test.receiver_endpoint = remote_endpoint
-           else:
-               test.sender_endpoint = remote_endpoint
+       if self.is_sender:
+           test.receiver_endpoint = self.remote_endpoint.endpoint_obj(local=False)
+           test.sender_endpoint   = self.endpoint_obj(local=True)
+       else:
+           test.sender_endpoint = self.remote_endpoint.endpoint_obj(local=False)
+           test.receiver_endpoint   = self.endpoint_obj(local=True)
 
        # XXX: handle failure
        if self.test_id:
@@ -513,6 +540,10 @@ class ClientEndpoint:
 
        return self.test_start_time, self.test_end_time
 
+   def get_test(self):
+       # XXX: handle failure
+       return self.client.get_test(self.test_id)
+
    def get_test_results(self):
        # XXX: handle failure
        retval = None
@@ -523,13 +554,26 @@ class ClientEndpoint:
 
        return retval
 
+   def is_confirmed(self):
+       test = self.get_test()
+
+       return test.status == "server-confirmed"
+
    def accept_test(self):
        # XXX: handle failure
+       if self.sent_accept:
+           return
+
+       self.sent_accept = True
 
        return self.client.accept_test(self.test_id)
 
    def remote_accept_test(self):
        # XXX: handle failure
+       if self.sent_remote_accept:
+           return
+
+       self.sent_remote_accept = True
 
        return self.client.remote_accept_test(self.test_id)
 
