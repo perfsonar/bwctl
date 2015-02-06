@@ -6,7 +6,7 @@ import sys
 import time
 import inspect
 
-import requests
+from bwctl.dependencies.requests.exceptions import HTTPError
 
 #-B|--local_address <address>     Use this as a local address for control connection and tests
 #-E|--no_endpoint                 Allow tests to occur when the receiver isn't running bwctl (Default: False)
@@ -551,7 +551,7 @@ class ClientEndpoint:
        retval = None
        try:
            retval = self.client.get_test_results(self.test_id)
-       except requests.exceptions.HTTPError:
+       except HTTPError:
            retval = None
 
        return retval
