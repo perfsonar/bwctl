@@ -33,11 +33,13 @@ class Owamp(LatencyBase):
 
         return retval
 
-    def get_results(self, test=None, exit_status=0, stdout="", stderr=""):
-        if exit_status == -1 and "timed out" in stdout:
-            exit_status = 0
+    def get_results(self, test=None, timed_out=False, errors=[], exit_status=0, stdout="", stderr=""):
+        if not test.local_client:
+            if timed_out:
+                timed_out = False
+                exit_status = 0
 
-        return LatencyBase.get_results(self, test=test, exit_status=exit_status, stdout=stdout, stderr=stderr)
+        return LatencyBase.get_results(self, test=test, errors=errors, exit_status=exit_status, stdout=stdout, stderr=stderr)
 
     def build_command_line(self, test):
         cmd_line = []
