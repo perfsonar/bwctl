@@ -33,6 +33,7 @@ valid_test_status_changes = {
     ],
     "client-confirmed":[
          "server-confirmed",
+         "remote-confirmed",
          "rejected",
          "failed"
     ],

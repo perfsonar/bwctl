@@ -368,25 +368,27 @@ def bwctl_client():
 
     # Wait for the servers to accept the test
     reservation_confirmed = False
-    while not reservation_confirmed:
+    reservation_failed    = False
+    while not reservation_confirmed and not reservation_failed:
         time.sleep(.5)
 
         reservation_confirmed = True
 
         for endpoint in endpoints.values():
-            if not endpoint.is_confirmed():
+            if not endpoint.is_pending:
                 reservation_confirmed = False
 
-    # Update the server to let it know the remote side has accepted
-    for endpoint in endpoints.values():
-        endpoint.remote_accept_test()
+            if endpoint.is_finished:
+                reservation_failed = True
+                break
 
-    # Wait until the just after the end of the test for the results to be available
-    sleep_time = timedelta_seconds(reservation_end_time - datetime.datetime.now() + datetime.timedelta(seconds=1))
+    if reservation_confirmed:
+        # Wait until the just after the end of the test for the results to be available
+        sleep_time = timedelta_seconds(reservation_end_time - datetime.datetime.now() + datetime.timedelta(seconds=1))
 
-    print "Waiting %s seconds for results" % sleep_time
+        print "Waiting %s seconds for results" % sleep_time
 
-    time.sleep(sleep_time)
+        time.sleep(sleep_time)
 
     sender_results = endpoints['sender'].get_test_results()
     receiver_results = endpoints['receiver'].get_test_results()
@@ -554,10 +556,17 @@ class ClientEndpoint:
 
        return retval
 
-   def is_confirmed(self):
+   @property
+   def is_pending(self):
        test = self.get_test()
 
-       return test.status == "server-confirmed"
+       return test.status == "pending"
+
+   @property
+   def is_finished(self):
+       test = self.get_test()
+
+       return test.finished
 
    def accept_test(self):
        # XXX: handle failure

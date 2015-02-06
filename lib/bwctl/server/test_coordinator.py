@@ -1,4 +1,4 @@
-from bwctl.utils import BwctlProcess, timedelta_seconds
+from bwctl.utils import BwctlProcess, timedelta_seconds, ip_matches
 from bwctl.server.scheduler import Scheduler
 from bwctl.tool_runner import ToolRunner
 from bwctl.server.coordinator import CoordinatorServer, CoordinatorClient
@@ -7,6 +7,7 @@ from bwctl.exceptions import *
 from bwctl.client.simple import SimpleClient
 
 import datetime
+import time
 from IPy import IP
 
 class TestCoordinator(CoordinatorServer):
@@ -98,7 +99,7 @@ class TestCoordinator(CoordinatorServer):
         if not old_test.client_can_modify:
             raise TestInvalidActionException("Test can not be modified")
 
-        if old_test.client.address != requesting_address:
+        if not ip_matches(old_test.client.address, requesting_address):
             raise TestInvalidActionException("Not permitted to modify test")
 
         err = None
@@ -165,7 +166,7 @@ class TestCoordinator(CoordinatorServer):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
-        if test.client.address != requesting_address:
+        if not ip_matches(test.client.address, requesting_address):
             raise TestInvalidActionException("Not permitted to confirm test")
 
         if not test.status == "scheduled":
@@ -219,9 +220,8 @@ class TestCoordinator(CoordinatorServer):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
-        if test.client.address != requesting_address and \
-           test.remote_endpoint.address != requesting_address:
-            raise TestInvalidActionException("Not permitted to confirm test")
+        if not ip_matches(test.remote_endpoint.address, requesting_address):
+            raise TestInvalidActionException("Not permitted to confirm test: %s != %s" % (test.remote_endpoint.address, requesting_address))
 
         if test.status == "server-confirmed":
             self.spawn_tool_runner(requesting_address=requesting_address, test_id=test_id) 
@@ -262,8 +262,8 @@ class TestCoordinator(CoordinatorServer):
         if not results:
             results = Results(status="cancelled")
 
-        if test.client.address != requesting_address and \
-           test.remote_endpoint.address != requesting_address:
+        if not ip_matches(test.client.address, requesting_address) and \
+           not ip_matches(test.remote_endpoint.address, requesting_address):
             raise TestInvalidActionException("Not permitted to cancel test")
 
         return self.finish_test(requesting_address=None, test_id=test_id, results=results, status="cancelled")
@@ -281,8 +281,8 @@ class TestCoordinator(CoordinatorServer):
             raise ResourceNotFoundException("Test not found")
 
         if requesting_address and \
-            test.client.address != requesting_address and \
-            test.remote_endpoint.address != requesting_address:
+            ip_matches(test.client.address, requesting_address) and \
+            ip_matches(test.remote_endpoint.address, requesting_address):
             raise TestInvalidActionException("Not permitted to finish test")
 
         if test.finished:
@@ -364,15 +364,32 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
                                           self.test.remote_endpoint.peer_port, \
                                           self.test.remote_endpoint.base_path)
 
-        client = SimpleClient(client_url)
+        client = SimpleClient(client_url, source_address=self.test.local_endpoint.address)
 
         try:
-            remote_test = client.get_test(self.test.remote_endpoint.test_id)
+            remote_test_confirmed = False
 
+	    # Wait until the far side has confirmed the test (i.e. the client
+	    # can't make changes to it)
+            while datetime.datetime.now() < self.test.scheduling_parameters.reservation_start_time:
+                remote_test = client.get_test(self.test.remote_endpoint.test_id)
+
+                if remote_test.status == "client-confirmed" or \
+                   remote_test.status == "server-confirmed":
+                    break
+
+                # Wait before retrying
+                time.sleep(0.2)
+
+            # Make sure we didn't timeout waiting for the test to start
             if datetime.datetime.now() > self.test.scheduling_parameters.reservation_start_time:
                 raise TestStartTimeFailure
 
+            # Confirm the test locally
             self.coordinator_client.server_confirm_test(self.test.id)
+
+            # Confirm the test with the remote endpoint
+            client.remote_accept_test(self.test.remote_endpoint.test_id)
         except:
             raise TestRemoteEndpointValidationFailure
 

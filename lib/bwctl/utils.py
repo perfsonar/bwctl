@@ -3,7 +3,7 @@ import logging.handlers
 
 import multiprocessing
 import psutil
-from IPy import IP
+from bwctl.dependencies.IPy import IP
 import socket
 
 def timedelta_seconds(td):
@@ -38,6 +38,37 @@ def is_ipv6(addr):
     ip = IP(addr)
     return ip.version() == 6
 
+def ip_matches(ip1, ip2, resolve_v46_map=True):
+    if ip1 == ip2:
+        return True
+
+    ip1_obj = IP(ip1)
+    ip2_obj = IP(ip2)
+
+    return _ip_matches(ip1_obj, ip2_obj)
+
+def _ip_matches(ip1_obj, ip2_obj, resolve_v46_map=True):
+    if ip1_obj.strCompressed() == ip2_obj.strCompressed():
+        return True
+
+    if ip1_obj.version() == ip2_obj.version():
+        return False
+
+    if resolve_v46_map:
+        if ip1_obj.version() == 6:
+            try:
+                return _ip_matches(ip1_obj.v46map(), ip2_obj)
+            except:
+                pass
+        elif ip2_obj.version() == 6:
+            try:
+                return _ip_matches(ip1_obj, ip2_obj.v46map())
+            except:
+                pass
+
+    return False
+
+
 def get_ip(host, prefer_ipv6=True, require_ipv6=False, require_ipv4=False):
     """
     This method returns the first IP address string
@@ -69,7 +100,6 @@ def init_logging(name, screen=True, syslog_facility=None, debug=False,
 
     level = logging.WARNING
     if debug:
-        print "Debug mode"
         level = logging.DEBUG
 
     log = logging.getLogger()
