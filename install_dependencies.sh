@@ -1,3 +1,3 @@
 #!/bin/sh
 
-yum install python-psutil python-IPy python-configobj python-zmq py-radix python-cherrypy python-routes python-requests python-simplejson
+yum install python-psutil python-configobj python-zmq py-radix python-cherrypy python-routes python-simplejson
