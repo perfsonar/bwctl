@@ -178,13 +178,16 @@ class TestCoordinator(CoordinatorServer):
 
         self.tests_db.replace_test(test_id, test)
 
-        validation_proc = ValidateRemoteTestProcess(
-                                                     test=test,
-                                                     coordinator_address=self.server_address,
-                                                     coordinator_port=self.server_port,
-                                                     auth_key=self.auth_key
-                                                   )
-        validation_proc.start()
+        # Only do the remote validation process if we're not going to wait for
+        # the far side to post it's status.
+        if not test.remote_endpoint.posts_endpoint_status:
+            validation_proc = ValidateRemoteTestProcess(
+                                                         test=test,
+                                                         coordinator_address=self.server_address,
+                                                         coordinator_port=self.server_port,
+                                                         auth_key=self.auth_key
+                                                       )
+            validation_proc.start()
 
         return
 
@@ -229,6 +232,11 @@ class TestCoordinator(CoordinatorServer):
             test.change_state("remote-confirmed")
 
             self.tests_db.replace_test(test_id, test)
+
+        # If the far side is posting it's status, verify the test parameters
+        # here.
+        if test.remote_endpoint.posts_endpoint_status:
+            self.server_confirm_test(test_id=test_id)
 
         return
 
@@ -357,9 +365,6 @@ class TestActionHandlerProcess(BwctlProcess):
 class ValidateRemoteTestProcess(TestActionHandlerProcess):
     def handler(self):
         # XXX: actually validate the test
-        # XXX: timeout if we'd be validating longer than the test would take to
-        #      start
-
         client_url = "http://[%s]:%d%s" % (self.test.remote_endpoint.address, \
                                           self.test.remote_endpoint.peer_port, \
                                           self.test.remote_endpoint.base_path)
@@ -367,8 +372,6 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
         client = SimpleClient(client_url, source_address=self.test.local_endpoint.address)
 
         try:
-            remote_test_confirmed = False
-
 	    # Wait until the far side has confirmed the test (i.e. the client
 	    # can't make changes to it)
             while datetime.datetime.now() < self.test.scheduling_parameters.reservation_start_time:
@@ -388,8 +391,32 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
             # Confirm the test locally
             self.coordinator_client.server_confirm_test(self.test.id)
 
-            # Confirm the test with the remote endpoint
+            # Confirm the test with the remote endpoint if needed
             client.remote_accept_test(self.test.remote_endpoint.test_id, self.test)
+
+            # If we're posting our status, we're not going to get the
+            # remote_accept from the side to alert us, so we'll need to confirm
+            # it ourselves. It'd probably be good to wait for it 
+            if self.test.local_endpoint.posts_endpoint_status:
+                remote_test = None
+
+                # Wait until the far side has confirmed the final state of
+                # the test
+                while datetime.datetime.now() < self.test.scheduling_parameters.reservation_start_time:
+                    remote_test = client.get_test(self.test.remote_endpoint.test_id)
+
+                    if remote_test.status == "pending":
+                        break
+
+                # Wait before retrying
+                time.sleep(0.2)
+
+                # Make sure we didn't timeout waiting for the test to start
+                if datetime.datetime.now() > self.test.scheduling_parameters.reservation_start_time:
+                    raise TestStartTimeFailure
+
+                self.coordinator_client.remote_confirm_test(self.test.id, remote_test, \
+                                                            requesting_address=self.test.remote_endpoint.address)
         except:
             raise TestRemoteEndpointValidationFailure
 
@@ -401,6 +428,10 @@ def validate_test(test=None):
 
     if test.sender_endpoint.local and test.receiver_endpoint.local:
         raise ValidationException("Both endpoints can't be local")
+
+    if test.sender_endpoint.posts_endpoint_status and \
+       test.receiver_endpoint.posts_endpoint_status:
+        raise ValidationException("Both endpoints can't post their status")
 
     # Make sure that it's a known tool, and that the tool parameters are all
     # valid.
