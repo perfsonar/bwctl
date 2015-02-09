@@ -65,7 +65,8 @@ class BwctlServer:
         finally:
             self.test_coordinator.kill_children()
             self.test_coordinator.terminate()
-
+            self.rest_api_server.kill_children()
+            self.rest_api_server.terminate()
 
 def bwctld():
     """Entry point for bwctld."""
