@@ -45,7 +45,7 @@ class Ping(LatencyBase):
         # we're the sender
         if test.local_sender:
             return LatencyBase.run_test(self, test)
-
+    
         # Just do nothing, and return after the test is over
         timeout = 10
         if end_time:

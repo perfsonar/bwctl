@@ -8,7 +8,7 @@ from bwctl.client.simple import SimpleClient
 
 import datetime
 import time
-from IPy import IP
+from bwctl.dependencies.IPy import IP
 
 class TestCoordinator(CoordinatorServer):
     def __init__(self, server_address="127.0.0.1", server_port=5678, auth_key="", scheduler=Scheduler(), limits_db=None, tests_db=None):
@@ -123,13 +123,13 @@ class TestCoordinator(CoordinatorServer):
 
                 self.scheduler.remove_test(old_test)
 
-            # Try to schedule the test
-            scheduled_time = self.scheduler.add_test(test)
+                # Try to schedule the test
+                scheduled_time = self.scheduler.add_test(test)
 
-            # Set the times for the given test
-            test.scheduling_parameters.reservation_start_time = scheduled_time.reservation_start_time
-            test.scheduling_parameters.reservation_end_time = scheduled_time.reservation_end_time
-            test.scheduling_parameters.test_start_time = scheduled_time.test_start_time
+                # Set the times for the given test
+                test.scheduling_parameters.reservation_start_time = scheduled_time.reservation_start_time
+                test.scheduling_parameters.reservation_end_time = scheduled_time.reservation_end_time
+                test.scheduling_parameters.test_start_time = scheduled_time.test_start_time
 
             test.change_state("scheduled")
 

@@ -68,7 +68,6 @@ def valid_state_change(old_state, new_state):
         raise BadValueError("Test can't go to state %s" % new_state)
 
     if not new_state in valid_test_status_changes[old_state]:
-        print "Valid test status changes: %s" % valid_test_status_changes[old_state]
         raise BadValueError("Test can't go from state %s to state %s" % (old_state, new_state))
 
     return

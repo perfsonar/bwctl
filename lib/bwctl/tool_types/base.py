@@ -38,6 +38,7 @@ class Base:
 
     def configure(self, config):
         self.config = config
+        self.logger = get_logger() # Re-build the logger
 
     def get_config_item(self, item):
         if not item in self.config:

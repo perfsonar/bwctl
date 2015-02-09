@@ -47,4 +47,4 @@ class ToolRunner(BwctlProcess):
 
         self.results_cb(test_results)
 
-        return results
+        return test_results

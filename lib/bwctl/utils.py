@@ -69,13 +69,13 @@ def _ip_matches(ip1_obj, ip2_obj, resolve_v46_map=True):
     return False
 
 
-def get_ip(host, prefer_ipv6=True, require_ipv6=False, require_ipv4=False):
+def get_ip(host, prefer_ipv6=True, require_ipv6=False, require_ipv4=False, protocol=socket.IPPROTO_TCP):
     """
     This method returns the first IP address string
     that responds as the given domain name
     """
     try:
-        addresses = socket.getaddrinfo(host, 0, 0, 0, socket.IPPROTO_TCP)
+        addresses = socket.getaddrinfo(host, 0, 0, 0, protocol)
 
         if prefer_ipv6 or require_ipv6:
             for (family, socktype, proto, canonname, sockaddr) in addresses:
@@ -91,10 +91,26 @@ def get_ip(host, prefer_ipv6=True, require_ipv6=False, require_ipv4=False):
 
     return None
 
+def discover_source_address(addr, interface=None):
+    source_addr = None
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        sock.connect((addr, 9)) # use UDP discard port
+        source_addr = sock.getsockname()[0]
+    except socket.error:
+        source_addr = None
+    finally:
+        del sock
+
+    return source_addr
+
 logging_name = ""
 
 def init_logging(name, screen=True, syslog_facility=None, debug=False,
         format="%(name)s [%(process)d] %(message)s"):
+
+    global logging_name
 
     logging_name = name
 
@@ -116,4 +132,6 @@ def init_logging(name, screen=True, syslog_facility=None, debug=False,
         log.addHandler(console)
 
 def get_logger():
+    global logging_name
+
     return logging.getLogger(logging_name)

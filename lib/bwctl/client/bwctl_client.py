@@ -6,6 +6,8 @@ import sys
 import time
 import inspect
 
+from multiprocessing import Queue
+
 from bwctl.dependencies.requests.exceptions import HTTPError
 
 #-B|--local_address <address>     Use this as a local address for control connection and tests
@@ -49,9 +51,12 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #-V|--version                     Show version number
 
 from bwctl.client.simple import SimpleClient
-from bwctl.tools import get_tools, get_tool, ToolTypes
+from bwctl.tools import get_tools, get_tool, ToolTypes, configure_tools, get_available_tools
+from bwctl.tool_runner import ToolRunner
 from bwctl.models import Test, Endpoint, SchedulingParameters, ClientSettings
-from bwctl.utils import get_ip, is_ipv6, timedelta_seconds
+from bwctl.utils import get_ip, is_ipv6, timedelta_seconds, discover_source_address
+from bwctl.config import get_config
+from bwctl.utils import init_logging
 
 def parse_endpoint(endpoint):
     m = re.match("^[(.*)]:(\d+)", endpoint)
@@ -266,55 +271,76 @@ def bwctl_client():
     elif tool_type == ToolTypes.THROUGHPUT:
         add_throughput_test_options(oparse)
 
+    oparse.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False)
+
     (opts, args) = oparse.parse_args(args=argv)
 
-    if not opts.receiver:
-        print "Error: -c|--receiver is a required option\n"
+    # Initialize the logger
+    init_logging(script_name, debug=opts.verbose)
+
+    # Initialize the configuration
+    config = get_config() # config_file=config_file)
+
+    # Setup the tool configuration
+    configure_tools(config)
+
+    if not opts.receiver and not opts.sender:
+        print "Error: a sender or a receiver must be specified\n"
         oparse.print_help()
         sys.exit(1)
 
-    if not opts.sender:
-        print "Error: -s|--sender is a required option\n"
-        oparse.print_help()
-        sys.exit(1)
-
-    (receiver_address, receiver_port) = parse_endpoint(opts.receiver)
-    if not receiver_address:
-        print "Invalid address %s" % opts.receiver
-        sys.exit(1)
-
-    receiver_ip = get_ip(receiver_address, require_ipv6=opts.require_ipv6, require_ipv4=opts.require_ipv4)
-    if not receiver_ip:
-        print "Could not find a suitable address for %s" % receiver_address
-        sys.exit(1)
-
-    (sender_address, sender_port) = parse_endpoint(opts.sender)
-    if not sender_address:
-        print "Invalid address %s" % opts.sender
-        sys.exit(1)
-
-    sender_ip = get_ip(sender_address, require_ipv6=opts.require_ipv6, require_ipv4=opts.require_ipv4)
-    if not sender_ip:
-        print "Could not find a suitable address for %s" % sender_address
-        sys.exit(1)
-
+    # Setup the endpoint handlers
     endpoints = {}
 
-    endpoints['sender']=ClientEndpoint(
-                        address=sender_ip,
-                        port=sender_port,
-                        path="/bwctl",
-                        is_sender=True,
-                    )
-    endpoints['sender'].initialize()
+    if not opts.receiver:
+        endpoints['receiver']=LocalEndpoint(is_sender=False, tool_type=tool_type)
+    else:
+        (receiver_address, receiver_port) = parse_endpoint(opts.receiver)
+        if not receiver_address:
+            print "Invalid address %s" % opts.receiver
+            sys.exit(1)
 
-    endpoints['receiver']=ClientEndpoint(
-                        address=receiver_ip,
-                        port=receiver_port,
-                        path="/bwctl",
-                        is_sender=False,
-                    )
-    endpoints['receiver'].initialize()
+        receiver_ip = get_ip(receiver_address, require_ipv6=opts.require_ipv6, require_ipv4=opts.require_ipv4)
+        if not receiver_ip:
+            print "Could not find a suitable address for %s" % receiver_address
+            sys.exit(1)
+
+        endpoints['receiver']=ClientEndpoint(
+                            address=receiver_ip,
+                            port=receiver_port,
+                            path="/bwctl",
+                            is_sender=False,
+                        )
+
+    if not opts.sender:
+        endpoints['sender']=LocalEndpoint(is_sender=True, tool_type=tool_type)
+    else:
+        (sender_address, sender_port) = parse_endpoint(opts.sender)
+        if not sender_address:
+            print "Invalid address %s" % opts.sender
+            sys.exit(1)
+
+        sender_ip = get_ip(sender_address, require_ipv6=opts.require_ipv6, require_ipv4=opts.require_ipv4)
+        if not sender_ip:
+            print "Could not find a suitable address for %s" % sender_address
+            sys.exit(1)
+
+        endpoints['sender']=ClientEndpoint(
+                            address=sender_ip,
+                            port=sender_port,
+                            path="/bwctl",
+                            is_sender=True,
+                        )
+
+    if not opts.sender:
+        endpoints['sender'].initialize(remote_endpoint=endpoints['receiver'])
+        endpoints['receiver'].initialize(remote_endpoint=endpoints['sender'])
+    elif not opts.receiver:
+        endpoints['receiver'].initialize(remote_endpoint=endpoints['sender'])
+        endpoints['sender'].initialize(remote_endpoint=endpoints['receiver'])
+    else:
+        endpoints['sender'].initialize(remote_endpoint=endpoints['receiver'])
+        endpoints['receiver'].initialize(remote_endpoint=endpoints['sender'])
 
     # Have the endpoint objects point at each other
     endpoints['receiver'].remote_endpoint = endpoints['sender']
@@ -362,9 +388,15 @@ def bwctl_client():
                reservation_completed = True
                break
 
-    # Let the servers know that we're accepting the test time/parameters
+    # We need to accept the remote endpoints first, and then the local one (if
+    # applicable) so that the local one can post its' acceptance to the server.
     for endpoint in endpoints.values():
-        endpoint.accept_test()
+        if endpoint.is_remote:
+            endpoint.accept_test()
+
+    for endpoint in endpoints.values():
+        if not endpoint.is_remote:
+            endpoint.remote_accept_test()
 
     # Wait for the servers to accept the test
     reservation_confirmed = False
@@ -383,6 +415,10 @@ def bwctl_client():
                 break
 
     if reservation_confirmed:
+        for endpoint in endpoints.values():
+            if not endpoint.is_remote:
+                endpoint.spawn_tool_runner()
+
         # Wait until the just after the end of the test for the results to be available
         sleep_time = timedelta_seconds(reservation_end_time - datetime.datetime.now() + datetime.timedelta(seconds=1))
 
@@ -423,6 +459,10 @@ def bwctl_client():
 
 class ClientEndpoint:
    def __init__(self, address="", port=4824, path="/bwctl", is_sender=True):
+       self.is_remote = True
+
+       self.remote_endpoint = None
+
        self.is_sender = is_sender
 
        self.address = address
@@ -440,21 +480,41 @@ class ClientEndpoint:
        self.server_test_description = None
 
        self.sent_accept = False
-       self.sent_remote_accept = False
 
        self.test_start_time = None
-       self.test_finish_time = None
+       self.test_end_time = None
        client_url = "http://[%s]:%d%s" % (self.address, self.port, self.path)
        self.client = SimpleClient(client_url)
 
    @property
    def has_complete_reservation(self):
-       return self.server_test_description != None and \
-              self.test_start_time != None and \
-              self.server_test_description.sender_endpoint.test_id != None and \
-              self.server_test_description.receiver_endpoint.test_id != None
+       if self.test_start_time == None:
+           return False
 
-   def initialize(self):
+       if self.server_test_description == None:
+           return False
+
+       # Verify that the test ports have been passed around
+       if self.is_sender and self.remote_endpoint.test_port and \
+           self.server_test_description.receiver_endpoint.test_port != self.remote_endpoint.test_port:
+           return False
+
+       if not self.is_sender and self.test_port and \
+           self.server_test_description.sender_endpoint.test_port != self.test_port:
+           return False
+
+       # Verify that the test ID has been passed around
+       if self.server_test_description.sender_endpoint.posts_endpoint_status == False and \
+          not self.server_test_description.sender_endpoint.test_id:
+           return False
+
+       if self.server_test_description.receiver_endpoint.posts_endpoint_status == False and \
+          not self.server_test_description.receiver_endpoint.test_id:
+           return False
+
+       return True
+
+   def initialize(self, remote_endpoint):
        # XXX: handle failure condition
        status = self.client.get_status()
        current_time = datetime.datetime.now()
@@ -466,6 +526,8 @@ class ClientEndpoint:
        self.server_ntp_error = status.ntp_error
        self.server_version   = status.version
        self.available_tools = status.available_tools
+
+       self.remote_endpoint = remote_endpoint
 
    def time_c2s(self, time):
        return time - datetime.timedelta(seconds=self.time_offset)
@@ -520,8 +582,10 @@ class ClientEndpoint:
 
        # XXX: handle failure
        if self.test_id:
+           print "Updating test: %s" % self.test_id
            ret_test = self.client.update_test(self.test_id, test)
        else:
+           print "Requesting new test"
            ret_test = self.client.request_test(test)
 
        # Save the test id since we use it for creating the Endpoint, and a few
@@ -539,6 +603,9 @@ class ClientEndpoint:
        self.test_end_time = self.time_s2c(ret_test.scheduling_parameters.reservation_end_time)
 
        self.server_test_description = ret_test
+
+       print "Setting remote start time to %s" % self.test_start_time
+       print "Setting remote end time to %s" % self.test_end_time
 
        return self.test_start_time, self.test_end_time
 
@@ -577,15 +644,6 @@ class ClientEndpoint:
 
        return self.client.accept_test(self.test_id)
 
-   def remote_accept_test(self):
-       # XXX: handle failure
-       if self.sent_remote_accept:
-           return
-
-       self.sent_remote_accept = True
-
-       return self.client.remote_accept_test(self.test_id)
-
    def cancel_test(self):
        # XXX: handle failure
 
@@ -608,4 +666,143 @@ class ClientEndpoint:
 
                     legacy_client_endpoint=False,
                     posts_endpoint_status=False
+                    )
+
+class LocalEndpoint:
+   def __init__(self, tool_type=None, is_sender=True):
+       self.is_remote = False
+
+       self.address = None
+
+       self.test_start_time = None
+       self.test_end_time = None
+
+       self.tool_type = tool_type
+       self.is_sender = is_sender
+       self.tool_runner_proc = None
+
+       self.test_port = None
+
+       self.tool = ""
+       self.tool_parameters = {}
+
+       self.available_tools = []
+
+       self.remote_endpoint = None
+
+       self.results_queue = Queue()
+
+       self.results = None
+
+   def initialize(self, remote_endpoint):
+       self.remote_endpoint = remote_endpoint
+
+       self.address = discover_source_address(remote_endpoint.address)
+       if not self.address:
+           raise Exception("Error: couldn't figure out which address to use to connect to %s" % remote_endpoint.address)
+
+       self.available_tools = get_available_tools()
+
+   @property
+   def has_complete_reservation(self):
+       return True
+
+   def request_test(self, requested_time=None, latest_time=None, tool="", tool_parameters={}):
+       if not self.test_port:
+           self.test_port = get_tool(tool).port_range.get_port()
+
+       if self.is_sender:
+           receiver_endpoint = self.remote_endpoint.endpoint_obj(local=False)
+           sender_endpoint = self.endpoint_obj(local=True)
+       else:
+           sender_endpoint = self.remote_endpoint.endpoint_obj(local=False)
+           receiver_endpoint = self.endpoint_obj(local=True)
+
+       self.test = Test(
+                        id="local test",
+                        client=ClientSettings(time=datetime.datetime.now()),
+                        sender_endpoint=sender_endpoint,
+                        receiver_endpoint=receiver_endpoint,
+                        tool=tool,
+                        tool_parameters=tool_parameters,
+                        scheduling_parameters=SchedulingParameters(
+                            requested_time=requested_time,
+                            latest_acceptable_time=latest_time,
+                        )
+                      )
+
+       # Just grab the other time's reservation end time if it's already been
+       # scheduled.
+       if self.remote_endpoint and \
+           requested_time == self.remote_endpoint.test_start_time:
+           end_time = self.remote_endpoint.test_end_time
+       else:
+           end_time = requested_time + datetime.timedelta(seconds=self.test.duration + 1)
+
+       self.tool = tool
+       self.tool_parameters = tool_parameters
+
+       self.test_start_time = requested_time
+       self.test_end_time = end_time
+
+       # Fill-in the scheduling parameters
+       self.test.scheduling_parameters.reservation_start_time = requested_time - datetime.timedelta(seconds=0.5) # Makes sure the server starts slightly early
+       self.test.scheduling_parameters.test_start_time = requested_time
+       self.test.scheduling_parameters.reservation_end_time = end_time
+
+       print "Setting start time to %s" % requested_time
+       print "Setting end time to %s" % end_time
+
+       return requested_time, end_time
+
+   def get_test_results(self):
+       if not self.results:
+           try:
+               self.results = self.results_queue.get_nowait()
+           except:
+               pass
+
+       return self.results
+
+   @property
+   def is_pending(self):
+       return True
+
+   @property
+   def is_finished(self):
+       return not self.results
+
+   def remote_accept_test(self):
+       client_url = "http://[%s]:%d%s" % (self.remote_endpoint.address, self.remote_endpoint.port, self.remote_endpoint.path)
+       self.client = SimpleClient(client_url)
+
+       return self.client.remote_accept_test(self.remote_endpoint.test_id, self.test)
+
+   def cancel_test(self):
+       if self.tool_runner_proc:
+            self.tool_runner_proc.kill_children()
+            self.tool_runner_proc.terminate()
+
+       return
+
+   def spawn_tool_runner(self):
+       def handle_results_cb(results):
+           self.results_queue.put(results)
+
+       self.tool_runner_proc = ToolRunner(test=self.test, results_cb=handle_results_cb)
+       self.tool_runner_proc.start()
+
+   def endpoint_obj(self, local=False):
+    return Endpoint(
+                    address=self.address,
+                    test_port=self.test_port,
+
+                    local=local,
+
+                    ntp_error=0, # XXX; figure this out
+
+                    client_time_offset=0,
+
+                    legacy_client_endpoint=False,
+                    posts_endpoint_status=True
                     )
