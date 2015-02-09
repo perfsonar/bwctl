@@ -160,6 +160,12 @@ class TestsController:
   @cherrypy.expose
   @handle_bwctl_exceptions
   def remote_accept_test(self, id):
-    get_coord_client().remote_confirm_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
+    test = None
+    try:
+        test = Test(cherrypy.request.json)
+    except Exception as e:
+       raise ValidationException("Problem parsing test definition")
+
+    get_coord_client().remote_confirm_test(test_id=id, test=test, requesting_address=cherrypy.request.remote.ip)
 
     return {}

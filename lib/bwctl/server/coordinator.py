@@ -36,7 +36,7 @@ message_types = {
     "get-test-results-response": ResultsResponseMessage,
     "client-confirm-test": GenericRequestMessage,
     "client-confirm-test-response": GenericResponseMessage,
-    "remote-confirm-test": GenericRequestMessage,
+    "remote-confirm-test": TestRequestMessage,
     "remote-confirm-test-response": GenericResponseMessage,
     "server-confirm-test": GenericRequestMessage,
     "server-confirm-test-response": GenericResponseMessage,
@@ -79,8 +79,8 @@ class CoordinatorClient:
     def client_confirm_test(self, test_id=None, requesting_address=None):
         return self._send_msg(test_id=test_id, message_type="client-confirm-test", requesting_address=requesting_address)
 
-    def remote_confirm_test(self, test_id=None, requesting_address=None):
-        return self._send_msg(test_id=test_id, message_type="remote-confirm-test", requesting_address=requesting_address)
+    def remote_confirm_test(self, test_id=None, test=None, requesting_address=None):
+        return self._send_msg(test_id=test_id, value=test, message_type="remote-confirm-test", requesting_address=requesting_address)
 
     def server_confirm_test(self, test_id=None, requesting_address=None):
         return self._send_msg(test_id=test_id, message_type="server-confirm-test", requesting_address=requesting_address)
@@ -193,7 +193,7 @@ class CoordinatorServer(BwctlProcess):
             elif msg_type == 'client-confirm-test':
                 self.client_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'remote-confirm-test':
-                self.remote_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
+                self.remote_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id, test=msg.value)
             elif msg_type == 'server-confirm-test':
                 self.server_confirm_test(requesting_address=msg.requesting_address, test_id=msg.test_id)
             elif msg_type == 'finish-test':

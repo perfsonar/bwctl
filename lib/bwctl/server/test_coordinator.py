@@ -207,7 +207,7 @@ class TestCoordinator(CoordinatorServer):
 
         return
 
-    def remote_confirm_test(self, requesting_address=None, test_id=None):
+    def remote_confirm_test(self, requesting_address=None, test_id=None, test=None):
 	# XXX: We should really require that the requesting address either be
 	# the remote endpoint, or that
 
@@ -389,7 +389,7 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
             self.coordinator_client.server_confirm_test(self.test.id)
 
             # Confirm the test with the remote endpoint
-            client.remote_accept_test(self.test.remote_endpoint.test_id)
+            client.remote_accept_test(self.test.remote_endpoint.test_id, self.test)
         except:
             raise TestRemoteEndpointValidationFailure
 
