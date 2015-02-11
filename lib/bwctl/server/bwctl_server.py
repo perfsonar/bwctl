@@ -11,7 +11,7 @@ from bwctl.server.limits import LimitsDB
 from bwctl.server.rest_api_server import RestApiServer
 from bwctl.server.scheduler import Scheduler
 from bwctl.server.test_coordinator import TestCoordinator
-from bwctl.server.tests_db import TestsDB
+from bwctl.server.tests_db.simple import SimpleDB
 from bwctl.tools import get_tools, get_available_tools, configure_tools
 from bwctl.utils import get_logger
 
@@ -41,7 +41,7 @@ class BwctlServer:
                                               auth_key=self.config['coordinator_auth_key'])
 
         self.scheduler = Scheduler()
-        self.tests_db  = TestsDB()
+        self.tests_db  = SimpleDB()
         self.limits_db = LimitsDB()
 
         self.rest_api_server = RestApiServer(coordinator_client=self.coord_client,

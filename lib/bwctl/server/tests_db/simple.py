@@ -1,7 +1,9 @@
 import uuid
 from bwctl.exceptions import ResourceNotFoundException
 
-class TestsDB:
+from .base import Base
+
+class SimpleDB(Base):
     def __init__(self):
         self.tests        = {}
         self.test_results = {}
