@@ -1,5 +1,7 @@
 import datetime
 
+from threading import RLock
+
 from bwctl.tools import ToolTypes
 from bwctl.exceptions import NoAvailableTimeslotException
 from bwctl.utils import get_logger
@@ -72,11 +74,19 @@ class TimeSlot:
 
         return True
 
+def locked(f):
+    def inner(self, *args, **kwargs):
+        with self.lock:
+            return f(self, *args, **kwargs)
+    return inner
+
 class Scheduler:
     def __init__(self):
+        self.lock = RLock()
         self.time_slots = []
         self.logger = get_logger()
 
+    @locked
     def add_test(self, test):
         # Make sure that we can start the test later than the minimum start
         # time. The idea is that we'll give the client some time to do the
@@ -236,6 +246,7 @@ class Scheduler:
                                reservation_end_time=reservation_end_time,
                                test_start_time=test_start_time)
 
+    @locked
     def remove_test(self, test):
         # Remove the test from the list
         for ts in self.time_slots:
