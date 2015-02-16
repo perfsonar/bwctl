@@ -4,12 +4,13 @@ import datetime
 import multiprocessing
 import traceback
 
-from bwctl.models import Test
 from bwctl import jsonobject
 from bwctl.utils import BwctlProcess
 from bwctl import server
 from bwctl.tools import get_available_tools
 from bwctl.exceptions import BwctlException, SystemProblemException, ValidationException
+
+from bwctl.protocol.v2.models import *
 
 class RestApiServer(BwctlProcess):
     def __init__(self, coordinator_client=None, server_address='', server_port=4824):
@@ -33,9 +34,11 @@ class RestApiServer(BwctlProcess):
         if server_address:
             cherrypy.config.update({'server.bind_addr': ( server_address, server_port )})
         else:
-	    # Default to "ipv6 any" which should encompass ipv4 addresses to.
-	    # If not, we'll need to rethink how this gets done.
+            # Default to "ipv6 any" which should encompass ipv4 addresses to.
+            # If not, we'll need to rethink how this gets done.
             cherrypy.config.update({'server.bind_addr': ( "::", server_port ) })
+
+        cherrypy.config.update({'engine.autoreload_on':False})
 
         cherrypy.config.update({'log.screen': False})
 
@@ -75,13 +78,6 @@ def handle_bwctl_exceptions(function):
 
     return decorated_func
 
-class ServerStatus(jsonobject.JsonObject):
-    protocol = jsonobject.FloatProperty(exclude_if_none=True)
-    time = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True)
-    ntp_error = jsonobject.FloatProperty(exclude_if_none=True)
-    available_tools = jsonobject.ListProperty(unicode, exclude_if_none=True)
-    version = jsonobject.StringProperty(exclude_if_none=True)
-
 class StatusController(object):
   def __init__(self, coordinator_client=None):
       self.coordinator_client = coordinator_client
@@ -113,40 +109,40 @@ class TestsController(object):
 
     test = None
     try:
-        test = Test(cherrypy.request.json)
+        test = Test(cherrypy.request.json).to_internal()
     except Exception as e:
        raise ValidationException("Problem parsing test definition: %s" % e)
 
     added_test = self.coordinator_client.request_test(test=test, requesting_address=cherrypy.request.remote.ip)
 
-    return added_test.to_json()
+    return Test.from_internal(added_test).to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def get_test(self, id):
     test = self.coordinator_client.get_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
-    return test.to_json()
+    return Test.from_internal(test).to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def get_results(self, id):
     results = self.coordinator_client.get_test_results(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
-    return results.to_json()
+    return Results.from_internal(results).to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def update_test(self, id):
     test = None
     try:
-        test = Test(cherrypy.request.json)
+        test = Test(cherrypy.request.json).to_internal()
     except Exception as e:
        raise ValidationException("Problem parsing test definition")
 
     updated_test = self.coordinator_client.update_test(test=test, test_id=id, requesting_address=cherrypy.request.remote.ip)
 
-    return updated_test.to_json()
+    return Test.from_internal(updated_test).to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
@@ -167,7 +163,7 @@ class TestsController(object):
   def remote_accept_test(self, id):
     test = None
     try:
-        test = Test(cherrypy.request.json)
+        test = Test(cherrypy.request.json).to_internal()
     except Exception as e:
        raise ValidationException("Problem parsing test definition")
 

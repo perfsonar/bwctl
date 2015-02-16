@@ -4,11 +4,26 @@ from bwctl.tool_runner import ToolRunner
 from bwctl.server.coordinator import CoordinatorServer, CoordinatorClient
 from bwctl.models import BWCTLError, Results
 from bwctl.exceptions import *
-from bwctl.client.simple import SimpleClient
+from bwctl.protocol.v2.client import Client
 
 import datetime
 import time
 from bwctl.dependencies.IPy import IP
+
+def lock_test(f):
+    def inner(self, *args, **kwargs):
+        test_id = kwargs.get('test_id', None)
+
+        try:
+            if test_id:
+                self.tests_db.lock_test(test_id)
+            
+            return f(self, *args, **kwargs)
+        finally:
+            if test_id:
+                self.tests_db.unlock_test(test_id)
+
+    return inner
 
 class TestCoordinator(CoordinatorServer):
     def __init__(self, server_address="127.0.0.1", server_port=5678, auth_key="", scheduler=Scheduler(), limits_db=None, tests_db=None):
@@ -19,9 +34,11 @@ class TestCoordinator(CoordinatorServer):
 
         super(TestCoordinator, self).__init__(server_address=server_address, server_port=server_port, auth_key=auth_key)
 
+    @lock_test
     def get_test(self, requesting_address=None, test_id=None):
         return self.tests_db.get_test(test_id)
 
+    @lock_test
     def get_test_results(self, requesting_address=None, test_id=None):
         return self.tests_db.get_results(test_id)
 
@@ -91,6 +108,7 @@ class TestCoordinator(CoordinatorServer):
 
         return test
 
+    @lock_test
     def update_test(self, requesting_address=None, test_id=None, test=None):
         old_test = self.tests_db.get_test(test_id)
         if not old_test:
@@ -156,6 +174,7 @@ class TestCoordinator(CoordinatorServer):
 
         return test
 
+    @lock_test
     def client_confirm_test(self, requesting_address=None, test_id=None):
         # 1. If the test's status is already confirmed, goto #4
         # 2. Mark the test's status as "client-confirmed"
@@ -191,6 +210,7 @@ class TestCoordinator(CoordinatorServer):
 
         return
 
+    @lock_test
     def server_confirm_test(self, requesting_address=None, test_id=None):
         # 1. If the server status is already confirmed, goto #4
         # 2. Mark the server status as "server-confirmed"
@@ -210,6 +230,7 @@ class TestCoordinator(CoordinatorServer):
 
         return
 
+    @lock_test
     def remote_confirm_test(self, requesting_address=None, test_id=None, test=None):
 	# XXX: We should really require that the requesting address either be
 	# the remote endpoint, or that
@@ -240,6 +261,7 @@ class TestCoordinator(CoordinatorServer):
 
         return
 
+    @lock_test
     def spawn_tool_runner(self, requesting_address=None, test_id=None):
         test = self.tests_db.get_test(test_id)
         if not test:
@@ -266,6 +288,7 @@ class TestCoordinator(CoordinatorServer):
 
         return
 
+    @lock_test
     def cancel_test(self, requesting_address=None, test_id=None, results=None):
         if not results:
             results = Results(status="cancelled")
@@ -276,6 +299,7 @@ class TestCoordinator(CoordinatorServer):
 
         return self.finish_test(requesting_address=None, test_id=test_id, results=results, status="cancelled")
 
+    @lock_test
     def finish_test(self, requesting_address=None, status=None, test_id=None, results=None):
         # 1. Make sure the test isn't already in a "finished" state
         #   - If it is, send back a "failed" response
@@ -369,7 +393,7 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
                                           self.test.remote_endpoint.peer_port, \
                                           self.test.remote_endpoint.base_path)
 
-        client = SimpleClient(client_url, source_address=self.test.local_endpoint.address)
+        client = Client(client_url, source_address=self.test.local_endpoint.address)
 
         try:
 	    # Wait until the far side has confirmed the test (i.e. the client

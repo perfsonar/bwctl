@@ -50,7 +50,7 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #Misc Arguments
 #-V|--version                     Show version number
 
-from bwctl.client.simple import SimpleClient
+from bwctl.protocol.v2.client import Client
 from bwctl.tools import get_tools, get_tool, ToolTypes, configure_tools, get_available_tools
 from bwctl.tool_runner import ToolRunner
 from bwctl.models import Test, Endpoint, SchedulingParameters, ClientSettings
@@ -484,7 +484,7 @@ class ClientEndpoint:
        self.test_start_time = None
        self.test_end_time = None
        client_url = "http://[%s]:%d%s" % (self.address, self.port, self.path)
-       self.client = SimpleClient(client_url)
+       self.client = Client(client_url)
 
    @property
    def has_complete_reservation(self):
@@ -774,7 +774,7 @@ class LocalEndpoint:
 
    def remote_accept_test(self):
        client_url = "http://[%s]:%d%s" % (self.remote_endpoint.address, self.remote_endpoint.port, self.remote_endpoint.path)
-       self.client = SimpleClient(client_url)
+       self.client = Client(client_url)
 
        return self.client.remote_accept_test(self.remote_endpoint.test_id, self.test)
 

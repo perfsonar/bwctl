@@ -1,7 +1,7 @@
 import uuid
 from bwctl.exceptions import ResourceNotFoundException
 
-from threading import Lock
+from threading import Lock, RLock
 
 from .base import Base
 
@@ -16,9 +16,22 @@ class SimpleDB(Base):
         self.lock         = Lock()
         self.tests        = {}
         self.test_results = {}
+        self.test_locks   = {}
 
     def _copy_obj(self, obj):
         return obj.__class__(obj.to_json())
+
+    @locked
+    def lock_test(self, test_id):
+        if not test_id in self.test_locks:
+            self.test_locks[test_id] = RLock()
+
+        self.test_locks[test_id].acquire()
+
+    @locked
+    def unlock_test(self, test_id):
+        if test_id in self.test_locks:
+            self.test_locks[test_id].release()
 
     @locked
     def get_test(self, test_id):
