@@ -7,7 +7,7 @@ class Owamp(LatencyBase):
     known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "receiver_connects" ]
 
     def config_options(self):
-        options = LatencyBase.config_options(self).copy()
+        options = super(Owamp, self).config_options().copy()
 
         options.update({
             "owping_cmd":  "string(default='owping')",
@@ -39,7 +39,7 @@ class Owamp(LatencyBase):
                 timed_out = False
                 exit_status = 0
 
-        return LatencyBase.get_results(self, test=test, errors=errors, exit_status=exit_status, stdout=stdout, stderr=stderr)
+        return super(Owamp, self).get_results(self, test=test, errors=errors, exit_status=exit_status, stdout=stdout, stderr=stderr)
 
     def build_command_line(self, test):
         cmd_line = []

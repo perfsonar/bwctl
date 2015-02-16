@@ -13,8 +13,8 @@ from bwctl.exceptions import BwctlException, SystemProblemException, ValidationE
 
 class RestApiServer(BwctlProcess):
     def __init__(self, coordinator_client=None, server_address='', server_port=4824):
-        status_controller = StatusController()
-        tests_controller = TestsController()
+        status_controller = StatusController(coordinator_client=coordinator_client)
+        tests_controller = TestsController(coordinator_client=coordinator_client)
 
         dispatcher = cherrypy.dispatch.RoutesDispatcher()
 
@@ -57,9 +57,6 @@ class RestApiServer(BwctlProcess):
         cherrypy.engine.start()
         cherrypy.engine.block()
 
-def get_coord_client():
-    return cherrypy.request.app.config['/']['coordinator_client']
-
 def handle_bwctl_exceptions(function):
     def decorated_func(*args, **kwargs):
         result = None
@@ -85,7 +82,11 @@ class ServerStatus(jsonobject.JsonObject):
     available_tools = jsonobject.ListProperty(unicode, exclude_if_none=True)
     version = jsonobject.StringProperty(exclude_if_none=True)
 
-class StatusController:
+class StatusController(object):
+  def __init__(self, coordinator_client=None):
+      self.coordinator_client = coordinator_client
+      super(StatusController, self).__init__()
+
   @cherrypy.expose
   @handle_bwctl_exceptions
   def status(self):
@@ -98,7 +99,11 @@ class StatusController:
 
     return status.to_json()
 
-class TestsController:
+class TestsController(object):
+  def __init__(self, coordinator_client=None):
+      self.coordinator_client = coordinator_client
+      super(TestsController, self).__init__()
+
   @cherrypy.expose
   @handle_bwctl_exceptions
   def new_test(self):
@@ -112,21 +117,21 @@ class TestsController:
     except Exception as e:
        raise ValidationException("Problem parsing test definition: %s" % e)
 
-    added_test = get_coord_client().request_test(test=test, requesting_address=cherrypy.request.remote.ip)
+    added_test = self.coordinator_client.request_test(test=test, requesting_address=cherrypy.request.remote.ip)
 
     return added_test.to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def get_test(self, id):
-    test = get_coord_client().get_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
+    test = self.coordinator_client.get_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return test.to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def get_results(self, id):
-    results = get_coord_client().get_test_results(test_id=id, requesting_address=cherrypy.request.remote.ip)
+    results = self.coordinator_client.get_test_results(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return results.to_json()
 
@@ -139,21 +144,21 @@ class TestsController:
     except Exception as e:
        raise ValidationException("Problem parsing test definition")
 
-    updated_test = get_coord_client().update_test(test=test, test_id=id, requesting_address=cherrypy.request.remote.ip)
+    updated_test = self.coordinator_client.update_test(test=test, test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return updated_test.to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def cancel_test(self, id):
-    get_coord_client().cancel_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
+    self.coordinator_client.cancel_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return {}
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def accept_test(self, id):
-    get_coord_client().client_confirm_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
+    self.coordinator_client.client_confirm_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return {}
 
@@ -166,6 +171,6 @@ class TestsController:
     except Exception as e:
        raise ValidationException("Problem parsing test definition")
 
-    get_coord_client().remote_confirm_test(test_id=id, test=test, requesting_address=cherrypy.request.remote.ip)
+    self.coordinator_client.remote_confirm_test(test_id=id, test=test, requesting_address=cherrypy.request.remote.ip)
 
     return {}

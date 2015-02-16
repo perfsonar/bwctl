@@ -10,7 +10,7 @@ class Iperf(Base):
     known_parameters = [ "duration", "protocol", "bandwidth", "parallel_streams", "report_interval", "window_size", "buffer_size", "omit_seconds", "tos_bits", "units", "output_format" ]
 
     def config_options(self):
-        options = Base.config_options(self).copy()
+        options = super(Iperf, self).config_options().copy()
 
         options.update({
             "iperf_cmd":  "string(default='iperf')",
@@ -49,7 +49,7 @@ class Iperf(Base):
                 timed_out = False
                 exit_status = 0
 
-        return Base.get_results(self, test=test, errors=errors, exit_status=exit_status, stdout=stdout, stderr=stderr)
+        return super(Iperf, self).get_results(test=test, errors=errors, exit_status=exit_status, stdout=stdout, stderr=stderr)
 
     def build_command_line(self, test):
         cmd_line = []

@@ -7,7 +7,7 @@ from bwctl.tools import ToolTypes
 from bwctl.utils import timedelta_seconds, get_logger
 from bwctl.exceptions import ValidationException, SystemProblemException
 
-class Base:
+class Base(object):
     name = ""
     type = ToolTypes.UNKNOWN
     known_parameters = []

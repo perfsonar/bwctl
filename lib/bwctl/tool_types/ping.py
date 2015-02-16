@@ -11,7 +11,7 @@ class Ping(LatencyBase):
     known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "packet_ttl", "tos_bits" ]
 
     def config_options(self):
-        options = LatencyBase.config_options(self).copy()
+        options = super(Ping, self).config_options().copy()
 
         options.update({
             "ping_cmd":     "string(default='ping')",
@@ -44,7 +44,7 @@ class Ping(LatencyBase):
         # We only have to run the ping command if we're sending the pings, i.e.
         # we're the sender
         if test.local_sender:
-            return LatencyBase.run_test(self, test)
+            return super(Ping, self).run_test(test)
     
         # Just do nothing, and return after the test is over
         timeout = 10

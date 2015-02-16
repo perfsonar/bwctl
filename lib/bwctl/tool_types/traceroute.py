@@ -13,7 +13,7 @@ class Traceroute(Base):
     type = ToolTypes.TRACEROUTE
 
     def config_options(self):
-        options = Base.config_options(self).copy()
+        options = super(Traceroute, self).config_options().copy()
 
         options.update({
             "traceroute_cmd":     "string(default='traceroute')",
@@ -46,7 +46,7 @@ class Traceroute(Base):
         # We only have to run the traceroute command if we're sending the traceroutes, i.e.
         # we're the sender
         if test.local_sender:
-            return Base.run_test(self, test)
+            return super(Traceroute, self).run_test(test)
 
         # Just do nothing, and return after the test is over
         timeout = 10
