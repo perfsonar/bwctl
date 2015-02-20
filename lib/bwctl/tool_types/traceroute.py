@@ -51,9 +51,9 @@ class Traceroute(Base):
         # Just do nothing, and return after the test is over
         timeout = 10
         if end_time:
-            timeout = timedelta_seconds(end_time - datetime.datetime.now())
+            timeout = timedelta_seconds(end_time - datetime.datetime.utcnow())
 
-        while not end_time or datetime.datetime.now() < end_time:
+        while not end_time or datetime.datetime.utcnow() < end_time:
             time.sleep(timeout)
 
             if end_time:

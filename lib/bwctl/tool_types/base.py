@@ -67,7 +67,7 @@ class Base(object):
             timeout=None
 
             if end_time:
-                timeout = timedelta_seconds(end_time - datetime.datetime.now())
+                timeout = timedelta_seconds(end_time - datetime.datetime.utcnow())
 
             while p.poll() == None and (not timeout or timeout > 0):
                 (input, output, exceptions) = select.select([ stdout_pipe, stderr_pipe ], [], [], timeout)
@@ -79,7 +79,7 @@ class Base(object):
                         stderr = stderr + output
 
                 if end_time:
-                    timeout = timedelta_seconds(end_time - datetime.datetime.now())
+                    timeout = timedelta_seconds(end_time - datetime.datetime.utcnow())
 
             # The process wasn't killed, so timeout
             return_code = p.poll()

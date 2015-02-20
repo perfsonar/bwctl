@@ -100,7 +100,7 @@ class ControlConnection(object):
     def get_time_request(self, deadline=None):
         return self.get_obj(size=32, type=TimeRequest, deadline=deadline)
 
-    def send_time_response(self, timestamp=datetime.datetime.now()):
+    def send_time_response(self, timestamp=datetime.datetime.utcnow()):
         timestamp_obj = Timestamp(time=timestamp)
         error_estimate = ErrorEstimate() # use a default error estimate since we can't currently grab it.
         time_response = TimeResponse(timestamp=timestamp_obj, error_estimate=error_estimate)
