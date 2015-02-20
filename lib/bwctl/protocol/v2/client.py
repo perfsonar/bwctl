@@ -14,7 +14,7 @@ from bwctl.utils import urljoin
  
 class Client:
     def __init__(self, base_url, source_address=None, username=None, password=None):
-        self.base_url = base_url
+        self.base_url = urljoin(base_url, "v2")
         self.username = username
         self.password = password
         self.auth     = HTTPDigestAuth(username, password)

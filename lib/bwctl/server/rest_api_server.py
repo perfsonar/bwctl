@@ -14,22 +14,10 @@ from bwctl.protocol.v2.models import *
 
 class RestApiServer(BwctlProcess):
     def __init__(self, coordinator_client=None, server_address='', server_port=4824):
-        status_controller = StatusController(coordinator_client=coordinator_client)
-        tests_controller = TestsController(coordinator_client=coordinator_client)
-
         dispatcher = cherrypy.dispatch.RoutesDispatcher()
 
-        # Status URL
-        dispatcher.connect('status', '/bwctl/status', controller=status_controller, action='status')
-
-        # Test URLs
-        dispatcher.connect('new_test',    '/bwctl/tests', controller=tests_controller, action='new_test', conditions=dict(method=['POST']))
-        dispatcher.connect('get_test'   , '/bwctl/tests/:id',   controller=tests_controller, action='get_test', conditions=dict(method=['GET']))
-        dispatcher.connect('update_test', '/bwctl/tests/:id',   controller=tests_controller, action='update_test', conditions=dict(method=['PUT']))
-        dispatcher.connect('cancel_test', '/bwctl/tests/:id/cancel',   controller=tests_controller, action='cancel_test', conditions=dict(method=['POST']))
-        dispatcher.connect('accept_test', '/bwctl/tests/:id/accept',   controller=tests_controller, action='accept_test', conditions=dict(method=['POST']))
-        dispatcher.connect('remote_accept_test', '/bwctl/tests/:id/remote_accept',   controller=tests_controller, action='remote_accept_test', conditions=dict(method=['POST']))
-        dispatcher.connect('get_results', '/bwctl/tests/:id/results',   controller=tests_controller, action='get_results', conditions=dict(method=['GET']))
+        v2_protocol_controller = V2ProtocolController(coordinator_client=coordinator_client)
+        v2_protocol_controller.add_urls(dispatcher)
 
         if server_address:
             cherrypy.config.update({'server.bind_addr': ( server_address, server_port )})
@@ -78,10 +66,20 @@ def handle_bwctl_exceptions(function):
 
     return decorated_func
 
-class StatusController(object):
+class V2ProtocolController(object):
   def __init__(self, coordinator_client=None):
       self.coordinator_client = coordinator_client
-      super(StatusController, self).__init__()
+      super(V2ProtocolController, self).__init__()
+
+  def add_urls(self, dispatcher):
+      dispatcher.connect('status', '/bwctl/v2/status', controller=self, action='status')
+      dispatcher.connect('new_test',    '/bwctl/v2/tests', controller=self, action='new_test', conditions=dict(method=['POST']))
+      dispatcher.connect('get_test'   , '/bwctl/v2/tests/:id',   controller=self, action='get_test', conditions=dict(method=['GET']))
+      dispatcher.connect('update_test', '/bwctl/v2/tests/:id',   controller=self, action='update_test', conditions=dict(method=['PUT']))
+      dispatcher.connect('cancel_test', '/bwctl/v2/tests/:id/cancel',   controller=self, action='cancel_test', conditions=dict(method=['POST']))
+      dispatcher.connect('accept_test', '/bwctl/v2/tests/:id/accept',   controller=self, action='accept_test', conditions=dict(method=['POST']))
+      dispatcher.connect('remote_accept_test', '/bwctl/v2/tests/:id/remote_accept',   controller=self, action='remote_accept_test', conditions=dict(method=['POST']))
+      dispatcher.connect('get_results', '/bwctl/v2/tests/:id/results',   controller=self, action='get_results', conditions=dict(method=['GET']))
 
   @cherrypy.expose
   @handle_bwctl_exceptions
@@ -94,11 +92,6 @@ class StatusController(object):
     status.version = server.__version__
 
     return status.to_json()
-
-class TestsController(object):
-  def __init__(self, coordinator_client=None):
-      self.coordinator_client = coordinator_client
-      super(TestsController, self).__init__()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
