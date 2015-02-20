@@ -398,7 +398,7 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
         try:
 	    # Wait until the far side has confirmed the test (i.e. the client
 	    # can't make changes to it)
-            while datetime.datetime.now() < self.test.scheduling_parameters.reservation_start_time:
+            while datetime.datetime.utcnow() < self.test.scheduling_parameters.reservation_start_time:
                 remote_test = client.get_test(self.test.remote_endpoint.test_id)
 
                 if remote_test.status == "client-confirmed" or \
@@ -409,7 +409,7 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
                 time.sleep(0.2)
 
             # Make sure we didn't timeout waiting for the test to start
-            if datetime.datetime.now() > self.test.scheduling_parameters.reservation_start_time:
+            if datetime.datetime.utcnow() > self.test.scheduling_parameters.reservation_start_time:
                 raise TestStartTimeFailure
 
             # Confirm the test locally
@@ -426,7 +426,7 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
 
                 # Wait until the far side has confirmed the final state of
                 # the test
-                while datetime.datetime.now() < self.test.scheduling_parameters.reservation_start_time:
+                while datetime.datetime.utcnow() < self.test.scheduling_parameters.reservation_start_time:
                     remote_test = client.get_test(self.test.remote_endpoint.test_id)
 
                     if remote_test.status == "pending":
@@ -436,7 +436,7 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
                 time.sleep(0.2)
 
                 # Make sure we didn't timeout waiting for the test to start
-                if datetime.datetime.now() > self.test.scheduling_parameters.reservation_start_time:
+                if datetime.datetime.utcnow() > self.test.scheduling_parameters.reservation_start_time:
                     raise TestStartTimeFailure
 
                 self.coordinator_client.remote_confirm_test(self.test.id, remote_test, \

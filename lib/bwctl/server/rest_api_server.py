@@ -88,7 +88,7 @@ class StatusController(object):
   def status(self):
     status = ServerStatus()
     status.protocol = 2.0
-    status.time = datetime.datetime.now()
+    status.time = datetime.datetime.utcnow()
     status.ntp_error = 0.0
     status.available_tools = get_available_tools()
     status.version = server.__version__

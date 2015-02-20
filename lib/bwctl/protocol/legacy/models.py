@@ -31,9 +31,6 @@ class Timestamp:
         # Truncate to microseconds since the datetime module only supports that level of granularity
         microseconds = int(nanoseconds / 1000)
 
-        print "Seconds: %d" % seconds
-        print "Nanoseconds: %d" % nanoseconds
-
         dt = datetime.datetime.utcfromtimestamp(seconds)
         dt = dt.replace(microsecond=microseconds)
 
@@ -80,8 +77,6 @@ class ErrorEstimate:
         scale_synchronized = scale
         if self.synchronized:
             scale_synchronized = scale_synchronized | 0x80
-
-        print "Error: %f Multiplier: %d Scale: %d" % (self.error, multiplier, scale)
 
         return pack("! B B", scale_synchronized, multiplier)
 
@@ -260,23 +255,23 @@ class TimeResponse:
         return pack("! 8s 2s 6x 2Q", timestamp_str, error_estimate_str, 0, 0)
 
 class TestAccept:
-    def __init__(self, accept_type=AcceptType.ACCEPT, port=0, sid='', reservation_time=0):
+    def __init__(self, accept_type=AcceptType.ACCEPT, data_port=0, sid='', reservation_time=0):
         self.accept_type = accept_type
-        self.port = port
+        self.data_port = data_port
         self.sid = sid
         self.reservation_time = reservation_time
 
     @staticmethod
     def parse(data):
-        (accept_type, port, sid, reservation_time_str) = unpack("! B x H 16s 8s 4x", data)
+        (accept_type, data_port, sid, reservation_time_str) = unpack("! B x H 16s 8s 4x", data)
 
         reservation_time = Timestamp.parse(reservation_time_str)
 
-        return TestAccept(accept_type=accept_type, port=port, sid=sid, reservation_time=reservation_time)
+        return TestAccept(accept_type=accept_type, data_port=data_port, sid=sid, reservation_time=reservation_time)
 
     def unparse(self):
         reservation_time_str = self.reservation_time.unparse()
-        return pack("! B x H 16s 8s 4x", self.accept_type, self.port, self.sid, reservation_time_str, 0)
+        return pack("! B x H 16s 8s 4x", self.accept_type, self.data_port, self.sid, reservation_time_str, 0)
 
 class StartAck:
     def __init__(self, accept_type=AcceptType.ACCEPT, peer_port=0):
@@ -316,6 +311,36 @@ class StopSession:
         else:
             return pack("! B 6x L 4x 2Q", self.result_status, self.result_length, 0, 0)
 
+class Results:
+    def __init__(self, results=""):
+        self.results = results
+
+    @staticmethod
+    def message_size(results_length=0):
+        tail = 16 - results_length % 16
+        if tail == 16:
+            tail = 0
+
+        return results_length + tail + 16
+
+    @staticmethod
+    def parse(data, results_length=0):
+        if results_length == 0:
+            return Results(results="")
+
+        results = data[0:results_length - 1]
+        tail = data[results_length:]
+
+        return Results(results=results)
+
+    def unparse(self):
+        format_string = "s"
+
+        # Zero pad the format string
+        if len(self.results) % 16 != 0:
+            format_string = "%dc %dX 2Q" % (len(self.results), 16 - len(self.results) % 16, 0, 0)
+
+        return pack(format_string, self.results)
 
 class StartSession:
     def __init__(self, peer_port=0):
@@ -351,7 +376,7 @@ class TestRequest:
                  tos_bits=0, parallel_streams=0, buffer_length=0, window_size=0, report_interval=0,
                  is_udp=False, dynamic_window=False,
                  # Ping test-specific parameters
-                 packet_count=0, inter_packet_delay=0, packet_ttl=0,
+                 packet_count=0, inter_packet_time=0, packet_ttl=0,
                  # Traceroute test-specific parameters
                  first_ttl=0, last_ttl=0):
 
@@ -389,7 +414,7 @@ class TestRequest:
 
         # Ping test-specific parameters
         self.packet_count=packet_count
-        self.inter_packet_delay=inter_packet_delay
+        self.inter_packet_time=inter_packet_time
         self.packet_ttl=packet_ttl
 
         # Traceroute test-specific parameters
@@ -485,16 +510,16 @@ class TestRequest:
             test_request.omit_time = results[10]
             test_request.units = results[11]
         elif tool == Tools.PING or tool == Tools.OWAMP:
-            (packet_count, packet_size, inter_packet_delay, packet_ttl) = unpack("! 75x H H H B 45x", data)
+            (packet_count, packet_size, inter_packet_time, packet_ttl) = unpack("! 75x H H H B 45x", data)
             test_request.packet_count = packet_count
             test_request.packet_size = packet_size 
-            test_request.inter_packet_delay = inter_packet_delay
+            test_request.inter_packet_time = inter_packet_time
             test_request.packet_ttl = packet_ttl
         elif tool == Tools.TRACEPATH or tool == Tools.TRACEROUTE or tool == Tools.PARIS_TRACEROUTE:
             (first_ttl, last_ttl, packet_size) = unpack("! 75x B B H 48x", data)
             test_request.packet_count = packet_count
             test_request.packet_size = packet_size 
-            test_request.inter_packet_delay = inter_packet_delay
+            test_request.inter_packet_time = inter_packet_time
             test_request.packet_ttl = packet_ttl
         else:
             raise Exception("Unknown tool type: %d" % tool)
@@ -511,7 +536,6 @@ class TestRequest:
                 server_ip = socket.inet_pton(curr_addr_type, self.server_address)
                 addr_type = curr_addr_type
             except Exception as e:
-                print "Exception: %s" % e
                 pass
 
         if not addr_type:
@@ -541,9 +565,6 @@ class TestRequest:
 
         data = data + pack("! L 8s 8s 2s H", self.duration, requested_time_str, latest_time_str, error_estimate_str, self.recv_port)
 
-        import binascii
-        print "  Post Time: %d %s" % (len(data), binascii.hexlify(data))
-
         # Add in the address information
         if len(client_ip) == 4:
             ip_info = pack("! 4s 12x 4s 12x", client_ip, server_ip)
@@ -552,12 +573,8 @@ class TestRequest:
 
         data = data + ip_info
 
-        print "  Post IP: %d %s" % (len(data), binascii.hexlify(data))
-
         # Add in the SID
         data = data + pack("! 16s", self.sid)
-
-        print "  Post SID: %d %s" % (len(data), binascii.hexlify(data))
 
         if self.tool == Tools.IPERF or self.tool == Tools.IPERF3 or self.tool == Tools.NUTTCP:
             bandwidth = self.bandwidth
@@ -571,11 +588,9 @@ class TestRequest:
                 dynamic = 1
             data = data + pack("! L L L L B B B x", bandwidth, self.buffer_length, self.window_size, self.report_interval, dynamic, self.tos_bits, self.parallel_streams)
         elif self.tool == Tools.PING or self.tool == Tools.OWAMP:
-            data = data + pack("! H H H B 13x", self.packet_count, self.packet_size, self.inter_packet_delay, self.packet_ttl)
+            data = data + pack("! H H H B 13x", self.packet_count, self.packet_size, self.inter_packet_time, self.packet_ttl)
         elif self.tool == Tools.TRACEROUTE or self.tool == Tools.TRACEPATH or self.tool == Tools.PARIS_TRACEROUTE:
             data = data + pack("! B B H 16x", self.first_ttl, self.last_ttl, self.packet_size)
-
-        print "  Post Tools: %d %s" % (len(data), binascii.hexlify(data))
 
         verbose = 0
         if self.verbose:
@@ -591,18 +606,12 @@ class TestRequest:
 
         data = data + pack("! L B B B x", self.tool, verbose, reverse, no_endpoint)
 
-        print "  Post Verbose, et al: %d %s" % (len(data), binascii.hexlify(data))
-
         if self.tool == Tools.IPERF or self.tool == Tools.IPERF3 or self.tool == Tools.NUTTCP:
             data = data + pack("! 4x 1s B B 1s", self.output_format, scale, self.omit_time, self.units)
         else:
             data = data + pack("! 8x") 
 
-        print "  Post Tools, et al: %d %s" % (len(data), binascii.hexlify(data))
-
         data = data + pack("! 16x") 
-
-        print "  Post Whitespace: %d %s" % (len(data), binascii.hexlify(data))
 
         if include_msg_hdr:
             data = pack("! B 127s", MessageTypes.TestRequest, data)

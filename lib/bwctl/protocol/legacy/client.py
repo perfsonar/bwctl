@@ -38,6 +38,7 @@ class ControlConnection(object):
                 raise Exception("Connection closed")
 
             data = data + new_data
+            print "data size: %d" % len(data)
 
         return data
 
@@ -133,17 +134,24 @@ class ControlConnection(object):
         self.send(stop_session)
 
         if len(results) > 0:
-            self.send_raw(results)
-            self.send_raw(pack("2Q", 0, 0))
+            self.send_obj(Results(results=results))
+
+    def get_results(self, results_length=0, deadline=None):
+        if results_length == 0:
+            return Results(results="")
+ 
+        total_size = Results.message_size(results_length=results_length)
+        print "Results size: %d" % results_length
+
+        results = Results.parse(self.read_sock(total_size, deadline=deadline), results_length=results_length)
+
+        return results
 
     def get_stop_session(self, deadline=None):
-        stop_session_msg = StopSession.parse(self.read_sock(32))
-        results = ""
-        if stop_session_msg.result_length > 0:
-            results = self.read_sock(stop_session_msg.result_length, deadline=deadline)
-            self.read_sock(16, deadline=deadline) # zero padding
+        stop_session_msg = StopSession.parse(self.read_sock(32, deadline=deadline))
+        results = self.get_results(results_length=stop_session_msg.result_length, deadline=deadline)
 
-        return stop_session_msg, results
+        return stop_session_msg, results.results
 
     def send(self, object):
         return self.send_raw(object.unparse())

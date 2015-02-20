@@ -4,7 +4,7 @@ from bwctl.tool_types.latency_base import LatencyBase
 
 class Owamp(LatencyBase):
     name = "owamp"
-    known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "receiver_connects" ]
+    known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "receiver_connects", "maximum_duration" ]
 
     def config_options(self):
         options = super(Owamp, self).config_options().copy()

@@ -94,7 +94,7 @@ class Scheduler:
         # as this server to validate the test and whatnot. XXX: Currently, this
         # is 2 seconds out, but it'd make sense to
         # have a better lower bound.
-        test_min_start_time = datetime.datetime.now() + datetime.timedelta(seconds=2)
+        test_min_start_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=2)
         if test.scheduling_parameters.latest_acceptable_time < test_min_start_time:
             raise NoAvailableTimeslotException
 

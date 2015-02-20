@@ -1,4 +1,5 @@
 import datetime
+import math
 import optparse
 import re
 import socket
@@ -51,9 +52,13 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #-V|--version                     Show version number
 
 from bwctl.protocol.v2.client import Client
+
+from bwctl.protocol.legacy.client import Client as LegacyClient
+from bwctl.protocol.legacy.models import Tools, TestRequest, Timestamp
+
 from bwctl.tools import get_tools, get_tool, ToolTypes, configure_tools, get_available_tools
 from bwctl.tool_runner import ToolRunner
-from bwctl.models import Test, Endpoint, SchedulingParameters, ClientSettings
+from bwctl.models import Test, Endpoint, SchedulingParameters, ClientSettings, Results
 from bwctl.utils import get_ip, is_ipv6, timedelta_seconds, discover_source_address
 from bwctl.config import get_config
 from bwctl.utils import init_logging
@@ -93,7 +98,7 @@ def add_traceroute_test_options(oparse):
                       help="Maximum time to wait for traceroute to finish (seconds) (Default: 10)"
                      )
 
-def fill_traceroute_tool_parameters(opts, tool_parameters):
+def fill_traceroute_tool_parameters(opts, tool_parameters, tool=""):
     if opts.first_ttl:
         tool_parameters["first_ttl"] = opts.first_ttl
 
@@ -120,7 +125,7 @@ def add_latency_test_options(oparse):
                       help="TTL for packets"
                      )
 
-def fill_latency_tool_parameters(opts, tool_parameters):
+def fill_latency_tool_parameters(opts, tool_parameters, tool=""):
     if opts.num_packets:
         tool_parameters["packet_count"] = opts.num_packets
 
@@ -133,6 +138,14 @@ def fill_latency_tool_parameters(opts, tool_parameters):
     if opts.ttl:
         tool_parameters["packet_ttl"] = opts.ttl
 
+    duration = opts.packet_interval * opts.num_packets
+    finishing_time = 0
+    if tool == "owamp": # owamp takes longer to 'finish'
+        finishing_time = 3
+    elif tool == "ping": # give a second or so for the ping response to be received.
+        finishing_time = 1
+
+    tool_parameters["maximum_duration"] = duration + finishing_time
 
 def add_throughput_test_options(oparse):
     oparse.add_option("-t", "--test_duration", dest="test_duration", default=10, type="int",
@@ -160,7 +173,7 @@ def add_throughput_test_options(oparse):
                       help="Perform a UDP test"
                      )
 
-def fill_throughput_tool_parameters(opts, tool_parameters):
+def fill_throughput_tool_parameters(opts, tool_parameters, tool=""):
     if opts.test_duration:
         tool_parameters["duration"] = opts.test_duration
 
@@ -196,23 +209,23 @@ def valid_tool(tool_name, tool_type=None):
 
     return False
 
-def select_tool(sender_tools=[], receiver_tools=[], requested_tools=[], tool_type=None):
+def select_tool(client_tools=[], server_tools=[], requested_tools=[], tool_type=None):
     common_tools = []
-    for tool in receiver_tools:
+    for tool in server_tools:
         if valid_tool(tool, tool_type=tool_type) and \
-           tool in sender_tools:
+           tool in client_tools:
                 common_tools.append(tool)
 
-    for tool in sender_tools:
+    for tool in client_tools:
         if valid_tool(tool, tool_type=tool_type) and \
-           tool in receiver_tools and \
+           tool in server_tools and \
            not tool in common_tools:
             common_tools.append(tool)
 
     for tool in requested_tools:
         if valid_tool(tool, tool_type=tool_type) and \
-           tool in sender_tools and \
-           tool in receiver_tools:
+           tool in client_tools and \
+           tool in server_tools:
             return tool, common_tools
 
     return None, common_tools
@@ -290,10 +303,11 @@ def bwctl_client():
         sys.exit(1)
 
     # Setup the endpoint handlers
-    endpoints = {}
+    server_endpoint   = None
+    client_endpoint   = None
 
     if not opts.receiver:
-        endpoints['receiver']=LocalEndpoint(is_sender=False, tool_type=tool_type)
+        server_endpoint = LocalEndpoint(is_sender=False, tool_type=tool_type)
     else:
         (receiver_address, receiver_port) = parse_endpoint(opts.receiver)
         if not receiver_address:
@@ -305,15 +319,24 @@ def bwctl_client():
             print "Could not find a suitable address for %s" % receiver_address
             sys.exit(1)
 
-        endpoints['receiver']=ClientEndpoint(
+        server_endpoint = ClientEndpoint(
                             address=receiver_ip,
                             port=receiver_port,
                             path="/bwctl",
                             is_sender=False,
-                        )
+                            is_server=True,
+                         )
+
+
+        #server_endpoint = LegacyClientEndpoint(
+        #                    address=receiver_ip,
+        #                    port=receiver_port,
+        #                    is_sender=False,
+        #                    is_server=True,
+        #                 )
 
     if not opts.sender:
-        endpoints['sender']=LocalEndpoint(is_sender=True, tool_type=tool_type)
+        client_endpoint = LocalEndpoint(is_sender=True, tool_type=tool_type)
     else:
         (sender_address, sender_port) = parse_endpoint(opts.sender)
         if not sender_address:
@@ -325,32 +348,36 @@ def bwctl_client():
             print "Could not find a suitable address for %s" % sender_address
             sys.exit(1)
 
-        endpoints['sender']=ClientEndpoint(
+        client_endpoint = ClientEndpoint(
                             address=sender_ip,
                             port=sender_port,
                             path="/bwctl",
                             is_sender=True,
-                        )
+                            is_server=False,
+                         )
 
-    if not opts.sender:
-        endpoints['sender'].initialize(remote_endpoint=endpoints['receiver'])
-        endpoints['receiver'].initialize(remote_endpoint=endpoints['sender'])
-    elif not opts.receiver:
-        endpoints['receiver'].initialize(remote_endpoint=endpoints['sender'])
-        endpoints['sender'].initialize(remote_endpoint=endpoints['receiver'])
+        #client_endpoint = LegacyClientEndpoint(
+        #                    address=sender_ip,
+        #                    port=sender_port,
+        #                    is_sender=True,
+        #                    is_server=False,
+        #                 )
+
+    if server_endpoint.is_remote:
+        server_endpoint.initialize(remote_endpoint=client_endpoint)
+        client_endpoint.initialize(remote_endpoint=server_endpoint)
+    elif client_endpoint.is_remote:
+        client_endpoint.initialize(remote_endpoint=server_endpoint)
+        server_endpoint.initialize(remote_endpoint=client_endpoint)
     else:
-        endpoints['sender'].initialize(remote_endpoint=endpoints['receiver'])
-        endpoints['receiver'].initialize(remote_endpoint=endpoints['sender'])
-
-    # Have the endpoint objects point at each other
-    endpoints['receiver'].remote_endpoint = endpoints['sender']
-    endpoints['sender'].remote_endpoint   = endpoints['receiver']
+        server_endpoint.initialize(remote_endpoint=client_endpoint)
+        client_endpoint.initialize(remote_endpoint=server_endpoint)
 
     requested_tools = opts.tools.split(",")
 
     selected_tool, common_tools = select_tool(requested_tools=requested_tools,
-                                              receiver_tools=endpoints['receiver'].available_tools,
-                                              sender_tools=endpoints['sender'].available_tools,
+                                              server_tools=server_endpoint.available_tools,
+                                              client_tools=client_endpoint.available_tools,
                                               tool_type=tool_type)
 
     if not selected_tool:
@@ -361,40 +388,48 @@ def bwctl_client():
     tool_parameters = {}
 
     if tool_type == ToolTypes.THROUGHPUT:
-        fill_throughput_tool_parameters(opts, tool_parameters)
+        fill_throughput_tool_parameters(opts, tool_parameters, tool=selected_tool)
     elif tool_type == ToolTypes.LATENCY:
-        fill_latency_tool_parameters(opts, tool_parameters)
+        fill_latency_tool_parameters(opts, tool_parameters, tool=selected_tool)
     elif tool_type == ToolTypes.TRACEROUTE:
-        fill_traceroute_tool_parameters(opts, tool_parameters)
+        fill_traceroute_tool_parameters(opts, tool_parameters, tool=selected_tool)
 
-    requested_time=datetime.datetime.now()+datetime.timedelta(seconds=3)
+    requested_time=datetime.datetime.utcnow()+datetime.timedelta(seconds=3)
     latest_time=requested_time+datetime.timedelta(seconds=opts.latest_time)
 
     reservation_time = requested_time
     reservation_end_time = None
     reservation_completed = False
 
+    # Make sure that we request from the server side first since it needs to
+    # allocate a test port to connect to.
     while not reservation_completed:
-        for endpoint in endpoints.values():
+        for endpoint in [ server_endpoint, client_endpoint ]:
             reservation_time, reservation_end_time = endpoint.request_test(tool=selected_tool,
                                                                            tool_parameters=tool_parameters, 
                                                                            requested_time=reservation_time,
                                                                            latest_time=latest_time)
 
-            if endpoint.remote_endpoint.has_complete_reservation and \
-               endpoint.has_complete_reservation and \
-               reservation_time == endpoint.remote_endpoint.test_start_time:
-
+            if reservation_time == endpoint.remote_endpoint.test_start_time:
                reservation_completed = True
                break
 
-    # We need to accept the remote endpoints first, and then the local one (if
-    # applicable) so that the local one can post its' acceptance to the server.
-    for endpoint in endpoints.values():
+    # At this point, the tests are in agreement in time and tool parameters. Do
+    # a final pass to ensure that the endpoint information is up to date.
+    for endpoint in [ server_endpoint, client_endpoint ]:
+        endpoint.finalize_test()
+
+    for endpoint in [ server_endpoint, client_endpoint ]:
         if endpoint.is_remote:
             endpoint.accept_test()
 
-    for endpoint in endpoints.values():
+    # We need to accept the remote endpoints first, and then the local one (if
+    # applicable) so that the local one can post its' acceptance to the server.
+    for endpoint in [ server_endpoint, client_endpoint ]:
+        if endpoint.is_remote:
+            endpoint.accept_test()
+
+    for endpoint in [ server_endpoint, client_endpoint ]:
         if not endpoint.is_remote:
             endpoint.remote_accept_test()
 
@@ -406,7 +441,7 @@ def bwctl_client():
 
         reservation_confirmed = True
 
-        for endpoint in endpoints.values():
+        for endpoint in [ server_endpoint, client_endpoint ]:
             if not endpoint.is_pending:
                 reservation_confirmed = False
 
@@ -415,19 +450,26 @@ def bwctl_client():
                 break
 
     if reservation_confirmed:
-        for endpoint in endpoints.values():
+        for endpoint in [ server_endpoint, client_endpoint ]:
             if not endpoint.is_remote:
                 endpoint.spawn_tool_runner()
 
         # Wait until the just after the end of the test for the results to be available
-        sleep_time = timedelta_seconds(reservation_end_time - datetime.datetime.now() + datetime.timedelta(seconds=1))
+        sleep_time = timedelta_seconds(reservation_end_time - datetime.datetime.utcnow() + datetime.timedelta(seconds=1))
 
         print "Waiting %s seconds for results" % sleep_time
 
         time.sleep(sleep_time)
 
-    sender_results = endpoints['sender'].get_test_results()
-    receiver_results = endpoints['receiver'].get_test_results()
+    client_results = client_endpoint.get_test_results()
+    server_results = server_endpoint.get_test_results()
+
+    if client_endpoint.is_sender:
+        sender_results = client_results
+        receiver_results = server_results
+    else:
+        sender_results = server_results
+        receiver_results = client_results
 
     print "Sender:"
     if not sender_results:
@@ -458,12 +500,14 @@ def bwctl_client():
                 print "%d) %s" % (error.error_code, error.error_msg)
 
 class ClientEndpoint:
-   def __init__(self, address="", port=4824, path="/bwctl", is_sender=True):
+   def __init__(self, address="", port=4824, path="/bwctl", is_sender=True, is_server=True):
        self.is_remote = True
+       self.is_legacy = False
 
        self.remote_endpoint = None
 
        self.is_sender = is_sender
+       self.is_server = is_server
 
        self.address = address
        self.test_port = None
@@ -486,38 +530,10 @@ class ClientEndpoint:
        client_url = "http://[%s]:%d%s" % (self.address, self.port, self.path)
        self.client = Client(client_url)
 
-   @property
-   def has_complete_reservation(self):
-       if self.test_start_time == None:
-           return False
-
-       if self.server_test_description == None:
-           return False
-
-       # Verify that the test ports have been passed around
-       if self.is_sender and self.remote_endpoint.test_port and \
-           self.server_test_description.receiver_endpoint.test_port != self.remote_endpoint.test_port:
-           return False
-
-       if not self.is_sender and self.test_port and \
-           self.server_test_description.sender_endpoint.test_port != self.test_port:
-           return False
-
-       # Verify that the test ID has been passed around
-       if self.server_test_description.sender_endpoint.posts_endpoint_status == False and \
-          not self.server_test_description.sender_endpoint.test_id:
-           return False
-
-       if self.server_test_description.receiver_endpoint.posts_endpoint_status == False and \
-          not self.server_test_description.receiver_endpoint.test_id:
-           return False
-
-       return True
-
    def initialize(self, remote_endpoint):
        # XXX: handle failure condition
        status = self.client.get_status()
-       current_time = datetime.datetime.now()
+       current_time = datetime.datetime.utcnow()
 
        # XXX: we should probably try to account for the network delay
        self.time_offset = timedelta_seconds(current_time - status.time)
@@ -534,6 +550,10 @@ class ClientEndpoint:
 
    def time_s2c(self, time):
        return time + datetime.timedelta(seconds=self.time_offset)
+
+   def finalize_test(self):
+       # Just call request test with no parameters. It'll just update the endpoints.
+       return self.request_test()
 
    def request_test(self, requested_time=None, latest_time=None, tool="", tool_parameters={}):
        # Convert our time to the time that the server expects
@@ -553,7 +573,7 @@ class ClientEndpoint:
                receiver_endpoint = self.endpoint_obj(local=True)
 
            test = Test(
-                        client=ClientSettings(time=datetime.datetime.now()),
+                        client=ClientSettings(time=datetime.datetime.utcnow()),
                         sender_endpoint=sender_endpoint,
                         receiver_endpoint=receiver_endpoint,
                         tool=tool,
@@ -582,10 +602,8 @@ class ClientEndpoint:
 
        # XXX: handle failure
        if self.test_id:
-           print "Updating test: %s" % self.test_id
            ret_test = self.client.update_test(self.test_id, test)
        else:
-           print "Requesting new test"
            ret_test = self.client.request_test(test)
 
        # Save the test id since we use it for creating the Endpoint, and a few
@@ -594,18 +612,13 @@ class ClientEndpoint:
 
        # Save the test port since we use it for creating our Endpoint
        # representation
-       if self.is_sender:
-           self.test_port = ret_test.sender_endpoint.test_port
-       else:
-           self.test_port = ret_test.receiver_endpoint.test_port
+       if self.is_server:
+           self.test_port = ret_test.local_endpoint.test_port
 
        self.test_start_time = self.time_s2c(ret_test.scheduling_parameters.test_start_time)
        self.test_end_time = self.time_s2c(ret_test.scheduling_parameters.reservation_end_time)
 
        self.server_test_description = ret_test
-
-       print "Setting remote start time to %s" % self.test_start_time
-       print "Setting remote end time to %s" % self.test_end_time
 
        return self.test_start_time, self.test_end_time
 
@@ -671,6 +684,9 @@ class ClientEndpoint:
 class LocalEndpoint:
    def __init__(self, tool_type=None, is_sender=True):
        self.is_remote = False
+       self.is_legacy = False
+
+       self.is_server = False
 
        self.address = None
 
@@ -703,9 +719,9 @@ class LocalEndpoint:
 
        self.available_tools = get_available_tools()
 
-   @property
-   def has_complete_reservation(self):
-       return True
+   def finalize_test(self):
+       # No need to finalize the test here
+       return
 
    def request_test(self, requested_time=None, latest_time=None, tool="", tool_parameters={}):
        if not self.test_port:
@@ -720,7 +736,7 @@ class LocalEndpoint:
 
        self.test = Test(
                         id="local test",
-                        client=ClientSettings(time=datetime.datetime.now()),
+                        client=ClientSettings(time=datetime.datetime.utcnow()),
                         sender_endpoint=sender_endpoint,
                         receiver_endpoint=receiver_endpoint,
                         tool=tool,
@@ -749,9 +765,6 @@ class LocalEndpoint:
        self.test.scheduling_parameters.reservation_start_time = requested_time - datetime.timedelta(seconds=0.5) # Makes sure the server starts slightly early
        self.test.scheduling_parameters.test_start_time = requested_time
        self.test.scheduling_parameters.reservation_end_time = end_time
-
-       print "Setting start time to %s" % requested_time
-       print "Setting end time to %s" % end_time
 
        return requested_time, end_time
 
@@ -806,3 +819,244 @@ class LocalEndpoint:
                     legacy_client_endpoint=False,
                     posts_endpoint_status=True
                     )
+
+class LegacyClientEndpoint:
+   def __init__(self, address="", port=4823, is_sender=True, is_server=True):
+       self.is_remote = True
+       self.is_legacy = True
+
+       self.remote_endpoint = None
+
+       self.is_sender = is_sender
+       self.is_server = is_server
+
+       self.address = address
+       self.peer_port = 0
+       self.test_port = 0
+
+       self.port    = int(port)
+
+       self.time_offset      = 0   # difference between the local clock and the far clock
+       self.server_ntp_error = 0
+       self.server_version   = 1.0
+       self.available_tools  = []
+
+       self.sent_accept = False
+       self.session_failed = False
+
+       self.test_start_time = None
+       self.test_end_time = None
+       self.test_sid = ""
+
+       self.results = None
+
+       self.client = LegacyClient(server_address=self.address, server_port=self.port)
+
+   def initialize(self, remote_endpoint):
+       try:
+           self.client.connect()
+       except Exception as e:
+           print "Couldn't connect to %s" % self.address
+           raise e
+
+       server_greeting = self.client.get_server_greeting()
+
+       server_ok = self.client.send_client_greeting()
+
+       available_tools = []
+
+       for tool_id in server_ok.tools:
+           tool_name = self.tool_mapping(tool_id=tool_id)
+           if tool_name:
+               available_tools.append(tool_name)
+
+       self.available_tools = available_tools
+
+       # XXX: we should probably try to account for the network delay
+       current_time = datetime.datetime.utcnow()
+       time_response = self.client.send_time_request()
+
+       self.time_offset = timedelta_seconds(current_time - time_response.timestamp.time)
+       self.server_ntp_error = time_response.error_estimate.error
+
+       self.remote_endpoint = remote_endpoint
+
+   def tool_mapping(self, tool_name=None, tool_id=None):
+       mappings = [
+           [ Tools.IPERF, "iperf" ],
+           [ Tools.NUTTCP, "nuttcp" ],
+           [ Tools.IPERF3, "iperf3" ],
+           [ Tools.PING, "ping" ],
+           [ Tools.OWAMP, "owamp" ],
+           [ Tools.TRACEROUTE, "traceroute" ],
+           [ Tools.TRACEPATH, "tracepath" ],
+           [ Tools.PARIS_TRACEROUTE, "paris-traceroute" ],
+       ]
+
+       if tool_name != None:
+           for mapping in mappings:
+               if mapping[1] == tool_name:
+                   return mapping[0]
+       elif tool_id != None:
+           for mapping in mappings:
+               if mapping[0] == tool_id:
+                   return mapping[1]
+
+       return None
+
+   def request_test(self, requested_time=None, latest_time=None, tool="", tool_parameters={}):
+    
+       test_request = TestRequest(
+           sid = self.test_sid,
+
+           # Convert the tool settings
+           tool = self.tool_mapping(tool_name=tool),
+
+           first_ttl = tool_parameters.get('first_ttl', 0),
+           last_ttl = tool_parameters.get('last_ttl', 0),
+           packet_size = tool_parameters.get('packet_size', 0),
+           packet_count = tool_parameters.get('packet_count', 0),
+           inter_packet_time = int(tool_parameters.get('inter_packet_time', 0) * 1000), # Convert to milliseconds
+           packet_ttl = tool_parameters.get('packet_ttl', 0),
+           duration = tool_parameters.get('duration', 0),
+           bandwidth = tool_parameters.get('bandwidth', 0),
+           report_interval = tool_parameters.get('report_interval', 0),
+           buffer_length = tool_parameters.get('buffer_length', 0),
+           # XXX: omit_interval = tool_parameters.get('omit_interval', 0),
+           parallel_streams = tool_parameters.get('parallel_streams', 0),
+           window_size = tool_parameters.get('window_size', 0),
+           is_udp = "udp" == tool_parameters.get('protocol', 'tcp'),
+
+           # XXX: handle this better
+           verbose = True 
+       )
+
+       # Set the duration, differs between types...
+       if "maximum_duration" in tool_parameters:
+           test_request.duration = tool_parameters.get('maximum_duration', 0)
+       else:
+           test_request.duration = tool_parameters.get('duration', 0)
+
+       test_request.duration = math.ceil(test_request.duration)
+
+       # Set the address type
+       if is_ipv6(self.address):
+           test_request.ip_version = 6
+       else:
+           test_request.ip_version = 4
+
+       # Set the client/server addresses
+       if self.is_server:
+           test_request.client_address = self.remote_endpoint.address
+           test_request.server_address = self.address
+           test_request.is_client = False
+       else:
+           test_request.client_address = self.remote_endpoint.address
+           test_request.server_address = self.address
+           test_request.is_client = True
+
+       # Set the time information, converting it to the server-side "time"
+       # perspective.
+       if requested_time:
+           test_request.requested_time = Timestamp(time=self.time_c2s(requested_time))
+
+       if latest_time:
+           test_request.latest_time = Timestamp(time=self.time_c2s(latest_time))
+
+       test_accept = self.client.send_test_request(test_request)
+
+       self.test_port = test_accept.data_port
+       self.test_sid  = test_accept.sid
+       self.test_start_time = self.time_s2c(test_accept.reservation_time.time)
+       self.test_end_time   = self.test_start_time + datetime.timedelta(seconds=test_request.duration + 1) # Make up an end time since the server doesn't give us one
+
+       return self.test_start_time, self.test_end_time
+
+   def finalize_test(self):
+       # We call StartSessions here so that we have our corresponding peer_port.
+       peer_port = 0
+       if self.remote_endpoint.is_legacy:
+           peer_port = self.remote_endpoint.peer_port
+       elif self.remote_endpoint.legacy_endpoint_port:
+           peer_port = self.remote_endpoint.legacy_endpoint_port
+
+       start_ack = self.client.send_start_session(peer_port=peer_port)
+
+       # XXX: validate accept_type
+       self.peer_port = start_ack.peer_port
+
+       self.session_started = True
+
+       return
+
+   def get_test_results(self):
+       # Check if we've cached results
+       if self.results != None:
+           return self.results
+
+       # We're at the "test should be finished" state, so send a StopSession
+       # message and wait for the results.
+       self.client.send_stop_session()
+
+       stop_session_msg, results = self.client.get_stop_session()
+
+       self.client.close()
+
+       # XXX: Do a better conversion of the "legacy" results into the new style
+       # results.
+       self.results = Results(status="finished", results={ 'output': results })
+
+       return self.results
+
+   def time_c2s(self, time):
+       return time - datetime.timedelta(seconds=self.time_offset)
+
+   def time_s2c(self, time):
+       return time + datetime.timedelta(seconds=self.time_offset)
+
+   @property
+   def is_pending(self):
+       # We're in a pending state after the start session gets sent in the
+       # finalize_test call.
+       return self.session_started
+
+   @property
+   def is_finished(self):
+       # We have no way of getting this...
+       return self.session_failed
+
+   def accept_test(self):
+       # The test was "accepted" in the finalize_test call because we need to
+       # get the peer_port before we can finalize the other side.
+       return
+
+   def cancel_test(self):
+       # Do a session request with a timestamp of 0 if we've not done a
+       # 'StartSession'. If we have, do a StopSession.
+       if self.session_started:
+           # We need to send a StopSession message
+           pass
+       elif self.test_sid:
+           # We need to send a TestRequest with an requested_time of 0
+           pass
+
+       raise Exception("cancel_test needs filled out")
+
+   def endpoint_obj(self, local=False):
+    return Endpoint(
+                    address=self.address,
+                    test_port=self.test_port,
+
+                    bwctl_protocol=1.0,
+                    peer_port=self.peer_port,
+
+                    local=local,
+
+                    ntp_error=self.server_ntp_error,
+                    client_time_offset=self.time_offset,
+
+                    legacy_client_endpoint=True,
+                    posts_endpoint_status=False
+                    )
+
+

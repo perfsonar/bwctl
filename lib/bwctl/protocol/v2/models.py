@@ -7,6 +7,7 @@ class ServerStatus(jsonobject.JsonObject):
     ntp_error = jsonobject.FloatProperty(exclude_if_none=True)
     available_tools = jsonobject.ListProperty(unicode, exclude_if_none=True)
     version = jsonobject.StringProperty(exclude_if_none=True)
+    legacy_endpoint_port = jsonobject.IntegerProperty(exclude_if_none=True)
 
 class BWCTLError(models.BWCTLError):
     def to_internal(self):

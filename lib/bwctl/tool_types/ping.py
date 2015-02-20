@@ -8,7 +8,7 @@ from bwctl.utils import is_ipv6, timedelta_seconds
 
 class Ping(LatencyBase):
     name = "ping"
-    known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "packet_ttl", "tos_bits" ]
+    known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "packet_ttl", "tos_bits", "maximum_duration" ]
 
     def config_options(self):
         options = super(Ping, self).config_options().copy()

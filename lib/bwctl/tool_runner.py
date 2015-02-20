@@ -26,7 +26,7 @@ class ToolRunner(BwctlProcess):
 
         try:
             if self.start_time:
-                sleep_time = timedelta_seconds(self.start_time - datetime.datetime.now())
+                sleep_time = timedelta_seconds(self.start_time - datetime.datetime.utcnow())
                 if sleep_time < 0:
                     raise TestStartTimeFailure
 
