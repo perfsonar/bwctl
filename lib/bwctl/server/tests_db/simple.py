@@ -1,42 +1,54 @@
 import uuid
 from bwctl.exceptions import ResourceNotFoundException
 
-from threading import Lock, RLock
+import threading
 
 from .base import Base
 
 def locked(f):
     def inner(self, *args, **kwargs):
+        print "Locking tests DB: %s" % threading.current_thread().name
         with self.lock:
-            return f(self, *args, **kwargs)
+            retval = f(self, *args, **kwargs)
+            print "Unlocking tests DB: %s" % threading.current_thread().name
+            return retval
     return inner
 
 class SimpleDB(Base):
     def __init__(self):
-        self.lock         = Lock()
+        self.lock         = threading.RLock()
         self.tests        = {}
         self.test_results = {}
-        self.test_locks   = {}
+        self.test_cvs     = {}
+        self.locked_tests = {}
 
     def _copy_obj(self, obj):
         return obj.__class__(obj.to_json())
 
-    @locked
     def lock_test(self, test_id):
-        if not test_id in self.test_locks:
-            self.test_locks[test_id] = RLock()
+        print "Locking %s" % test_id
+        if not self.test_cvs[test_id]:
+            return
 
-        self.test_locks[test_id].acquire()
+        with self.test_cvs[test_id]:
+            while self.locked_tests[test_id] and \
+                  self.locked_tests[test_id] != threading.current_thread().name:
+                self.test_cvs[test_id].wait()
+            self.locked_tests[test_id] = threading.current_thread().name
 
-    @locked
     def unlock_test(self, test_id):
-        if test_id in self.test_locks:
-            self.test_locks[test_id].release()
+        print "Unocking %s" % test_id
+        if not self.test_cvs[test_id]:
+            return
+
+        with self.test_cvs[test_id]:
+            self.locked_tests[test_id] = None
+            self.test_cvs[test_id].notify()
 
     @locked
     def get_test(self, test_id):
         if not test_id in self.tests.keys():
-            raise ResourceNotFoundException("Test not found")
+            raise ResourceNotFoundException("Test not found: '%s'" % test_id)
 
         return self._copy_obj(self.tests[test_id])
 
@@ -51,6 +63,9 @@ class SimpleDB(Base):
             return None
 
         self.tests[test.id] = test
+
+        self.locked_tests[test.id] = False
+        self.test_cvs[test.id] = threading.Condition(self.lock)
 
         return test.id
 

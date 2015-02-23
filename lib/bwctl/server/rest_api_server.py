@@ -13,10 +13,10 @@ from bwctl.exceptions import BwctlException, SystemProblemException, ValidationE
 from bwctl.protocol.v2.models import *
 
 class RestApiServer(BwctlProcess):
-    def __init__(self, coordinator_client=None, server_address='', server_port=4824):
+    def __init__(self, coordinator=None, server_address='', server_port=4824):
         dispatcher = cherrypy.dispatch.RoutesDispatcher()
 
-        v2_protocol_controller = V2ProtocolController(coordinator_client=coordinator_client)
+        v2_protocol_controller = V2ProtocolController(coordinator=coordinator)
         v2_protocol_controller.add_urls(dispatcher)
 
         if server_address:
@@ -37,8 +37,6 @@ class RestApiServer(BwctlProcess):
                 'tools.json_out.on': True,
 
                 'tools.encode.encoding': 'utf-8',
-
-                'coordinator_client': coordinator_client
             }
         })
 
@@ -67,8 +65,8 @@ def handle_bwctl_exceptions(function):
     return decorated_func
 
 class V2ProtocolController(object):
-  def __init__(self, coordinator_client=None):
-      self.coordinator_client = coordinator_client
+  def __init__(self, coordinator=None):
+      self.coordinator = coordinator
       super(V2ProtocolController, self).__init__()
 
   def add_urls(self, dispatcher):
@@ -106,21 +104,21 @@ class V2ProtocolController(object):
     except Exception as e:
        raise ValidationException("Problem parsing test definition: %s" % e)
 
-    added_test = self.coordinator_client.request_test(test=test, requesting_address=cherrypy.request.remote.ip)
+    added_test = self.coordinator.request_test(test=test, requesting_address=cherrypy.request.remote.ip)
 
     return Test.from_internal(added_test).to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def get_test(self, id):
-    test = self.coordinator_client.get_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
+    test = self.coordinator.get_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return Test.from_internal(test).to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def get_results(self, id):
-    results = self.coordinator_client.get_test_results(test_id=id, requesting_address=cherrypy.request.remote.ip)
+    results = self.coordinator.get_test_results(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return Results.from_internal(results).to_json()
 
@@ -133,21 +131,21 @@ class V2ProtocolController(object):
     except Exception as e:
        raise ValidationException("Problem parsing test definition")
 
-    updated_test = self.coordinator_client.update_test(test=test, test_id=id, requesting_address=cherrypy.request.remote.ip)
+    updated_test = self.coordinator.update_test(test=test, test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return Test.from_internal(updated_test).to_json()
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def cancel_test(self, id):
-    self.coordinator_client.cancel_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
+    self.coordinator.cancel_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return {}
 
   @cherrypy.expose
   @handle_bwctl_exceptions
   def accept_test(self, id):
-    self.coordinator_client.client_confirm_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
+    self.coordinator.client_confirm_test(test_id=id, requesting_address=cherrypy.request.remote.ip)
 
     return {}
 
@@ -160,6 +158,6 @@ class V2ProtocolController(object):
     except Exception as e:
        raise ValidationException("Problem parsing test definition")
 
-    self.coordinator_client.remote_confirm_test(test_id=id, test=test, requesting_address=cherrypy.request.remote.ip)
+    self.coordinator.remote_confirm_test(test_id=id, test=test, requesting_address=cherrypy.request.remote.ip)
 
     return {}

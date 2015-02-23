@@ -363,15 +363,8 @@ def bwctl_client():
         #                    is_server=False,
         #                 )
 
-    if server_endpoint.is_remote:
-        server_endpoint.initialize(remote_endpoint=client_endpoint)
-        client_endpoint.initialize(remote_endpoint=server_endpoint)
-    elif client_endpoint.is_remote:
-        client_endpoint.initialize(remote_endpoint=server_endpoint)
-        server_endpoint.initialize(remote_endpoint=client_endpoint)
-    else:
-        server_endpoint.initialize(remote_endpoint=client_endpoint)
-        client_endpoint.initialize(remote_endpoint=server_endpoint)
+    server_endpoint.initialize(remote_endpoint=client_endpoint)
+    client_endpoint.initialize(remote_endpoint=server_endpoint)
 
     requested_tools = opts.tools.split(",")
 
