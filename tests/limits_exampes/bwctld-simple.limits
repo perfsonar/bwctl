@@ -1,0 +1,8 @@
+limit root with allow_udp=on, bandwidth=900000000, max_time_error=20, allow_tcp=on, allow_open_mode=on, duration=60
+limit regular with allow_udp=off, parent=root
+limit jail with allow_udp=off, bandwidth=1, parent=root, allow_tcp=off, allow_open_mode=off, duration=1
+assign net ::1/128 root
+assign net 127.0.0.1/32 root
+assign net 172.16.10.0/24 jail
+assign default regular
+
