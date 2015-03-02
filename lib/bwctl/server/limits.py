@@ -202,6 +202,16 @@ class DurationLimit(MaximumLimit):
        if self.value < test.bandwidth:
            raise LimitViolatedException("Duration limit exceeds maximum: %s" % self.value)
 
+class PacketsPerSecondLimit(MaximumLimit):
+    type = "packets_per_second"
+
+    def __str__(self):
+        return "packets_per_second: %d" % self.value
+
+    def check(self, test):
+       if self.value < test.packets_per_second:
+           raise LimitViolatedException("Packet-per-second limit exceeds maximum: %s" % self.value)
+
 if __name__ == "__main__":
     limits_db = LimitsDB()
     limits_db.create_limit_class("root")

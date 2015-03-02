@@ -196,6 +196,12 @@ class Test(jsonobject.JsonObject):
         return tool.type
 
     @property
+    def packets_per_second(self):
+        tool = get_tool(self.tool)
+
+        return tool.packets_per_second(self)
+
+    @property
     def duration(self):
         tool = get_tool(self.tool)
 

@@ -154,3 +154,12 @@ class Base(object):
             return test.tool_parameters['bandwidth']
         else:
             return 0
+
+    def packets_per_second(self, test):
+        """ Returns the network bandwidth this test uses. If 'bandwidth' isn't an
+            available parameter for this tool.  """
+
+        if 'inter_packet_time' in test.tool_parameters:
+            return 1.0/test.tool_parameters['inter_packet_time']
+        else:
+            return 0
