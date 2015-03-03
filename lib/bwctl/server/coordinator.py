@@ -4,6 +4,11 @@ from bwctl.tool_runner import ToolRunner
 from bwctl.models import BWCTLError, Results
 from bwctl.exceptions import *
 from bwctl.protocol.v2.client import Client
+from bwctl.protocol.legacy.client import Client as LegacyClient
+from bwctl.protocol.coordinator.client import Client as CoordinatorClient
+from bwctl.protocol.coordinator.models import parse_coordinator_msg, build_response_msg, unparse_coordinator_msg
+
+import zmq
 
 import threading
 import multiprocessing
@@ -26,30 +31,98 @@ def lock_test(f):
 
     return inner
 
-class Coordinator(object):
-    def __init__(self, scheduler=Scheduler(), limits_db=None, tests_db=None):
+class Coordinator(BwctlProcess):
+    def __init__(self, scheduler=Scheduler(), limits_db=None, tests_db=None,
+                 server_address='', server_port=5678, auth_key=''):
         self.scheduler = scheduler
         self.limits_db = limits_db
         self.tests_db  = tests_db
-        self.test_threads = {}
+        self.test_procs = {}
         self.lock = threading.RLock()
         self.logger = get_logger()
 
+        self.server_address = server_address
+        self.server_port = server_port
+        self.auth_key = auth_key
+
+        self.sock = None
+        self.context = None
+
+        self.coordinator_client = CoordinatorClient(server_port=server_port,
+                                                    server_address=server_address,
+                                                    auth_key=auth_key)
+
         super(Coordinator, self).__init__()
 
-    def __add_test_thread(self, test_id=None, thread=None):
+    def __add_test_process(self, test_id=None, process=None):
         with self.lock:
-            self.test_threads[test_id] = thread
+            self.test_procs[test_id] = process 
+
+    def run(self):
+        self.context = zmq.Context()
+        self.sock = self.context.socket(zmq.REP)
+
+        self.sock.bind("tcp://[%s]:%d" % (self.server_address, self.server_port))
+
+        while True:
+            raw_msg = self.sock.recv_json()
+            type, msg = parse_coordinator_msg(raw_msg, self.auth_key)
+            self.handle_msg(type, msg)
+
+    def handle_msg(self, msg_type, msg):
+        status = None
+        value  = None
+
+        try:
+            if msg_type == 'get-test':
+                value = self.get_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id)
+            elif msg_type == 'get-test-results':
+                value = self.get_test_results(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id)
+            elif msg_type == 'request-test' and msg.test_id:
+                value = self.update_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id, test=msg.value)
+            elif msg_type == 'request-test':
+                value = self.request_test(requesting_address=msg.requesting_address, user=msg.user, test=msg.value)
+            elif msg_type == 'client-confirm-test':
+                self.client_confirm_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id)
+            elif msg_type == 'remote-confirm-test':
+                self.remote_confirm_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id, test=msg.value)
+            elif msg_type == 'server-confirm-test':
+                self.server_confirm_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id)
+            elif msg_type == 'finish-test':
+                self.finish_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id, results=msg.value)
+            else:
+                raise SystemProblemException("Unknown message type: %s" % msg_type)
+        except BwctlException as e:
+            status = e
+            value  = None
+        except Exception as e:
+            status = SystemProblemException(str(e))
+            value  = None
+
+        if not status:
+            status = Success()
+
+        response_msg_type = "%s-response" % msg_type
+        response_msg = build_response_msg(message_type=response_msg_type, status=status.as_bwctl_error(), value=value)
+
+        try:
+            coord_resp = unparse_coordinator_msg(response_msg, response_msg_type, self.auth_key)
+            self.sock.send_json(coord_resp)
+        except:
+            # XXX: log an error here
+            pass
+
+        return
 
     @lock_test
-    def get_test(self, requesting_address=None, test_id=None):
+    def get_test(self, requesting_address=None, user=None, test_id=None):
         return self.tests_db.get_test(test_id)
 
     @lock_test
-    def get_test_results(self, requesting_address=None, test_id=None):
+    def get_test_results(self, requesting_address=None, user=None, test_id=None):
         return self.tests_db.get_results(test_id)
 
-    def request_test(self, requesting_address=None, test=None):
+    def request_test(self, requesting_address=None, user=None, test=None):
         if test.id:
             raise ValidationException("New test shouldn't have an id")
 
@@ -116,7 +189,7 @@ class Coordinator(object):
         return test
 
     @lock_test
-    def update_test(self, requesting_address=None, test_id=None, test=None):
+    def update_test(self, requesting_address=None, user=None, test_id=None, test=None):
         old_test = self.tests_db.get_test(test_id)
         if not old_test:
             raise ResourceNotFoundException("Test not found")
@@ -124,7 +197,8 @@ class Coordinator(object):
         if not old_test.client_can_modify:
             raise TestInvalidActionException("Test can not be modified")
 
-        if not ip_matches(old_test.client.address, requesting_address):
+        if requesting_address and \
+           not ip_matches(old_test.client.address, requesting_address):
             raise TestInvalidActionException("Not permitted to modify test")
 
         err = None
@@ -182,7 +256,7 @@ class Coordinator(object):
         return test
 
     @lock_test
-    def client_confirm_test(self, requesting_address=None, test_id=None):
+    def client_confirm_test(self, requesting_address=None, user=None, test_id=None):
         # 1. If the test's status is already confirmed, goto #4
         # 2. Mark the test's status as "client-confirmed"
         # 3. Spawn a process to validate the test with the other side
@@ -192,7 +266,8 @@ class Coordinator(object):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
-        if not ip_matches(test.client.address, requesting_address):
+        if requesting_address and \
+           not ip_matches(test.client.address, requesting_address):
             raise TestInvalidActionException("Not permitted to confirm test")
 
         if not test.status == "scheduled":
@@ -206,20 +281,30 @@ class Coordinator(object):
 
         # Only do the remote validation process if we're not going to wait for
         # the far side to post it's status.
-        if not test.remote_endpoint.posts_endpoint_status:
-            validation_thread = ValidateRemoteTestThread(
+        if test.remote_endpoint.bwctl_protocol == 1.0:
+            if not test.remote_endpoint.legacy_client_endpoint:
+                ep_client_process = LegacyEndpointClientHandlerProcess(
+                                                                     test_id=test_id,
+                                                                     coordinator=self.coordinator_client,
+                                                                   )
+
+                self.__add_test_process(test_id=test_id, process=ep_client_process)
+
+                ep_client_process.start()
+        elif not test.remote_endpoint.posts_endpoint_status:
+            validation_process = ValidateRemoteTestProcess(
                                                          test_id=test_id,
-                                                         coordinator=self,
+                                                         coordinator=self.coordinator_client,
                                                        )
 
-            self.__add_test_thread(test_id=test_id, thread=validation_thread)
+            self.__add_test_process(test_id=test_id, process=validation_process)
 
-            validation_thread.start()
+            validation_process.start()
 
         return
 
     @lock_test
-    def server_confirm_test(self, requesting_address=None, test_id=None):
+    def server_confirm_test(self, requesting_address=None, user=None, test_id=None):
         # 1. If the server status is already confirmed, goto #4
         # 2. Mark the server status as "server-confirmed"
         # 3. Spawn a process to exec the tool at the specified time
@@ -239,7 +324,7 @@ class Coordinator(object):
         return
 
     @lock_test
-    def remote_confirm_test(self, requesting_address=None, test_id=None, test=None):
+    def remote_confirm_test(self, requesting_address=None, user=None, test_id=None, test=None):
 	print "remote_confirm_test start"
 	# XXX: We should really require that the requesting address either be
 	# the remote endpoint, or that
@@ -253,7 +338,8 @@ class Coordinator(object):
         if not test:
             raise ResourceNotFoundException("Test not found")
 
-        if not ip_matches(test.remote_endpoint.address, requesting_address):
+        if requesting_address and \
+           not ip_matches(test.remote_endpoint.address, requesting_address):
             raise TestInvalidActionException("Not permitted to confirm test: %s != %s" % (test.remote_endpoint.address, requesting_address))
 
         if test.status == "server-confirmed":
@@ -272,7 +358,7 @@ class Coordinator(object):
         return
 
     @lock_test
-    def spawn_tool_runner(self, requesting_address=None, test_id=None):
+    def spawn_tool_runner(self, requesting_address=None, user=None, test_id=None):
 	print "spawn_tool_runner start"
         test = self.tests_db.get_test(test_id)
         if not test:
@@ -282,28 +368,29 @@ class Coordinator(object):
 
         self.tests_db.replace_test(test_id, test)
 
-        spawning_thread = ToolHandlerThread(
+        spawning_process = ToolHandlerProcess(
                                                test_id=test_id,
-                                               coordinator=self,
+                                               coordinator=self.coordinator_client,
                                            )
 
-        self.__add_test_thread(test_id=test_id, thread=spawning_thread)
+        self.__add_test_process(test_id=test_id, process=spawning_process)
 
-        spawning_thread.start()
+        spawning_process.start()
 
     @lock_test
-    def cancel_test(self, requesting_address=None, test_id=None, results=None):
+    def cancel_test(self, requesting_address=None, user=None, test_id=None, results=None):
         if not results:
             results = Results(status="cancelled")
 
-        if not ip_matches(test.client.address, requesting_address) and \
+        if requesting_address and \
+           not ip_matches(test.client.address, requesting_address) and \
            not ip_matches(test.remote_endpoint.address, requesting_address):
             raise TestInvalidActionException("Not permitted to cancel test")
 
-        return self.finish_test(requesting_address=None, test_id=test_id, results=results, status="cancelled")
+        return self.finish_test(requesting_address=None, user=None, test_id=test_id, results=results, status="cancelled")
 
     @lock_test
-    def finish_test(self, requesting_address=None, status=None, test_id=None, results=None):
+    def finish_test(self, requesting_address=None, user=None, status=None, test_id=None, results=None):
         # 1. Make sure the test isn't already in a "finished" state
         #   - If it is, send back a "failed" response
         # 2. Save the test results in the DB
@@ -342,42 +429,29 @@ class Coordinator(object):
         if not test.local_client and test.local_endpoint.test_port:
             test.tool_obj.port_range.release_port(test.local_endpoint.test_port)
 
-        # Stop the test threads if they're still doing their thing
+        # Stop the test processes if they're still doing their thing
         with self.lock:
-            if test.id in self.test_threads:
+            if test.id in self.test_procs:
                 try:
-                    self.test_threads[test.id].stop()
+                    self.test_procs[test.id].kill_children()
+                    self.test_procs[test.id].terminate()
                 except:
                     pass
 
-                del(self.test_threads[test.id])
+                del(self.test_procs[test.id])
 
         return
 
-class TestActionHandlerThread(threading.Thread):
+class TestActionHandlerProcess(BwctlProcess):
     def __init__(self, coordinator=None, test_id=None):
-        super(TestActionHandlerThread, self).__init__()
+        super(TestActionHandlerProcess, self).__init__()
 
         self.coordinator = coordinator
         self.test_id     = test_id
-        self.stop_event  = threading.Event()
         self.logger = get_logger()
-
-        self.logger.debug("Test action handler: Test id: %s" % test_id)
-
-        self.daemon = True # XXX: should we do this?
-
-    @property
-    def stopped(self):
-        return self.stop_event.isSet()
-
-    def stop(self):
-        return self.stop_event.set()
 
     def run(self):
         err = None
-
-        self.logger.debug("Test action handler(in thread): Test id: %s" % self.test_id)
 
         try:
             self.handler()
@@ -400,15 +474,13 @@ class TestActionHandlerThread(threading.Thread):
  
         self.coordinator.finish_test(test_id=self.test_id, results=results)
  
-class ToolHandlerThread(TestActionHandlerThread):
+class ToolHandlerProcess(TestActionHandlerProcess):
     def __init__(self, coordinator=None, test_id=None):
         self.results_queue = multiprocessing.Queue() # Needs to be multiprocess for the ToolRunner
 
-        super(ToolHandlerThread, self).__init__(coordinator=coordinator, test_id=test_id)
+        super(ToolHandlerProcess, self).__init__(coordinator=coordinator, test_id=test_id)
 
     def handler(self):
-        print 'Getting test: %s' % self.test_id
-
         test = self.coordinator.get_test(test_id=self.test_id)
 
         def results_cb(results):
@@ -417,18 +489,9 @@ class ToolHandlerThread(TestActionHandlerThread):
         tool_runner = ToolRunner(test=test, results_cb=results_cb)
         tool_runner.start()
 
-        results = None
-
-        while not self.stopped and not results:
-            try:
-                results = self.results_queue.get(True, 1)
-            except:
-                pass
+        results = self.results_queue.get()
 
         tool_runner.kill_children()
-
-        if self.stopped:
-            return
 
         parsed_results = Results(results)
 
@@ -436,7 +499,51 @@ class ToolHandlerThread(TestActionHandlerThread):
 
         return
 
-class ValidateRemoteTestThread(TestActionHandlerThread):
+class LegacyEndpointClientHandlerProcess(TestActionHandlerProcess):
+    def handler(self):
+        client = None
+
+        test = self.coordinator.get_test(test_id=self.test_id)
+
+	# XXX: connect to the endpoint, and verify we're not too far off.
+        try:
+            # XXX: actually validate the test
+            client = LegacyClient(source_address=test.local_endpoint.address,
+                                  server_address=test.remote_endpoint.address,
+                                  server_port=test.remote_endpoint.peer_port)
+
+            client.connect()
+
+            server_greeting = client.get_server_greeting()
+
+            server_ok = client.send_client_greeting()
+
+            # Confirm the test locally
+            self.coordinator.server_confirm_test(test_id=test.id)
+        except:
+            if client:
+                client.close()
+            raise TestRemoteEndpointValidationFailure
+
+        try:
+            # Wait a few seconds after the reservation finishes
+            deadline = test.scheduling_parameters.reservation_end_time + datetime.timedelta(seconds=3)
+
+            # Wait for a StopSession message from the far side
+            while datetime.datetime.utcnow() < deadline:
+                msg_type, msg, results = client.get_msg(deadline=deadline)
+                if msg_type == MessageTypes.StopSession:
+                    break
+
+            # Send an empty stop session message since the far side is just
+            # going to throw them away anyway
+            client.send_stop_session()
+        finally:
+            client.close()
+
+        return
+
+class ValidateRemoteTestProcess(TestActionHandlerProcess):
     def handler(self):
         try:
             test = self.coordinator.get_test(test_id=self.test_id)

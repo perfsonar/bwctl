@@ -84,7 +84,7 @@ class Results(jsonobject.JsonObject):
 class ClientSettings(jsonobject.JsonObject):
     address   = jsonobject.StringProperty(exclude_if_none=True)
     protocol  = jsonobject.FloatProperty(exclude_if_none=True, default=2.0, required=True)
-    time      = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True, required=True)
+    time      = jsonobject.DateTimeProperty(exact=True, exclude_if_none=True)
     ntp_error = jsonobject.FloatProperty(exclude_if_none=True)
 
 class SchedulingParameters(jsonobject.JsonObject):

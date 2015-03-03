@@ -11,6 +11,11 @@ class ControlConnection(object):
 
         self.peeked_data = ""
 
+    def peername(self):
+        print 'Peername: %s' % (self.sock.getpeername()[0])
+
+        return self.sock.getpeername()[0]
+
     def peek_sock(self, size, deadline=None):
         data = self.read_sock(size, deadline=deadline)
         self.peeked_data = data
@@ -82,8 +87,8 @@ class ControlConnection(object):
     def get_client_greeting(self, deadline=None):
         return self.get_obj(size=68, type=ClientGreeting, deadline=deadline)
 
-    def send_server_ok(self):
-        server_ok = ServerOK()
+    def send_server_ok(self, tools=[], uptime=0.0, accept_type=AcceptType.ACCEPT):
+        server_ok = ServerOK(uptime=uptime, tools=tools, accept_type=accept_type)
 
         self.send(server_ok)
 
@@ -110,10 +115,23 @@ class ControlConnection(object):
     def get_time_response(self, deadline=None):
         return self.get_obj(size=32, type=TimeResponse, deadline=deadline)
 
+    def get_test_request(self, deadline=None):
+        return self.get_obj(size=128, type=TestRequest, deadline=deadline)
+
     def send_test_request(self, test_request, deadline=None):
         self.send(test_request)
 
         return self.get_test_accept(deadline=deadline)
+
+    def send_test_accept(self, accept_type=AcceptType.ACCEPT, data_port=0, sid='', reservation_time=None, deadline=None):
+        time_obj = Timestamp(time=reservation_time)
+
+        test_accept = TestAccept(accept_type=accept_type, 
+                                 data_port=data_port,
+                                 sid=sid,
+                                 reservation_time=time_obj)
+
+        self.send(test_accept)
 
     def get_test_accept(self, deadline=None):
         return self.get_obj(size=32, type=TestAccept, deadline=deadline)
@@ -125,8 +143,16 @@ class ControlConnection(object):
 
         return self.get_start_ack(deadline=deadline)
 
+    def get_start_session(self, deadline=None):
+        return self.get_obj(size=32, type=StartSession, deadline=deadline)
+
     def get_start_ack(self, deadline=None):
         return self.get_obj(size=32, type=StartAck, deadline=deadline)
+
+    def send_start_ack(self, accept_type=AcceptType.ACCEPT, peer_port=0):
+        start_ack = StartAck(accept_type=accept_type, peer_port=peer_port)
+
+        self.send(start_ack)
 
     def send_stop_session(self, result_status=AcceptType.ACCEPT, results=""):
         stop_session = StopSession(result_status=result_status, result_length=len(results))
@@ -134,7 +160,7 @@ class ControlConnection(object):
         self.send(stop_session)
 
         if len(results) > 0:
-            self.send_obj(Results(results=results))
+            self.send(Results(results=results))
 
     def get_results(self, results_length=0, deadline=None):
         if results_length == 0:

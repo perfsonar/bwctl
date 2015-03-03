@@ -7,10 +7,8 @@ from .base import Base
 
 def locked(f):
     def inner(self, *args, **kwargs):
-        print "Locking tests DB: %s" % threading.current_thread().name
         with self.lock:
             retval = f(self, *args, **kwargs)
-            print "Unlocking tests DB: %s" % threading.current_thread().name
             return retval
     return inner
 

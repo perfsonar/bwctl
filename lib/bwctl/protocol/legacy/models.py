@@ -3,17 +3,22 @@ import datetime
 from calendar import timegm
 import socket
 
+from bwctl.models import Test, Endpoint, SchedulingParameters
 
 #########
 # Utility classes covering complex data types used by multiple messages
 #########
 class Timestamp:
-    def __init__(self, time=datetime.datetime(1970,1,1,0,0,0)):
+    def __init__(self, time=None):
         self.time = time
 
     @staticmethod
     def parse(data):
         (seconds, nanoseconds) = unpack("! L L", data)
+
+        # Handle the special case of 'nothing'
+        if seconds == 0 and nanoseconds == 0:
+            return Timestamp(time=None)
 
         scale = 2**32
         combined = (seconds << 32) | nanoseconds
@@ -37,14 +42,17 @@ class Timestamp:
         return Timestamp(time=dt)
 
     def unparse(self):
-        seconds = timegm(self.time.utctimetuple())
-        nanoseconds = self.time.microsecond * 1000
+        seconds = 0
+        nanoseconds = 0
 
-        # convert the seconds into seconds since 1900
-        seconds = seconds + 0x83aa7e80
+        if self.time:
+            seconds = timegm(self.time.utctimetuple())
+            nanoseconds = self.time.microsecond * 1000
+
+            # convert the seconds into seconds since 1900
+            seconds = seconds + 0x83aa7e80
 
         return pack("! L L", seconds, nanoseconds)
-
 
 class ErrorEstimate:
     def __init__(self, synchronized=False, error=0.001):
@@ -103,6 +111,33 @@ class Tools:
     TRACEPATH        = 0x40
     OWAMP            = 0x80
     PARIS_TRACEROUTE = 0x100
+
+    mappings = [
+        [ IPERF, "iperf" ],
+        [ NUTTCP, "nuttcp" ],
+        [ IPERF3, "iperf3" ],
+        [ PING, "ping" ],
+        [ OWAMP, "owamp" ],
+        [ TRACEROUTE, "traceroute" ],
+        [ TRACEPATH, "tracepath" ],
+        [ PARIS_TRACEROUTE, "paris-traceroute" ],
+    ]
+
+    @classmethod
+    def id_by_name(cls, tool_name):
+        for mapping in cls.mappings:
+            if mapping[1] == tool_name:
+                return mapping[0]
+
+        return None
+
+    @classmethod
+    def name_by_id(cls, tool_id):
+        for mapping in cls.mappings:
+            if mapping[0] == tool_id:
+                return mapping[1]
+
+        return None
 
 class MessageTypes:
     TestRequest  = 1
@@ -271,7 +306,7 @@ class TestAccept:
 
     def unparse(self):
         reservation_time_str = self.reservation_time.unparse()
-        return pack("! B x H 16s 8s 4x", self.accept_type, self.data_port, self.sid, reservation_time_str, 0)
+        return pack("! B x H 16s 8s 4x", self.accept_type, self.data_port, self.sid, reservation_time_str)
 
 class StartAck:
     def __init__(self, accept_type=AcceptType.ACCEPT, peer_port=0):
@@ -334,13 +369,13 @@ class Results:
         return Results(results=results)
 
     def unparse(self):
-        format_string = "s"
+        results = self.results
 
-        # Zero pad the format string
-        if len(self.results) % 16 != 0:
-            format_string = "%dc %dX 2Q" % (len(self.results), 16 - len(self.results) % 16, 0, 0)
+        # Zero pad the string if it's not a multiple of 16 characters long
+        if len(results) % 16 != 0:
+            results = results + pack("%dx" % (16 - len(results) % 16))
 
-        return pack(format_string, self.results)
+        return results + pack("16x")
 
 class StartSession:
     def __init__(self, peer_port=0):
@@ -373,7 +408,7 @@ class TestRequest:
                  duration=0, packet_size=0,
                  # Bandwidth test-specific parameters
                  output_format="", bandwidth=0, omit_time=0, units="",
-                 tos_bits=0, parallel_streams=0, buffer_length=0, window_size=0, report_interval=0,
+                 tos_bits=0, parallel_streams=0, buffer_size=0, window_size=0, report_interval=0,
                  is_udp=False, dynamic_window=False,
                  # Ping test-specific parameters
                  packet_count=0, inter_packet_time=0, packet_ttl=0,
@@ -406,7 +441,7 @@ class TestRequest:
         self.units=units
         self.tos_bits=tos_bits
         self.parallel_streams=parallel_streams
-        self.buffer_length=buffer_length
+        self.buffer_size=buffer_size
         self.window_size=window_size
         self.report_interval=report_interval
         self.is_udp=is_udp
@@ -453,8 +488,8 @@ class TestRequest:
         else:
             raise Exception("Unknown IP type: %d" % ip_version)
 
-        test_request.client_address = inet_ntop(address_family, client_ip)
-        test_request.server_address = inet_ntop(address_family, server_ip)
+        test_request.client_address = socket.inet_ntop(address_family, client_ip)
+        test_request.server_address = socket.inet_ntop(address_family, server_ip)
 
         # Grab time information
         (requested_time_str, latest_time_str, error_estimate_str) = unpack("! 7x 8s 8s 2s 102x", data)
@@ -491,11 +526,11 @@ class TestRequest:
             else:
                 test_request.is_udp = True
 
-            results = unpack("! 3x L 68x L L L L B B B 13x 1s B B 1s 16x", data)
+            results = unpack("! 3x L 68x L L L L B B B 13x B B B B 16x", data)
 
             test_request.duration = results[0]
             test_request.bandwidth = results[1]
-            test_request.buffer_length = results[2]
+            test_request.buffer_size = results[2]
             test_request.window_size = results[3]
             test_request.report_interval = results[4]
             if results[5] != 0:
@@ -504,11 +539,13 @@ class TestRequest:
                 test_request.dynamic_window = False
             test_request.tos_bits = results[6]
             test_request.parallel_streams = results[7]
-            test_request.output_format = results[8]
+            if results[8] != 0:
+                test_request.output_format = chr(results[8])
             if results[9] != 0:
                 test_request.bandwidth = test_request.bandwidth * 2**results[9]
             test_request.omit_time = results[10]
-            test_request.units = results[11]
+            if results[11] != 0:
+                test_request.units = chr(results[11])
         elif tool == Tools.PING or tool == Tools.OWAMP:
             (packet_count, packet_size, inter_packet_time, packet_ttl) = unpack("! 75x H H H B 45x", data)
             test_request.packet_count = packet_count
@@ -586,7 +623,7 @@ class TestRequest:
             dynamic = 0
             if self.dynamic_window:
                 dynamic = 1
-            data = data + pack("! L L L L B B B x", bandwidth, self.buffer_length, self.window_size, self.report_interval, dynamic, self.tos_bits, self.parallel_streams)
+            data = data + pack("! L L L L B B B x", bandwidth, self.buffer_size, self.window_size, self.report_interval, dynamic, self.tos_bits, self.parallel_streams)
         elif self.tool == Tools.PING or self.tool == Tools.OWAMP:
             data = data + pack("! H H H B 13x", self.packet_count, self.packet_size, self.inter_packet_time, self.packet_ttl)
         elif self.tool == Tools.TRACEROUTE or self.tool == Tools.TRACEPATH or self.tool == Tools.PARIS_TRACEROUTE:
@@ -618,3 +655,173 @@ class TestRequest:
 
         return data
 
+    def to_internal(self):
+        client_endpoint = Endpoint(address=self.client_address,
+                                   bwctl_protocol=1.0)
+        server_endpoint = Endpoint(address=self.server_address,
+                                   bwctl_protocol=1.0)
+
+        if self.reverse:
+            server_endpoint.legacy_client_endpoint = True
+        else:
+            client_endpoint.legacy_client_endpoint = True
+
+        if self.recv_port:
+            server_endpoint.test_port = self.recv_port
+
+        if self.is_client:
+            client_endpoint.local = True
+        else:
+            server_endpoint.local = True
+
+        if self.no_endpoint:
+            server_endpoint.bwctl_protocol = 0.0
+
+        if self.reverse:
+            sender_endpoint = server_endpoint
+            receiver_endpoint = client_endpoint
+        else:
+            receiver_endpoint = server_endpoint
+            sender_endpoint = client_endpoint
+
+        tool_parameters = {}
+        if self.tool in [ Tools.IPERF, Tools.IPERF3, Tools.NUTTCP ]:
+            tool_parameters["duration"] = self.duration
+            if self.output_format:
+                tool_parameters["output_format"] = self.output_format
+            if self.bandwidth:
+                tool_parameters["bandwidth"] = self.bandwidth
+            if self.omit_time:
+                tool_parameters["omit_seconds"] = self.omit_time
+            if self.units:
+                tool_parameters["units"] = self.units
+            if self.tos_bits:
+                tool_parameters["tos_bits"] = self.tos_bits
+            if self.parallel_streams:
+                tool_parameters["parallel_streams"] = self.parallel_streams
+            if self.buffer_size:
+                tool_parameters["buffer_size"] = self.buffer_size
+            if self.window_size:
+                tool_parameters["window_size"] = self.window_size
+            if self.report_interval:
+                tool_parameters["report_interval"] = self.report_interval
+            if self.is_udp:
+                tool_parameters["protocol"] = "udp"
+        elif self.tool in [ Tools.PING, Tools.OWAMP ]:
+            tool_parameters["packet_count"] = self.packet_count
+            tool_parameters["inter_packet_time"] = self.inter_packet_time / 1000.0
+            if self.packet_size:
+                tool_parameters["packet_size"] = self.packet_size
+            if self.packet_ttl:
+                tool_parameters["packet_ttl"] = self.packet_ttl
+        elif self.tool in [ Tools.TRACEPATH, Tools.TRACEROUTE, Tools.PARIS_TRACEROUTE ]:
+            tool_parameters["maximum_duration"] = self.duration
+
+            if self.first_ttl:
+                tool_parameters["first_ttl"] = self.first_ttl
+            if self.last_ttl:
+                tool_parameters["last_ttl"] = self.last_ttl
+            if self.packet_size:
+                tool_parameters["packet_size"] = self.packet_size
+
+        ## XXX
+        #self.verbose=verbose
+        #self.reverse=reverse
+
+        return Test(
+            sender_endpoint=sender_endpoint,
+            receiver_endpoint=receiver_endpoint,
+            tool=Tools.name_by_id(self.tool),
+            tool_parameters=tool_parameters,
+            scheduling_parameters=SchedulingParameters(
+                requested_time=self.requested_time.time,
+                latest_acceptable_time=self.latest_time.time,
+            )
+        )
+
+    @classmethod
+    def from_internal(cls, test):
+        request = TestRequest()
+
+        if test.sender_endpoint.local and \
+           test.sender_endpoint.legacy_client_endpoint:
+            request.is_client = True
+            request.reverse = False
+        elif test.receiver_endpoint.local and \
+             test.receiver_endpoint.legacy_client_endpoint:
+            request.is_client = True
+            request.reverse = True
+        elif test.receiver_endpoint.local:
+            request.is_client = False
+            request.reverse = False
+        else:
+            request.is_client = False
+            request.reverse = True
+
+        if request.reverse:
+            client_endpoint = test.receiver_endpoint
+            server_endpoint = test.sender_endpoint
+        else:
+            client_endpoint = test.sender_endpoint
+            server_endpoint = test.receiver_endpoint
+
+        # XXX: die if bwctl protocol isn't 1.0?
+
+        request.client_address = client_endpoint.address
+        request.server_address = server_endpoint.address
+
+        if request.is_client:
+            request.test_port = server_endpoint.test_port
+
+        if request.is_client and server_endpoint.bwctl_protocol == 0.0:
+            request.no_endpoint = True
+
+        request.tool = Tools.id_by_name(test.tool)
+
+        if request.tool in [ Tools.IPERF, Tools.IPERF3, Tools.NUTTCP ]:
+            request.duration = test.tool_parameters["duration"]
+            if "output_format" in test.tool_parameters:
+                request.output_format = test.tool_parameters["output_format"]
+            if "bandwidth" in test.tool_parameters:
+                request.bandwidth = test.tool_parameters["bandwidth"]
+            if "omit_seconds" in test.tool_parameters:
+                request.omit_time = test.tool_parameters["omit_seconds"]
+            if "units" in test.tool_parameters:
+                request.units = test.tool_parameters["units"]
+            if "tos_bits" in test.tool_parameters:
+                request.tos_bits = test.tool_parameters["tos_bits"]
+            if "parallel_streams" in test.tool_parameters:
+                request.parallel_streams = test.tool_parameters["parallel_streams"]
+            if "buffer_size" in test.tool_parameters:
+                request.buffer_size = test.tool_parameters["buffer_size"]
+            if "window_size" in test.tool_parameters:
+                request.window_size = test.tool_parameters["window_size"]
+            if "report_interval" in test.tool_parameters:
+                request.report_interval = test.tool_parameters["report_interval"]
+            if "protocol" in test.tool_parameters:
+                request.is_udp = test.tool_parameters["protocol"] == "udp"
+        elif request.tool in [ Tools.PING, Tools.OWAMP ]:
+            request.packet_count = test.tool_parameters["packet_count"]
+            request.inter_packet_time = int(test.tool_parameters["inter_packet_time"] * 1000)
+            if "packet_size" in test.tool_parameters:
+                request.packet_size = test.tool_parameters["packet_size"]
+            if "packet_ttl" in test.tool_parameters:
+                request.packet_ttl = test.tool_parameters["packet_ttl"]
+        elif request.tool in [ Tools.TRACEPATH, Tools.TRACEROUTE, Tools.PARIS_TRACEROUTE ]:
+            request.duration = test.tool_parameters["maximum_duration"]
+
+            if "first_ttl" in test.tool_parameters:
+                request.first_ttl = test.tool_parameters["first_ttl"]
+            if "last_ttl" in test.tool_parameters:
+                request.last_ttl = test.tool_parameters["last_ttl"]
+            if "packet_size" in test.tool_parameters:
+                request.packet_size = test.tool_parameters["packet_size"]
+
+        request.requested_time = test.scheduling_parameters.requested_time
+        request.latest_time = test.scheduling_parameters.latest_acceptable_time
+
+        ## XXX
+        #self.verbose=verbose
+        #self.reverse=reverse
+
+        return request
