@@ -7,12 +7,10 @@ import unittest
 from nose.tools import eq_
 from nose.tools import ok_
 
-from os.path import dirname, realpath, sep, pardir
-import sys
-sys.path.append(dirname(realpath(__file__)) + sep + pardir + sep + "lib")
-
 from bwctl.server import limits_parser
 
+
+sep="/"
 
 class LimitsParserTest(unittest.TestCase):
        
