@@ -222,8 +222,11 @@ class LimitFileParserV2(LimitsParser):
             class_name = self.get_class_names(limit)
             parent = self.get_class_parent(limit)
             if class_name:
+                all_sub_limits = re.findall(r'<.*limits.*>(?:\s*\w*\s*\w*\s*){0,}.*\s*</.*limits>', limit,re.M)
                 self.limit_classes[class_name] = {}
                 self.limit_classes[class_name]['PARENT'] = parent
+                self.limit_classes[class_name]['LIMIT_TYPES'] = {}
+                self.limit_classes[class_name]['LIMIT_TYPES'] = self.get_limits_types(all_sub_limits)
                 
         print self.limit_classes
 
@@ -231,10 +234,40 @@ class LimitFileParserV2(LimitsParser):
         pass
     
     def get_class_names(self, limit):
-        return self.get_value_by_pattern(r'<class (\S+)>', limit)
+        class_name = self.get_value_by_pattern(r'<class (\S+)>', limit)
+        return class_name.replace('"','') if class_name else class_name
     def get_class_parent(self, limit):
         return self.get_value_by_pattern(r'parent.* (\S+).*\s*', limit)
-    
+    def get_limits_types(self, sub_limits):
+        limits = {}
+        for sub_limit in sub_limits:
+            limit_id = self.get_limit_id(sub_limit)
+            limits[limit_id] = {}
+            match = re.match(r'<.*limits.*>(\s*(?:\w+\s+\w+\s+){1,}\s*.*\s*)</.*limits>',sub_limit,re.M)
+            if match:
+                all_limittypes = re.findall('\w+\s+\w+',match.group(1),re.M)
+                for limit_type in all_limittypes:
+                    match = re.match(r'(\w+)\s+(\w+)',limit_type)
+                    type,value = match.group(1),match.group(2)
+                    limits[limit_id][type] = value
+        return limits
+                    
+    def get_limit_id(self,limit_str):
+        limit_id = self.get_default_limit_name(limit_str)        
+        if limit_id:
+            return limit_id
+        else:
+            return self.get_limit_name(limit_str)
+    def get_default_limit_name(self,limit_str):
+        return self.get_value_by_pattern('(default_limits)', limit_str)
+    def get_limit_name(self,limit_str):
+        return self.get_value_by_pattern('limits "(\w+)"', limit_str)
+        
+        
+
+                    
+
+
 class LimitsDBfromFileCreator(object):
     '''
     This class creates a limits DB from the dict which is created with the limits file parser class. 
