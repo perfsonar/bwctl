@@ -1,6 +1,9 @@
 import radix
 import copy
 
+from bwctl.tools import ToolTypes
+from bwctl.exceptions import LimitViolatedException
+
 class LimitsDB:
     """ A database of limits """
     def __init__(self):
@@ -154,10 +157,13 @@ class LimitClass:
 
 # Limit Definitions
 class Limit:
-    name = ""
+    type = ""
+
+    def __init__(self, value):
+        self.value = value
 
     def __str__(self):
-        return ""
+        return "%s: %s" % (self.type, self.value)
 
     def check(self, test):
         return True
@@ -169,8 +175,15 @@ class Limit:
         return copy.copy(self)
 
 class NumberLimit(Limit):
-   def __init__(self, number):
-       self.value = number
+   # XXX: verify the value is a number
+   pass
+
+class BooleanLimit(Limit):
+   # XXX: verify the value is a boolean
+
+   def merge(self, other):
+       if not other.value:
+           self.value = False
 
 class MinimumLimit(NumberLimit):
    def merge(self, other):
@@ -183,34 +196,70 @@ class MaximumLimit(NumberLimit):
            self.value = other.value
 
 class BandwidthLimit(MaximumLimit):
+    """ The maximum bandwidth a test can have
+    """
     type = "bandwidth"
-
-    def __str__(self):
-        return "bandwidth: %d" % self.value
+    default = 0
 
     def check(self, test):
-       if self.value < test.bandwidth:
-           raise LimitViolatedException("Bandwidth limit exceeds maximum: %s" % self.value)
+       if self.value and self.value < test.bandwidth:
+           raise LimitViolatedException("Bandwidth exceeds maximum: %s" % self.value)
 
 class DurationLimit(MaximumLimit):
-    name = "duation"
-
-    def __str__(self):
-        return "duration: %d" % self.value
+    """ The maximum duration a test can have
+    """
+    name = "duration"
+    default = 60
 
     def check(self, test):
-       if self.value < test.bandwidth:
-           raise LimitViolatedException("Duration limit exceeds maximum: %s" % self.value)
+       if self.value < test.duration:
+           raise LimitViolatedException("Duration exceeds maximum: %s" % self.value)
 
 class PacketsPerSecondLimit(MaximumLimit):
+    """ The maximum number of packets per second a test may have
+    """
     type = "packets_per_second"
-
-    def __str__(self):
-        return "packets_per_second: %d" % self.value
+    default = 200
 
     def check(self, test):
        if self.value < test.packets_per_second:
-           raise LimitViolatedException("Packet-per-second limit exceeds maximum: %s" % self.value)
+           raise LimitViolatedException("Packet-per-second exceeds maximum: %s" % self.value)
+
+class EventHorizonLimit(MaximumLimit):
+    """ The maximum number of seconds into the future that a test may be
+        scheduled
+    """
+    type = "event_horizon"
+    default = 300
+
+    def check(self, test):
+       if test.scheduling_parameters and test.scheduling_parameters.test_start_time:
+           time_till_test = test.scheduling_parameters.test_start_time - datetime.datetime.utcnow()
+           if timedelta_seconds(time_till_test) > self.value:
+               raise LimitViolatedException("Test too far in the future. Maximum seconds in future: %s" % self.value)
+
+class AllowUDPLimit(BooleanLimit):
+    """ Whether or not UDP throughput tests are allowed
+    """
+    type = "allow_udp_throughput"
+    default = False
+
+    def check(self, test):
+       if test.test_type == ToolTypes.THROUGHPUT:
+           protocol = tool.tool_parameters.get("protocol", "tcp")
+           if protocol == "udp" and not self.value:
+               raise LimitViolatedException("UDP throughput tests not allowed: %s" % self.value)
+
+class BannedLimit(BooleanLimit):
+    """ Whether or not a given user or network is banned from requesting tests.
+    """
+    type = "banned"
+    default = False
+
+    def check(self, test):
+       if self.value:
+           raise LimitViolatedException("No tests allowed")
+
 
 if __name__ == "__main__":
     limits_db = LimitsDB()
