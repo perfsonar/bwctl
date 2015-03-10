@@ -549,6 +549,8 @@ class LegacyEndpointClientHandlerProcess(TestActionHandlerProcess):
             # Send an empty stop session message since the far side is just
             # going to throw them away anyway
             client.send_stop_session()
+        except:
+            pass
         finally:
             client.close()
 

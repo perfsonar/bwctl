@@ -139,9 +139,6 @@ class Test(jsonobject.JsonObject):
 
     @property
     def finished(self):
-        print "Status: %s" % self.status
-        print "Status in : %s" % (self.status in [ "rejected", "failed", "cancelled", "finished" ])
-
         return self.status in [ "rejected", "failed", "cancelled", "finished" ]
 
     @property
