@@ -54,7 +54,8 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 from bwctl.protocol.v2.client import Client
 
 from bwctl.protocol.legacy.client import Client as LegacyClient
-from bwctl.protocol.legacy.models import Tools, TestRequest, Timestamp
+from bwctl.protocol.legacy.models import AcceptType
+from bwctl.protocol.legacy.models import Tools, TestRequest, Timestamp, ErrorEstimate
 
 from bwctl.tools import get_tools, get_tool, ToolTypes, configure_tools, get_available_tools
 from bwctl.tool_runner import ToolRunner
@@ -63,26 +64,127 @@ from bwctl.utils import get_ip, is_ipv6, timedelta_seconds, discover_source_addr
 from bwctl.config import get_config
 from bwctl.utils import init_logging
 
-def parse_endpoint(endpoint):
-    m = re.match("^[(.*)]:(\d+)", endpoint)
-    if m:
-        return (m.group(1), m.group(2))
+from urlparse import urlparse
 
-    m = re.match("^[(.*)]", endpoint)
-    if m:
-        return (m.group(1), 4824)
+class EndpointAddress(object):
+    def __init__(self, scheme="", address="", port=None, path=""):
+        self.scheme = scheme
+        self.address = address
+        self.port = None
+        if port:
+            self.port = int(port)
+        self.path = path
 
-    try:
-        if is_ipv6(endpoint):
-            return (endpoint, 4824)
-    except:
-        pass
+    def resolve(self, require_ipv6=False, require_ipv4=False):
+        ip = get_ip(self.address, require_ipv6=require_ipv6, require_ipv4=require_ipv4)
+        if not ip:
+            raise Exception("Could not find a suitable address for %s" % self.address)
 
-    m = re.match("^(.*):(\d+)", endpoint)
-    if m:
-        return (m.group(1), m.group(2))
+        return EndpointAddress(
+                     scheme  = self.scheme,
+                     address = ip,
+                     port    = self.port,
+                     path    = self.path,
+               )
 
-    return (endpoint, 4824)
+
+    @classmethod
+    def parse(cls, endpoint):
+        m = re.match("^[(.*)]:(\d+)$", endpoint)
+        if m:
+            return EndpointAddress(
+                         address = m.group(1),
+                         port    = m.group(2)
+                   )
+
+
+        m = re.match("^[(.*)]$", endpoint)
+        if m:
+            return EndpointAddress(
+                         address = m.group(1),
+                   )
+
+        try:
+            if is_ipv6(endpoint):
+                return EndpointAddress(
+                         address = endpoint,
+                       )
+        except:
+            pass
+
+        m = re.match("^(.*):(\d+)$", endpoint)
+        if m:
+            return EndpointAddress(
+                         address = m.group(1),
+                         port    = m.group(2)
+                   )
+
+        url = urlparse(endpoint)
+        if url.scheme:
+            return EndpointAddress(
+                         scheme  = url.scheme,
+                         address = url.hostname,
+                         port    = url.port,
+                         path    = url.path,
+                   )
+
+        return EndpointAddress(
+                 address = endpoint,
+               )
+
+def initialize_endpoint(local_address=None, remote_address=None, tool_type=None,
+                        is_sender=False, is_server=False):
+
+    local_endpoint_fallback = False
+
+    if not local_address:
+       local_ip = discover_source_address(remote_address.address)
+       if not local_ip:
+           raise Exception("Error: couldn't figure out which address to use to connect to %s" % remote_address.address)
+
+       local_endpoint_fallback = True
+       local_address = EndpointAddress(address=local_ip)
+
+    if local_address.scheme:
+        ep_types = [ "current" ]
+    elif local_address.port and local_address.port == 4823:
+        ep_types = [ "legacy", "current" ]
+    else:
+        ep_types = [ "current", "legacy" ]
+
+    ret_endpoint = None
+    for ep_type in ep_types:
+        if ep_type == "current":
+            endpoint = ClientEndpoint(
+                            address=local_address.address,
+                            port=local_address.port,
+                            path=local_address.path,
+                            is_sender=is_sender,
+                            is_server=is_server
+                      )
+        elif ep_type == "legacy":
+            endpoint = LegacyClientEndpoint(
+                            address=local_address.address,
+                            port=local_address.port,
+                            is_sender=is_sender,
+                            is_server=is_server
+                       )
+
+        try:
+            endpoint.initialize()
+            ret_endpoint = endpoint
+        except Exception as e:
+            pass
+
+        if ret_endpoint:
+            break
+
+    if not ret_endpoint and local_endpoint_fallback:
+       endpoint = LocalEndpoint(address=local_ip, is_sender=is_sender, tool_type=tool_type)
+       endpoint.initialize()
+       return endpoint
+
+    return ret_endpoint
 
 def add_traceroute_test_options(oparse):
     oparse.add_option("-F", "--first_ttl", dest="first_ttl", default=0, type="int",
@@ -302,69 +404,39 @@ def bwctl_client():
         oparse.print_help()
         sys.exit(1)
 
+    receiver_address = None
+    receiver_ip = None
+    if opts.receiver:
+        receiver_address = EndpointAddress.parse(opts.receiver)
+        receiver_ip = receiver_address.resolve(require_ipv4=opts.require_ipv4,
+                                               require_ipv6=opts.require_ipv6)
+
+    sender_address = None
+    sender_ip = None
+    if opts.sender:
+        sender_address = EndpointAddress.parse(opts.sender)
+        sender_ip = sender_address.resolve(require_ipv4=opts.require_ipv4,
+                                           require_ipv6=opts.require_ipv6)
+
     # Setup the endpoint handlers
-    server_endpoint   = None
-    client_endpoint   = None
+    sender_endpoint   = initialize_endpoint(local_address=sender_ip,
+                                            remote_address=receiver_ip,
+                                            tool_type=tool_type,
+                                            is_sender=True,
+                                            is_server=False)
 
-    if not opts.receiver:
-        server_endpoint = LocalEndpoint(is_sender=False, tool_type=tool_type)
-    else:
-        (receiver_address, receiver_port) = parse_endpoint(opts.receiver)
-        if not receiver_address:
-            print "Invalid address %s" % opts.receiver
-            sys.exit(1)
+    receiver_endpoint = initialize_endpoint(local_address=receiver_ip,
+                                            remote_address=sender_ip,
+                                            tool_type=tool_type,
+                                            is_sender=False,
+                                            is_server=True)
 
-        receiver_ip = get_ip(receiver_address, require_ipv6=opts.require_ipv6, require_ipv4=opts.require_ipv4)
-        if not receiver_ip:
-            print "Could not find a suitable address for %s" % receiver_address
-            sys.exit(1)
+    sender_endpoint.remote_endpoint = receiver_endpoint
+    receiver_endpoint.remote_endpoint = sender_endpoint
 
-        server_endpoint = ClientEndpoint(
-                            address=receiver_ip,
-                            port=receiver_port,
-                            path="/bwctl",
-                            is_sender=False,
-                            is_server=True,
-                         )
-
-
-        #server_endpoint = LegacyClientEndpoint(
-        #                    address=receiver_ip,
-        #                    port=receiver_port,
-        #                    is_sender=False,
-        #                    is_server=True,
-        #                 )
-
-    if not opts.sender:
-        client_endpoint = LocalEndpoint(is_sender=True, tool_type=tool_type)
-    else:
-        (sender_address, sender_port) = parse_endpoint(opts.sender)
-        if not sender_address:
-            print "Invalid address %s" % opts.sender
-            sys.exit(1)
-
-        sender_ip = get_ip(sender_address, require_ipv6=opts.require_ipv6, require_ipv4=opts.require_ipv4)
-        if not sender_ip:
-            print "Could not find a suitable address for %s" % sender_address
-            sys.exit(1)
-
-        client_endpoint = ClientEndpoint(
-                            address=sender_ip,
-                            port=sender_port,
-                            path="/bwctl",
-                            is_sender=True,
-                            is_server=False,
-                         )
-
-        #client_endpoint = LegacyClientEndpoint(
-        #                    address=sender_ip,
-        #                    port=sender_port,
-        #                    is_sender=True,
-        #                    is_server=False,
-        #                 )
-
-    server_endpoint.initialize(remote_endpoint=client_endpoint)
-    client_endpoint.initialize(remote_endpoint=server_endpoint)
+    # We need multiple representations depending on what we're doing. 
+    server_endpoint = receiver_endpoint
+    client_endpoint = sender_endpoint
 
     requested_tools = opts.tools.split(",")
 
@@ -412,19 +484,13 @@ def bwctl_client():
     for endpoint in [ server_endpoint, client_endpoint ]:
         endpoint.finalize_test()
 
-    for endpoint in [ server_endpoint, client_endpoint ]:
-        if endpoint.is_remote:
-            endpoint.accept_test()
-
     # We need to accept the remote endpoints first, and then the local one (if
     # applicable) so that the local one can post its' acceptance to the server.
     for endpoint in [ server_endpoint, client_endpoint ]:
-        if endpoint.is_remote:
-            endpoint.accept_test()
+        endpoint.accept_test()
 
     for endpoint in [ server_endpoint, client_endpoint ]:
-        if not endpoint.is_remote:
-            endpoint.remote_accept_test()
+        endpoint.remote_accept_test()
 
     # Wait for the servers to accept the test
     reservation_confirmed = False
@@ -493,7 +559,7 @@ def bwctl_client():
                 print "%d) %s" % (error.error_code, error.error_msg)
 
 class ClientEndpoint:
-   def __init__(self, address="", port=4824, path="/bwctl", is_sender=True, is_server=True):
+   def __init__(self, address="", port=None, path=None, is_sender=True, is_server=True):
        self.is_remote = True
        self.is_legacy = False
 
@@ -503,10 +569,14 @@ class ClientEndpoint:
        self.is_server = is_server
 
        self.address = address
-       self.test_port = None
+       self.test_port = 0
 
-       self.port    = int(port)
-       self.path    = path
+       if port:
+           self.port = int(port)
+       else:
+           self.port = 4824
+
+       self.path    = path or "/bwctl"
        self.test_id = ""
 
        self.time_offset      = 0   # difference between the local clock and the far clock
@@ -523,7 +593,7 @@ class ClientEndpoint:
        client_url = "http://[%s]:%d%s" % (self.address, self.port, self.path)
        self.client = Client(client_url)
 
-   def initialize(self, remote_endpoint):
+   def initialize(self):
        # XXX: handle failure condition
        status = self.client.get_status()
        current_time = datetime.datetime.utcnow()
@@ -535,14 +605,16 @@ class ClientEndpoint:
        self.server_ntp_error = status.ntp_error
        self.server_version   = status.version
        self.available_tools = status.available_tools
-
-       self.remote_endpoint = remote_endpoint
+       self.legacy_endpoint_port = status.legacy_endpoint_port
 
    def time_c2s(self, time):
        return time - datetime.timedelta(seconds=self.time_offset)
 
    def time_s2c(self, time):
        return time + datetime.timedelta(seconds=self.time_offset)
+
+   def preconfigure(self):
+       return
 
    def finalize_test(self):
        # Just call request test with no parameters. It'll just update the endpoints.
@@ -650,6 +722,9 @@ class ClientEndpoint:
 
        return self.client.accept_test(self.test_id)
 
+   def remote_accept_test(self):
+       return
+
    def cancel_test(self):
        # XXX: handle failure
 
@@ -675,13 +750,13 @@ class ClientEndpoint:
                     )
 
 class LocalEndpoint:
-   def __init__(self, tool_type=None, is_sender=True):
+   def __init__(self, address="", tool_type=None, is_sender=True):
+       self.address = address
+
        self.is_remote = False
        self.is_legacy = False
 
        self.is_server = False
-
-       self.address = None
 
        self.test_start_time = None
        self.test_end_time = None
@@ -691,6 +766,8 @@ class LocalEndpoint:
        self.tool_runner_proc = None
 
        self.test_port = None
+
+       self.legacy_endpoint_port = 6001 # XXX: this should be configurable
 
        self.tool = ""
        self.tool_parameters = {}
@@ -703,14 +780,17 @@ class LocalEndpoint:
 
        self.results = None
 
-   def initialize(self, remote_endpoint):
-       self.remote_endpoint = remote_endpoint
-
-       self.address = discover_source_address(remote_endpoint.address)
-       if not self.address:
-           raise Exception("Error: couldn't figure out which address to use to connect to %s" % remote_endpoint.address)
-
+   def initialize(self):
        self.available_tools = get_available_tools()
+
+   # If the far side is a legacy 'client', we need an endpoint handler for them
+   # to connect to.
+   def prepare_handlers(self):
+       if remote_endpoint.is_legacy and self.is_server:
+           self.endpoint_handler_proc = LegacyEndpointHandler(server_port=self.legacy_endpoint_port)
+           self.endpoint_handler_proc.start()
+
+       return
 
    def finalize_test(self):
        # No need to finalize the test here
@@ -778,6 +858,9 @@ class LocalEndpoint:
    def is_finished(self):
        return not self.results
 
+   def accept_test(self):
+       return
+
    def remote_accept_test(self):
        client_url = "http://[%s]:%d%s" % (self.remote_endpoint.address, self.remote_endpoint.port, self.remote_endpoint.path)
        self.client = Client(client_url)
@@ -790,6 +873,12 @@ class LocalEndpoint:
             self.tool_runner_proc.terminate()
 
        return
+
+   def spawn_legacy_endpoint_client_handler(self):
+       pass
+
+   def spawn_legacy_endpoint_handler(self):
+       pass
 
    def spawn_tool_runner(self):
        def handle_results_cb(results):
@@ -827,7 +916,10 @@ class LegacyClientEndpoint:
        self.peer_port = 0
        self.test_port = 0
 
-       self.port    = int(port)
+       if port:
+           self.port = int(port)
+       else:
+           self.port = 4823
 
        self.time_offset      = 0   # difference between the local clock and the far clock
        self.server_ntp_error = 0
@@ -845,7 +937,7 @@ class LegacyClientEndpoint:
 
        self.client = LegacyClient(server_address=self.address, server_port=self.port)
 
-   def initialize(self, remote_endpoint):
+   def initialize(self):
        try:
            self.client.connect()
        except Exception as e:
@@ -871,8 +963,6 @@ class LegacyClientEndpoint:
 
        self.time_offset = timedelta_seconds(current_time - time_response.timestamp.time)
        self.server_ntp_error = time_response.error_estimate.error
-
-       self.remote_endpoint = remote_endpoint
 
    def tool_mapping(self, tool_name=None, tool_id=None):
        mappings = [
@@ -905,23 +995,23 @@ class LegacyClientEndpoint:
            # Convert the tool settings
            tool = self.tool_mapping(tool_name=tool),
 
+           recv_port = self.remote_endpoint.test_port,
+
            first_ttl = tool_parameters.get('first_ttl', 0),
            last_ttl = tool_parameters.get('last_ttl', 0),
            packet_size = tool_parameters.get('packet_size', 0),
            packet_count = tool_parameters.get('packet_count', 0),
-           inter_packet_time = int(tool_parameters.get('inter_packet_time', 0) * 1000), # Convert to milliseconds
+           inter_packet_time = int(tool_parameters.get('inter_packet_time', 0) * 1000), # XXX: Convert to milliseconds (handle better)
            packet_ttl = tool_parameters.get('packet_ttl', 0),
-           duration = tool_parameters.get('duration', 0),
            bandwidth = tool_parameters.get('bandwidth', 0),
-           report_interval = tool_parameters.get('report_interval', 0),
-           buffer_length = tool_parameters.get('buffer_length', 0),
+           report_interval = int(tool_parameters.get('report_interval', 0) * 1000), # XXX: Convert to milliseconds (handle better)
+           buffer_size = tool_parameters.get('buffer_length', 0),
            # XXX: omit_interval = tool_parameters.get('omit_interval', 0),
            parallel_streams = tool_parameters.get('parallel_streams', 0),
            window_size = tool_parameters.get('window_size', 0),
            is_udp = "udp" == tool_parameters.get('protocol', 'tcp'),
 
-           # XXX: handle this better
-           verbose = True 
+           verbose = True # XXX: handle this better
        )
 
        # Set the duration, differs between types...
@@ -930,7 +1020,7 @@ class LegacyClientEndpoint:
        else:
            test_request.duration = tool_parameters.get('duration', 0)
 
-       test_request.duration = math.ceil(test_request.duration)
+       test_request.duration = int(math.ceil(test_request.duration))
 
        # Set the address type
        if is_ipv6(self.address):
@@ -944,8 +1034,8 @@ class LegacyClientEndpoint:
            test_request.server_address = self.address
            test_request.is_client = False
        else:
-           test_request.client_address = self.remote_endpoint.address
-           test_request.server_address = self.address
+           test_request.client_address = self.address
+           test_request.server_address = self.remote_endpoint.address
            test_request.is_client = True
 
        # Set the time information, converting it to the server-side "time"
@@ -956,7 +1046,15 @@ class LegacyClientEndpoint:
        if latest_time:
            test_request.latest_time = Timestamp(time=self.time_c2s(latest_time))
 
+       if self.remote_endpoint.server_ntp_error:
+           test_request.error_estimate = ErrorEstimate(error=self.remote_endpoint.server_ntp_error)
+
        test_accept = self.client.send_test_request(test_request)
+
+       if test_accept.accept_type == AcceptType.REJECT:
+           raise Exception("TestRequest denied from %s" % self.address)
+       if test_accept.accept_type != AcceptType.ACCEPT:
+           raise Exception("TestRequest failed from %s" % self.address)
 
        self.test_port = test_accept.data_port
        self.test_sid  = test_accept.sid
@@ -975,7 +1073,9 @@ class LegacyClientEndpoint:
 
        start_ack = self.client.send_start_session(peer_port=peer_port)
 
-       # XXX: validate accept_type
+       if start_ack.accept_type != AcceptType.ACCEPT:
+           raise Exception("StartSession failed")
+
        self.peer_port = start_ack.peer_port
 
        self.session_started = True
@@ -1023,6 +1123,9 @@ class LegacyClientEndpoint:
        # get the peer_port before we can finalize the other side.
        return
 
+   def remote_accept_test(self):
+       return
+
    def cancel_test(self):
        # Do a session request with a timestamp of 0 if we've not done a
        # 'StartSession'. If we have, do a StopSession.
@@ -1048,8 +1151,6 @@ class LegacyClientEndpoint:
                     ntp_error=self.server_ntp_error,
                     client_time_offset=self.time_offset,
 
-                    legacy_client_endpoint=True,
+                    legacy_client_endpoint=not self.is_server,
                     posts_endpoint_status=False
                     )
-
-

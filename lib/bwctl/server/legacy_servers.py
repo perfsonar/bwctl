@@ -81,7 +81,7 @@ class LegacyEndpointHandler(threading.Thread):
             self.control_connection.send_server_ok()
 
             while True:
-                msg_type, msg, results = self.control_connection.get_msg(deadline=datetime.datetime.now() + datetime.timedelta(seconds=5))
+                msg_type, msg, results = self.control_connection.get_msg(deadline=datetime.datetime.now() + datetime.timedelta(minutes=10)) # XXX: handle this better
                 if msg_type == MessageTypes.TimeRequest:
                     self.logger.debug("Received TimeRequest, sending TimeResponse")
                     self.control_connection.send_time_response()

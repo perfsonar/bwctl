@@ -12,8 +12,6 @@ class ControlConnection(object):
         self.peeked_data = ""
 
     def peername(self):
-        print 'Peername: %s' % (self.sock.getpeername()[0])
-
         return self.sock.getpeername()[0]
 
     def peek_sock(self, size, deadline=None):
@@ -43,7 +41,6 @@ class ControlConnection(object):
                 raise Exception("Connection closed")
 
             data = data + new_data
-            print "data size: %d" % len(data)
 
         return data
 
@@ -167,7 +164,6 @@ class ControlConnection(object):
             return Results(results="")
  
         total_size = Results.message_size(results_length=results_length)
-        print "Results size: %d" % results_length
 
         results = Results.parse(self.read_sock(total_size, deadline=deadline), results_length=results_length)
 

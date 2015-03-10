@@ -26,6 +26,7 @@ class Client:
     def get_status(self):
         url = urljoin(self.base_url, "status")
         r = self.session.get(url, auth=self.auth)
+        print "JSON: %s" % r.json()
         r.raise_for_status()
         return ServerStatus(r.json())
 

@@ -13,10 +13,10 @@ from bwctl.exceptions import BwctlException, SystemProblemException, ValidationE
 from bwctl.protocol.v2.models import *
 
 class RestApiServer(BwctlProcess):
-    def __init__(self, coordinator=None, server_address='', server_port=4824):
+    def __init__(self, coordinator=None, server_address='', server_port=4824, legacy_endpoint_port=None):
         dispatcher = cherrypy.dispatch.RoutesDispatcher()
 
-        v2_protocol_controller = V2ProtocolController(coordinator=coordinator)
+        v2_protocol_controller = V2ProtocolController(coordinator=coordinator, legacy_endpoint_port=legacy_endpoint_port)
         v2_protocol_controller.add_urls(dispatcher)
 
         if server_address:
@@ -65,8 +65,9 @@ def handle_bwctl_exceptions(function):
     return decorated_func
 
 class V2ProtocolController(object):
-  def __init__(self, coordinator=None):
+  def __init__(self, coordinator=None, legacy_endpoint_port=None):
       self.coordinator = coordinator
+      self.legacy_endpoint_port = legacy_endpoint_port
       super(V2ProtocolController, self).__init__()
 
   def add_urls(self, dispatcher):
@@ -88,6 +89,7 @@ class V2ProtocolController(object):
     status.ntp_error = 0.0
     status.available_tools = get_available_tools()
     status.version = server.__version__
+    status.legacy_endpoint_port = self.legacy_endpoint_port
 
     return status.to_json()
 

@@ -576,7 +576,7 @@ class TestRequest:
                 pass
 
         if not addr_type:
-            raise Exception("IP type mismatch")
+            raise Exception("IP type mismatch: %s,%s" % (self.client_address, self.server_address))
 
         if self.is_client:
             conf_client = 1
@@ -686,7 +686,7 @@ class TestRequest:
 
         tool_parameters = {}
         if self.tool in [ Tools.IPERF, Tools.IPERF3, Tools.NUTTCP ]:
-            tool_parameters["duration"] = self.duration
+            tool_parameters["duration"] = self.duration / 1000.0
             if self.output_format:
                 tool_parameters["output_format"] = self.output_format
             if self.bandwidth:
@@ -715,7 +715,7 @@ class TestRequest:
             if self.packet_ttl:
                 tool_parameters["packet_ttl"] = self.packet_ttl
         elif self.tool in [ Tools.TRACEPATH, Tools.TRACEROUTE, Tools.PARIS_TRACEROUTE ]:
-            tool_parameters["maximum_duration"] = self.duration
+            tool_parameters["maximum_duration"] = self.duration / 1000.0
 
             if self.first_ttl:
                 tool_parameters["first_ttl"] = self.first_ttl
@@ -779,7 +779,7 @@ class TestRequest:
         request.tool = Tools.id_by_name(test.tool)
 
         if request.tool in [ Tools.IPERF, Tools.IPERF3, Tools.NUTTCP ]:
-            request.duration = test.tool_parameters["duration"]
+            request.duration = int(test.tool_parameters["duration"] * 1000)
             if "output_format" in test.tool_parameters:
                 request.output_format = test.tool_parameters["output_format"]
             if "bandwidth" in test.tool_parameters:
@@ -808,7 +808,7 @@ class TestRequest:
             if "packet_ttl" in test.tool_parameters:
                 request.packet_ttl = test.tool_parameters["packet_ttl"]
         elif request.tool in [ Tools.TRACEPATH, Tools.TRACEROUTE, Tools.PARIS_TRACEROUTE ]:
-            request.duration = test.tool_parameters["maximum_duration"]
+            request.duration = int(test.tool_parameters["maximum_duration"] * 1000)
 
             if "first_ttl" in test.tool_parameters:
                 request.first_ttl = test.tool_parameters["first_ttl"]

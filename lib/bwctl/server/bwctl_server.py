@@ -59,7 +59,8 @@ class BwctlServer:
 
         self.rest_api_server = RestApiServer(coordinator=self.coordinator_client,
                                              server_address=self.config['server_address'],
-                                             server_port=self.config['server_port'])
+                                             server_port=self.config['server_port'],
+                                             legacy_endpoint_port=self.config['legacy_endpoint_server_port'])
 
         self.legacy_endpoint_server = LegacyEndpointServer(server_address=self.config['legacy_endpoint_server_address'],
                                                            server_port=self.config['legacy_endpoint_server_port'])

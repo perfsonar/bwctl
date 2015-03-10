@@ -281,8 +281,11 @@ class Coordinator(BwctlProcess):
 
         # Only do the remote validation process if we're not going to wait for
         # the far side to post it's status.
+        print 'bwctl protocol: %s' % test.remote_endpoint.bwctl_protocol
         if test.remote_endpoint.bwctl_protocol == 1.0:
+            print 'bwctl protocol is 1.0'
             if not test.remote_endpoint.legacy_client_endpoint:
+                print 'Spawning legacy client endpoint'
                 ep_client_process = LegacyEndpointClientHandlerProcess(
                                                                      test_id=test_id,
                                                                      coordinator=self.coordinator_client,
@@ -291,7 +294,13 @@ class Coordinator(BwctlProcess):
                 self.__add_test_process(test_id=test_id, process=ep_client_process)
 
                 ep_client_process.start()
+            else:
+                # XXX: handle the confirmation since the far side can't.
+                self.remote_confirm_test(test_id=test_id, test=test)
+
+                self.server_confirm_test(test_id=test_id)
         elif not test.remote_endpoint.posts_endpoint_status:
+            print 'Spawning validation process'
             validation_process = ValidateRemoteTestProcess(
                                                          test_id=test_id,
                                                          coordinator=self.coordinator_client,
@@ -520,6 +529,8 @@ class LegacyEndpointClientHandlerProcess(TestActionHandlerProcess):
 
             # Confirm the test locally
             self.coordinator.server_confirm_test(test_id=test.id)
+
+            self.coordinator.remote_confirm_test(test_id=test.id)
         except:
             if client:
                 client.close()
