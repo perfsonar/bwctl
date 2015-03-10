@@ -1,9 +1,11 @@
-bwctl (1.5.2-10) unstalbe; urgency=low
+bwctl (1.5.2-10~bpo70+1) unstable; urgency=low
 
   * New upstream version
   * Start bwctl-server by default
+  * Backport to Wheezy
+  * Adding gbp.conf for git-buildpackage
 
- -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Wed, 24 Dec 2014 08:57:11 +0100
+ -- Antoine Delvaux <antoine.delvaux@dante.net>  Tue, 10 Mar 2015 10:55:21 +0000
 
 bwctl (1.5.2+dfsg1-1) unstable; urgency=medium
 
