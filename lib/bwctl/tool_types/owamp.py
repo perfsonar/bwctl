@@ -1,10 +1,17 @@
 from subprocess import Popen, PIPE
 
 from bwctl.tool_types.latency_base import LatencyBase
+from bwctl.tools import ToolParameter
 
 class Owamp(LatencyBase):
     name = "owamp"
-    known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "receiver_connects", "maximum_duration" ]
+    known_parameters = [
+        ToolParameter(name="packet_count", type='integer(min=1)'),
+        ToolParameter(name="inter_packet_time", type='float(min=0.01)'),
+        ToolParameter(name="packet_size", type='integer(min=0)'),
+        ToolParameter(name="maximum_duration", type='float(min=0.1)'),
+        ToolParameter(name="receiver_connects", type='boolean'),
+    ]
 
     def config_options(self):
         options = super(Owamp, self).config_options().copy()

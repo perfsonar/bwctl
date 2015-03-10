@@ -3,14 +3,20 @@ import time
 
 from subprocess import Popen, PIPE
 
-from bwctl.tools import ToolTypes
 from bwctl.tool_types.base import Base
+from bwctl.tools import ToolTypes, ToolParameter
 from bwctl.utils import is_ipv6, timedelta_seconds
 
 class Traceroute(Base):
     name = "traceroute"
-    known_parameters = [ "first_ttl", "last_ttl", "packet_size", "tos_bits", "maximum_duration" ]
     type = ToolTypes.TRACEROUTE
+    known_parameters = [
+        ToolParameter(name="first_ttl", type='integer(min=0, max=255)'),
+        ToolParameter(name="last_ttl", type='integer(min=0, max=255)'),
+        ToolParameter(name="packet_size", type='integer(min=0)'),
+        ToolParameter(name="tos_bits", type='string'), # XXX: better validator needed
+        ToolParameter(name="maximum_duration", type='float(min=0.1)'),
+    ]
 
     def config_options(self):
         options = super(Traceroute, self).config_options().copy()

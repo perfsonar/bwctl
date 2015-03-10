@@ -3,7 +3,6 @@ from bwctl.tools import ToolTypes
 
 class LatencyBase(Base):
     type = ToolTypes.LATENCY
-    known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "packet_ttl", "maximum_duration" ]
 
     def bandwidth(self, test):
         """ Returns the network bandwidth this test uses. This is overwritten since

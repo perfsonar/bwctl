@@ -1,4 +1,5 @@
-from bwctl.exceptions import InvalidToolException
+from bwctl.exceptions import InvalidToolException, ValidationException
+from validate import Validator
 
 tool_classes = [
     "bwctl.tool_types.iperf.Iperf",
@@ -26,6 +27,20 @@ class ToolResults:
         self.return_code = return_code
         self.stdout     = stdout
         self.stderr     = stderr
+
+class ToolParameter:
+    def __init__(self, name="", type=""):
+        self.name = name
+        self.type = type
+        self.validator = Validator()
+
+    def check(self, value):
+        retval = None
+        try:
+            retval = self.validator.check(self.type, str(value))
+        except:
+            raise ValidationException("Invalid parameter: %s" % self.name)
+        return retval
 
 def init_tool_modules():
     for tool_class_name in tool_classes:

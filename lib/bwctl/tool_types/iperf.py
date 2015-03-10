@@ -1,5 +1,5 @@
 from bwctl.tool_types.base import Base
-from bwctl.tools import ToolTypes
+from bwctl.tools import ToolTypes, ToolParameter
 
 from subprocess import Popen, PIPE
 import re
@@ -7,7 +7,19 @@ import re
 class Iperf(Base):
     name = "iperf"
     type = ToolTypes.THROUGHPUT
-    known_parameters = [ "duration", "protocol", "bandwidth", "parallel_streams", "report_interval", "window_size", "buffer_size", "omit_seconds", "tos_bits", "units", "output_format" ]
+    known_parameters = [
+        ToolParameter(name="duration", type='integer(min=0)'),
+        ToolParameter(name="protocol", type='option("tcp","udp")'),
+        ToolParameter(name="bandwidth", type='integer(min=0)'),
+        ToolParameter(name="parallel_streams", type='integer(min=0)'),
+        ToolParameter(name="report_interval", type='float(min=0)'),
+        ToolParameter(name="window_size", type='integer(min=0)'),
+        ToolParameter(name="buffer_size", type='integer(min=0)'),
+        ToolParameter(name="omit_seconds", type='float(min=0)'),
+        ToolParameter(name="tos_bits", type='string'), # XXX: Needs a better validator
+        ToolParameter(name="units", type='string'), # XXX: Needs a better validator
+        ToolParameter(name="output_format", type='string'), # XXX: Needs a better validator
+    ]
 
     def config_options(self):
         options = super(Iperf, self).config_options().copy()

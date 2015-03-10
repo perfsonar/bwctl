@@ -30,9 +30,16 @@ class Base(object):
         raise SystemProblemException("'is_available' function needs to be overwritten")
 
     def validate_test(self, test):
-        for parameter in test.tool_parameters.keys():
-            if not parameter in self.known_parameters:
-                raise ValidationException("Unknown parameter: %s" % parameter)
+        for key, value in test.tool_parameters.iteritems():
+            matched = False
+            for parameter_dfn in self.known_parameters:
+                if parameter_dfn.name == key:
+                    parameter_dfn.check(value)
+                    matched = True
+                    break
+
+            if not matched:
+                raise ValidationException("Unknown parameter: %s" % key)
 
         return
 

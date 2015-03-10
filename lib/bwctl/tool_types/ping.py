@@ -4,11 +4,19 @@ import time
 from subprocess import Popen, PIPE
 
 from bwctl.tool_types.latency_base import LatencyBase
+from bwctl.tools import ToolParameter
 from bwctl.utils import is_ipv6, timedelta_seconds
 
 class Ping(LatencyBase):
     name = "ping"
-    known_parameters = [ "packet_count", "inter_packet_time", " packet_size", "packet_ttl", "tos_bits", "maximum_duration" ]
+    known_parameters = [
+        ToolParameter(name="packet_count", type='integer(min=1)'),
+        ToolParameter(name="inter_packet_time", type='float(min=0.01)'),
+        ToolParameter(name="packet_size", type='integer(min=0)'),
+        ToolParameter(name="packet_ttl", type='integer(min=0, max=255)'),
+        ToolParameter(name="tos_bits", type='string'), # XXX: better validator needed
+        ToolParameter(name="maximum_duration", type='float(min=0.1)'),
+    ]
 
     def config_options(self):
         options = super(Ping, self).config_options().copy()
