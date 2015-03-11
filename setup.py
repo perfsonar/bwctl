@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 from setuptools import setup
+import glob
 
 setup(name='bwctl',
-        version='0.1a2',
+        version='2.0a1',
         description='BWCTL Measurement Daemon',
         author='Aaron Brown',
         author_email='aaron@internet2.edu',
@@ -46,6 +47,9 @@ setup(name='bwctl',
                 'bwtraceroute = bwctl.client.bwctl_client:bwctl_client',
             ]
         },
+        data_files=[
+            ('/etc/bwctld', glob.glob('etc/*.conf')),
+        ],
         classifiers=[
             'Development Status :: 5 - Production/Stable',
             'Intended Audience :: Developers',
