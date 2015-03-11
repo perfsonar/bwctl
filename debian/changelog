@@ -1,9 +1,10 @@
-bwctl (1.5.2.10-1) unstalbe; urgency=low
+bwctl (1.5.2.10-1) unstable; urgency=low
 
   * New upstream version
   * Start bwctl-server by default
+  * Adding gbp.conf for git-buildpackage usage
 
- -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Wed, 24 Dec 2014 08:57:11 +0100
+ -- Antoine Delvaux <antoine.delvaux@dante.net>  Wed, 11 Mar 2015 12:20:49 +0000
 
 bwctl (1.5.2+dfsg1-1) unstable; urgency=medium
 
