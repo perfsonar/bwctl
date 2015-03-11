@@ -1,4 +1,4 @@
-bwctl (1.5.2-10) unstalbe; urgency=low
+bwctl (1.5.2.10-1) unstalbe; urgency=low
 
   * New upstream version
   * Start bwctl-server by default
