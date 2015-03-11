@@ -491,8 +491,6 @@ usage(
         const char  *msg
         )
 {
-    int i;
-
     // Do a dummy load of ctx to make sure we can print out the list of
     // available tools...
     if (!ctx) {
@@ -551,9 +549,9 @@ display_option_group(
         }
 
         if (bwctl_options[i].option.has_arg == required_argument) {
-            strncat(buf, " <", sizeof(buf) - 1);
-            strncat(buf, bwctl_options[i].argument_description, sizeof(buf) - 1);
-            strncat(buf, ">", sizeof(buf) - 1);
+            strncat(buf, " <", sizeof(buf) - strlen(buf) - 1);
+            strncat(buf, bwctl_options[i].argument_description, sizeof(buf) - strlen(buf) - 1);
+            strncat(buf, ">", sizeof(buf) - strlen(buf) - 1);
         }
 
         fprintf(stderr, "%-32.34s %s\n", buf, bwctl_options[i].description);
@@ -953,7 +951,7 @@ CheckTestPolicy(
                     "CheckTestPolicy(): Tool initialization failed");
             return False;
         }
-        *closure = (void *)!NULL;
+        *closure = NOTNULL;
 
         /*
          * Only update the tool port if configuring the receiver
@@ -1045,7 +1043,7 @@ spawn_local_server(
     BWLTimeStamp        currtime;
     struct itimerval    itval;
     BWLControl          cntrl;
-    BWLRequestType      msgtype;
+    BWLRequestType      msgtype = BWLReqInvalid;
     void                *childwait;
 
     /*
@@ -2006,36 +2004,40 @@ static BWLBoolean
 handle_traceroute_test_arg(const char arg, const char *long_name, const char *value) {
     BWLBoolean handled = True;
     char *tstr;
+    long v;
 
     switch (arg) {
         case 't':
-            app.opt.timeDuration = strtoul(value,&tstr,10);
-            if(*tstr != '\0' ||
-               app.opt.timeDuration < 0) {
+            v = strtol(value,&tstr,10);
+            if(*tstr != '\0' || v < 0) {
                 usage("Invalid value. (-t) positive integer expected");
                 exit(1);
             }
+            app.opt.timeDuration = v;
             break;
         case 'F':
-            app.opt.traceroute_first_ttl = strtoul(value,&tstr,10);
-            if(*tstr != '\0') {
+            v = strtol(value,&tstr,10);
+            if(*tstr != '\0' || v < 0 || v > 255) {
                 usage("Invalid value. (-F) integer between 0 and 255 expected");
                 exit(1);
             }
+            app.opt.traceroute_first_ttl = v;
             break;
         case 'l':
-            app.opt.traceroute_packet_size = strtoul(value,&tstr,10);
-            if(*tstr != '\0') {
+            v = strtol(value,&tstr,10);
+            if(*tstr != '\0' || v < 0) {
                 usage("Invalid value. (-l) positive integer expected");
                 exit(1);
             }
+            app.opt.traceroute_packet_size = v;
             break;
         case 'M':
-            app.opt.traceroute_last_ttl = strtoul(value,&tstr,10);
-            if(*tstr != '\0') {
-                usage("Invalid value. (-F) integer between 0 and 255 expected");
+            v = strtol(value,&tstr,10);
+            if(*tstr != '\0' || v < 0 || v > 255) {
+                usage("Invalid value. (-M) integer between 0 and 255 expected");
                 exit(1);
             }
+            app.opt.traceroute_last_ttl = v;
             break;
         default:
             handled = False;
@@ -2393,7 +2395,7 @@ main(
     }
 
     if(getenv("BWCTL_DEBUG_CHILDWAIT")){
-        if( !BWLContextConfigSet(ctx,BWLChildWait,(void*)!NULL)){
+        if( !BWLContextConfigSet(ctx,BWLChildWait,NOTNULL)){
             I2ErrLog(eh,"BWLContextconfigSet(ChildWait): %M");
             exit(1);
         }
@@ -2531,7 +2533,7 @@ main(
 
             if( test_type != BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) ) {
                 char buf[1024];
-                char *proper_cmd_name;
+                char *proper_cmd_name = "?";
                 if (BWLToolGetTestTypesByID(ctx,app.opt.tool_ids[i]) == BWL_TEST_TRACEROUTE) {
                     proper_cmd_name = "bwtraceroute";
                 }
@@ -3571,7 +3573,7 @@ setup_results_storage(ipsess_t sess)
 
             strcpy(sess->results_fname,dirpath);
             sprintf(&sess->results_fname[file_offset],BWL_TSTAMPFMT,
-                    sess->tspec.req_time.tstamp);
+                    (unsigned long long)sess->tspec.req_time.tstamp);
 
             if(sess->is_receiver) {
                 sprintf(&sess->results_fname[ext_offset],"%s%s",
@@ -3752,7 +3754,6 @@ static BWLBoolean parse_time_schedule(const char *schedule, struct tm **times, i
 
     for(i = 0, time = strtok_r(temp_str, ",", &temp); time != NULL; i++, time = strtok_r(NULL, ",", &temp)) {
         char *ret_str;
-        struct tm wildcard_tm;
 
         ret_str = strptime(time, "*:%M", &(ret_times[i]));
         if (ret_str != NULL && *ret_str == '\0') {
@@ -3846,8 +3847,6 @@ static BWLBoolean regular_intervals_scheduler_get_next_runtime(Scheduler *schedu
 
 static BWLBoolean scheduled_times_scheduler_get_next_runtime(Scheduler *scheduler, struct timespec *tspec, BWLBoolean prev_test_failed) {
     ScheduledTimesSchedule *schedule = scheduler->private;
-    double r, alpha;
-    double wait_time;
     time_t curr_time;
     struct tm now;
     int i;

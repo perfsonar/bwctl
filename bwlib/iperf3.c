@@ -1,20 +1,18 @@
 /*
  * ex: set tabstop=4 ai expandtab softtabstop=4 shiftwidth=4:
  * -*- mode: c-basic-indent: 4; tab-width: 4; indent-tabs-mode: nil -*-
- *      $Id: iperf3.c 537 2012-08-18 20:00:00Z jef $
+ *      $Id$
  */
 /*
  *    File:         iperf3.c
  *
- *    Author:       Jef Poskanzer
- *                  LBNL
+ *    Author:       Aaron Brown
+ *                  Internet2
  *
- *    Date:         Sat Aug 18 20:06:56 UTC 2012
- *
- *    Description:
+ *    Description:    
  *
  *    This file encapsulates the functionality required to run an
- *    iperf throughput tool in bwctl, using libiperf.
+ *    iperf3 throughput tool in bwctl.
  *
  *    License:
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,17 +26,14 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
+ * 
  */
 #include <bwlib/bwlibP.h>
-#include <iperf_api.h>
 
 /*
  * Function:    Iperf3Available
- *
+ * 
  * Description:
- *              Tests whether iperf3 is available.  Since this is
- *              determined at configure time, the answer is always 'yes'.
  *
  * In Args:
  * Out Args:
@@ -55,7 +50,43 @@ Iperf3Available(
         BWLToolDefinition   tool
         )
 {
-    return True;
+    int             len;
+    char            *cmd;
+    char            *patterns[] = { "iperf 3.0.11", "iperf 3.1" }; /* Expected begin of stdout */
+                    /* We expect 'iperf3 -v' to print to stderr something like
+                    'iperf 3.0.11' or 'iperf 3.1*' */
+    char            buf[1024];
+    int             n;
+
+    /*
+     * Fetch 'tool' name
+     */
+    if( !(cmd = (char *)BWLContextConfigGetV(ctx,"V.iperf3_cmd"))){
+        BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
+                "Iperf3Available(): %s unset, using \"%s\"",
+                "iperf3_cmd",tool->def_cmd);
+        cmd = tool->def_cmd;
+    }
+
+    n = ExecCommand(ctx, buf, sizeof(buf), cmd, "-v", NULL);
+    if(n == 0 || n == 1) {
+        int i;
+        for(i = 0; i < strlen(buf); i++) {
+            int j;
+            for(j = 0; j < sizeof(patterns)/sizeof(char *); j++) {
+                if(0 == strncmp(buf + i,patterns[j],strlen(patterns[j]))){
+                    /* iperf3 found! */
+                    return True;
+                }
+            }
+        }
+   }
+
+   /* This is what we exit with if the exec fails so it likely means the tool isn't installed. */
+   BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+        "Iperf3Available(): An appropriate version of iperf3 is not available (>= 3.0.11). It may not be installed. exit status: %d: output: %s", n, buf);
+
+   return False;
 }
 
 static BWLBoolean
@@ -99,17 +130,17 @@ Iperf3ValidateTest(
                         (char)test_spec.outformat);
                 return False;
                 break;
+
         }
     }
 
     return _BWLToolGenericValidateTest(ctx, tool, test_spec);
 }
 
-
 /*
  * Function:    Iperf3PreRunTest
  *
- * Description:
+ * Description:    
  *              Does all 'prep' work for running an iperf3 test.
  *
  *              Returns a 'closure' pointer. NULL indicates
@@ -117,162 +148,205 @@ Iperf3ValidateTest(
  *              This 'closure' pointer is passed on to the Iperf3RunTest.
  *
  *              (closure pointer is just the arg list for the exec)
- * In Args:
+ * In Args:    
  *
- * Out Args:
+ * Out Args:    
  *
- * Scope:
- * Returns:
- * Side Effect:
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
  */
+/* This Iperf3Args can be a static because it is only used from within a
+ * forked process. If bwctl ever goes to threads, this will need to be
+ * made thread-local memory.
+ */
+static char *Iperf3Args[_BWL_MAX_TOOLARGS*2];
 static void *
 Iperf3PreRunTest(
         BWLContext          ctx,
         BWLTestSession      tsess
         )
 {
-    char            serverhost[MAXHOSTNAMELEN];
-    char            clienthost[MAXHOSTNAMELEN];
-    size_t          hlen;
-    struct iperf_test *iperf_test;
+    int             len;
+    char            *cmd;
+    int             a = 0;
+    char            recvhost[MAXHOSTNAMELEN];
+    char            sendhost[MAXHOSTNAMELEN];
 
-    if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.server,serverhost,sizeof(serverhost), NI_NUMERICHOST) == NULL) {
+    if(BWLAddrNodeName(ctx, tsess->test_spec.server, recvhost, sizeof(recvhost), NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "Iperf3PreRunTest(): Invalid server I2Addr");
         return NULL;
     }
 
-    if (BWLAddrNodeName(tsess->cntrl->ctx,tsess->test_spec.client,clienthost,sizeof(clienthost), NI_NUMERICHOST) == NULL) {
+    if(BWLAddrNodeName(ctx, tsess->test_spec.client, sendhost, sizeof(sendhost), NI_NUMERICHOST) == NULL) {
         BWLError(tsess->cntrl->ctx,BWLErrFATAL,EINVAL,
                 "Iperf3PreRunTest(): Invalid client I2Addr");
         return NULL;
     }
 
-    iperf_test = iperf_new_test();
+    /* Fill in any taskset options */
+    a = BWLToolGenericFillCPUAffinityCommand(ctx, tsess->tool, Iperf3Args);
 
-    /* Set defaults. */
-    iperf_defaults(iperf_test);
-
-    /* -v verbose flag */
-    if (tsess->test_spec.verbose)
-        iperf_set_verbose( iperf_test, 1 );
-
-    /* -t test duration in seconds */
-    iperf_set_test_duration( iperf_test, tsess->test_spec.duration );
-
-    /* -i reporting interval in seconds */
-    if(tsess->test_spec.report_interval){
-        iperf_set_test_reporter_interval( iperf_test, tsess->test_spec.report_interval / 1000.0 );
-        iperf_set_test_stats_interval( iperf_test, tsess->test_spec.report_interval / 1000.0 );
-    }
-
-    /* Set defaults, if UDP test */
-    if(tsess->test_spec.udp){
-        set_protocol(iperf_test, Pudp);
-        iperf_set_test_blksize( iperf_test, DEFAULT_UDP_BLKSIZE );
-        /* iperf_test->new_stream = iperf_new_udp_stream; */
-    }
-
-    if (tsess->test_spec.bandwidth) {
-        iperf_set_test_rate( iperf_test, tsess->test_spec.bandwidth );
-    }
-
-    /* -l block size */
-    if(tsess->test_spec.len_buffer){
-        iperf_set_test_blksize( iperf_test, tsess->test_spec.len_buffer );
-    }
-
-    /* -p server port */
-    iperf_set_test_server_port( iperf_test, tsess->tool_port );
-
-    /* -w window size in bytes */
-    iperf_set_test_socket_bufsize( iperf_test, tsess->test_spec.window_size );
-
-    /* -m parallel test streams */
-    if (tsess->test_spec.parallel_streams == 0) {
-        iperf_set_test_num_streams( iperf_test, 1 );
-    } else {
-        iperf_set_test_num_streams( iperf_test, tsess->test_spec.parallel_streams );
-    }
-
-    /* -O omit time */
-    if (tsess->test_spec.omit != 0)
-        iperf_set_test_omit( iperf_test, tsess->test_spec.omit );
-
-    /* -b (busy wait in UDP test) and -D (DSCP value for TOS
-       byte): not used for the moment. */
-    /* Multicast options not used too. */
+    /* Run iperf3 */
+    cmd = (char*)BWLContextConfigGetV(ctx,"V.iperf3_cmd");
+    if(!cmd) cmd = tsess->tool->def_cmd;
 
     /*
-     * XXX: Perhaps these should be validated earlier, in the CheckTest
-     * function chain?
+     * First figure out the args for iperf
      */
-    if(tsess->test_spec.units){
-        iperf_set_test_unit_format( iperf_test, tsess->test_spec.units );
-    }
+    Iperf3Args[a++] = cmd;
 
-    if(tsess->test_spec.outformat){
-        switch((char)tsess->test_spec.outformat){
-            case 'J':
-                iperf_set_test_json_output( iperf_test, 1 );
-                // get the server side output as well
-                iperf_set_test_get_server_output ( iperf_test, 1 );
-                break;
-            default:
-                break;
-        }
-    }
-
-    // set zero-copy to get better performance
-    iperf_set_test_zerocopy( iperf_test, 1 );
-
+    /*
+     * Set the address information
+     */
     if(tsess->conf_server){
-        iperf_set_test_role( iperf_test, 's' ); // specify server side
+        Iperf3Args[a++] = "-s";
+        Iperf3Args[a++] = "-1"; // Make it a one-shot server
 
-        iperf_set_test_bind_address( iperf_test, serverhost );
-        if( iperf_get_test_bind_address( iperf_test ) == NULL ){
-            // iperf_get_test_bind_address uses strdup which can fail
-            BWLError(ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
+        Iperf3Args[a++] = "-B";
+        if( !(Iperf3Args[a++] = strdup(recvhost))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
             return NULL;
         }
-
-    }else{
-        iperf_set_test_role( iperf_test, 'c' ); // specify client side
-
-        iperf_set_test_server_hostname( iperf_test, serverhost );
-        if( iperf_get_test_server_hostname( iperf_test ) == NULL ){
-            // iperf_set_test_server_hostname uses strdup which can fail
-            BWLError(ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
+    }
+    else{
+        Iperf3Args[a++] = "-c";
+        if( !(Iperf3Args[a++] = strdup(recvhost))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
             return NULL;
         }
-
-        iperf_set_test_bind_address( iperf_test, clienthost );
-        if( iperf_get_test_bind_address( iperf_test ) == NULL ){
-            // iperf_set_test_server_hostname uses strdup which can fail
-            BWLError(ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
+        Iperf3Args[a++] = "-B";
+        if( !(Iperf3Args[a++] = strdup(sendhost))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,"Iperf3PreRunTest():strdup(): %M");
             return NULL;
-        }
-
-        if (tsess->test_spec.server_sends) {
-             iperf_set_test_reverse( iperf_test, 1 );
         }
     }
 
-    return (void *)iperf_test;
+    /*
+     * Set some common parameters
+     */
+    Iperf3Args[a++] = "-f";
+    if(!tsess->test_spec.units){
+        Iperf3Args[a++] = "m";
+    }
+    else{
+        char temp[2];
+
+        temp[0] = (char)tsess->test_spec.units;
+        temp[1] = '\0';
+        if( !(Iperf3Args[a++] = strdup(temp))){
+            BWLError(tsess->cntrl->ctx,BWLErrFATAL,errno,
+                    "Iperf3PreRunTest():strdup(): %M");
+            return NULL;
+        }
+    }
+
+    if(tsess->test_spec.outformat == 'J'){
+        Iperf3Args[a++] = "-J";
+    }
+
+    Iperf3Args[a++] = "-p";
+    if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->tool_port))){
+        return NULL;
+    }
+
+    if(tsess->test_spec.report_interval){
+        Iperf3Args[a++] = "-i";
+        if( !(Iperf3Args[a++] =
+                    BWLDoubleDup(ctx,tsess->test_spec.report_interval / 1000.0))){
+            return NULL;
+        }
+    }
+
+    if (tsess->test_spec.verbose) {
+        Iperf3Args[a++] = "-V";
+    }
+
+    /*
+     * set some client-specific parameters
+     */
+    if(!tsess->conf_server){
+        Iperf3Args[a++] = "-Z"; // Set the zerocopy mode by default (for backwards compatibility of results)
+
+        if(tsess->test_spec.tos){
+            Iperf3Args[a++] = "-S";
+            if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.tos))){
+                return NULL;
+            }
+        }
+
+        if (tsess->test_spec.server_sends)
+             Iperf3Args[a++] = "--reverse";
+
+        Iperf3Args[a++] = "-t";
+        if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.duration))){
+            return NULL;
+        }
+
+        if(tsess->test_spec.parallel_streams > 0){
+            Iperf3Args[a++] = "-P";
+            if( !(Iperf3Args[a++] =
+                        BWLUInt32Dup(ctx,tsess->test_spec.parallel_streams))){
+                return NULL;
+            }
+        }
+
+        if(tsess->test_spec.udp){
+            Iperf3Args[a++] = "-u";
+        }
+
+        if(tsess->test_spec.len_buffer){
+            Iperf3Args[a++] = "-l";
+            if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.len_buffer))){
+                return NULL;
+            }
+        }
+
+        if(tsess->test_spec.bandwidth){
+            Iperf3Args[a++] = "-b";
+            if( !(Iperf3Args[a++] =
+                        BWLUInt64Dup(ctx,tsess->test_spec.bandwidth))){
+                return NULL;
+            }
+        }
+
+        if(tsess->test_spec.window_size){
+            Iperf3Args[a++] = "-w";
+            if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.window_size))){
+                return NULL;
+            }
+        }
+    }
+
+    Iperf3Args[a++] = NULL;
+
+    /*
+     * Report what will be run in the output file
+     */
+    if (tsess->test_spec.verbose) {
+        fprintf(tsess->localfp,"bwctl: exec_line:");
+        for(len=0;Iperf3Args[len];len++){
+            fprintf(tsess->localfp," %s",Iperf3Args[len]);
+        }
+        fprintf(tsess->localfp,"\n");
+    }
+
+    return (void *)Iperf3Args;
 }
 
 /*
  * Function:    Iperf3RunTest
  *
- * Description:
+ * Description:    
  *
- * In Args:
+ * In Args:    
  *
- * Out Args:
+ * Out Args:    
  *
- * Scope:
- * Returns:
- * Side Effect:
+ * Scope:    
+ * Returns:    
+ * Side Effect:    
  */
 static BWLBoolean
 Iperf3RunTest(
@@ -281,27 +355,22 @@ Iperf3RunTest(
         void                *closure
         )
 {
-    struct iperf_test *iperf_test = closure;
+    char    **ipargs = (char **)closure;
 
-    switch (iperf_get_test_role(iperf_test))
-    {
-        case 's':
-            iperf_run_server(iperf_test);
-            exit(0);
-        case 'c':
-            iperf_run_client(iperf_test);
-            exit(0);
-        default:
-            BWLError(ctx,BWLErrFATAL,EINVAL,"invalid iperf test role: %c\n",iperf_get_test_role(iperf_test));
-            exit(-1);
-    }
+    /*
+     * Now run iperf!
+     */
+    execvp(ipargs[0],ipargs);
+
+    BWLError(ctx,BWLErrFATAL,errno,"execvp(%s): %M",ipargs[0]);
+    exit(BWL_CNTRL_FAILURE);
 }
 
 BWLToolDefinitionRec    BWLToolIperf3 = {
     "iperf3",                /* name             */
-    NULL,                    /* def_cmd          */
-    NULL,                    /* def_server_cmd   */
-    5001,                    /* def_port         */
+    "iperf3",                /* def_cmd          */
+    "iperf3",               /* def_server_cmd   */
+    5001,                   /* def_port         */
     _BWLToolGenericParse,    /* parse            */
     BWLGenericParseThroughputParameters,    /* parse_request */
     BWLGenericUnparseThroughputParameters,  /* unparse_request */

@@ -116,12 +116,9 @@ ParisTraceroutePreRunTest(
         BWLTestSession      tsess
         )
 {
-    char            confkey[BWL_MAX_TOOLNAME + 10];
     int             len;
     char            *cmd;
-    char            *default_cmd;
     int             a = 0;
-    size_t          hlen;
     I2Addr          remote_side;
     I2Addr          local_side;
     char            addr_str[INET6_ADDRSTRLEN];
@@ -323,5 +320,5 @@ BWLToolDefinitionRec    BWLToolParisTraceroute = {
     True,                    /* supports_server_sends */
     True,                    /* supports_endpointless */
     0,                       /* The server port to use in endpointless tests */
-    NULL,                    /* parsable format */
+    0,                       /* parsable format */
 };

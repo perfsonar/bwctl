@@ -759,7 +759,6 @@ _BWLCallCloseFile(
         );
 
 /* tools.c */
-
 extern BWLBoolean
 _BWLToolInitialize(
         BWLContext  ctx
@@ -989,4 +988,8 @@ BWLSockaddrCompare(
         struct sockaddr *sb
         );
 
+BWLBoolean
+BWLParseCPUAffinityString(
+        const char *cpu_affinity
+        );
 #endif    /* IPCNTRLP_H */

@@ -76,7 +76,7 @@ static void rijndaelVKKAT(FILE *fp, int keyLength) {
 		r = makeKey(&keyInst, DIR_ENCRYPT, keyLength, keyMaterial);
 		if (TRUE != r) {
 			fprintf(stderr,"makeKey error %d\n",r);
-			exit(-1);
+			exit(1);
 		}
 		fprintf(fp, "\nI=%d\n", i+1);
 		fprintf(fp, "KEY=%s\n", keyMaterial);
@@ -84,12 +84,12 @@ static void rijndaelVKKAT(FILE *fp, int keyLength) {
 		r = cipherInit(&cipherInst, MODE_ECB, NULL);
 		if (TRUE != r) {
 			fprintf(stderr,"cipherInit error %d\n",r);
-			exit(-1);
+			exit(1);
 		}
 		r = blockEncrypt(&cipherInst, &keyInst, block, 128, block);
 		if (128 != r) {
 			fprintf(stderr,"blockEncrypt error %d\n",r);
-			exit(-1);
+			exit(1);
 		}
 		blockPrint(fp, block, "CT");
 		/* now check decryption: */
@@ -542,12 +542,12 @@ static void rijndaelCBC_MCT(FILE *fp, int keyLength, BYTE direction) {
 		r = makeKey(&keyInst, direction, keyLength, keyMaterial);
 		if (TRUE != r) {
 			fprintf(stderr,"makeKey error %d\n",r);
-			exit(-1);
+			exit(1);
 		}
 		r = cipherInit(&cipherInst, MODE_ECB, NULL);
 		if (TRUE != r) {
 			fprintf(stderr,"cipherInit error %d\n",r);
-			exit(-1);
+			exit(1);
 		}
 		/* do encryption/decryption: */
 		blockPrint(fp, cv, "IV");
@@ -560,7 +560,7 @@ static void rijndaelCBC_MCT(FILE *fp, int keyLength, BYTE direction) {
 				r = blockEncrypt(&cipherInst, &keyInst, inBlock, 128, outBlock);
 				if (128 != r) {
 					fprintf(stderr,"blockEncrypt error %d\n",r);
-					exit(-1);
+					exit(1);
 				}
 				memcpy(inBlock, cv, 16);
 				memcpy(cv, outBlock, 16);

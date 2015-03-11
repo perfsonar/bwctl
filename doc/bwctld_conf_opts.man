@@ -119,7 +119,56 @@ before killing them with \fBSIGKILL\fR. This is in response to the master
 process receiving \fBSIGTERM\fR or \fBSIGHUP\fR.
 .RS
 .IP Default:
-30
+5
+.RE
+.TP
+.BI disable_iperf
+Prevent \fBbwctl\fR from executing \fBIperf\fR tests
+.RS
+.IP Default:
+unset
+.RE
+.TP
+.BI disable_iperf3
+Prevent \fBbwctl\fR from executing \fBIperf3\fR tests
+.RS
+.IP Default:
+unset
+.RE
+.TP
+.BI disable_nuttcp
+Prevent \fBbwctl\fR from executing \fBNuttcp\fR tests
+.RS
+.IP Default:
+unset
+.RE
+.TP
+.BI disable_owamp
+Prevent \fBbwctl\fR from executing \fBOwamp\fR tests
+.RS
+.IP Default:
+unset
+.RE
+.TP
+.BI disable_ping
+Prevent \fBbwctl\fR from executing \fBPing\fR tests
+.RS
+.IP Default:
+unset
+.RE
+.TP
+.BI disable_tracepath
+Prevent \fBbwctl\fR from executing \fBTracepath\fR tests
+.RS
+.IP Default:
+unset
+.RE
+.TP
+.BI disable_traceroute
+Prevent \fBbwctl\fR from executing \fBTraceroute\fR tests
+.RS
+.IP Default:
+unset
 .RE
 .TP
 .BI facility " facility"
@@ -165,7 +214,28 @@ be open when the test starts. For best results, ensure that this range is
 different from that of nuttcp_port and thrulay_port.
 .PP
 .IP Default:
-5001
+unset
+.RE
+.TP
+.BI iperf3_port " iperf3port"
+The port number(s) that \fBIperf3\fR receivers will use.
+Currently, \fBbwctld\fR simply cycles through this range linearly.
+\fIiperf3_port\fR can be specified as a single valid port number or as
+a range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid
+port numbers with the '\-' character separating them. Whitespace is
+not allowed within the \fIiperf3_port\fR. For example, \fB"5001\-5004"\fR would
+be valid, but \fB"5001 \- 5004"\fR would be invalid.
+.RS
+.PP
+This value should be set to a range because it can take a few minutes for a
+port to become free after a test has run. If the port is not free when the next
+test starts, the test will fail. If set to a range, the daemon will cycle
+through them when starting tests, decreasing the chance that a port will still
+be open when the test starts. For best results, ensure that this range is
+different from that of nuttcp_port and thrulay_port.
+.PP
+.IP Default:
+unset
 .RE
 .TP
 .B log_location
@@ -204,7 +274,42 @@ be open when the test starts. For best results, ensure that this range is
 different from that of iperf_port and thrulay_port.
 .PP
 .IP Default:
-5001
+unset
+.RE
+.TP
+.BI owamp_cmd " owampcmd"
+The path to the \fBowping\fR command on the system. If the \fIowamp_cmd\fR
+does not contain a '/' character, then the PATH of the \fBbwctl\fR
+environment will be searched to find the \fBowping\fR executable.
+.RS
+.IP Default:
+owping
+.RE
+.TP
+.BI owamp_server_cmd " owampservercmd"
+The path to the \fBowampd\fR command on the system. If the \fIowamp_server_cmd\fR
+does not contain a '/' character, then the PATH of the \fBbwctl\fR
+environment will be searched to find the \fBowampd\fR executable.
+.RS
+.IP Default:
+owampd
+.RE
+.TP
+.BI owamp_port " owampport"
+The port number(s) that \fBOwamp\fR receivers will use.
+Currently, \fBbwctld\fR simply cycles through this range linearly.
+\fIowamp_port\fR must be specified as a range as \fIlow\fR\-\fIhigh\fR. The
+range must be specified as two valid port numbers with the '\-' character
+separating them. Whitespace is not allowed within the \fIowamp_port\fR. For
+example, \fB"5001\-5004"\fR would be valid, but \fB"5001 \- 5004"\fR would be
+invalid.
+.RS
+.PP
+This value must be set to a range because it is used for both the \fBOwamp\fR
+communication and test ports.
+.PP
+.IP Default:
+unset
 .RE
 .TP
 .BI peer_port " 0 | lowport\-highport"
@@ -229,6 +334,24 @@ and both numbers must be valid port values. (16-bit unsigned integer values)
 .RS
 .IP Default:
 0
+.RE
+.TP
+.BI ping_cmd " pingcmd"
+The path to the \fBping\fR command on the system. If the \fIping_cmd\fR
+does not contain a '/' character, then the PATH of the \fBbwctl\fR
+environment will be searched to find the \fBping\fR executable.
+.RS
+.IP Default:
+ping
+.RE
+.TP
+.BI ping6_cmd " ping6cmd"
+The path to the \fBping6\fR command on the system. If the \fIping6_cmd\fR
+does not contain a '/' character, then the PATH of the \fBbwctl\fR
+environment will be searched to find the \fBping6\fR executable.
+.RS
+.IP Default:
+ping6
 .RE
 .TP
 .BI post_hook " /path/to/script"
@@ -285,6 +408,23 @@ buffer before and after each throughput test.
 0.0
 .RE
 .TP
+.BI test_port " testport"
+The port number(s) that receivers of all test types will use, unless otherwise
+set using one of the other port variables.  Currently, \fBbwctld\fR simply
+cycles through this range linearly.  \fItest_port\fR must be specified as a
+range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid port
+numbers with the '\-' character separating them. Whitespace is not allowed
+within the \fItest_port\fR. For example, \fB"5001\-5004"\fR would be valid, but
+\fB"5001 \- 5004"\fR would be invalid.
+.RS
+.PP
+This value must be set to a range because it is used for both the \fBOwamp\fR
+communication and test ports.
+.PP
+.IP Default:
+5001-5900
+.RE
+.TP
 .BI thrulay_port " thrulayport"
 The port number(s) that \fBThrulay\fR receivers will use.
 Currently, \fBbwctld\fR simply cycles through this range linearly.
@@ -303,7 +443,43 @@ be open when the test starts. For best results, ensure that this range is
 different from that of iperf_port and nuttcp_port.
 .PP
 .IP Default:
-5003
+unset
+.RE
+.TP
+.BI tracepath_cmd " tracepathcmd"
+The path to the \fBtracepath\fR command on the system. If the \fItracepath_cmd\fR
+does not contain a '/' character, then the PATH of the \fBbwctl\fR
+environment will be searched to find the \fBtracepath\fR executable.
+.RS
+.IP Default:
+tracepath
+.RE
+.TP
+.BI tracepath6_cmd " tracepath6cmd"
+The path to the \fBtracepath6\fR command on the system. If the \fItracepath6_cmd\fR
+does not contain a '/' character, then the PATH of the \fBbwctl\fR
+environment will be searched to find the \fBtracepath6\fR executable.
+.RS
+.IP Default:
+tracepath6
+.RE
+.TP
+.BI traceroute_cmd " traceroutecmd"
+The path to the \fBtraceroute\fR command on the system. If the \fItraceroute_cmd\fR
+does not contain a '/' character, then the PATH of the \fBbwctl\fR
+environment will be searched to find the \fBtraceroute\fR executable.
+.RS
+.IP Default:
+traceroute
+.RE
+.TP
+.BI traceroute6_cmd " traceroute6cmd"
+The path to the \fBtraceroute6\fR command on the system. If the \fItraceroute6_cmd\fR
+does not contain a '/' character, then the PATH of the \fBbwctl\fR
+environment will be searched to find the \fBtraceroute6\fR executable.
+.RS
+.IP Default:
+traceroute6
 .RE
 .TP
 .BI user " user"
