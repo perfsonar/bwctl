@@ -442,7 +442,6 @@ class Coordinator(BwctlProcess):
         with self.lock:
             if test.id in self.test_procs:
                 try:
-                    self.test_procs[test.id].kill_children()
                     self.test_procs[test.id].terminate()
                 except:
                     pass
@@ -500,7 +499,7 @@ class ToolHandlerProcess(TestActionHandlerProcess):
 
         results = self.results_queue.get()
 
-        tool_runner.kill_children()
+        tool_runner.kill()
 
         parsed_results = Results(results)
 

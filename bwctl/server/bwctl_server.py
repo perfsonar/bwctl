@@ -1,6 +1,7 @@
 import optparse
 from random import randint
 import sys
+import time
 import uuid
 
 from bwctl.utils import init_logging
@@ -72,26 +73,30 @@ class BwctlServer:
 
     def run(self):
         try:
-            self.coordinator.start()
-            self.rest_api_server.start()
-            self.legacy_server.start()
-            self.legacy_endpoint_server.start()
+            for process in [ self.coordinator, self.rest_api_server, self.legacy_server, self.legacy_endpoint_server ]:
+                 self.logger.debug("Starting process")
+                 process.start()
 
-            # XXX: handle the "join" differently
-            self.coordinator.join()
-            self.rest_api_server.join()
-            self.legacy_server.join()
-            self.legacy_endpoint_server.join()
+            # Periodically check if processes have terminated
+            process_exited = False
+            while not process_exited:
+                for process in [ self.coordinator, self.rest_api_server, self.legacy_server, self.legacy_endpoint_server ]:
+                    if not process.is_alive():
+                        process_exited = True
+                        break
+
+                self.logger.debug("Sleeping")
+                time.sleep(5)
         except Exception as e:
-            logger.error("Exception: %s" % e)
+            self.logger.error("Exception: %s" % e)
         finally:
-            self.legacy_endpoint_server.kill_children()
+            self.logger.debug("Killing legacy endpoint handler")
             self.legacy_endpoint_server.terminate()
-            self.legacy_server.kill_children()
+            self.logger.debug("Killing legacy server")
             self.legacy_server.terminate()
-            self.rest_api_server.kill_children()
+            self.logger.debug("Killing REST API server")
             self.rest_api_server.terminate()
-            self.coordinator.kill_children()
+            self.logger.debug("Killing coordinator")
             self.coordinator.terminate()
 
 def bwctld():
@@ -108,9 +113,6 @@ def bwctld():
     init_logging("bwctld", syslog_facility=opts.syslog_facility, debug=opts.verbose)
 
     logger = get_logger()
-
-    bwctld = BwctlServer(config_file=opts.config_file)
-    bwctld.run()
 
     try:
         bwctld = BwctlServer(config_file=opts.config_file)
