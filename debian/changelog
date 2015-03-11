@@ -1,4 +1,4 @@
-bwctl (1.5.2-10~bpo70+1) unstable; urgency=low
+bwctl (1.5.2.10-1~bpo70+1) unstable; urgency=low
 
   * New upstream version
   * Start bwctl-server by default
