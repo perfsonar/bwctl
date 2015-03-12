@@ -16,7 +16,6 @@ BuildRequires: python-setuptools
 
 Requires: python-psutil
 Requires: python-configobj
-Requires: python-zmq
 Requires: py-radix
 Requires: python-cherrypy
 Requires: python-routes

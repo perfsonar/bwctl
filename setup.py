@@ -37,7 +37,6 @@ setup(name='bwctl',
                           'psutil',
                           'simplejson',
                           'uuid',
-                          'pyzmq',
                          ],
         entry_points={
             'console_scripts': [
