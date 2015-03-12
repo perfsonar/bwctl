@@ -542,7 +542,7 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
         return
 
 def validate_test(test=None):
-    if not test.sender_endpoint.local and not test.receiver_endpoint.local:
+    if not test.local_endpoint:
         raise ValidationException("No local endpoints for this test")
 
     if test.sender_endpoint.local and test.receiver_endpoint.local:
@@ -566,6 +566,9 @@ def validate_endpoint(endpoint=None):
         ip = IP(endpoint.address)
     except:
         raise ValidationException("Invalid address for endpoint")
+
+    if endpoint.local and endpoint.bwctl_protocol < 2.0:
+        raise ValidationException("Invalid local protocol")
 
     if endpoint.local and endpoint.legacy_client_endpoint:
         raise ValidationException("Local endpoint isn't a legacy client")

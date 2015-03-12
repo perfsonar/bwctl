@@ -27,7 +27,7 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #-b|--bandwidth <bandwidth>       Bandwidth to use for tests (bits/sec KM) (Default: 1Mb for UDP tests, unlimited for TCP tests)
 #-D|--dscp <dscp>                 RFC 2474-style DSCP value for TOS byte
 #-i|--report_interval <seconds>   Tool reporting interval
-#-l|--buffer_length <bytes>       Size of read/write buffers
+#-l|--buffer_size <bytes>       Size of read/write buffers
 #-O|--omit <seconds>              Omit time (currently only for iperf3)
 #-P|--parallel <num>              Number of concurrent connections
 #-S|--tos <tos>                   Type-Of-Service for outgoing packets
@@ -200,7 +200,7 @@ def add_traceroute_test_options(oparse):
                       help="Maximum time to wait for traceroute to finish (seconds) (Default: 10)"
                      )
 
-def fill_traceroute_tool_parameters(opts, tool_parameters, tool=""):
+def fill_traceroute_tool_parameters(opts, tool_parameters):
     if opts.first_ttl:
         tool_parameters["first_ttl"] = opts.first_ttl
 
@@ -227,7 +227,7 @@ def add_latency_test_options(oparse):
                       help="TTL for packets"
                      )
 
-def fill_latency_tool_parameters(opts, tool_parameters, tool=""):
+def fill_latency_tool_parameters(opts, tool_parameters):
     if opts.num_packets:
         tool_parameters["packet_count"] = opts.num_packets
 
@@ -241,11 +241,12 @@ def fill_latency_tool_parameters(opts, tool_parameters, tool=""):
         tool_parameters["packet_ttl"] = opts.ttl
 
     duration = opts.packet_interval * opts.num_packets
-    finishing_time = 0
-    if tool == "owamp": # owamp takes longer to 'finish'
-        finishing_time = 3
-    elif tool == "ping": # give a second or so for the ping response to be received.
-        finishing_time = 1
+    finishing_time = 3
+    # XXX: need to do this after choosing a tool
+    #if tool == "owamp": # owamp takes longer to 'finish'
+    #    finishing_time = 3
+    #elif tool == "ping": # give a second or so for the ping response to be received.
+    #    finishing_time = 1
 
     tool_parameters["maximum_duration"] = duration + finishing_time
 
@@ -256,10 +257,10 @@ def add_throughput_test_options(oparse):
     oparse.add_option("-b", "--bandwidth", dest="bandwidth", default=0, type="int",
                       help="Bandwidth to use for tests (Mbits/sec) (Default: 1Mb for UDP tests, unlimited for TCP tests)"
                      )
-    oparse.add_option("-i", "--report_interval", dest="report_interval", default=2, type="int",
-                      help="Reporting interval (seconds) (Default: 2 seconds)"
+    oparse.add_option("-i", "--report_interval", dest="report_interval", default=2, type="float",
+                      help="Reporting interval (seconds) (Default: 2.0 seconds)"
                      )
-    oparse.add_option("-l", "--buffer_length", dest="buffer_length", default=0, type="int",
+    oparse.add_option("-l", "--buffer_size", dest="buffer_size", default=0, type="int",
                       help="Size of read/write buffers (Kb)"
                      )
     oparse.add_option("-O", "--omit", dest="omit", default=0, type="int",
@@ -275,7 +276,7 @@ def add_throughput_test_options(oparse):
                       help="Perform a UDP test"
                      )
 
-def fill_throughput_tool_parameters(opts, tool_parameters, tool=""):
+def fill_throughput_tool_parameters(opts, tool_parameters):
     if opts.test_duration:
         tool_parameters["duration"] = opts.test_duration
 
@@ -285,11 +286,11 @@ def fill_throughput_tool_parameters(opts, tool_parameters, tool=""):
     if opts.report_interval:
         tool_parameters["report_interval"] = opts.report_interval
 
-    if opts.buffer_length:
-        tool_parameters["buffer_length"] = opts.buffer_length
+    if opts.buffer_size:
+        tool_parameters["buffer_size"] = opts.buffer_size
 
     if opts.omit:
-        tool_parameters["omit_interval"] = opts.omit
+        tool_parameters["omit_seconds"] = opts.omit
 
     if opts.parallel:
         tool_parameters["parallel_streams"] = opts.parallel
@@ -300,32 +301,35 @@ def fill_throughput_tool_parameters(opts, tool_parameters, tool=""):
     if opts.udp:
         tool_parameters["protocol"] = "udp"
 
-def valid_tool(tool_name, tool_type=None):
+def valid_tool(tool_name, tool_type=None, tool_parameters={}):
     try:
         tool_obj = get_tool(tool_name)
         if tool_type and tool_obj.type != tool_type:
             raise Exception
+
+        tool_obj.validate_parameters(tool_parameters)
+
         return True
     except:
         pass
 
     return False
 
-def select_tool(client_tools=[], server_tools=[], requested_tools=[], tool_type=None):
+def select_tool(client_tools=[], server_tools=[], requested_tools=[], tool_type=None, tool_parameters={}):
     common_tools = []
     for tool in server_tools:
-        if valid_tool(tool, tool_type=tool_type) and \
+        if valid_tool(tool, tool_type=tool_type, tool_parameters=tool_parameters) and \
            tool in client_tools:
                 common_tools.append(tool)
 
     for tool in client_tools:
-        if valid_tool(tool, tool_type=tool_type) and \
+        if valid_tool(tool, tool_type=tool_type, tool_parameters=tool_parameters) and \
            tool in server_tools and \
            not tool in common_tools:
             common_tools.append(tool)
 
     for tool in requested_tools:
-        if valid_tool(tool, tool_type=tool_type) and \
+        if valid_tool(tool, tool_type=tool_type, tool_parameters=tool_parameters) and \
            tool in client_tools and \
            tool in server_tools:
             return tool, common_tools
@@ -443,26 +447,27 @@ def bwctl_client():
        print "BWCTL cannot be used against a legacy server without running a local bwctld instance"
        sys.exit(1)
 
+    tool_parameters = {}
+
+    if tool_type == ToolTypes.THROUGHPUT:
+        fill_throughput_tool_parameters(opts, tool_parameters)
+    elif tool_type == ToolTypes.LATENCY:
+        fill_latency_tool_parameters(opts, tool_parameters)
+    elif tool_type == ToolTypes.TRACEROUTE:
+        fill_traceroute_tool_parameters(opts, tool_parameters)
+
     requested_tools = opts.tools.split(",")
 
     selected_tool, common_tools = select_tool(requested_tools=requested_tools,
                                               server_tools=server_endpoint.available_tools,
                                               client_tools=client_endpoint.available_tools,
-                                              tool_type=tool_type)
+                                              tool_type=tool_type,
+                                              tool_parameters=tool_parameters)
 
     if not selected_tool:
         print "Requested tools not available by both servers."
         print "Available tools that support the requested options: %s" % ",".join(common_tools)
         sys.exit(1)
-
-    tool_parameters = {}
-
-    if tool_type == ToolTypes.THROUGHPUT:
-        fill_throughput_tool_parameters(opts, tool_parameters, tool=selected_tool)
-    elif tool_type == ToolTypes.LATENCY:
-        fill_latency_tool_parameters(opts, tool_parameters, tool=selected_tool)
-    elif tool_type == ToolTypes.TRACEROUTE:
-        fill_traceroute_tool_parameters(opts, tool_parameters, tool=selected_tool)
 
     requested_time=datetime.datetime.utcnow()+datetime.timedelta(seconds=3)
     latest_time=requested_time+datetime.timedelta(seconds=opts.latest_time)
@@ -1010,8 +1015,8 @@ class LegacyClientEndpoint:
            packet_ttl = tool_parameters.get('packet_ttl', 0),
            bandwidth = tool_parameters.get('bandwidth', 0),
            report_interval = int(tool_parameters.get('report_interval', 0) * 1000), # XXX: Convert to milliseconds (handle better)
-           buffer_size = tool_parameters.get('buffer_length', 0),
-           # XXX: omit_interval = tool_parameters.get('omit_interval', 0),
+           buffer_size = tool_parameters.get('buffer_size', 0),
+           omit_interval = tool_parameters.get('omit_seconds', 0),
            parallel_streams = tool_parameters.get('parallel_streams', 0),
            window_size = tool_parameters.get('window_size', 0),
            is_udp = "udp" == tool_parameters.get('protocol', 'tcp'),

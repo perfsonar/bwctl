@@ -23,6 +23,8 @@ Requires: python-setuptools
 Requires: python-simplejson
 Requires: uuid
 
+Requires: iperf3 >= 3.0.11
+
 Requires(post):	  chkconfig
 Requires(preun):  chkconfig
 Requires(preun):  initscripts

@@ -12,13 +12,12 @@ class Iperf(Base):
         ToolParameter(name="protocol", type='option("tcp","udp")'),
         ToolParameter(name="bandwidth", type='integer(min=0)'),
         ToolParameter(name="parallel_streams", type='integer(min=0)'),
-        ToolParameter(name="report_interval", type='float(min=0)'),
+        ToolParameter(name="report_interval", type='integer(min=0)'),
         ToolParameter(name="window_size", type='integer(min=0)'),
         ToolParameter(name="buffer_size", type='integer(min=0)'),
-        ToolParameter(name="omit_seconds", type='float(min=0)'),
         ToolParameter(name="tos_bits", type='string'), # XXX: Needs a better validator
-        ToolParameter(name="units", type='string'), # XXX: Needs a better validator
-        ToolParameter(name="output_format", type='string'), # XXX: Needs a better validator
+        ToolParameter(name="units", type='option("k", "m", "g", "K", "M", "G")'),
+        ToolParameter(name="output_format", type='option("c", "C")'),
     ]
 
     def config_options(self):
@@ -83,14 +82,30 @@ class Iperf(Base):
 
         cmd_line.extend(["-t", str(test.tool_parameters['duration'])])
 
+        if "report_interval" in test.tool_parameters:
+            cmd_line.extend(["-i", str(test.tool_parameters['report_interval'])])
+
         if "units" in test.tool_parameters:
             cmd_line.extend(["-f", str(test.tool_parameters['units'])])
 
-        if "tos_bts" in test.tool_parameters:
+        if "window_size" in test.tool_parameters:
+            cmd_line.extend(["-w", str(test.tool_parameters['window_size'])])
+
+        if "bandwidth" in test.tool_parameters:
+            cmd_line.extend(["-b", str(test.tool_parameters['bandwidth'])])
+
+        if "buffer_size" in test.tool_parameters:
+            cmd_line.extend(["-l", str(test.tool_parameters['buffer_size'])])
+
+        if "tos_bits" in test.tool_parameters:
             cmd_line.extend(["-S", str(test.tool_parameters['tos_bits'])])
 
         if "output_format" in test.tool_parameters:
             cmd_line.extend(["-y", str(test.tool_parameters['output_format'])])
+
+        if "protocol" in test.tool_parameters and \
+           test.tool_parameters["output_format"] == "udp":
+            cmd_line.extend(["-u"])
 
         if "parallel_streams" in test.tool_parameters:
             cmd_line.extend(["-P", str(test.tool_parameters['parallel_streams'])])

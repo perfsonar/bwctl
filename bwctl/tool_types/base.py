@@ -29,8 +29,8 @@ class Base(object):
 
         raise SystemProblemException("'is_available' function needs to be overwritten")
 
-    def validate_test(self, test):
-        for key, value in test.tool_parameters.iteritems():
+    def validate_parameters(self, tool_parameters):
+        for key, value in tool_parameters.iteritems():
             matched = False
             for parameter_dfn in self.known_parameters:
                 if parameter_dfn.name == key:
@@ -41,7 +41,9 @@ class Base(object):
             if not matched:
                 raise ValidationException("Unknown parameter: %s" % key)
 
-        return
+
+    def validate_test(self, test):
+        return self.validate_parameters(test.tool_parameters)
 
     def configure(self, config):
         self.config = config

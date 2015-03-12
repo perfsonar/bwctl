@@ -3,9 +3,11 @@ from validate import Validator
 
 tool_classes = [
     "bwctl.tool_types.iperf.Iperf",
+    "bwctl.tool_types.iperf3.Iperf3",
     "bwctl.tool_types.owamp.Owamp",
     "bwctl.tool_types.ping.Ping",
     "bwctl.tool_types.traceroute.Traceroute",
+    "bwctl.tool_types.tracepath.Tracepath",
 ]
 
 tools = {}
