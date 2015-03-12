@@ -141,23 +141,21 @@ TraceroutePreRunTest(
         BWLTestSession      tsess
         )
 {
-    char            confkey[BWL_MAX_TOOLNAME + 10];
     int             len;
     char            *cmd;
     char            *default_cmd;
     char            *cmd_variable;
     int             a = 0;
-    size_t          hlen;
     I2Addr          remote_side;
     I2Addr          local_side;
     char            addr_str[INET6_ADDRSTRLEN];
 
-    // If 'server sends' mode is in effect, the server runs the ping command,
+    // If 'server sends' mode is in effect, the server runs the traceroute command,
     // because the client doesn't need to set anything up. It's a hack, but it
     // should work.
     if((tsess->conf_server && !tsess->test_spec.server_sends) ||
         (tsess->conf_client && tsess->test_spec.server_sends)) {
-        fprintf(tsess->localfp,"bwctl: nothing to exec for ping server");
+        fprintf(tsess->localfp,"bwctl: nothing to exec for traceroute server\n");
         TracerouteArgs[0] = NULL;
         return (void *)TracerouteArgs;
     }
@@ -217,7 +215,7 @@ TraceroutePreRunTest(
                 break;
             default:
                 fprintf(tsess->localfp,
-                        "bwctl: tool(traceroute): Invalid out format (-y) specification %c",
+                        "bwctl: tool(traceroute): Invalid out format (-y) specification %c\n",
                         (char)tsess->test_spec.outformat);
                 return NULL;
         }
@@ -367,5 +365,5 @@ BWLToolDefinitionRec    BWLToolTraceroute = {
     True,                    /* supports_server_sends */
     True,                    /* supports_endpointless */
     0,                       /* The server port to use in endpointless tests */
-    NULL,                    /* parsable format */
+    0,                       /* parsable format */
 };

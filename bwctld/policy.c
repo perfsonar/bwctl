@@ -1855,6 +1855,7 @@ BWLDSendReservationResponse(
     /* real data */
     memcpy(&buf[8],&reservation,8);
     memcpy(&buf[16],&toolport,2);
+    bzero (&buf[18],2);
 
     if(I2Writeni(fd,&buf[0],24,intr) != 24){
         return 1;
@@ -1941,6 +1942,7 @@ BWLDReservationQuery(
     memcpy(&buf[48],&duration,4);
     memcpy(&buf[52],&rtt_time,8);
     memcpy(&buf[60],toolport,2);
+    bzero (&buf[62],2);
     memcpy(&buf[64],&tool,4);
     memcpy(&buf[68],sender_str,46);
     memcpy(&buf[114],receiver_str,46);
@@ -2234,7 +2236,7 @@ BWLDCheckTestPolicy(
     }
 
     tinfo->node = node;
-    memcpy(tinfo->sid,sid,sizeof(sid));
+    memcpy(tinfo->sid,sid,sizeof(BWLSID));
 
     /* VALIDATE THE REQUEST! */
 

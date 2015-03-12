@@ -31,7 +31,7 @@ libbwlib_a_SOURCES	= api.c capi.c sapi.c context.c error.c bwlibP.h \
 # add parent
 libbwlib_a_CFLAGS	= -I..
 
-TOOL_SOURCES		= tools.c ping.c traceroute.c tracepath.c owamp.c paris-traceroute.c
+TOOL_SOURCES		= tools.c iperf3.c ping.c traceroute.c tracepath.c owamp.c paris-traceroute.c
 
 if TOOL_THRULAY
 TOOL_SOURCES		+= thrulay.c
@@ -39,10 +39,6 @@ endif
 
 if TOOL_IPERF
 TOOL_SOURCES		+= iperf.c
-endif
-
-if TOOL_IPERF3
-TOOL_SOURCES		+= iperf3.c
 endif
 
 if TOOL_NUTTCP

@@ -85,11 +85,14 @@
 #endif
 
 #ifndef MIN
-#define MIN(a,b) ((a<b)?a:b)
+#define MIN(a,b) (((a)<(b))?(a):(b))
 #endif
 #ifndef MAX
-#define MAX(a,b) ((a>b)?a:b)
+#define MAX(a,b) (((a)>(b))?(a):(b))
 #endif
+
+/* A sentinel pointer which is different to NULL */
+#define NOTNULL ((void*)1L)
 
 /*
  * Filename/path component macros used by various parts of bwlib.
@@ -170,12 +173,12 @@ typedef uint64_t BWLNum64;
  * type is changed from an uint64_t to some kind of structure.
  *
  */
-#define BWLNum64Diff(x,y)    ((x>y) ? (x-y) : (y-x))
-#define BWLNum64Add(x,y)    (x+y)
-#define BWLNum64Sub(x,y)    (x-y)
-#define BWLNum64Cmp(x,y)    ((x<y) ? -1 : ((x>y) ? 1 : 0))
-#define BWLNum64Min(x,y)    ((x<y) ? x : y)
-#define BWLNum64Max(x,y)    ((x>y) ? x : y)
+#define BWLNum64Diff(x,y)   (((x)>(y)) ? ((x)-(y)) : ((y)-(x)))
+#define BWLNum64Add(x,y)    ((x)+(y))
+#define BWLNum64Sub(x,y)    ((x)-(y))
+#define BWLNum64Cmp(x,y)    (((x)<(y)) ? -1 : (((x)>(y)) ? 1 : 0))
+#define BWLNum64Min(x,y)    (((x)<(y)) ? (x) : (y))
+#define BWLNum64Max(x,y)    (((x)>(y)) ? (x) : (y))
 
 extern BWLNum64
 BWLNum64Mult(
@@ -1222,9 +1225,21 @@ BWLToolGetNameByID(
         BWLToolType id
         );
 
+extern BWLTestType
+BWLToolGetTestTypesByID(
+        BWLContext  ctx,
+        BWLToolType tool_id
+        );
+
 extern const char *
 BWLToolGetNameByIndex(
         BWLContext  ctx,
+        uint32_t    i
+        );
+
+extern BWLTestType
+BWLToolGetTestTypesByIndex(
+        BWLContext ctx,
         uint32_t    i
         );
 
@@ -1258,6 +1273,13 @@ BWLToolInitTest(
         BWLContext  ctx,
         BWLToolType tool_id,
         uint16_t    *toolport
+        );
+
+extern int
+save_path(
+        BWLContext  ctx,
+        const char  *key,
+        const char  *val
         );
 
 /*
@@ -1572,6 +1594,13 @@ BWLBoolean
 BWLToolSupportsEndpointlessTestsByID(
         BWLContext  ctx,
         BWLToolType tool_id
+        );
+
+int
+BWLToolGenericFillCPUAffinityCommand(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        char **cmdline
         );
 
 BWLNum64 BWLTimestampToNum64(time_t ts);

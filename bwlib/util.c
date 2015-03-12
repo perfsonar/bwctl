@@ -480,8 +480,6 @@ BWLDiscoverSourceAddr(
             }
 
             for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-                size_t addrlen;
-
                 if (strcmp(ifa->ifa_name, local_interface) != 0)
                     continue;
     
@@ -570,7 +568,7 @@ BWLAddrIsLoopback(
     socklen_t       saddrlen;
     BWLBoolean      retval;
 
-    if(saddr = I2AddrSAddr(addr,&saddrlen)){
+    if((saddr = I2AddrSAddr(addr,&saddrlen))){
         if (I2SockAddrIsLoopback(saddr, saddrlen)) {
             retval = True;
         }
@@ -578,7 +576,7 @@ BWLAddrIsLoopback(
             retval = False;
         }
     }
-    else if (sai = I2AddrAddrInfo(addr, NULL, NULL)) {
+    else if ((sai = I2AddrAddrInfo(addr, NULL, NULL))) {
         retval = True;
 
         while(sai != NULL) {
@@ -664,4 +662,47 @@ BWLSockaddrCompare(
     }
 
     return False;
+}
+
+BWLBoolean
+BWLParseCPUAffinityString(
+        const char *cpu_affinity
+        ) {
+    int i;
+    BWLBoolean retval = True;
+    BWLBoolean next_number = False;
+
+    if (strlen(cpu_affinity) == 0) {
+        retval = False;
+    }
+
+    for(i = 0; i < strlen(cpu_affinity); i++) {
+        switch (cpu_affinity[i]) {
+            case '-':
+            case ',':
+                if (next_number)
+                    retval = False;
+
+                next_number = True;
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                if (next_number)
+                    next_number = False;
+                break;
+
+            default:
+                retval = False;
+                break;
+        }
+    }
+
+    return retval;
 }

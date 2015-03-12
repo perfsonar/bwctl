@@ -60,8 +60,7 @@
  * Function:	BWLNum64Mult
  *
  * Description:	
- *	Multiplication. Allows overflow. Straightforward implementation
- *	of Knuth vol.2 Algorithm 4.3.1.M (p.268)
+ *	Multiplication. Allows overflow.
  *
  * In Args:	
  *
@@ -77,40 +76,17 @@ BWLNum64Mult(
         BWLNum64	y
         )
 {
-    unsigned long w[4];
-    uint64_t xdec[2];
-    uint64_t ydec[2];
+    uint64_t xlo, xhi, ylo, yhi;
 
-    int i, j;
-    uint64_t k, t;
-    BWLNum64 ret;
+    xlo = MASK32(x);
+    xhi = MASK32(x>>32);
+    ylo = MASK32(y);
+    yhi = MASK32(y>>32);
 
-    xdec[0] = MASK32(x);
-    xdec[1] = MASK32(x>>32);
-    ydec[0] = MASK32(y);
-    ydec[1] = MASK32(y>>32);
-
-    for (j = 0; j < 4; j++)
-        w[j] = 0; 
-
-    for (j = 0;  j < 2; j++) {
-        k = 0;
-        for (i = 0; ; ) {
-            t = k + (xdec[i]*ydec[j]) + w[i + j];
-            w[i + j] = (uint32_t)MASK32(t%EXP2POW32);
-            k = t/EXP2POW32;
-            if (++i < 2)
-                continue;
-            else {
-                w[j + 2] = (uint32_t)MASK32(k);
-                break;
-            }
-        }
-    }
-
-    ret = w[2];
-    ret <<= 32;
-    return w[1] + ret;
+    return ((xlo*ylo)>>32)
+         +  (xhi*ylo)
+         +  (xlo*yhi)
+         + ((xhi*yhi)<<32);
 }
 
 /************************************************************************

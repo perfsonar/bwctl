@@ -41,14 +41,14 @@
 # limitations under the License.
 #
 PACKAGE=bwctl
-VERSION="1.5.2"
+VERSION="1.5.3"
 
-AC_INIT(bwctl, 1.5.2, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.5.3, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.5.2, [no-define])
+AM_INIT_AUTOMAKE(bwctl, 1.5.3, [no-define])
 
-AC_DEFINE(PATCH_LEVEL, 10, "The RPM version number")
-AC_SUBST(PATCH_LEVEL, 10)
+AC_DEFINE(PATCH_LEVEL, 1, "The RPM version number")
+AC_SUBST(PATCH_LEVEL, 1)
 
 AC_CONFIG_SRCDIR(bwlib/context.c)
 AM_CONFIG_HEADER(bwlib/config.h)
@@ -234,68 +234,6 @@ if test "$tool_ok" = "yes"; then
     do_iperf=true
 fi
 AM_CONDITIONAL(TOOL_IPERF, test x$do_iperf = xtrue)
-
-# --with-iperf3:
-# If not specified, or is 'yes' then:
-#       build with local-dir if available
-#       use installed otherwise (depends on CFLAGS/LDFLAGS env set correctly)
-# If <path> specified, then that <path> must point to an already installed
-# prefix style tree (and include/lib subdir is assumed and used to set
-# LDFLAGS/CFLAGS
-#
-AC_ARG_WITH(iperf3,
-            AC_HELP_STRING([--with-iperf3=<path>],
-                           [defaults to using sub-dir if avail, otherwise installed. If <path> specified, attempts to use that.]),
-                           with_iperf3=$withval, with_iperf3="")
-if test -z "$with_iperf3"; then
-    if test -d iperf3; then
-        with_iperf3="yes"
-    else
-        AC_CHECK_HEADERS([iperf_api.h], with_iperf3="yes", with_iperf3="", [AC_INCLUDES_DEFAULT])
-	AC_SEARCH_LIBS([iperf_init_test],iperf, with_iperf3="yes", with_iperf3="")
-    fi
-fi
-
-if test "$with_iperf3" = "no" -o -z "$with_iperf3"; then
-	AC_MSG_WARN([Disabling iperf3 support])
-	do_iperf3=false
-else
-	if test "$with_iperf3" = "yes" -a -d iperf3; then
-	    # Use local iperf3? - just setup LDFLAGS/CFLAGS so libtool can find
-	    # it from the Makefile.am during build.
-	    AC_MSG_WARN([Using local iperf3])
-	    AC_CONFIG_SUBDIRS(iperf3)
-	    TOP_BUILD_DIRS="iperf3 $TOP_BUILD_DIRS"
-	    iperf3_dir="`pwd`/iperf3"
-	    LDFLAGS="-L$iperf3_dir/src $LDFLAGS"
-	    CFLAGS="-I$iperf3_dir/src $CFLAGS"
-	else
-	    # else - libiperf3 must already be built. If <path>, then add to
-	    # LDFLAGS/CFLAGS - but ultimately, AC_SEARCH_LIBS and AC_CHECK_HEADERS
-	    # must succeed.
-	    if test -n "$with_iperf3" -a -d "$with_iperf3"; then
-	        iperf3_dir=`dirname $with_iperf3`
-	        case $iperf3_dir in
-	            /*) ;; # already an absolute path
-	            *) iperf3_dir="`pwd`/$iperf3_dir" ;;
-	        esac
-	        LDFLAGS="-L$iperf3_dir/src $LDFLAGS"
-	        CFLAGS="-I$iperf3_dir/src $CFLAGS"
-	    fi
-	    AC_SEARCH_LIBS([iperf_init_test],iperf, ,AC_MSG_ERROR([Couldn't find iperf3 library]))
-	    use_sys_iperf3="true"
-	    AC_DEFINE(USE_SYS_IPERF3, 1, [Use system installed iperf3 library])
-	fi
-
-	AC_CHECK_LIB(iperf, iperf_set_test_bind_address, ,AC_MSG_ERROR([iperf3 too old. bwctl requires iperf3 version >= 3.0.6]))
-
-	AC_CHECK_HEADERS([iperf_api.h], ,AC_MSG_ERROR([Couldn't find iperf3 header file]), [AC_INCLUDES_DEFAULT])
-	do_iperf3=true
-	AC_DEFINE(TOOL_IPERF3, 1, [IPERF3 throughput tool via libiperf])
-fi
-
-AM_CONDITIONAL(USE_SYS_IPERF3, test x$use_sys_iperf3 = xtrue)
-AM_CONDITIONAL(TOOL_IPERF3, test x$do_iperf3 = xtrue)
 
 AC_ARG_ENABLE(nuttcp,
               AC_HELP_STRING([--enable-nuttcp], [- NUTTCP throughput tool]),

@@ -55,6 +55,9 @@
  */
 #include <bwlib/bwlibP.h>
 #include <assert.h>
+#include <signal.h>
+
+static BWLBoolean _TasksetAvailable(BWLContext ctx);
 
 static BWLToolDefinitionRec BWLToolNone = {
     "",
@@ -67,6 +70,8 @@ static BWLToolDefinitionRec BWLToolNone = {
     NULL,
     NULL
 };
+
+static taskset_available = True;
 
 /* autoconf seletion of tools here... */
 
@@ -82,11 +87,7 @@ extern BWLToolDefinitionRec BWLToolIperf;
 #define BWLToolIperf    BWLToolNone
 #endif
 
-#ifdef  TOOL_IPERF3
 extern BWLToolDefinitionRec BWLToolIperf3;
-#else
-#define BWLToolIperf3    BWLToolNone
-#endif
 
 #ifdef  TOOL_NUTTCP
 extern BWLToolDefinitionRec BWLToolNuttcp;
@@ -212,7 +213,7 @@ BWLToolGetTestTypesByID(
         }
     }
 
-    return BWL_DATA_UNKNOWN;
+    return BWL_TEST_UNDEFINED;
 }
 
 
@@ -483,8 +484,11 @@ _BWLToolLookForTesters(
         return BWLErrFATAL;
     }
 
+    taskset_available = _TasksetAvailable(ctx);
+
     BWLError(ctx,BWLErrDEBUG,BWLErrUNKNOWN,
             "Available tools: %s", BWLToolGetToolNames(ctx,ctx->tool_avail));
+
     return BWLErrOK;
 }
 
@@ -607,7 +611,7 @@ save_path(
     }
 
     strcpy(optname,"V.");
-    strncat(optname,key,sizeof(optname));
+    strncat(optname,key,sizeof(optname) - strlen(optname) - 1);
     if(BWLContextConfigSet(ctx,optname,str)){
         return 1;
     }
@@ -637,7 +641,7 @@ save_ports(
     *ports = *portrangerec;
 
     strcpy(optname,"V.");
-    strncat(optname,key,sizeof(optname));
+    strncat(optname,key,sizeof(optname) - strlen(optname) - 1);
     if(BWLContextConfigSet(ctx,optname,ports)){
         return 1;
     }
@@ -696,6 +700,30 @@ _BWLToolGenericParse(
     if(!strncasecmp(key,confkey,strlen(confkey))){
         // don't save it, but acknowledge the variable
         return 1;
+    }
+
+    snprintf(confkey, sizeof(confkey) - 1, "%s_cpu_affinity", tool->name);
+    if(!strncasecmp(key,confkey,strlen(confkey))){
+        if (!BWLParseCPUAffinityString(val)) {
+            BWLError(ctx,BWLErrFATAL,errno,
+                    "BWLToolGenericParse: %s: \'%s\' - invalid cpu affinity string",
+                    confkey,val);
+            return -1;
+        }
+
+        return save_path(ctx,key,val);
+    }
+
+    snprintf(confkey, sizeof(confkey) - 1, "test_cpu_affinity");
+    if(!strncasecmp(key,confkey,strlen(confkey))){
+        if (!BWLParseCPUAffinityString(val)) {
+            BWLError(ctx,BWLErrFATAL,errno,
+                    "BWLToolGenericParse: %s: \'%s\' - invalid cpu affinity string",
+                    confkey,val);
+            return -1;
+        }
+
+        return save_path(ctx,key,val);
     }
 
     snprintf(confkey, sizeof(confkey) - 1, "test_port");
@@ -931,4 +959,68 @@ _BWLToolGenericKillTest(
     else {
         return False;
     }
+}
+
+static BWLBoolean
+_TasksetAvailable(
+        BWLContext          ctx
+        )
+{
+    int             len;
+    char            *cmd;
+    char            buf[1024];
+    int             n;
+
+    /*
+     * Fetch 'tool' name
+     */
+    if( !(cmd = (char *)BWLContextConfigGetV(ctx,"V.taskset_cmd"))){
+        cmd = "taskset";
+    }
+
+    n = ExecCommand(ctx, buf, sizeof(buf), cmd, "-h", NULL);
+    if(n == 0) {
+        return True;
+   }
+
+   BWLError(ctx,BWLErrWARNING,BWLErrUNKNOWN,
+        "_TasksetAvailable(): Unable to find 'taskset' command. Setting the CPU affinity will not be supported");
+
+   return False;
+}
+
+int
+BWLToolGenericFillCPUAffinityCommand(
+        BWLContext          ctx,
+        BWLToolDefinition   tool,
+        char **cmdline
+        )
+{
+    char confkey[1024];
+    char *cmd, *cpu_affinity;
+    int i;
+
+    if (!taskset_available)
+        return 0;
+
+    snprintf(confkey, sizeof(confkey) - 1, "V.%s_cpu_affinity", tool->name);
+    cpu_affinity = (char*)BWLContextConfigGetV(ctx,confkey);
+    if (!cpu_affinity) {
+        cpu_affinity = (char*)BWLContextConfigGetV(ctx,"V.test_cpu_affinity");
+    }
+
+    if (!cpu_affinity)
+        return 0;
+
+    if( !(cmd = (char *)BWLContextConfigGetV(ctx,"V.taskset_cmd"))){
+        cmd = "taskset";
+    }
+
+    i = 0;
+
+    cmdline[i++] = cmd;
+    cmdline[i++] = "-c";
+    cmdline[i++] = cpu_affinity;
+
+    return i;
 }

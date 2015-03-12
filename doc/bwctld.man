@@ -45,6 +45,8 @@ bwctld \- \fBB\fRand\fBw\fRidth \fBC\fRon\fBt\fRro\fBl\fR server.
 ] [
 .BI \-U " user"
 ] [
+.B \-v
+] [
 .B \-Z
 ]
 .SH DESCRIPTION
@@ -140,6 +142,10 @@ Specify the uid for the \fBbwctld\fR process. \fIuser\fR can
 be specified using a valid user name or by using \-uid. This option is
 only used if \fBbwctld\fR is started as root.
 .TP
+.B \-v
+Set verbose output. Messages will only go to syslog unless the \fB\-Z\fR
+option is specified.
+.TP
 .B \-Z
 Run the master \fBbwctld\fR process in the foreground. In this mode, error
 messages are printed to stderr as well as being sent to syslog. Also, normal
@@ -172,7 +178,10 @@ bwctld.conf(5) manual page. Details on configuring the policy
 is in the bwctld.limits(5) and bwctld.keys(5) manual pages.
 Information on the client is in the bwctl(1) manual page.
 For more of an overview of the full functionality and architecture see
-the \%http://e2epi.internet2.edu/bwctl/ web site.
+the \%http://software.internet2.edu/bwctl/ web site.
+.PP
+For details on \fBIperf3\fR, see the \%https://github.com/esnet/iperf
+web site.
 .PP
 For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
@@ -180,7 +189,7 @@ web site.
 For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
-For details on \fBIperf3\fR, see the \%https://code.google.com/p/iperf/
+For details on \fBOwamp\fR, see the \%http://software.internet2.edu/owamp
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science

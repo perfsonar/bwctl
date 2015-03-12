@@ -136,13 +136,11 @@ PingPreRunTest(
         BWLTestSession      tsess
         )
 {
-    char            confkey[BWL_MAX_TOOLNAME + 10];
     int             len;
     char            *cmd;
     char            *default_cmd;
     char            *cmd_variable;
     int             a = 0;
-    size_t          hlen;
     I2Addr          remote_side;
     I2Addr          local_side;
     char            addr_str[INET6_ADDRSTRLEN];
@@ -154,7 +152,7 @@ PingPreRunTest(
         (tsess->conf_client && tsess->test_spec.server_sends)) {
         // special case. We don't have to do anything, so we just fork a process
         // that waits until killed, or times out after 'duration' seconds.
-        fprintf(tsess->localfp,"bwctl: nothing to exec for ping server");
+        fprintf(tsess->localfp,"bwctl: nothing to exec for ping server\n");
         PingArgs[0] = NULL;
         return (void *)PingArgs;
     }
@@ -379,5 +377,5 @@ BWLToolDefinitionRec    BWLToolPing = {
     True,                    /* supports_server_sends */
     True,                    /* supports_endpointless */
     0,                       /* The server port to use in endpointless tests */
-    NULL,                    /* parsable format */
+    0,                       /* parsable format */
 };

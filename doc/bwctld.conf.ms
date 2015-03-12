@@ -38,7 +38,10 @@ the bwctld.limits(5) manual page.
 .RE
 .SH SEE ALSO
 bwctl(1), bwctld(8), bwctld.limits(5), bwctld.keys(5),
-and the \%http://e2epi.internet2.edu/bwctl/ web site.
+and the \%http://software.internet2.edu/bwctl/ web site.
+.PP
+For details on \fBIperf3\fR, see the \%https://github.com/esnet/iperf
+web site.
 .PP
 For details on \fBIperf\fR, see the \%http://sourceforge.net/projects/iperf
 web site.
@@ -46,7 +49,7 @@ web site.
 For details on \fBNuttcp\fR, see the \%http://www.wcisd.hpc.mil/nuttcp/Nuttcp\-HOWTO.html
 web site.
 .PP
-For details on \fBThrulay\fR, see the \%http://e2epi.internet2.edu/thrulay/
+For details on \fBOwamp\fR, see the \%http://software.internet2.edu/owamp
 web site.
 .SH ACKNOWLEDGMENTS
 This material is based in part on work supported by the National Science
