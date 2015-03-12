@@ -5,8 +5,6 @@ from bwctl.models import BWCTLError, Results
 from bwctl.exceptions import *
 from bwctl.protocol.v2.client import Client
 from bwctl.protocol.legacy.client import Client as LegacyClient
-from bwctl.protocol.coordinator.client import Client as CoordinatorClient
-from bwctl.protocol.coordinator.models import parse_coordinator_msg, build_response_msg, unparse_coordinator_msg
 
 import zmq
 
@@ -31,9 +29,9 @@ def lock_test(f):
 
     return inner
 
-class Coordinator(BwctlProcess):
+class Coordinator(object):
     def __init__(self, scheduler=Scheduler(), limits_db=None, tests_db=None,
-                 server_address='', server_port=5678, auth_key=''):
+                 coordinator_client=None):
         self.scheduler = scheduler
         self.limits_db = limits_db
         self.tests_db  = tests_db
@@ -41,76 +39,13 @@ class Coordinator(BwctlProcess):
         self.lock = threading.RLock()
         self.logger = get_logger()
 
-        self.server_address = server_address
-        self.server_port = server_port
-        self.auth_key = auth_key
-
-        self.sock = None
-        self.context = None
-
-        self.coordinator_client = CoordinatorClient(server_port=server_port,
-                                                    server_address=server_address,
-                                                    auth_key=auth_key)
+        self.coordinator_client = coordinator_client
 
         super(Coordinator, self).__init__()
 
     def __add_test_process(self, test_id=None, process=None):
         with self.lock:
             self.test_procs[test_id] = process 
-
-    def run(self):
-        self.context = zmq.Context()
-        self.sock = self.context.socket(zmq.REP)
-
-        self.sock.bind("tcp://[%s]:%d" % (self.server_address, self.server_port))
-
-        while True:
-            raw_msg = self.sock.recv_json()
-            type, msg = parse_coordinator_msg(raw_msg, self.auth_key)
-            self.handle_msg(type, msg)
-
-    def handle_msg(self, msg_type, msg):
-        status = None
-        value  = None
-
-        try:
-            if msg_type == 'get-test':
-                value = self.get_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id)
-            elif msg_type == 'get-test-results':
-                value = self.get_test_results(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id)
-            elif msg_type == 'request-test' and msg.test_id:
-                value = self.update_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id, test=msg.value)
-            elif msg_type == 'request-test':
-                value = self.request_test(requesting_address=msg.requesting_address, user=msg.user, test=msg.value)
-            elif msg_type == 'client-confirm-test':
-                self.client_confirm_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id)
-            elif msg_type == 'remote-confirm-test':
-                self.remote_confirm_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id, test=msg.value)
-            elif msg_type == 'server-confirm-test':
-                self.server_confirm_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id)
-            elif msg_type == 'finish-test':
-                self.finish_test(requesting_address=msg.requesting_address, user=msg.user, test_id=msg.test_id, results=msg.value)
-            else:
-                raise SystemProblemException("Unknown message type: %s" % msg_type)
-        except BwctlException as e:
-            status = e
-            value  = None
-        except Exception as e:
-            status = SystemProblemException(str(e))
-            value  = None
-
-        if not status:
-            status = Success()
-
-        response_msg_type = "%s-response" % msg_type
-        response_msg = build_response_msg(message_type=response_msg_type, status=status.as_bwctl_error(), value=value)
-
-        try:
-            coord_resp = unparse_coordinator_msg(response_msg, response_msg_type, self.auth_key)
-            self.sock.send_json(coord_resp)
-        except:
-            # XXX: log an error here
-            pass
 
         return
 
@@ -281,11 +216,8 @@ class Coordinator(BwctlProcess):
 
         # Only do the remote validation process if we're not going to wait for
         # the far side to post it's status.
-        print 'bwctl protocol: %s' % test.remote_endpoint.bwctl_protocol
         if test.remote_endpoint.bwctl_protocol == 1.0:
-            print 'bwctl protocol is 1.0'
             if not test.remote_endpoint.legacy_client_endpoint:
-                print 'Spawning legacy client endpoint'
                 ep_client_process = LegacyEndpointClientHandlerProcess(
                                                                      test_id=test_id,
                                                                      coordinator=self.coordinator_client,
@@ -300,7 +232,6 @@ class Coordinator(BwctlProcess):
 
                 self.server_confirm_test(test_id=test_id)
         elif not test.remote_endpoint.posts_endpoint_status:
-            print 'Spawning validation process'
             validation_process = ValidateRemoteTestProcess(
                                                          test_id=test_id,
                                                          coordinator=self.coordinator_client,
@@ -334,7 +265,6 @@ class Coordinator(BwctlProcess):
 
     @lock_test
     def remote_confirm_test(self, requesting_address=None, user=None, test_id=None, test=None):
-	print "remote_confirm_test start"
 	# XXX: We should really require that the requesting address either be
 	# the remote endpoint, or that
 
@@ -363,12 +293,10 @@ class Coordinator(BwctlProcess):
         if test.remote_endpoint.posts_endpoint_status:
             self.server_confirm_test(test_id=test_id)
 
-	print "remote_confirm_test end"
         return
 
     @lock_test
     def spawn_tool_runner(self, requesting_address=None, user=None, test_id=None):
-	print "spawn_tool_runner start"
         test = self.tests_db.get_test(test_id)
         if not test:
             raise ResourceNotFoundException("Test not found")
@@ -424,8 +352,6 @@ class Coordinator(BwctlProcess):
 
         test.change_state(status)
 
-        print 'Results: %s' % results
-
 	# Add the results to the database, and update the test status to
 	# "finished"
         self.tests_db.add_results(test_id, results)
@@ -467,7 +393,7 @@ class TestActionHandlerProcess(BwctlProcess):
             err = e
         except Exception as e:
             err = SystemProblemException(str(e))
- 
+
         if err:
             self.handle_failure(err.as_bwctl_error())
  
@@ -499,7 +425,7 @@ class ToolHandlerProcess(TestActionHandlerProcess):
 
         results = self.results_queue.get()
 
-        tool_runner.kill()
+        tool_runner.terminate()
 
         parsed_results = Results(results)
 
@@ -529,7 +455,7 @@ class LegacyEndpointClientHandlerProcess(TestActionHandlerProcess):
             # Confirm the test locally
             self.coordinator.server_confirm_test(test_id=test.id)
 
-            self.coordinator.remote_confirm_test(test_id=test.id)
+            self.coordinator.remote_confirm_test(test_id=test.id, test=test)
         except:
             if client:
                 client.close()

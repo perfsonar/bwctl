@@ -9,6 +9,7 @@ from bwctl.utils import init_logging
 from bwctl.protocol.coordinator.client import Client as CoordinatorClient
 from bwctl.config import get_config
 from bwctl.server.limits import LimitsDB
+from bwctl.server.coordinator_server import CoordinatorServer
 from bwctl.server.rest_api_server import RestApiServer
 from bwctl.server.legacy_servers import LegacyEndpointServer, LegacyBWCTLServer
 from bwctl.server.scheduler import Scheduler
@@ -48,15 +49,17 @@ class BwctlServer:
         self.tests_db  = SimpleDB()
         self.limits_db = LimitsDB()
 
-        self.coordinator = Coordinator(scheduler=self.scheduler, tests_db=self.tests_db,
-                                       limits_db=self.limits_db,
-                                       server_address=self.config['coordinator_address'],
-                                       server_port=self.config['coordinator_port'],
-                                       auth_key=self.config['coordinator_auth_key'])
-
         self.coordinator_client = CoordinatorClient(server_address=self.config['coordinator_address'],
                                                     server_port=self.config['coordinator_port'],
-                                                    auth_key=self.config['coordinator_auth_key'])
+                                                    api_key=self.config['coordinator_auth_key'])
+
+        self.coordinator = Coordinator(scheduler=self.scheduler, tests_db=self.tests_db,
+                                       limits_db=self.limits_db, coordinator_client=self.coordinator_client)
+
+        self.coordinator_server = CoordinatorServer(server_address=self.config['coordinator_address'],
+                                                    server_port=self.config['coordinator_port'],
+                                                    api_key=self.config['coordinator_auth_key'],
+                                                    coordinator=self.coordinator)
 
         self.rest_api_server = RestApiServer(coordinator=self.coordinator_client,
                                              server_address=self.config['server_address'],
@@ -73,19 +76,17 @@ class BwctlServer:
 
     def run(self):
         try:
-            for process in [ self.coordinator, self.rest_api_server, self.legacy_server, self.legacy_endpoint_server ]:
-                 self.logger.debug("Starting process")
+            for process in [ self.coordinator_server, self.rest_api_server, self.legacy_server, self.legacy_endpoint_server ]:
                  process.start()
 
             # Periodically check if processes have terminated
             process_exited = False
             while not process_exited:
-                for process in [ self.coordinator, self.rest_api_server, self.legacy_server, self.legacy_endpoint_server ]:
+                for process in [ self.coordinator_server, self.rest_api_server, self.legacy_server, self.legacy_endpoint_server ]:
                     if not process.is_alive():
                         process_exited = True
                         break
 
-                self.logger.debug("Sleeping")
                 time.sleep(5)
         except Exception as e:
             self.logger.error("Exception: %s" % e)
@@ -97,7 +98,7 @@ class BwctlServer:
             self.logger.debug("Killing REST API server")
             self.rest_api_server.terminate()
             self.logger.debug("Killing coordinator")
-            self.coordinator.terminate()
+            self.coordinator_server.terminate()
 
 def bwctld():
     """Entry point for bwctld."""

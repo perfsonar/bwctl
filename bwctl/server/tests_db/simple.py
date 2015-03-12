@@ -24,7 +24,6 @@ class SimpleDB(Base):
         return obj.__class__(obj.to_json())
 
     def lock_test(self, test_id):
-        print "Locking %s" % test_id
         if not self.test_cvs[test_id]:
             return
 
@@ -35,7 +34,6 @@ class SimpleDB(Base):
             self.locked_tests[test_id] = threading.current_thread().name
 
     def unlock_test(self, test_id):
-        print "Unocking %s" % test_id
         if not self.test_cvs[test_id]:
             return
 

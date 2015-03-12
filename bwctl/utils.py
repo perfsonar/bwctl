@@ -12,10 +12,10 @@ def timedelta_seconds(td):
 
 
 class BwctlProcess(multiprocessing.Process):
-    def kill(self):
+    def terminate(self):
         self.kill_children()
     
-        return super(BwctlProcess, self).kill()
+        return super(BwctlProcess, self).terminate()
 
     def kill_children(self):
         if not self.pid:

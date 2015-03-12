@@ -49,8 +49,7 @@ class Iperf(Base):
                     retval = True
                     break
         except Exception as e:
-            # XXX: log that we can't run it
-            print "Failure: %s" % e
+            self.logger.error("Iperf is not available: %s" % str(e))
             pass
 
         return retval

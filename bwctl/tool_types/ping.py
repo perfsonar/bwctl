@@ -43,7 +43,7 @@ class Ping(LatencyBase):
                 if p.returncode != 0:
                     raise Exception("Invalid exit code from command: %d" % p.returncode)
             except Exception as e:
-                print "Problem running %s: %s" % (" ".join(cmd_line), e)
+                self.logger.error("Ping is not available: %s" % str(e))
                 retval = False
 
         return retval

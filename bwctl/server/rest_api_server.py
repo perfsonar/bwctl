@@ -14,17 +14,25 @@ from bwctl.protocol.v2.models import *
 
 class RestApiServer(BwctlProcess):
     def __init__(self, coordinator=None, server_address='', server_port=4824, legacy_endpoint_port=None):
+        self.coordinator = coordinator
+        self.server_address = server_address
+        self.server_port = server_port
+        self.legacy_endpoint_port = legacy_endpoint_port
+
+        super(RestApiServer, self).__init__()
+
+    def run(self):
         dispatcher = cherrypy.dispatch.RoutesDispatcher()
 
-        v2_protocol_controller = V2ProtocolController(coordinator=coordinator, legacy_endpoint_port=legacy_endpoint_port)
+        v2_protocol_controller = V2ProtocolController(coordinator=self.coordinator, legacy_endpoint_port=self.legacy_endpoint_port)
         v2_protocol_controller.add_urls(dispatcher)
 
-        if server_address:
-            cherrypy.config.update({'server.bind_addr': ( server_address, server_port )})
+        if self.server_address:
+            cherrypy.config.update({'server.bind_addr': ( self.server_address, self.server_port )})
         else:
             # Default to "ipv6 any" which should encompass ipv4 addresses to.
             # If not, we'll need to rethink how this gets done.
-            cherrypy.config.update({'server.bind_addr': ( "::", server_port ) })
+            cherrypy.config.update({'server.bind_addr': ( "::", self.server_port ) })
 
         cherrypy.config.update({'engine.autoreload_on':False})
 
@@ -40,9 +48,6 @@ class RestApiServer(BwctlProcess):
             }
         })
 
-        super(RestApiServer, self).__init__()
-
-    def run(self):
         cherrypy.engine.start()
         cherrypy.engine.block()
 

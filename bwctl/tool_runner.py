@@ -7,8 +7,6 @@ from bwctl.exceptions import SystemProblemException, BwctlException, TestStartTi
 
 class ToolRunner(BwctlProcess):
     def __init__(self, test=None, results_cb=None):
-        super(ToolRunner, self).__init__()
-
         self.logger = get_logger()
 
         self.test = test
@@ -20,6 +18,8 @@ class ToolRunner(BwctlProcess):
             self.start_time = test.scheduling_parameters.reservation_start_time
 
         self.end_time = test.scheduling_parameters.reservation_end_time
+
+        super(ToolRunner, self).__init__()
 
     def run(self):
         test_results = None
