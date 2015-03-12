@@ -6,8 +6,6 @@ from bwctl.exceptions import *
 from bwctl.protocol.v2.client import Client
 from bwctl.protocol.legacy.client import Client as LegacyClient
 
-import zmq
-
 import threading
 import multiprocessing
 import datetime

@@ -438,6 +438,11 @@ def bwctl_client():
     server_endpoint = receiver_endpoint
     client_endpoint = sender_endpoint
 
+    if (server_endpoint.is_legacy and not client_endpoint.is_remote) or \
+       (client_endpoint.is_legacy and not server_endpoint.is_remote):
+       print "BWCTL cannot be used against a legacy server without running a local bwctld instance"
+       sys.exit(1)
+
     requested_tools = opts.tools.split(",")
 
     selected_tool, common_tools = select_tool(requested_tools=requested_tools,

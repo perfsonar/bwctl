@@ -19,7 +19,9 @@ Requires: python-configobj
 Requires: py-radix
 Requires: python-cherrypy
 Requires: python-routes
+Requires: python-setuptools
 Requires: python-simplejson
+Requires: uuid
 
 Requires(post):	  chkconfig
 Requires(preun):  chkconfig

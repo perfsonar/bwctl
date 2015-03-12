@@ -32,11 +32,9 @@ setup(name='bwctl',
         ],
         install_requires=[
                           'cherrypy',
-                          'hmac',
                           'configobj',
                           'psutil',
                           'simplejson',
-                          'uuid',
                          ],
         entry_points={
             'console_scripts': [

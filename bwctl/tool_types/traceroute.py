@@ -31,20 +31,20 @@ class Traceroute(Base):
     def check_available(self):
         retval = True
 
-        for cmd in [ "traceroute_cmd", "traceroute6_cmd" ]:
-            loopback_addr = "127.0.0.1"
-            if "6" in cmd:
-                loopback_addr = "::1"
+        try:
+            for cmd in [ "traceroute_cmd", "traceroute6_cmd" ]:
+                loopback_addr = "127.0.0.1"
+                if "6" in cmd:
+                    loopback_addr = "::1"
 
-            cmd_line = [ self.get_config_item(cmd), loopback_addr ]
-            try:
+                cmd_line = [ self.get_config_item(cmd), loopback_addr ]
                 p = Popen(cmd_line, stdout=PIPE, stderr=PIPE)
                 (stdout, stderr) = p.communicate()
                 if p.returncode != 0:
                     raise Exception("Invalid exit code from command: %d" % p.returncode)
-            except Exception as e:
-                self.logger.error("Traceroute is not available: %s" % str(e))
-                retval = False
+        except Exception as e:
+            self.logger.error("Traceroute is not available: %s" % str(e))
+            retval = False
 
         return retval
 

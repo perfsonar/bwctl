@@ -27,16 +27,16 @@ class Owamp(LatencyBase):
     def check_available(self):
         retval = True
 
-        for cmd in [ "owping_cmd", "owampd_cmd" ]:
-            cmd_line = [ self.get_config_item(cmd), "-h" ]
-            try:
+        try:
+            for cmd in [ "owping_cmd", "owampd_cmd" ]:
+                cmd_line = [ self.get_config_item(cmd), "-h" ]
                 p = Popen(cmd_line, stdout=PIPE, stderr=PIPE)
                 (stdout, stderr) = p.communicate()
                 if p.returncode != 0:
                     raise Exception("Invalid exit code from command: %d" % p.returncode)
-            except Exception as e:
-                self.logger.error("OWAMP is not available: %s" % str(e))
-                retval = False
+        except Exception as e:
+            self.logger.error("OWAMP is not available: %s" % str(e))
+            retval = False
 
         return retval
 
