@@ -1,0 +1,2 @@
+recursive-include init_scripts *
+recursive-include etc *
