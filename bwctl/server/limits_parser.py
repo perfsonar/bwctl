@@ -14,6 +14,7 @@ class LimitsParser(object):
     Main class
     '''
     def __init__(self, limits_file_path):
+        self.pattern_get_assigns = 'assign.*\n'
         self.limits_as_string = ""                
         self.limits_counter = 0 #Used for testing
         self.assign_counter = 0
@@ -34,18 +35,49 @@ class LimitsParser(object):
                
     def parse(self):
         self.parse_limits()
-	self.parse_assign()
-    
+        self.parse_assign()
+            
     def get_num_of_limit_classes(self):
         return len(self.limit_classes)
     def get_limits_counter(self):
         return self.limits_counter
+    def parse_assign(self):
+        assigns = re.findall(self.pattern_get_assigns, self.limits_as_string)
+        self.assign_counter = len(assigns)
+        for assign in assigns:
+            match = re.search(r'assign\s+(\w+)\s+(\S+)\s*(\S*)\s*', assign, re.DOTALL)            
+            if match:
+                elements = match.groups()
+                parent = elements[2] if elements[2] != '' else elements[1]
+                assign_type = elements[0]
+                assign_value = elements[1] if elements[2] != '' else ""
+                parent = parent.replace('"', '')
+                if parent in self.limit_classes: #found class
+                    if not assign_type in self.limit_classes[parent]['ASSIGN']: # check if assign type exist
+                        self.limit_classes[parent]['ASSIGN'] = { assign_type : [assign_value] } # Make new  assign entry
+                    else:
+                        self.limit_classes[parent]['ASSIGN'][assign_type].append(assign_value)
+                    self.assign_counter = self.assign_counter + 1
+                else:
+                    raise Exception("Class name: %s not exist. Please check your limits file." % parent)
+    
     def get_value_by_pattern(self, pattern,string):
         match = re.search(pattern, string)
         if match:
             return match.group(1)
         else:
             return None
+    def get_limits_classes(self):
+        '''
+        Returns the limit file as a python dict after parsing.
+        The structure is as follow:
+        dict{CLASSNAME}
+                    {LIMITTYPES] include all limittypes as list
+                    {ASSIGN} include all assign types. Each type has his values as list
+                    {PARENT} if class name is parent it includes None otherwise it includes: parent=CLASSNAME
+        '''
+        return self.limit_classes
+        
 
 class LimitsFileParser(LimitsParser):
     '''
@@ -57,7 +89,6 @@ class LimitsFileParser(LimitsParser):
     def __init__(self, limits_file_path=""):
         self.pattern_get_limits = '^limit \w+ with.*\n(?:\s+\w+.*\n){0,}'
         self.pattern_limit_is_child = 'parent=(\w+)'
-        self.pattern_get_assigns = 'assign.*\n'
 	super(LimitsFileParser, self).__init__(limits_file_path)
         self.limit_types_syntax = { "allow_open_mode" : ["on","off"],
                                    "allow_tcp": ["on","off"],
@@ -74,6 +105,8 @@ class LimitsFileParser(LimitsParser):
         
     def parse_limits(self):
         limits = re.findall(self.pattern_get_limits, self.limits_as_string, re.M)
+        if len(limits) < 1:
+            raise Exception("No Limits defined in format 1.x ")
         limit_classes = {}
         self.limits_counter = len(limits)
         for limit in limits:
@@ -92,22 +125,7 @@ class LimitsFileParser(LimitsParser):
         
         self.limit_classes = limit_classes.copy()
                 
-    def parse_assign(self):
-	assigns = re.findall(self.pattern_get_assigns, self.limits_as_string)
-	self.assign_counter = len(assigns)
-	for assign in assigns:
-	    match = re.search(r'assign (\w+) (\S+) (\w+)\n', assign, re.DOTALL)
-	    if match:
-	        if match.group(3) in self.limit_classes: #found class
-		    if not match.group(1) in self.limit_classes[match.group(3)]['ASSIGN']: # check if assign type exist
-		        self.limit_classes[match.group(3)]['ASSIGN'] = { match.group(1) : [match.group(2)] } # Make new  assign entry
-			self.assign_counter = self.assign_counter + 1
-		    else:
-		         self.limit_classes[match.group(3)]['ASSIGN'][match.group(1)].append(match.group(2))
-	
-	    	
-	
-	
+    
     def limit_types_syntax_check(self, limit_type):
         '''
         Checks if types are correct in limits file.
@@ -168,19 +186,7 @@ class LimitsFileParser(LimitsParser):
         else:
             raise Exception('Please define a limit class name!')
         
-    def get_limits_classes(self):
-        '''
-        Returns the limit file as a python dict after parsing.
-        The structure is as follow:
-        dict{CLASSNAME}
-                    {LIMITTYPES] include all limittypes as list
-                    {ASSIGN} include all assign types. Each type has his values as list
-                    {PARENT} if class name is parent it includes None otherwise it includes: parent=CLASSNAME
-        '''
-        return self.limit_classes
-        
-
-            
+    
 class LimitFileParserV2(LimitsParser):
     '''
     This class parsers limits files built on version 2 syntaxt. The limits file has the form like example below:
@@ -217,6 +223,8 @@ class LimitFileParserV2(LimitsParser):
     def parse_limits(self):
         self.limits_as_string = re.sub('#.*\\n',"",self.limits_as_string) #remove all comments first
         limits = re.findall(self.pattern_get_limits, self.limits_as_string, re.M)
+        if len(limits) < 1:
+            raise Exception("No Limits defined in format 2.x ")
         self.limits_counter = len(limits) 
         for limit in limits:
             class_name = self.get_class_names(limit)
@@ -225,19 +233,17 @@ class LimitFileParserV2(LimitsParser):
                 all_sub_limits = re.findall(r'<.*limits.*>(?:\s*\w*\s*\w*\s*){0,}.*\s*</.*limits>', limit,re.M)
                 self.limit_classes[class_name] = {}
                 self.limit_classes[class_name]['PARENT'] = parent
-                self.limit_classes[class_name]['LIMIT_TYPES'] = {}
-                self.limit_classes[class_name]['LIMIT_TYPES'] = self.get_limits_types(all_sub_limits)
-                
-        print self.limit_classes
-
-    def parse_assign(self):
-        pass
+                self.limit_classes[class_name]['LIMITTYPES'] = {}
+                self.limit_classes[class_name]['ASSIGN'] = {}
+                self.limit_classes[class_name]['LIMITTYPES'] = self.get_limits_types(all_sub_limits)
+        
+        
     
     def get_class_names(self, limit):
         class_name = self.get_value_by_pattern(r'<class (\S+)>', limit)
         return class_name.replace('"','') if class_name else class_name
     def get_class_parent(self, limit):
-        return self.get_value_by_pattern(r'parent.* (\S+).*\s*', limit)
+        return self.get_value_by_pattern(r'parent.* \"(\w+)\".*\s*', limit)
     def get_limits_types(self, sub_limits):
         limits = {}
         for sub_limit in sub_limits:
@@ -279,27 +285,42 @@ class LimitsDBfromFileCreator(object):
         self.limits_file_path = limits_file_path
         self.limits_classes = {}
     def create(self):
-        lfp = LimitsFileParser(self.limits_file_path)
-        lfp.parse()
+        '''
+        Try to create first limits db from legacy file. If it fails it tries to 
+        to crate with version 2  format limits file format parser.
+        '''
+        lfp = None
+        try:
+            lfp = LimitsFileParser(self.limits_file_path)
+            lfp.parse()
+        except Exception:
+            lfp = LimitFileParserV2(self.limits_file_path)
+            lfp.parse()
+
+        
         self.limits_classes = lfp.get_limits_classes()
         self.create_limitsdb()
     def create_limitsdb(self):
         limit_classes = self.limits_classes
+        success_class_name = []
         for class_name in limit_classes:
-            if not limit_classes[class_name]['PARENT']:   #create first parents
-                self.limits_db.create_limit_class(class_name)
-                self.add_all_class_elements(limit_classes, class_name)                
-        # Now adding all child classes
-        for class_name in limit_classes:
-            if limit_classes[class_name]['PARENT']:   #create first parents
-                parentname = limit_classes[class_name]['PARENT']  #create first parents
+            success = True            
+            parentname = limit_classes[class_name]['PARENT']  #create first parents
+            print "Creating limit class: %s with parent: %s" % (class_name,parentname)
+            try:
                 self.limits_db.create_limit_class(class_name, parent=parentname)
-                self.add_all_class_elements(limit_classes, class_name)                              
-    
+            except Exception:
+                success = False
+            if success:                
+                self.add_all_class_elements(limit_classes, class_name)
+                success_class_name.append(class_name)
+        for del_class_name in success_class_name:
+            del(limit_classes[del_class_name])              
+        
     def add_all_class_elements(self, limit_classes, class_name):         
         networks = []
         limit_types = limit_classes[class_name]['LIMITTYPES']
-        if 'net' in limit_classes[class_name]['ASSIGN']:
+        if 'net' or 'network' in limit_classes[class_name]['ASSIGN']:
             networks = limit_classes[class_name]['ASSIGN']['net'] 
         self.add_limits_types_to_limitsdb(class_name, limit_types)
         self.add_class_network(class_name, networks)
