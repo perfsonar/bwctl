@@ -1,4 +1,4 @@
-#BWCTL
+#bwctl
 
 bwctl is a scheduling and policy daemon that wraps iperf, traceroute, owamp and
 a few other measurement tools. It works by contacting a bwctld process on the
