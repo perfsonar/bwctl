@@ -4,7 +4,7 @@ import sys
 import time
 import uuid
 
-from bwctl.utils import init_logging
+from bwctl.utils import init_logging, daemonize
 
 from bwctl.protocol.coordinator.client import Client as CoordinatorClient
 from bwctl.config import get_config
@@ -34,11 +34,10 @@ config_options = {
 
 
 class BwctlServer:
-    def __init__(self, config_file=None):
-        self.logger = get_logger()
+    def __init__(self, config=None):
+        self.config = config
 
-        self.config = get_config(command_config_options=config_options,
-                                 config_file=config_file)
+        self.logger = get_logger()
 
         # Set the tool configuration
         configure_tools(self.config)
@@ -105,19 +104,28 @@ def bwctld():
     argv = sys.argv
     oparse = optparse.OptionParser()
     oparse.add_option("-c", "--config-file", dest="config_file", default="")
+    oparse.add_option("-p", "--pid-file", dest="pid_file", default="")
+    oparse.add_option("-d", "--daemonize", action="store_true", dest="daemonize", default=False)
     oparse.add_option("-f", "--log-file", dest="log_file", default=None)
     oparse.add_option("-s", "--syslog-facility", dest="syslog_facility", default=None)
     oparse.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False)
 
     (opts, args) = oparse.parse_args(args=argv)
 
-    init_logging("bwctld", syslog_facility=opts.syslog_facility, debug=opts.verbose)
+    init_logging("bwctld", syslog_facility=opts.syslog_facility,
+                 log_file=opts.log_file, debug=opts.verbose,
+                 screen=not opts.daemonize
+                )
 
     logger = get_logger()
 
-    try:
-        bwctld = BwctlServer(config_file=opts.config_file)
-        bwctld.run()
-    except Exception, e:
-        logger.error("Problem with bwctld: %s" % e)
-        sys.exit(1)
+    config = get_config(command_config_options=config_options,
+                             config_file=opts.config_file)
+
+    if opts.daemonize:
+        daemonize(pidfile=opts.pid_file)
+
+    # Unfortunately, we need to initialize this after we daemonize so that we
+    # can create processes using multiprocess.
+    bwctld = BwctlServer(config=config)
+    bwctld.run()

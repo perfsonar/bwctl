@@ -1,10 +1,12 @@
 import logging
-import logging.handlers
+from logging.handlers import TimedRotatingFileHandler, SysLogHandler
 
 import multiprocessing
+import os
 import psutil
 from bwctl.dependencies.IPy import IP
 import socket
+import sys
 
 def timedelta_seconds(td):
     """ Returns the time difference, in floating-point seconds, of a datetime timedelta object. This is needed for Python 2.6 support."""
@@ -111,7 +113,7 @@ def discover_source_address(addr, interface=None):
 logging_name = ""
 
 def init_logging(name, screen=True, syslog_facility=None, debug=False,
-        format="%(name)s [%(process)d] %(message)s"):
+        log_file=None, format="%(name)s [%(process)d] %(message)s"):
 
     global logging_name
 
@@ -125,9 +127,16 @@ def init_logging(name, screen=True, syslog_facility=None, debug=False,
     log.setLevel(level)
 
     if syslog_facility:
-        syslog = logging.handlers.SysLogHandler("/dev/log", facility=syslog_facility)
+        syslog = SysLogHandler("/dev/log", facility=syslog_facility)
         syslog.setFormatter(logging.Formatter(format))
         log.addHandler(syslog)
+
+    if log_file:
+        log_handler = TimedRotatingFileHandler(filename=log_file,
+                                               when='D',
+                                               backupCount=7)
+        log_handler.setFormatter(logging.Formatter(format))
+        log.addHandler(log_handler)
 
     if screen:
         console = logging.StreamHandler()
@@ -138,3 +147,88 @@ def get_logger():
     global logging_name
 
     return logging.getLogger(logging_name)
+
+class LoggerIO(object):
+    """file like class which logs writes to syslog module
+    
+    This is intended to catch errant output to stdout or stderr inside daemon
+    processes and log it to syslog rather than crashing the program."""
+
+    def __init__(self):
+        self.logger = get_logger()
+
+    def write(self, buf):
+        self.logger.debug("Captured Output: " + buf)
+
+    def flush(self):
+        for handler in self.logger.handlers:
+            handler.flush()
+
+def daemonize(pidfile=None):
+    '''Forks the current process into a daemon.
+        derived from the esmond
+    '''
+
+    if pidfile:
+        # Resolve the path to an absolute
+        pidfile = os.path.abspath(pidfile)
+
+        # Create the directory path if it doesn't exist
+        piddir = os.path.dirname(pidfile)
+
+        if not os.path.exists(piddir):
+            try:
+                os.makedirs(piddir)
+            except:
+                raise Exception("PID file directory does not exist %s.  aborting." % pidfile) 
+        if not os.access(piddir, os.W_OK):
+            raise Exception("PID file directory %s is not writable.  aborting." % pidfile) 
+
+    if os.path.exists(pidfile):
+        f = open(pidfile)
+        pid = f.readline()
+        f.close()
+        pid = int(pid.strip())
+        try:
+            os.kill(pid, 0)
+        except:
+            pass
+        else:
+            raise Exception("Process still running as pid %d.  aborting." % pid) 
+
+    # Do first fork.
+    try: 
+        pid = os.fork() 
+        if pid > 0: sys.exit(0) # Exit first parent.
+    except OSError, e: 
+        sys.stderr.write("fork #1 failed: (%d) %s\n" % (e.errno, e.strerror))
+        sys.exit(1)
+        
+    # Decouple from parent environment.
+    os.chdir("/") 
+    os.umask(0) 
+    os.setsid() 
+    
+    # Do second fork.
+    try: 
+        pid = os.fork() 
+        if pid > 0: sys.exit(0) # Exit second parent.
+    except OSError, e: 
+        sys.stderr.write("fork #2 failed: (%d) %s\n" % (e.errno, e.strerror))
+        sys.exit(1)
+    
+    pid = str(os.getpid())
+
+    if pidfile:
+        f = file(pidfile,'w')
+        f.write("%s\n" % pid)
+        f.close()
+  
+    # close stdin, stdout, stderr
+    # XXX might not be 100% portable.
+    for fd in range(3):
+        os.close(fd)
+
+    sys.stdout = sys.stderr = LoggerIO()
+
+    return

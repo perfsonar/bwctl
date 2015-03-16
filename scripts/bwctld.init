@@ -1,0 +1,107 @@
+#!/bin/bash
+#
+# bwctld:	Starts the BWCTL Daemon
+#
+# chkconfig: 2345 60 20
+# description:  BWCTL is a command line client application and a scheduling and
+#               policy daemon that wraps various network measurement tools
+#               including iperf, iperf3, owamp ping and traceroute.
+# processname: /usr/sbin/bwctld
+# config: /etc/bwctld/bwctld.conf
+# config: /etc/sysconfig/bwctld
+#
+### BEGIN INIT INFO
+# Provides: bwctld
+# Default-Stop: 0 1 6
+# Short-Description: Starts the BWCTL Daemon
+# Description:  BWCTL is a command line client application and a scheduling and
+#               policy daemon that wraps various network measurement tools
+#               including iperf, iperf3, owamp ping and traceroute.
+### END INIT INFO
+
+#config_file="/etc/bwctld/bwctld.conf"
+#executable_file="/usr/bin/bwctld"
+#pidfile="/var/run/bwctld.pid"
+#logfile="/var/log/perfsonar/bwctld.log"
+#lockfile="/var/lock/subsys/bwctld"
+config_file="etc/bwctld.conf"
+executable_file="scripts/bwctld"
+pidfile="run/bwctld.pid"
+logfile="run/bwctld.log"
+lockfile="run/bwctld"
+
+# Sanity checks.
+[ -f ${config_file} ] || exit 1
+[ -x ${executable_file} ] || exit 1
+
+# Source function library.
+. /etc/init.d/functions
+
+## Source an auxiliary options file if we have one, and pick up BWCTLD_OPTIONS
+#[ -r /etc/sysconfig/bwctld ] && . /etc/sysconfig/bwctld
+
+RETVAL=0
+prog=bwctld
+
+BWCTLD_OPTIONS="-c ${config_file} -f ${logfile} -p ${pidfile} --daemonize"
+
+start () {
+    echo -n $"Starting $prog: "
+    ${executable_file} $BWCTLD_OPTIONS
+    RETVAL=$?
+    [ "$RETVAL" -eq 0 ] && success $"$prof startup" || failure $"$prof startup"
+    [ "$RETVAL" -eq 0 ] && touch $lockfile
+    echo
+    return $RETVAL
+}
+
+stop () {
+    echo -n $"Stopping $prog: "
+    killproc -p ${pidfile} $prog -2
+    RETVAL=$?
+    if [ $RETVAL -eq 0 ]; then
+       	rm -f $lockfile
+	# bwctld won't be able to remove these if it is running as
+	# a non-privileged user
+	rm -f $pidfile
+       	success $"$prog shutdown"
+    else
+       	failure $"$prog shutdown"
+    fi
+    echo
+    return $RETVAL
+}
+
+restart() {
+    stop
+    start
+}
+
+# See how we were called.
+case "$1" in
+    start)
+	[ -e $lockfile ] || start
+	RETVAL=$?
+	;;
+    stop)
+	[ ! -e $lockfile ] || stop
+	RETVAL=$?
+	;;
+    status)
+	status ${prog}
+	RETVAL=$?
+	;;
+    restart)
+	restart
+	RETVAL=$?
+	;;
+    try-restart | condrestart)
+	[ ! -e $lockfile ] || restart
+	RETVAL=$?
+	;;
+    *)
+	echo $"Usage: $0 {start|stop|status|restart}"
+	RETVAL=1
+	;;
+esac
+exit $RETVAL

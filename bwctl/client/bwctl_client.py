@@ -174,6 +174,7 @@ def initialize_endpoint(local_address=None, remote_address=None, tool_type=None,
             endpoint.initialize()
             ret_endpoint = endpoint
         except Exception as e:
+            print "Couldn't connect to server with %s protocol: %s" % (ep_type, local_address.address)
             pass
 
         if ret_endpoint:
@@ -183,6 +184,9 @@ def initialize_endpoint(local_address=None, remote_address=None, tool_type=None,
        endpoint = LocalEndpoint(address=local_ip, is_sender=is_sender, tool_type=tool_type)
        endpoint.initialize()
        return endpoint
+
+    if not ret_endpoint:
+       raise Exception("Error: couldn't connect to %s" % local_address.address)
 
     return ret_endpoint
 
@@ -1016,7 +1020,7 @@ class LegacyClientEndpoint:
            bandwidth = tool_parameters.get('bandwidth', 0),
            report_interval = int(tool_parameters.get('report_interval', 0) * 1000), # XXX: Convert to milliseconds (handle better)
            buffer_size = tool_parameters.get('buffer_size', 0),
-           omit_interval = tool_parameters.get('omit_seconds', 0),
+           omit_time = tool_parameters.get('omit_seconds', 0),
            parallel_streams = tool_parameters.get('parallel_streams', 0),
            window_size = tool_parameters.get('window_size', 0),
            is_udp = "udp" == tool_parameters.get('protocol', 'tcp'),
