@@ -67,6 +67,11 @@ do
 	    ERROR=4
 	fi
 	;;
+    cond-restart)
+        if [ $RUNNING -eq 1 ]; then
+    	    $0 stop; echo "waiting..."; sleep 10; $0 start;
+        fi
+	;;
     restart)
     	$0 stop; echo "waiting..."; sleep 10; $0 start;
 	;;
