@@ -20,6 +20,8 @@
 #
 SUBDIRS = @TOP_BUILD_DIRS@ bwlib bwctld bwctl conf doc contrib
 
+RPM_FLAGS=--define "_topdir ${PWD}" --define "_specdir ${PWD}" --define "_sourcedir ${PWD}" --define "_srcrpmdir ${PWD}" --define "_rpmdir ${PWD}" --define "_builddir ${PWD}"
+
 # uncomment this when we stop using broken automake 1.5
 # (then remove from DIST_EXTRA in subdir)
 #nobase_include_HEADERS = bwlib/bwlib.h
@@ -29,6 +31,9 @@ SUBDIRS = @TOP_BUILD_DIRS@ bwlib bwctld bwctl conf doc contrib
 #				config.status
 
 EXTRA_DIST	=		LICENSE
+
+srpm: dist
+	@rpmbuild -bs ${RPM_FLAGS} bwctl.spec
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
