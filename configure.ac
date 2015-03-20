@@ -41,11 +41,11 @@
 # limitations under the License.
 #
 PACKAGE=bwctl
-VERSION="1.5.3"
+VERSION="1.5.4"
 
-AC_INIT(bwctl, 1.5.3, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.5.4, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.5.3, [no-define])
+AM_INIT_AUTOMAKE(bwctl, 1.5.4, [no-define])
 
 AC_DEFINE(PATCH_LEVEL, 1, "The RPM version number")
 AC_SUBST(PATCH_LEVEL, 1)
