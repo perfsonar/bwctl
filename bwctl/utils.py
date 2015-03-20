@@ -113,7 +113,7 @@ def discover_source_address(addr, interface=None):
 logging_name = ""
 
 def init_logging(name, screen=True, syslog_facility=None, debug=False,
-        log_file=None, format="%(name)s [%(process)d] %(message)s"):
+        log_file=None, format="%(name)s [%(process)d] %(asctime)s %(message)s"):
 
     global logging_name
 

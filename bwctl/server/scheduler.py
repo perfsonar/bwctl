@@ -199,7 +199,7 @@ class Scheduler:
 	        # Add the new slot into the time slots list
 	        self.time_slots.insert(index + 1, new_slot)
 	    elif overlap_slots[0].start_time > reservation_start_time:
-                new_slot = TimeSlot(start_time=reservation_start_time, end_time=overlap_slots[0].start_time - 1)
+                new_slot = TimeSlot(start_time=reservation_start_time, end_time=overlap_slots[0].start_time - datetime.timedelta(microseconds=1))
 
 		# Add the new slot into the overlap list, and the time slots
 		# list
@@ -262,5 +262,4 @@ class Scheduler:
     def display_time_slots(self):
         self.logger.debug("Timeslots")
         for index, ts in enumerate(self.time_slots):
-            self.logger.debug("Slot: %s" % ts.tests)
-            self.logger.debug("%d) %s - %s: %s" % (index, ts.start_time, ts.end_time, ",".join(ts.tests)))
+            self.logger.debug("Slot %d) %s - %s: %s" % (index, ts.start_time, ts.end_time, ",".join(ts.tests)))

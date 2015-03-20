@@ -25,9 +25,9 @@ config_options = {
     "legacy_server_address": "string(default='')",
     "server_address": "string(default='')",
     "server_port": "integer(default=4824)",
+    "disable_legacy_server": "boolean(default=False)",
     "legacy_server_address": "string(default='')",
-    #"legacy_server_port": "integer(default=4823)",
-    "legacy_server_port": "integer(default=4822)",
+    "legacy_server_port": "integer(default=4823)",
     "legacy_endpoint_server_address": "string(default='')",
     "legacy_endpoint_server_port": "integer(default=6001)",
 }
@@ -48,6 +48,10 @@ class BwctlServer:
         self.tests_db  = SimpleDB()
         self.limits_db = LimitsDB()
 
+        # XXX: handle this better...
+        if self.config['disable_legacy_server']:
+            self.config['legacy_endpoint_server_port'] = 0
+
         self.coordinator_client = CoordinatorClient(server_address=self.config['coordinator_address'],
                                                     server_port=self.config['coordinator_port'],
                                                     api_key=self.config['coordinator_auth_key'])
@@ -65,39 +69,54 @@ class BwctlServer:
                                              server_port=self.config['server_port'],
                                              legacy_endpoint_port=self.config['legacy_endpoint_server_port'])
 
-        self.legacy_endpoint_server = LegacyEndpointServer(server_address=self.config['legacy_endpoint_server_address'],
-                                                           server_port=self.config['legacy_endpoint_server_port'])
+        if self.config['disable_legacy_server']:
+            self.legacy_server = None
+            self.legacy_endpoint_server = None
+        else:
+            self.legacy_server = LegacyBWCTLServer(coordinator=self.coordinator_client,
+                                                   server_address=self.config['legacy_server_address'],
+                                                   server_port=self.config['legacy_server_port'])
 
-        self.legacy_server = LegacyBWCTLServer(coordinator=self.coordinator_client,
-                                               server_address=self.config['legacy_server_address'],
-                                               server_port=self.config['legacy_server_port'])
+            self.legacy_endpoint_server = LegacyEndpointServer(server_address=self.config['legacy_endpoint_server_address'],
+                                                               server_port=self.config['legacy_endpoint_server_port'])
 
 
     def run(self):
         try:
             for process in [ self.coordinator_server, self.rest_api_server, self.legacy_server, self.legacy_endpoint_server ]:
-                 process.start()
+                if not process:
+                    continue
+
+                process.start()
+
+	    # Wait for the processes to startup so we can exit earlier if they
+	    # bomb out.
+            time.sleep(1)
 
             # Periodically check if processes have terminated
             process_exited = False
             while not process_exited:
                 for process in [ self.coordinator_server, self.rest_api_server, self.legacy_server, self.legacy_endpoint_server ]:
+                    if not process:
+                        continue
+
                     if not process.is_alive():
                         process_exited = True
                         break
+
+                if process_exited:
+                    break
 
                 time.sleep(5)
         except Exception as e:
             self.logger.error("Exception: %s" % e)
         finally:
-            self.logger.debug("Killing legacy endpoint handler")
-            self.legacy_endpoint_server.terminate()
-            self.logger.debug("Killing legacy server")
-            self.legacy_server.terminate()
-            self.logger.debug("Killing REST API server")
-            self.rest_api_server.terminate()
-            self.logger.debug("Killing coordinator")
-            self.coordinator_server.terminate()
+            self.logger.info("Exiting...")
+            for process in [ self.coordinator_server, self.rest_api_server, self.legacy_server, self.legacy_endpoint_server ]:
+                if not process:
+                    continue
+
+                process.terminate()
 
 def bwctld():
     """Entry point for bwctld."""

@@ -451,6 +451,10 @@ def bwctl_client():
        print "BWCTL cannot be used against a legacy server without running a local bwctld instance"
        sys.exit(1)
 
+    if client_endpoint.is_legacy and not server_endpoint.legacy_endpoint_port:
+       print "%s is a legacy server, but %s does not support legacy protocol" % (client_endpoint.address, server_endpoint.address)
+       sys.exit(1)
+
     tool_parameters = {}
 
     if tool_type == ToolTypes.THROUGHPUT:

@@ -527,8 +527,8 @@ class ValidateRemoteTestProcess(TestActionHandlerProcess):
                     if remote_test.status == "pending":
                         break
 
-                # Wait before retrying
-                time.sleep(0.2)
+                    # Wait before retrying
+                    time.sleep(0.2)
 
                 # Make sure we didn't timeout waiting for the test to start
                 if datetime.datetime.utcnow() > test.scheduling_parameters.reservation_start_time:
