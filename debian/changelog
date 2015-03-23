@@ -1,3 +1,8 @@
+bwctl (1.5.4-1~bpo70+1) unstable; urgency=low
+
+  * New upstream version
+  * Backport to Wheezy
+
 bwctl (1.5.3-1~bpo70+1) unstable; urgency=low
 
   * New upstream version

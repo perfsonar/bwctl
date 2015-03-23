@@ -381,7 +381,7 @@ OwampInitTest(
         max_port  = BWLPortsNext(prange);
 
         // handle the wraparound case
-        while (min_port != *toolport + 1 && max_port != min_port + 1) {
+        while (min_port != *toolport + 1 || max_port != min_port + 1) {
             *toolport = min_port;
             min_port = max_port;
             max_port = BWLPortsNext(prange);

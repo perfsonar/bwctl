@@ -2260,7 +2260,7 @@ BWLDCheckTestPolicy(
     }
  
     lim.limit = BWLDLimDuration;
-    lim.value = tspec->duration;
+    lim.value = tspec->duration + tspec->omit;
     if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
         BWLError(ctx,access_prio,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: Requested test duration denied");
@@ -2273,7 +2273,7 @@ BWLDCheckTestPolicy(
 
     /* duration */
     lim.limit = BWLDLimDuration;
-    lim.value = tspec->duration;
+    lim.value = tspec->duration + tspec->omit;
     if(!BWLDResourceDemand(node,BWLDMESGREQUEST,lim)){
         BWLError(ctx,access_prio,BWLErrPOLICY,
                 "BWLDCheckTestPolicy: Requested test duration denied");
@@ -2382,7 +2382,7 @@ reservation:
      */
     if( (ret = BWLDReservationQuery(node->policy,tinfo->sid,
                     tspec->req_time.tstamp,fuzz_time,
-                    tspec->latest_time,tspec->duration,
+                    tspec->latest_time,tspec->duration + tspec->omit,
                     BWLGetRTTBound(cntrl),
                     reservation_ret,&tool_port_loc,tspec->tool_id,
                     (tspec->server_sends?tspec->server:tspec->client),
