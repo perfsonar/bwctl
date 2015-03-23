@@ -17,23 +17,13 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #
 #Scheduling Arguments
 #-I|--test_interval <seconds>     Time between repeated bwctl tests
-#-L|--latest_time <seconds>       Latest time into an interval to allow a test to run
 #-n|--num_tests <num>             Number of tests to perform (Default: 1)
 #-R|--randomize <percent>         Randomize the start time within this percentage of the test's interval (Default: 10%)
 #--schedule <schedule>            Specify the specific times when a test should be run (e.g. --schedule 11:00,13:00,15:00)
 #--streaming                      Request the next test as soon as the current test finishes
 #
 #Test Arguments
-#-b|--bandwidth <bandwidth>       Bandwidth to use for tests (bits/sec KM) (Default: 1Mb for UDP tests, unlimited for TCP tests)
 #-D|--dscp <dscp>                 RFC 2474-style DSCP value for TOS byte
-#-i|--report_interval <seconds>   Tool reporting interval
-#-l|--buffer_size <bytes>       Size of read/write buffers
-#-O|--omit <seconds>              Omit time (currently only for iperf3)
-#-P|--parallel <num>              Number of concurrent connections
-#-S|--tos <tos>                   Type-Of-Service for outgoing packets
-#-u|--udp                         Perform a UDP test
-#-w|--window <bytes>              TCP window size (Default: system default)
-#-W|--dynamic_window <bytes>      Dynamic TCP window fallback size (Default: system default)
 #--tester_port <port>             For an endpoint-less test, use this port as the server port (Default: tool specific)
 #
 #Output Arguments
@@ -451,7 +441,8 @@ def bwctl_client():
        print "BWCTL cannot be used against a legacy server without running a local bwctld instance"
        sys.exit(1)
 
-    if client_endpoint.is_legacy and not server_endpoint.legacy_endpoint_port:
+    if client_endpoint.is_legacy and not server_endpoint.is_legacy and \
+       not server_endpoint.legacy_endpoint_port:
        print "%s is a legacy server, but %s does not support legacy protocol" % (client_endpoint.address, server_endpoint.address)
        sys.exit(1)
 

@@ -39,9 +39,9 @@ setup(name='bwctl',
         entry_points={
             'console_scripts': [
                 'bwctld = bwctl.server.bwctl_server:bwctld',
-                'bwctl = bwctl.client.bwctl_client:bwctl_client',
-                'bwping = bwctl.client.bwctl_client:bwctl_client',
-                'bwtraceroute = bwctl.client.bwctl_client:bwctl_client',
+                'bwctl2 = bwctl.client.bwctl_client:bwctl_client',
+                'bwping2 = bwctl.client.bwctl_client:bwctl_client',
+                'bwtraceroute2 = bwctl.client.bwctl_client:bwctl_client',
             ]
         },
         data_files=[

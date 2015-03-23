@@ -19,16 +19,16 @@
 #               including iperf, iperf3, owamp ping and traceroute.
 ### END INIT INFO
 
-#config_file="/etc/bwctld/bwctld.conf"
-#executable_file="/usr/bin/bwctld"
-#pidfile="/var/run/bwctld.pid"
-#logfile="/var/log/perfsonar/bwctld.log"
-#lockfile="/var/lock/subsys/bwctld"
-config_file="etc/bwctld.conf"
-executable_file="scripts/bwctld"
-pidfile="run/bwctld.pid"
-logfile="run/bwctld.log"
-lockfile="run/bwctld"
+config_file="/etc/bwctld/bwctld.conf"
+executable_file="/usr/bin/bwctld"
+pidfile="/var/run/bwctld.pid"
+logfile="/var/log/perfsonar/bwctld.log"
+lockfile="/var/lock/subsys/bwctld"
+#config_file="etc/bwctld.conf"
+#executable_file="scripts/bwctld"
+#pidfile="run/bwctld.pid"
+#logfile="run/bwctld.log"
+#lockfile="run/bwctld"
 
 # Sanity checks.
 [ -f ${config_file} ] || exit 1

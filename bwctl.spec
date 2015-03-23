@@ -69,9 +69,9 @@ install -D -m755 scripts/bwctld.init %{buildroot}/%{_initrddir}/bwctld
 
 %files client
 %defattr(-,root,root)
-%{_bindir}/bwctl
-%{_bindir}/bwping
-%{_bindir}/bwtraceroute
+%{_bindir}/bwctl2
+%{_bindir}/bwping2
+%{_bindir}/bwtraceroute2
 
 %files shared
 %defattr(-,root,root)
