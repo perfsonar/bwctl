@@ -19,9 +19,9 @@
 #               including iperf, iperf3, owamp ping and traceroute.
 ### END INIT INFO
 
-config_file="/etc/bwctld/bwctld.conf"
-executable_file="/usr/bin/bwctld"
-pidfile="/var/run/bwctld.pid"
+config_file="/etc/bwctld2/bwctld.conf"
+executable_file="/usr/bin/bwctld2"
+pidfile="/var/run/bwctld2.pid"
 logfile="/var/log/perfsonar/bwctld.log"
 lockfile="/var/lock/subsys/bwctld"
 #config_file="etc/bwctld.conf"

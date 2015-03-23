@@ -1,6 +1,6 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
-Name: bwctl
+Name: bwctl2
 Version: 2.0a1
 Release: 1%{?dist}
 Summary: Network measurement scheduler
@@ -15,8 +15,8 @@ BuildArch: noarch
 BuildRequires: python-setuptools
 
 # Make the 'bwctl' a metapackage that installs the client and server
-Requires: bwctl-client
-Requires: bwctl-server
+Requires: bwctl2-client
+Requires: bwctl2-server
 
 %description
 BWCTL is a command line client application and a scheduling and policy daemon
@@ -26,7 +26,7 @@ ping and traceroute.
 %package client
 Summary: bwctl client
 Group: Applications/Network
-Requires:   iperf, iperf3 >= 3.0.11, bwctl-shared
+Requires:   iperf, iperf3 >= 3.0.11, bwctl2-shared
 %description client
 bwctl command line tool for scheduling bandwidth measurements with a bwctl
 server.
@@ -35,7 +35,7 @@ server.
 Summary: bwctl server
 Group: Applications/Network
 Requires: chkconfig, initscripts, shadow-utils, coreutils
-Requires:   iperf, iperf3 >= 3.0.11, bwctl-shared
+Requires:   iperf, iperf3 >= 3.0.11, bwctl2-shared
 %description server
 bwctl server
 
@@ -63,7 +63,7 @@ Shared components used by the bwctl server and client RPMs
 
 %install
 %{__python} setup.py install --skip-build --root %{buildroot}
-install -D -m755 scripts/bwctld.init %{buildroot}/%{_initrddir}/bwctld
+install -D -m755 scripts/bwctld.init %{buildroot}/%{_initrddir}/bwctld2
 
 %files
 
@@ -82,10 +82,10 @@ install -D -m755 scripts/bwctld.init %{buildroot}/%{_initrddir}/bwctld
 %files server
 %defattr(-,root,root)
 %doc
-%{_bindir}/bwctld
-%config(noreplace) %{_sysconfdir}/bwctld/bwctld.conf
-#%config(noreplace) %{_sysconfdir}/bwctld/bwctld.limits
-%config(noreplace) %{_initrddir}/bwctld
+%{_bindir}/bwctld2
+%config(noreplace) %{_sysconfdir}/bwctld2/bwctld.conf
+#%config(noreplace) %{_sysconfdir}/bwctld2/bwctld.limits
+%config(noreplace) %{_initrddir}/bwctld2
 
 %post server
 if [ $1 = 0 ]; then

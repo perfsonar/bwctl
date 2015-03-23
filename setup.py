@@ -3,7 +3,7 @@
 from setuptools import setup
 import glob
 
-setup(name='bwctl',
+setup(name='bwctl2',
         version='2.0a1',
         description='BWCTL Measurement Daemon',
         author='Aaron Brown',
@@ -38,14 +38,14 @@ setup(name='bwctl',
                          ],
         entry_points={
             'console_scripts': [
-                'bwctld = bwctl.server.bwctl_server:bwctld',
+                'bwctld2 = bwctl.server.bwctl_server:bwctld',
                 'bwctl2 = bwctl.client.bwctl_client:bwctl_client',
                 'bwping2 = bwctl.client.bwctl_client:bwctl_client',
                 'bwtraceroute2 = bwctl.client.bwctl_client:bwctl_client',
             ]
         },
         data_files=[
-            ('/etc/bwctld', glob.glob('etc/*.conf')),
+            ('/etc/bwctld2', glob.glob('etc/*.conf')),
         ],
         classifiers=[
             'Development Status :: 5 - Production/Stable',

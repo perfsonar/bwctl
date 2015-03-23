@@ -1,4 +1,4 @@
-PACKAGE=bwctl
+PACKAGE=bwctl2
 VERSION=$(shell rpm -q --qf "%{VERSION}\n" --specfile ${PACKAGE}.spec)
 RELEASE=$(shell rpm -q --qf "%{RELEASE}\n" --specfile ${PACKAGE}.spec)
 
