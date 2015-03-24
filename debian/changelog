@@ -1,8 +1,9 @@
 bwctl (1.5.4-1) unstable; urgency=low
 
   * New upstream version
+  * Disabling I2util during build
 
- -- Antoine Delvaux <antoine.delvaux@dante.net>  Mon, 23 Mar 2015 15:16:02 +0000
+ -- Antoine Delvaux <antoine.delvaux@dante.net>  Tue, 24 Mar 2015 12:08:04 +0000
 
 bwctl (1.5.3-1) unstable; urgency=low
 
