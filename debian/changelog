@@ -2,8 +2,9 @@ bwctl (1.5.4-1~bpo70+1) unstable; urgency=low
 
   * New upstream version
   * Backport to Wheezy
+  * Disabling I2util build
 
- -- Antoine Delvaux <antoine.delvaux@dante.net>  Mon, 23 Mar 2015 15:43:16 +0000
+ -- Antoine Delvaux <antoine.delvaux@dante.net>  Tue, 24 Mar 2015 12:09:18 +0000
 
 bwctl (1.5.3-1~bpo70+1) unstable; urgency=low
 
