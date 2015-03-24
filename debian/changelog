@@ -1,3 +1,9 @@
+bwctl (1.5.5-1) unstable; urgency=low
+
+  * New upstream version
+
+ -- Antoine Delvaux <antoine.delvaux@dante.net>  Tue, 24 Mar 2015 19:38:51 +0000
+
 bwctl (1.5.4-1) unstable; urgency=low
 
   * New upstream version
