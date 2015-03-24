@@ -8,6 +8,8 @@
 # processname: bwctld 
 #
 
+# Source function library.
+. /etc/init.d/functions
 
 BWCTLDBINDIR=/usr/bin
 CONFDIR=/etc/bwctld
@@ -74,6 +76,9 @@ do
 	;;
     restart)
     	$0 stop; echo "waiting..."; sleep 10; $0 start;
+	;;
+    status)
+    	status -p ${PIDFILE} -b "${BWCTLDBINDIR}/bwctld"
 	;;
 #	if [ $RUNNING -eq 0 ]; then
 #	    echo "$0 $ARG: bwctld not running, trying to start"
