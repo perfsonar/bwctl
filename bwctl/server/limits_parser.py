@@ -9,6 +9,9 @@ from bwctl.server.limits import *
 from difflib import Match
 from __builtin__ import len
 
+# AB: Long term, the V1 format is going away. I think it'd make more sense to
+# completely separate the V1 and V2 parsing even if there are some happenstance
+# similarities in the formats. 
 class LimitsParser(object):
     '''
     Main class
@@ -32,7 +35,7 @@ class LimitsParser(object):
         except IOError as e:
             print "Cannot open limits file: " + limit_file
             raise()       
-               
+
     def parse(self):
         self.parse_limits()
         self.parse_assign()
@@ -147,6 +150,7 @@ class LimitsFileParser(LimitsParser):
                 retval = 1
         elif "int" in value:
             # We can have values 50m
+            # AB: this doesn't seem to handle the "50m" case noted above
             match =  re.search(r'(\d+)\S*', limit_type_value)
             if type(int(match.group(1))) == type(1):
                 retval = 1
@@ -171,6 +175,8 @@ class LimitsFileParser(LimitsParser):
         return None
     
 
+    # AB: is there a reason to return a number instead of just returning the
+    # limits themselves, and having the caller do "len"?
     def get_num_of_limit_assigns(self, class_name):
 	return len(self.limit_classes[class_name]['ASSIGN']['net']) # at the moment it returns only net entries
 
@@ -186,7 +192,7 @@ class LimitsFileParser(LimitsParser):
         else:
             raise Exception('Please define a limit class name!')
         
-    
+
 class LimitFileParserV2(LimitsParser):
     '''
     This class parsers limits files built on version 2 syntaxt. The limits file has the form like example below:
@@ -274,6 +280,14 @@ class LimitFileParserV2(LimitsParser):
                     
 
 
+# AB: Could the parser be integrated into the LimitsDB file as a static method
+# that returns a LimitsDB?
+#  e.g.
+#
+#  @staticmethod
+#  def parse_file(cls, file_path):
+#     parse the files into a LimitsDB object
+#     return creates LimitsDB file
 class LimitsDBfromFileCreator(object):
     '''
     This class creates a limits DB from the dict which is created with the limits file parser class. 
@@ -289,6 +303,11 @@ class LimitsDBfromFileCreator(object):
         Try to create first limits db from legacy file. If it fails it tries to 
         to crate with version 2  format limits file format parser.
         '''
+	# AB: I'm not sure it makes sense to support the v1 parsing as anything
+	# more than an upgrade script, so it may make more sense to axe the v1
+	# parsing in here, and only support creating a limits db from v2. We'd
+	# include an "upgrade_limits.py" script that would convert the v1
+	# limits into a v2 limits file.
         lfp = None
         try:
             lfp = LimitsFileParser(self.limits_file_path)
@@ -310,6 +329,8 @@ class LimitsDBfromFileCreator(object):
             try:
                 self.limits_db.create_limit_class(class_name, parent=parentname)
             except Exception:
+		# AB: why wouldn't it be able to create a limit class? Either
+		# way, should either parse it in full, or bomb out.
                 success = False
             if success:                
                 self.add_all_class_elements(limit_classes, class_name)
@@ -332,10 +353,20 @@ class LimitsDBfromFileCreator(object):
             if match:
                 limit_type_name = match.group(1)
                 limit_type_value = match.group(2)
+		# AB: I added a few more limit objects that aren't handled
+		# here. It'd probably be good to generalize the limit creation
+		# using the the 'type' class attribute should handle the below.
+		# I don't see a situation where we'll have a difference between
+		# the name of a limit in the v1 parsing and the v2 parsing.
+		# However, it might make sense to have the parsers themselves
+		# create these limit objects instead of generalizing it.
                 if "bandwidth".__eq__(limit_type_name):
                     limit_type_class = BandwidthLimit(int(limit_type_value))
                 elif"duration".__eq__(limit_type_name):
                     limit_type_class  = DurationLimit(int(limit_type_value))
+		# AB: The maximum limit isn't actually a limit, it's just a
+		# base class that gets inherited. We don't support max time
+		# error because it doesn't make sense in bwctl 2.0
                 elif "max_time_error".__eq__(limit_type_name):
                     limit_type_class = MaximumLimit(int(limit_type_value))
                 else:
@@ -343,7 +374,8 @@ class LimitsDBfromFileCreator(object):
                     
             if limit_type_class:
                 self.limits_db.add_limit(class_name, limit_type_class)
-    
+
+    # AB: We'll need an add_class_user option as well
     def add_class_network(self, class_name, networks):
         for network in networks:
             self.limits_db.add_network(network, class_name)
