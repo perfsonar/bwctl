@@ -7,8 +7,10 @@ set -e
 
 case "$1" in
     configure)
-	adduser --system --group --home /nonexistent \
-		--no-create-home --disabled-login bwctl
+        if ! getent passwd bwctl >/dev/null; then
+            adduser --system --group --home /etc/bwctl \
+                    --no-create-home --disabled-login bwctl
+        fi
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

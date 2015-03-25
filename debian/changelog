@@ -1,19 +1,12 @@
-bwctl (1.5.4-1~bpo70+1) unstable; urgency=low
+bwctl (1.5.5-1~bpo70+1) UNRELEASED; urgency=low
 
   * New upstream version
   * Backport to Wheezy
   * Disabling I2util build
-
- -- Antoine Delvaux <antoine.delvaux@dante.net>  Tue, 24 Mar 2015 12:09:18 +0000
-
-bwctl (1.5.3-1~bpo70+1) unstable; urgency=low
-
-  * New upstream version
   * Start bwctl-server by default
-  * Backport to Wheezy
   * Adding gbp.conf for git-buildpackage
 
- -- Antoine Delvaux <antoine.delvaux@dante.net>  Thu, 12 Mar 2015 13:53:40 +0000
+ -- Antoine Delvaux <antoine.delvaux@dante.net>  Wed, 25 Mar 2015 14:31:08 +0000
 
 bwctl (1.5.2+dfsg1-1) unstable; urgency=medium
 
