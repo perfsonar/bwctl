@@ -2,7 +2,7 @@
 
 from os.path import dirname, realpath, sep, pardir
 import sys
-sys.path.append(dirname(realpath(__file__)) + sep + pardir)
+sys.path.insert(0, dirname(realpath(__file__)) + sep + pardir)
 
 from bwctl.client.bwctl_client import bwctl_client
 
