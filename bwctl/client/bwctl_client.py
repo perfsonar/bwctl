@@ -44,8 +44,8 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 from bwctl.protocol.v2.client import Client
 
 from bwctl.protocol.legacy.client import Client as LegacyClient
-from bwctl.protocol.legacy.models import AcceptType
-from bwctl.protocol.legacy.models import Tools, TestRequest, Timestamp, ErrorEstimate
+from bwctl.protocol.legacy.utils import tool_name_by_id
+from bwctl.protocol.legacy.models import AcceptType, Tools, TestRequest, Timestamp, ErrorEstimate
 
 from bwctl.tools import get_tools, get_tool, ToolTypes, configure_tools, get_available_tools
 from bwctl.tool_runner import ToolRunner
@@ -164,7 +164,7 @@ def initialize_endpoint(local_address=None, remote_address=None, tool_type=None,
             endpoint.initialize()
             ret_endpoint = endpoint
         except Exception as e:
-            print "Couldn't connect to server with %s protocol: %s" % (ep_type, local_address.address)
+            print "Couldn't connect to server with %s protocol: %s: %s" % (ep_type, local_address.address, e)
             pass
 
         if ret_endpoint:
@@ -960,7 +960,7 @@ class LegacyClientEndpoint:
        available_tools = []
 
        for tool_id in server_ok.tools:
-           tool_name = self.tool_mapping(tool_id=tool_id)
+           tool_name = tool_name_by_id(tool_id)
            if tool_name:
                available_tools.append(tool_name)
 
@@ -973,79 +973,32 @@ class LegacyClientEndpoint:
        self.time_offset = timedelta_seconds(current_time - time_response.timestamp.time)
        self.server_ntp_error = time_response.error_estimate.error
 
-   def tool_mapping(self, tool_name=None, tool_id=None):
-       mappings = [
-           [ Tools.IPERF, "iperf" ],
-           [ Tools.NUTTCP, "nuttcp" ],
-           [ Tools.IPERF3, "iperf3" ],
-           [ Tools.PING, "ping" ],
-           [ Tools.OWAMP, "owamp" ],
-           [ Tools.TRACEROUTE, "traceroute" ],
-           [ Tools.TRACEPATH, "tracepath" ],
-           [ Tools.PARIS_TRACEROUTE, "paris-traceroute" ],
-       ]
-
-       if tool_name != None:
-           for mapping in mappings:
-               if mapping[1] == tool_name:
-                   return mapping[0]
-       elif tool_id != None:
-           for mapping in mappings:
-               if mapping[0] == tool_id:
-                   return mapping[1]
-
-       return None
-
    def request_test(self, requested_time=None, latest_time=None, tool="", tool_parameters={}):
-    
-       test_request = TestRequest(
-           sid = self.test_sid,
-
-           # Convert the tool settings
-           tool = self.tool_mapping(tool_name=tool),
-
-           recv_port = self.remote_endpoint.test_port,
-
-           first_ttl = tool_parameters.get('first_ttl', 0),
-           last_ttl = tool_parameters.get('last_ttl', 0),
-           packet_size = tool_parameters.get('packet_size', 0),
-           packet_count = tool_parameters.get('packet_count', 0),
-           inter_packet_time = int(tool_parameters.get('inter_packet_time', 0) * 1000), # XXX: Convert to milliseconds (handle better)
-           packet_ttl = tool_parameters.get('packet_ttl', 0),
-           bandwidth = tool_parameters.get('bandwidth', 0),
-           report_interval = int(tool_parameters.get('report_interval', 0) * 1000), # XXX: Convert to milliseconds (handle better)
-           buffer_size = tool_parameters.get('buffer_size', 0),
-           omit_time = tool_parameters.get('omit_seconds', 0),
-           parallel_streams = tool_parameters.get('parallel_streams', 0),
-           window_size = tool_parameters.get('window_size', 0),
-           is_udp = "udp" == tool_parameters.get('protocol', 'tcp'),
-
-           verbose = True # XXX: handle this better
-       )
-
-       # Set the duration, differs between types...
-       if "maximum_duration" in tool_parameters:
-           test_request.duration = tool_parameters.get('maximum_duration', 0)
+       if self.is_sender:
+           receiver_endpoint = self.remote_endpoint.endpoint_obj(local=False)
+           sender_endpoint = self.endpoint_obj(local=True)
        else:
-           test_request.duration = tool_parameters.get('duration', 0)
+           sender_endpoint = self.remote_endpoint.endpoint_obj(local=False)
+           receiver_endpoint = self.endpoint_obj(local=True)
 
-       test_request.duration = int(math.ceil(test_request.duration))
+       # Build the Test using the internal models
+       test = Test(
+                   client=ClientSettings(time=datetime.datetime.utcnow()),
+                   sender_endpoint=sender_endpoint,
+                   receiver_endpoint=receiver_endpoint,
+                   tool=tool,
+                   tool_parameters=tool_parameters,
+                   scheduling_parameters=SchedulingParameters(
+                       requested_time=requested_time,
+                       latest_acceptable_time=latest_time,
+                   )
+                 )
 
-       # Set the address type
-       if is_ipv6(self.address):
-           test_request.ip_version = 6
-       else:
-           test_request.ip_version = 4
 
-       # Set the client/server addresses
-       if self.is_server:
-           test_request.client_address = self.remote_endpoint.address
-           test_request.server_address = self.address
-           test_request.is_client = False
-       else:
-           test_request.client_address = self.address
-           test_request.server_address = self.remote_endpoint.address
-           test_request.is_client = True
+       # Convert the test to the TestRequest format used in the legacy protocol
+       test_request = TestRequest.from_internal(test)
+       test_request.sid = self.test_sid
+       test_request.verbose = True # XXX: handle this better
 
        # Set the time information, converting it to the server-side "time"
        # perspective.

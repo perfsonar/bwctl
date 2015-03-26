@@ -102,4 +102,4 @@ class Client:
         if r.status_code != requests.codes.ok:
             error = BWCTLError(r.json())
             raise BwctlException.from_bwctl_error(BWCTLError(r.json()))
-        return Test(r.json())
+        return True

@@ -92,35 +92,23 @@ class Scheduler:
         # time. The idea is that we'll give the client some time to do the
         # back-and-forth of coordinating the test with the other server as well
         # as this server to validate the test and whatnot. XXX: Currently, this
-        # is 2 seconds out, but it'd make sense to
-        # have a better lower bound.
+	# is 2 seconds out, but it might make sense to see about a lower bound.
         test_min_start_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=2)
         if test.scheduling_parameters.latest_acceptable_time < test_min_start_time:
             raise NoAvailableTimeslotException
 
-        if test.local_client:
-            # For the client, the reservation starts at the same time as the
-            # test. For the server, the reservation starts earlier to ensure
-            # that the server is up and running in time for the client to
-            # connect.
-            server_time_offset = datetime.timedelta(seconds=0)
-
-            # The reservation length is slightly longer than the test duration to
-            # account for the "fuzziness" of time, the server offset, and 
-            # a tacked on half second for the server to finish up processing.
-            reservation_length = datetime.timedelta(seconds=test.duration + 0.5)
-        else:
+        server_time_offset = datetime.timedelta(seconds=test.fuzz)
+        if not test.local_client:
             # We want the test to start at the requested time. The client will
-            # start at the test start time, but the server will start listening 
-            # a half second or so before that to account for time differences
-            # between the two hosts. Since the client is going to use the "test
-            # start time" of the other server as the start time for the test,
-            server_time_offset = datetime.timedelta(seconds=test.fuzz + 0.5)
+	    # start at the test start time, but the server will start listening
+	    # a half second or so before that to account for startup time
+	    # differences between the client and the server.
+            server_time_offset = server_time_offset + datetime.timedelta(seconds=0.5)
 
-            # The reservation length is slightly longer than the test duration to
-            # account for the "fuzziness" of time, the server offset, and 
-            # a tacked on half second for the server to finish up processing.
-            reservation_length = datetime.timedelta(seconds=test.fuzz + test.duration + 0.5)
+        # The reservation length is slightly longer than the test duration to
+        # account for the "fuzziness" of time, and a tacked on half second for
+        # the tool to finish up processing.
+        reservation_length = datetime.timedelta(seconds=test.fuzz + test.duration + 0.5)
 
         reservation_start_time = test.scheduling_parameters.requested_time - server_time_offset
         reservation_end_time = reservation_start_time + server_time_offset + reservation_length

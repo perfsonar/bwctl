@@ -16,15 +16,19 @@ tool_mappings = [
 def gen_sid():
    return filter(lambda s: s.isalpha(), base64.b64encode(os.urandom(32)))[:16]
 
-def tool_id_by_name(self, tool_name):
-    for mapping in mappings:
+def tool_id_by_name(tool_name):
+    global tool_mappings
+
+    for mapping in tool_mappings:
         if mapping[1] == tool_name:
             return mapping[0]
 
     return None
 
-def tool_name_by_id(self, tool_id):
-    for mapping in mappings:
+def tool_name_by_id(tool_id):
+    global tool_mappings
+
+    for mapping in tool_mappings:
         if mapping[0] == tool_id:
             return mapping[1]
 

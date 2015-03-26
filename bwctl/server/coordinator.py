@@ -212,8 +212,11 @@ class Coordinator(object):
 
         self.tests_db.replace_test(test_id, test)
 
-        # Only do the remote validation process if we're not going to wait for
-        # the far side to post it's status.
+        # If we're not a legacy endpoint, but the remote is, we'll need to
+        # handle either the endpoint client handling, or we'll need to confirm
+        # the test locally since the far side can't. If we are a legacy
+        # endpoint, the legacy server module will handle the server/remote
+        # confirmation.
         if test.remote_endpoint.bwctl_protocol == 1.0:
             if not test.remote_endpoint.legacy_client_endpoint:
                 ep_client_process = LegacyEndpointClientHandlerProcess(
@@ -224,12 +227,14 @@ class Coordinator(object):
                 self.__add_test_process(test_id=test_id, process=ep_client_process)
 
                 ep_client_process.start()
-            else:
-                # XXX: handle the confirmation since the far side can't.
+            elif test.local_endpoint.bwctl_protocol == 2.0: 
+                # XXX: handle the confirmation since the far side can't, and
+                # it's not a legacy connection so the legacy server won't
                 self.remote_confirm_test(test_id=test_id, test=test)
 
                 self.server_confirm_test(test_id=test_id)
-        elif not test.remote_endpoint.posts_endpoint_status:
+        elif test.remote_endpoint.bwctl_protocol == 2.0 \
+             and not test.remote_endpoint.posts_endpoint_status:
             validation_process = ValidateRemoteTestProcess(
                                                          test_id=test_id,
                                                          coordinator=self.coordinator_client,
@@ -263,8 +268,8 @@ class Coordinator(object):
 
     @lock_test
     def remote_confirm_test(self, requesting_address=None, user=None, test_id=None, test=None):
-	# XXX: We should really require that the requesting address either be
-	# the remote endpoint, or that
+        # XXX: We should really require that the requesting address either be
+        # the remote endpoint, or that
 
         # 1. If the server status is already confirmed, goto #4
         # 2. Mark the server status as "server-confirmed"
@@ -314,6 +319,10 @@ class Coordinator(object):
 
     @lock_test
     def cancel_test(self, requesting_address=None, user=None, test_id=None, results=None):
+        test = self.tests_db.get_test(test_id)
+        if not test:
+            raise ResourceNotFoundException("Test not found")
+
         if not results:
             results = Results(status="cancelled")
 
@@ -350,8 +359,8 @@ class Coordinator(object):
 
         test.change_state(status)
 
-	# Add the results to the database, and update the test status to
-	# "finished"
+        # Add the results to the database, and update the test status to
+        # "finished"
         self.tests_db.add_results(test_id, results)
 
         self.tests_db.replace_test(test_id, test)
@@ -437,7 +446,7 @@ class LegacyEndpointClientHandlerProcess(TestActionHandlerProcess):
 
         test = self.coordinator.get_test(test_id=self.test_id)
 
-	# XXX: connect to the endpoint, and verify we're not too far off.
+        # XXX: connect to the endpoint, and verify we're not too far off.
         try:
             # XXX: actually validate the test
             client = LegacyClient(source_address=test.local_endpoint.address,

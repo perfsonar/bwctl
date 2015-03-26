@@ -1,9 +1,12 @@
 from struct import pack, unpack
 import datetime
 from calendar import timegm
+import math
 import socket
 
+from bwctl.exceptions import *
 from bwctl.models import Test, Endpoint, SchedulingParameters
+from bwctl.utils import is_ipv6
 
 #########
 # Utility classes covering complex data types used by multiple messages
@@ -55,7 +58,7 @@ class Timestamp:
         return pack("! L L", seconds, nanoseconds)
 
 class ErrorEstimate:
-    def __init__(self, synchronized=False, error=0.001):
+    def __init__(self, synchronized=False, error=0.1):
         self.synchronized = synchronized
         self.error = error
 
@@ -270,7 +273,7 @@ class TimeRequest:
             return pack("! 15x 2Q", 0, 0)
 
 class TimeResponse:
-    def __init__(self, timestamp=0, error_estimate=0):
+    def __init__(self, timestamp=Timestamp(), error_estimate=ErrorEstimate()):
         self.timestamp      = timestamp
         self.error_estimate = error_estimate
 
@@ -431,7 +434,7 @@ class TestRequest:
         self.no_endpoint=no_endpoint
 
         # Shared test parameters
-        self.duration=duration
+        self.duration=int(math.ceil(duration))
         self.packet_size=packet_size
 
         # Bandwidth test-specific parameters
@@ -547,17 +550,18 @@ class TestRequest:
             if results[11] != 0:
                 test_request.units = chr(results[11])
         elif tool == Tools.PING or tool == Tools.OWAMP:
-            (packet_count, packet_size, inter_packet_time, packet_ttl) = unpack("! 75x H H H B 45x", data)
+            (duration, packet_count, packet_size, inter_packet_time, packet_ttl) = unpack("! 3x L 68x H H H 2x B 43x", data)
+            test_request.duration = duration
             test_request.packet_count = packet_count
             test_request.packet_size = packet_size 
             test_request.inter_packet_time = inter_packet_time
             test_request.packet_ttl = packet_ttl
         elif tool == Tools.TRACEPATH or tool == Tools.TRACEROUTE or tool == Tools.PARIS_TRACEROUTE:
-            (first_ttl, last_ttl, packet_size) = unpack("! 75x B B H 48x", data)
-            test_request.packet_count = packet_count
+            (duration, first_ttl, last_ttl, packet_size) = unpack("! 3x L 68x B B H 48x", data)
+            test_request.duration = duration
+            test_request.first_ttl=first_ttl
+            test_request.last_ttl=last_ttl
             test_request.packet_size = packet_size 
-            test_request.inter_packet_time = inter_packet_time
-            test_request.packet_ttl = packet_ttl
         else:
             raise Exception("Unknown tool type: %d" % tool)
 
@@ -625,7 +629,7 @@ class TestRequest:
                 dynamic = 1
             data = data + pack("! L L L L B B B x", bandwidth, self.buffer_size, self.window_size, self.report_interval, dynamic, self.tos_bits, self.parallel_streams)
         elif self.tool == Tools.PING or self.tool == Tools.OWAMP:
-            data = data + pack("! H H H B 13x", self.packet_count, self.packet_size, self.inter_packet_time, self.packet_ttl)
+            data = data + pack("! H H H 2x B 11x", self.packet_count, self.packet_size, self.inter_packet_time, self.packet_ttl)
         elif self.tool == Tools.TRACEROUTE or self.tool == Tools.TRACEPATH or self.tool == Tools.PARIS_TRACEROUTE:
             data = data + pack("! B B H 16x", self.first_ttl, self.last_ttl, self.packet_size)
 
@@ -686,7 +690,7 @@ class TestRequest:
 
         tool_parameters = {}
         if self.tool in [ Tools.IPERF, Tools.IPERF3, Tools.NUTTCP ]:
-            tool_parameters["duration"] = self.duration / 1000.0
+            tool_parameters["duration"] = self.duration
             if self.output_format:
                 tool_parameters["output_format"] = self.output_format
             if self.bandwidth:
@@ -708,6 +712,7 @@ class TestRequest:
             if self.is_udp:
                 tool_parameters["protocol"] = "udp"
         elif self.tool in [ Tools.PING, Tools.OWAMP ]:
+            tool_parameters["maximum_duration"] = self.duration
             tool_parameters["packet_count"] = self.packet_count
             tool_parameters["inter_packet_time"] = self.inter_packet_time / 1000.0
             if self.packet_size:
@@ -715,14 +720,15 @@ class TestRequest:
             if self.packet_ttl:
                 tool_parameters["packet_ttl"] = self.packet_ttl
         elif self.tool in [ Tools.TRACEPATH, Tools.TRACEROUTE, Tools.PARIS_TRACEROUTE ]:
-            tool_parameters["maximum_duration"] = self.duration / 1000.0
-
+            tool_parameters["maximum_duration"] = self.duration
             if self.first_ttl:
                 tool_parameters["first_ttl"] = self.first_ttl
             if self.last_ttl:
                 tool_parameters["last_ttl"] = self.last_ttl
             if self.packet_size:
                 tool_parameters["packet_size"] = self.packet_size
+        else:
+            raise InvalidToolException
 
         ## XXX
         #self.verbose=verbose
@@ -770,6 +776,12 @@ class TestRequest:
         request.client_address = client_endpoint.address
         request.server_address = server_endpoint.address
 
+        # Set the address type
+        if is_ipv6(client_endpoint.address):
+            request.ip_version = 6
+        else:
+            request.ip_version = 4
+
         if request.is_client:
             request.test_port = server_endpoint.test_port
 
@@ -779,49 +791,64 @@ class TestRequest:
         request.tool = Tools.id_by_name(test.tool)
 
         if request.tool in [ Tools.IPERF, Tools.IPERF3, Tools.NUTTCP ]:
-            request.duration = int(test.tool_parameters["duration"] * 1000)
-            if "output_format" in test.tool_parameters:
-                request.output_format = test.tool_parameters["output_format"]
-            if "bandwidth" in test.tool_parameters:
-                request.bandwidth = test.tool_parameters["bandwidth"]
-            if "omit_seconds" in test.tool_parameters:
-                request.omit_time = test.tool_parameters["omit_seconds"]
-            if "units" in test.tool_parameters:
-                request.units = test.tool_parameters["units"]
-            if "tos_bits" in test.tool_parameters:
-                request.tos_bits = test.tool_parameters["tos_bits"]
-            if "parallel_streams" in test.tool_parameters:
-                request.parallel_streams = test.tool_parameters["parallel_streams"]
-            if "buffer_size" in test.tool_parameters:
-                request.buffer_size = test.tool_parameters["buffer_size"]
-            if "window_size" in test.tool_parameters:
-                request.window_size = test.tool_parameters["window_size"]
-            if "report_interval" in test.tool_parameters:
-                request.report_interval = test.tool_parameters["report_interval"]
-            if "protocol" in test.tool_parameters:
-                request.is_udp = test.tool_parameters["protocol"] == "udp"
+            for parameter, value in test.tool_parameters.iteritems():
+                if parameter == "duration":
+                    request.duration = int(value)
+                elif parameter == "output_format":
+                    request.output_format = value
+                elif parameter == "bandwidth":
+                    request.bandwidth = value
+                elif parameter == "omit_seconds":
+                    request.omit_time = value
+                elif parameter == "units":
+                    request.units = value
+                elif parameter == "tos_bits" in test.tool_parameters:
+                    request.tos_bits = test.tool_parameters["tos_bits"]
+                elif parameter == "parallel_streams" in test.tool_parameters:
+                    request.parallel_streams = test.tool_parameters["parallel_streams"]
+                elif parameter == "buffer_size" in test.tool_parameters:
+                    request.buffer_size = test.tool_parameters["buffer_size"]
+                elif parameter == "window_size" in test.tool_parameters:
+                    request.window_size = test.tool_parameters["window_size"]
+                elif parameter == "report_interval" in test.tool_parameters:
+                    request.report_interval = test.tool_parameters["report_interval"]
+                elif parameter == "protocol" in test.tool_parameters:
+                    request.is_udp = test.tool_parameters["protocol"] == "udp"
+                else:
+                    raise ValidationException("Unknown parameter: %s" % parameter)
         elif request.tool in [ Tools.PING, Tools.OWAMP ]:
-            request.packet_count = test.tool_parameters["packet_count"]
-            request.inter_packet_time = int(test.tool_parameters["inter_packet_time"] * 1000)
-            if "packet_size" in test.tool_parameters:
-                request.packet_size = test.tool_parameters["packet_size"]
-            if "packet_ttl" in test.tool_parameters:
-                request.packet_ttl = test.tool_parameters["packet_ttl"]
+            for parameter, value in test.tool_parameters.iteritems():
+                if parameter == "maximum_duration":
+                    request.duration = int(value)
+                elif parameter == "packet_count":
+                    request.packet_count = value
+                elif parameter == "inter_packet_time":
+                    request.inter_packet_time = int(value * 1000)
+                elif parameter == "packet_size":
+                    request.packet_size = value
+                elif parameter == "packet_ttl":
+                    request.packet_ttl = value
+                else:
+                    raise ValidationException("Unknown parameter: %s" % parameter)
         elif request.tool in [ Tools.TRACEPATH, Tools.TRACEROUTE, Tools.PARIS_TRACEROUTE ]:
-            request.duration = int(test.tool_parameters["maximum_duration"] * 1000)
-
-            if "first_ttl" in test.tool_parameters:
-                request.first_ttl = test.tool_parameters["first_ttl"]
-            if "last_ttl" in test.tool_parameters:
-                request.last_ttl = test.tool_parameters["last_ttl"]
-            if "packet_size" in test.tool_parameters:
-                request.packet_size = test.tool_parameters["packet_size"]
+            for parameter, value in test.tool_parameters.iteritems():
+                if parameter == "maximum_duration":
+                    request.duration = int(value)
+                elif parameter == "first_ttl":
+                    request.first_ttl = value
+                elif parameter == "last_ttl":
+                    request.last_ttl = value
+                elif parameter == "packet_size":
+                    request.packet_size = value
+                else:
+                    raise ValidationException("Unknown parameter: %s" % parameter)
+        else:
+            raise InvalidToolException
 
         request.requested_time = test.scheduling_parameters.requested_time
         request.latest_time = test.scheduling_parameters.latest_acceptable_time
 
         ## XXX
         #self.verbose=verbose
-        #self.reverse=reverse
 
         return request

@@ -3,6 +3,7 @@ import socket
 import threading
 import time
 
+from bwctl.ntp import ntp_adjtime
 from bwctl.utils import BwctlProcess, get_logger
 from bwctl.protocol.legacy.client import ControlConnection
 from bwctl.protocol.legacy.models import MessageTypes, Tools, Modes, AcceptType, TestRequest
@@ -83,12 +84,9 @@ class LegacyEndpointHandler(threading.Thread):
             while True:
                 msg_type, msg, results = self.control_connection.get_msg(deadline=datetime.datetime.now() + datetime.timedelta(minutes=10)) # XXX: handle this better
                 if msg_type == MessageTypes.TimeRequest:
-                    self.logger.debug("Received TimeRequest, sending TimeResponse")
-                    self.control_connection.send_time_response()
+                    self.handle_time_request(msg)
                 elif msg_type == MessageTypes.StopSession:
-                    # Send an empty set of results
-                    self.logger.debug("Received StopSession, sending StopSession response")
-                    self.control_connection.send_stop_session()
+                    self.handle_stop_session(msg, results)
                     break
                 else:
                     raise Exception("Invalid request received: %d", msg_type)
@@ -97,6 +95,27 @@ class LegacyEndpointHandler(threading.Thread):
         finally:
             self.control_connection.close()
 
+    def handle_time_request(self, time_request):
+        synchronized = False
+        error = 0.1
+        time = datetime.datetime.utcnow()
+
+        timex = ntp_adjtime()
+        if timex:
+            time = time + datetime.timedelta(seconds=timex.offset_sec)
+            error = timex.maxerror_sec
+
+        self.logger.debug("Received TimeRequest, sending TimeResponse")
+        self.control_connection.send_time_response(timestamp=time, time_error=error, synchronized=synchronized)
+
+        return
+        
+    def handle_stop_session(self, stop_session, results):
+        # Send an empty set of results
+        self.logger.debug("Received StopSession, sending StopSession response")
+        self.control_connection.send_stop_session()
+
+        return
 
 class LegacyBWCTLHandler(threading.Thread):
     def __init__(self, control_connection=None, server=None):
@@ -200,8 +219,8 @@ class LegacyBWCTLHandler(threading.Thread):
                 else:
                     self.logger.debug("Invalid message from %s" % self.peername)
                     raise Exception("Invalid request received: %d", msg_type)
-        except Exception as e:
-            self.logger.error("Exception handling legacy client %s: %s" % (self.peername, str(e)))
+        #except Exception as e:
+        #    self.logger.error("Exception handling legacy client %s: %s" % (self.peername, str(e)))
         finally:
             self.control_connection.close()
 
@@ -296,8 +315,8 @@ class LegacyBWCTLHandler(threading.Thread):
             self.logger.debug("Doing server confirm for %s since we're not a legacy client" % self.peername)
             self.coordinator.server_confirm_test(test_id=self.test.id)
 
-        self.logger.debug("Doing remote confirm for %s since it's a legacy client" % self.peername)
-        self.coordinator.remote_confirm_test(test_id=self.test.id, test=self.test)
+            self.logger.debug("Doing remote confirm for %s since it's a legacy client" % self.peername)
+            self.coordinator.remote_confirm_test(test_id=self.test.id, test=self.test)
 
         self.logger.debug("Waiting for test to go pending for %s" % self.peername)
 
@@ -313,6 +332,7 @@ class LegacyBWCTLHandler(threading.Thread):
 
         if test.status != "pending":
             self.logger.debug("Test never went to pending for %s: status: %s" % (self.peername, test.status))
+            self.coordinator.get_test_results(test_id=self.test.id)
             raise Exception("The test didn't go to pending")
 
         self.logger.debug("Test accepted, and went pending for %s" % self.peername)
@@ -325,7 +345,7 @@ class LegacyBWCTLHandler(threading.Thread):
         # Wait a few seconds past the end
         end_time = self.reservation_end_time + datetime.timedelta(seconds=3)
 
-        self.logger.debug("Waiting for tes to finish for %s" % self.peername)
+        self.logger.debug("Waiting for test to finish for %s" % self.peername)
 
         while datetime.datetime.utcnow() < end_time:
             test = self.coordinator.get_test(test_id=self.test.id)
@@ -334,7 +354,7 @@ class LegacyBWCTLHandler(threading.Thread):
                 break
 
             # Wait before retrying
-            time.sleep(0.2)
+            time.sleep(1.0)
 
         self.logger.debug("Grabbing test results for %s" % self.peername)
         results = self.coordinator.get_test_results(test_id=self.test.id)
