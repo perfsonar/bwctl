@@ -99,7 +99,7 @@ class Endpoint(jsonobject.JsonObject):
     address   = jsonobject.StringProperty(exclude_if_none=True, required=True)
     test_port = jsonobject.IntegerProperty(exclude_if_none=True)
 
-    bwctl_protocol = jsonobject.FloatProperty(exclude_if_none=True, default=2.0, required=True)
+    bwctl_protocol = jsonobject.FloatProperty(default=2.0, required=True)
     peer_port = jsonobject.IntegerProperty(exclude_if_none=True)
     base_path = jsonobject.StringProperty(exclude_if_none=True)
     test_id   = jsonobject.StringProperty(exclude_if_none=True)

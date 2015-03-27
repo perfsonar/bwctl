@@ -217,7 +217,13 @@ class Coordinator(object):
         # the test locally since the far side can't. If we are a legacy
         # endpoint, the legacy server module will handle the server/remote
         # confirmation.
-        if test.remote_endpoint.bwctl_protocol == 1.0:
+        if not test.remote_endpoint.bwctl_protocol:
+            # XXX: we need to validate that this is ok earlier
+            # Handle the confirmation since the far side can't
+            self.remote_confirm_test(test_id=test_id, test=test)
+
+            self.server_confirm_test(test_id=test_id)
+        elif test.remote_endpoint.bwctl_protocol == 1.0:
             if not test.remote_endpoint.legacy_client_endpoint:
                 ep_client_process = LegacyEndpointClientHandlerProcess(
                                                                      test_id=test_id,

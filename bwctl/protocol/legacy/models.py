@@ -483,10 +483,10 @@ class TestRequest:
             raise Exception("Invalid client/server settings: %d/%d" % (conf_client, conf_server))
 
         if ip_version == 4:
-            (client_ip, server_ip) = unpack("! 27x 4s 12x 4s 80x", data)
+            (client_ip, server_ip) = unpack("! 27x 4s 12x 4s 12x 68x", data)
             address_family = socket.AF_INET
         elif ip_version == 6:
-            (client_ip, server_ip) = unpack("! 27x 16s 16s 80x", data)
+            (client_ip, server_ip) = unpack("! 27x 16s 16s 68x", data)
             address_family = socket.AF_INET6
         else:
             raise Exception("Unknown IP type: %d" % ip_version)
