@@ -9,6 +9,7 @@ from bwctl.utils import BwctlProcess
 from bwctl import server
 from bwctl.tools import get_available_tools
 from bwctl.exceptions import BwctlException, SystemProblemException, ValidationException
+from bwctl.ntp import ntp_adjtime
 
 from bwctl.protocol.v2.models import *
 
@@ -88,10 +89,15 @@ class V2ProtocolController(object):
   @cherrypy.expose
   @handle_bwctl_exceptions
   def status(self):
+    ntp_error = 0.1
+    timex = ntp_adjtime()
+    if timex:
+        ntp_error = timex.maxerror_sec
+
     status = ServerStatus()
     status.protocol = 2.0
     status.time = datetime.datetime.utcnow()
-    status.ntp_error = 0.0
+    status.ntp_error = ntp_error
     status.available_tools = get_available_tools()
     status.version = server.__version__
     status.legacy_endpoint_port = self.legacy_endpoint_port
