@@ -20,7 +20,7 @@ IPv4ranges = {
     '0':                'PUBLIC',   # fall back
     '00000000':         'PRIVATE',  # 0/8
     '00001010':         'PRIVATE',  # 10/8
-    '01111111':         'PRIVATE',  # 127.0/8
+    '01111111':         'LOOPBACK', # 127.0/8
     '1':                'PUBLIC',   # fall back
     '1010100111111110': 'PRIVATE',  # 169.254/16
     '101011000001':     'PRIVATE',  # 172.16/12

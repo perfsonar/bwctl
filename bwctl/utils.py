@@ -2,11 +2,13 @@ import logging
 from logging.handlers import TimedRotatingFileHandler, SysLogHandler
 
 import multiprocessing
+import netifaces
 import os
 import psutil
-from bwctl.dependencies.IPy import IP
 import socket
 import sys
+
+from bwctl.dependencies.IPy import IP
 
 def timedelta_seconds(td):
     """ Returns the time difference, in floating-point seconds, of a datetime timedelta object. This is needed for Python 2.6 support."""
@@ -42,6 +44,31 @@ def urljoin(*args):
 def is_ipv6(addr):
     ip = IP(addr)
     return ip.version() == 6
+
+def is_loopback(addr, strict=True):
+    ip_obj = IP(addr)
+    if ip_obj.iptype() == "LOOPBACK":
+        return True
+
+    # Look for addresses that are on the host itself
+    if not strict:
+        for iface in netifaces.interfaces():
+            iface_addrs = netifaces.ifaddresses(iface)
+            for addr_type in [ netifaces.AF_INET, netifaces.AF_INET6 ]:
+                if not addr_type in iface_addrs:
+                    continue
+ 
+                for addr in iface_addrs[addr_type]:
+                    try:
+                        addr_components = addr['addr'].split('%', 1)
+                        ip = addr_components[0]
+                        ip2_obj = IP(ip)
+                        if ip_obj == ip2_obj:
+                            return True
+                    except:
+                        pass
+
+    return False
 
 def ip_matches(ip1, ip2, resolve_v46_map=True):
     if ip1 == ip2:

@@ -50,6 +50,7 @@ Requires: python-cherrypy
 Requires: python-routes
 Requires: python-setuptools
 Requires: python-simplejson
+Requires: python-netifaces
 Requires: uuid
 
 %description shared
