@@ -19,6 +19,7 @@ valid_test_status_changes = {
          "failed"
     ],
     "accepted":[
+        "rejected",
         "scheduled",
         "cancelled",
         "failed"
