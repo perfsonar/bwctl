@@ -192,6 +192,12 @@ class LimitsDB(object):
             limit = limit_class(limit_class.default_value, default=True)
             self.system_default_limits.add_limit(limit)
 
+        # XXX: until we get a file reader for the limits, we'll need this so
+        # that regular tests can work.
+        self.create_limit_class("loopback")
+        self.add_limit("loopback", AllowEndpointlessLimit("on"))
+        self.set_loopback_limit_class("loopback")
+
     def check_test(self, test, address=None, user=None):
         limits = self.get_limits(user=user, address=address, tool=test.tool)
 
@@ -231,6 +237,8 @@ class LimitsDB(object):
         if not limit_class in self.classes.keys():
             raise Exception("Class %s does not exist" % limit_class)
 
+        limit_class = self.classes[limit_class]
+
         has_endpointless = False
         for limit in limit_class.get_limits():
             if limit.type == "allow_no_endpoint" and not limit.default:
@@ -242,7 +250,7 @@ class LimitsDB(object):
             # work by default.
             limit_class.add_limit(AllowEndpointlessLimit(value=True, default=True))
 
-        self.loopback_limit_class = self.classes[limit_class]
+        self.loopback_limit_class = limit_class
 
         return
 
@@ -345,7 +353,7 @@ class LimitClass(object):
 
     # XXX: minimize the limits set
     def add_limit(self, limit, tool=""):
-        print "Adding %s to %s" % (limit, self.name)
+        #print "Adding %s to %s" % (limit, self.name)
 
         # Make a copy of the limit
         limit = limit.duplicate()

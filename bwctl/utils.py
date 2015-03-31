@@ -58,12 +58,10 @@ def is_loopback(addr, strict=True):
                 if not addr_type in iface_addrs:
                     continue
  
-                for addr in iface_addrs[addr_type]:
+                for iface_addr in iface_addrs[addr_type]:
                     try:
-                        addr_components = addr['addr'].split('%', 1)
-                        ip = addr_components[0]
-                        ip2_obj = IP(ip)
-                        if ip_obj == ip2_obj:
+                        addr_components = iface_addr['addr'].split('%', 1)
+                        if ip_matches(addr, addr_components[0]):
                             return True
                     except:
                         pass
