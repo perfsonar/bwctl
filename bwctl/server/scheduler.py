@@ -17,6 +17,15 @@ class ReservationTime:
         self.reservation_end_time=reservation_end_time
         self.test_start_time=test_start_time
 
+    def overlaps(self, other):
+        if self.reservation_start_time > other.reservation_end_time:
+            return False
+
+        if other.reservation_start_time > self.reservation_end_time:
+            return False
+
+        return True
+
 class TimeSlot:
     def __init__(self, start_time=0, end_time=0, num_tests=0, max_tests=30):
         self.type      = TimeSlotTypes.ANY
@@ -219,6 +228,9 @@ class Scheduler:
 
             added = True
 	    break
+
+        if reservation_start_time > reservation_max_start_time:
+            raise NoAvailableTimeslotException
 
         if not added:
             new_ts = TimeSlot(start_time=reservation_start_time, end_time=reservation_end_time)
