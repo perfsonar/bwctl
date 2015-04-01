@@ -44,6 +44,7 @@ setup(name='bwctl2',
                 'bwtraceroute2 = bwctl.client.bwctl_client:bwctl_client',
             ]
         },
+        test_suite="tests",
         data_files=[
             ('/etc/bwctld2', glob.glob('etc/*.conf')),
         ],
