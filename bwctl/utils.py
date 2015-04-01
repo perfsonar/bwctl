@@ -107,14 +107,25 @@ def get_ip(host, prefer_ipv6=True, require_ipv6=False, require_ipv4=False, proto
     try:
         addresses = socket.getaddrinfo(host, 0, 0, 0, protocol)
 
-        if prefer_ipv6 or require_ipv6:
+        if require_ipv6:
+            for (family, socktype, proto, canonname, sockaddr) in addresses:
+                if family == socket.AF_INET6:
+                    return sockaddr[0]
+        elif require_ipv4:
+            for (family, socktype, proto, canonname, sockaddr) in addresses:
+                if family == socket.AF_INET:
+                    return sockaddr[0]
+        elif prefer_ipv6:
             for (family, socktype, proto, canonname, sockaddr) in addresses:
                 if family == socket.AF_INET6:
                     return sockaddr[0]
 
-        if not require_ipv6:
             for (family, socktype, proto, canonname, sockaddr) in addresses:
                 if family == socket.AF_INET:
+                    return sockaddr[0]
+        else:
+            for (family, socktype, proto, canonname, sockaddr) in addresses:
+                if family in [ socket.AF_INET, socket.AF_INET6 ]:
                     return sockaddr[0]
     except Exception:
         pass
