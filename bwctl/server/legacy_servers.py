@@ -104,6 +104,7 @@ class LegacyEndpointHandler(threading.Thread):
         if timex:
             time = time + datetime.timedelta(seconds=timex.offset_sec)
             error = timex.maxerror_sec
+            synchronized = timex.synchronized
 
         self.logger.debug("Received TimeRequest, sending TimeResponse")
         self.control_connection.send_time_response(timestamp=time, time_error=error, synchronized=synchronized)
