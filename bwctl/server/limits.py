@@ -144,7 +144,7 @@ class AllowUDPLimit(BooleanLimit):
 
     def check(self, test):
        if test.test_type == ToolTypes.THROUGHPUT:
-           protocol = tool.tool_parameters.get("protocol", "tcp")
+           protocol = test.tool_parameters.get("protocol", "tcp")
            if protocol == "udp" and not self.value:
                raise LimitViolatedException("UDP throughput tests not allowed")
 
