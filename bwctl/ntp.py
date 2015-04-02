@@ -99,8 +99,8 @@ class TimexStruct(Structure):
         return self.offset / float(self.resolution)
 
     @property
-    def maxerror_sec(self):
-        return self.maxerror / float(self.resolution)
+    def maxerror_sec(self): # max error is always in microseconds
+        return self.maxerror / float(10**6)
 
 def ntp_adjtime():
     retval = None
