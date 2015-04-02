@@ -3,6 +3,13 @@
 from setuptools import setup
 import glob
 
+# The following is a workaround for a bug that would cause "'NoneType' object
+# not callable" errors to pop up during the unittest phase
+try:
+    import multiprocessing
+except ImportError:
+    pass
+
 setup(name='bwctl2',
         version='2.0a1',
         description='BWCTL Measurement Daemon',
