@@ -40,7 +40,7 @@ class PortRangeTest(unittest.TestCase):
        port_range.release_port(i)
        i = i + 1
 
-    # Try to request all the ports again
+    # Request all the ports again
     requested = 0
     while requested < total:
         port = port_range.get_port()
@@ -49,6 +49,12 @@ class PortRangeTest(unittest.TestCase):
         self.assertTrue(port >= min)
         requested = requested + 1
 
+    # Free the last port, it will be the only one open so we'll make sure that
+    # we get assigned that port again since it's the only one free.
+    port_range.release_port(port)
+
+    new_port = port_range.get_port()
+    self.assertEqual(new_port, port)
 
 if __name__ == "__main__":
   unittest.main()

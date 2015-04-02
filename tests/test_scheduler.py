@@ -47,6 +47,19 @@ class SchedulerTest(unittest.TestCase):
     self.assertTrue(requested_time <= results.test_start_time)
     self.assertTrue(results.test_start_time <= latest_time)
 
+  def test_remove(self):
+    requested_time = datetime.datetime.utcnow()
+    latest_time = requested_time + datetime.timedelta(seconds=5)
+
+    test = MockScheduledTest(test_type=ToolTypes.THROUGHPUT,
+                             requested_time=requested_time,
+                             latest_acceptable_time=latest_time
+                            )
+    scheduler = Scheduler()
+    results = scheduler.add_test(test)
+
+    self.assertTrue(scheduler.remove_test(test))
+
   def test_schedule_throughput_no_overlap(self):
     requested_time = datetime.datetime.utcnow()
     latest_time = requested_time + datetime.timedelta(seconds=5)
@@ -156,6 +169,30 @@ class SchedulerTest(unittest.TestCase):
       no_timeslot = True
 
     self.assertTrue(no_timeslot)
+
+  def test_schedule_latency_overlap(self):
+    requested_time = datetime.datetime.utcnow()
+    latest_time = requested_time + datetime.timedelta(seconds=30)
+
+    scheduler = Scheduler()
+
+    prev_time_range = None
+
+    i = 0
+    while i < 10:
+      test = MockScheduledTest(
+                               test_type=ToolTypes.LATENCY,
+                               requested_time=requested_time + datetime.timedelta(seconds=i),
+                               latest_acceptable_time=latest_time,
+                               duration=10
+                              )
+
+      results = scheduler.add_test(test)
+      if prev_time_range:
+        self.assertTrue(results.overlaps(prev_time_range))
+
+      prev_time_range = results
+      i = i + 1
 
 
 
