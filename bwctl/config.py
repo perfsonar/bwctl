@@ -27,7 +27,16 @@ def port_range_check(value):
     return PortRange(min=min, max=max)
 
 
-def get_config(command_config_options={}, include_tool_options=True, config_file=None):
+def get_config_from_file(command_config_options={}, include_tool_options=True, config_file=None):
+    config_lines = []
+    if config_file:
+        config_lines = [line.strip() for line in open(config_file)]
+
+    return get_config(command_config_options=command_config_options,
+                      include_tool_options=include_tool_options,
+                      config_lines=config_lines)
+
+def get_config(command_config_options={}, include_tool_options=True, config_lines=[]):
     full_config_options = {}
 
     for key, value in command_config_options.iteritems():
@@ -48,10 +57,6 @@ def get_config(command_config_options={}, include_tool_options=True, config_file
         config_spec.append("%s = %s" % (option, type))
 
     validator = Validator({ 'port_range': port_range_check })
-
-    config_lines = []
-    if config_file:
-        config_lines = [line.strip() for line in open(config_file)]
 
     config = ConfigObj(config_lines, configspec=config_spec)
     results = config.validate(validator)

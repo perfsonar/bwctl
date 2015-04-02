@@ -7,7 +7,7 @@ import uuid
 from bwctl.utils import init_logging, daemonize
 
 from bwctl.protocol.coordinator.client import Client as CoordinatorClient
-from bwctl.config import get_config
+from bwctl.config import get_config_from_file
 from bwctl.server.limits import LimitsDB
 from bwctl.server.coordinator_server import CoordinatorServer
 from bwctl.server.rest_api_server import RestApiServer
@@ -138,8 +138,8 @@ def bwctld():
 
     logger = get_logger()
 
-    config = get_config(command_config_options=config_options,
-                             config_file=opts.config_file)
+    config = get_config_from_file(command_config_options=config_options,
+                                  config_file=opts.config_file)
 
     if opts.daemonize:
         daemonize(pidfile=opts.pid_file)
