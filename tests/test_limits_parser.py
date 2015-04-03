@@ -7,6 +7,8 @@ import unittest
 from nose.tools import eq_
 from nose.tools import ok_
 
+from os.path import dirname, realpath, sep
+
 from bwctl.server import limits_parser
 
 
@@ -15,13 +17,14 @@ sep="/"
 class LimitsParserTest(unittest.TestCase):
        
     def setUp(self): 
+        self.tests_path = dirname(realpath(__file__))
         self.limits_examples_folder = "limits_exampes"
         self.limits_big_file = "bwctld-big.limits"
         self.limits_simple_file = "bwctld-simple.limits"
         self.limit_with_type_error_file = "bwctld-simple-error-01.limits"
-        self.test_simple_file = self.limits_examples_folder + sep + self.limits_simple_file
-        self.test_big_file = self.limits_examples_folder + sep + self.limits_big_file
-        self.test_limit_type_error = self.limits_examples_folder + sep + self.limit_with_type_error_file
+        self.test_simple_file = self.tests_path + sep + self.limits_examples_folder + sep + self.limits_simple_file
+        self.test_big_file = self.tests_path + sep + self.limits_examples_folder + sep + self.limits_big_file
+        self.test_limit_type_error = self.tests_path + sep + self.limits_examples_folder + sep + self.limit_with_type_error_file
     
 
     def test_limit_parser_with_simple_file(self):

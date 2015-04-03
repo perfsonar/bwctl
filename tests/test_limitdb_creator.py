@@ -7,16 +7,19 @@ import unittest
 from nose.tools import eq_
 from nose.tools import ok_
 
+from os.path import dirname, realpath, sep
+
 from bwctl.server.limits_parser import *
 
 sep = "/"
+tests_path = dirname(realpath(__file__))
 limits_examples_folder = "limits_exampes"
 limits_big_file = "bwctld-big.limits"
 limits_simple_file = "bwctld-simple.limits"
 Limits_new = "bwctl_new_limits.conf"
-test_simple_file = limits_examples_folder + sep + limits_simple_file
-test_big_file = limits_examples_folder + sep + limits_big_file
-test_new_limits_file = limits_examples_folder + sep + Limits_new
+test_simple_file = tests_path + sep + limits_examples_folder + sep + limits_simple_file
+test_big_file = tests_path + sep + limits_examples_folder + sep + limits_big_file
+test_new_limits_file = tests_path + sep + limits_examples_folder + sep + Limits_new
 
 class LimitsDBTest(unittest.TestCase):
 

@@ -33,8 +33,8 @@ class LimitsParser(object):
             self.limits_as_string = re.sub('\xe2\x80\x9c','"',self.limits_as_string)
             limit_file_object.close()
         except IOError as e:
-            print "Cannot open limits file: " + limit_file
-            raise()       
+            print "Cannot open limits file: " + limits_file
+            raise
 
     def parse(self):
         self.parse_limits()
@@ -341,8 +341,10 @@ class LimitsDBfromFileCreator(object):
     def add_all_class_elements(self, limit_classes, class_name):         
         networks = []
         limit_types = limit_classes[class_name]['LIMITTYPES']
-        if 'net' or 'network' in limit_classes[class_name]['ASSIGN']:
+        if 'net' in limit_classes[class_name]['ASSIGN']:
             networks = limit_classes[class_name]['ASSIGN']['net'] 
+        if 'network' in limit_classes[class_name]['ASSIGN']:
+            networks = limit_classes[class_name]['ASSIGN']['network'] 
         self.add_limits_types_to_limitsdb(class_name, limit_types)
         self.add_class_network(class_name, networks)
         
@@ -361,14 +363,9 @@ class LimitsDBfromFileCreator(object):
 		# However, it might make sense to have the parsers themselves
 		# create these limit objects instead of generalizing it.
                 if "bandwidth".__eq__(limit_type_name):
-                    limit_type_class = BandwidthLimit(int(limit_type_value))
+                    limit_type_class = BandwidthLimit(limit_type_value)
                 elif"duration".__eq__(limit_type_name):
-                    limit_type_class  = DurationLimit(int(limit_type_value))
-		# AB: The maximum limit isn't actually a limit, it's just a
-		# base class that gets inherited. We don't support max time
-		# error because it doesn't make sense in bwctl 2.0
-                elif "max_time_error".__eq__(limit_type_name):
-                    limit_type_class = MaximumLimit(int(limit_type_value))
+                    limit_type_class  = DurationLimit(limit_type_value)
                 else:
                     print "Actually not adding limit tye: %s" % limit_type_name
                     
