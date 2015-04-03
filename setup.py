@@ -11,7 +11,7 @@ except ImportError:
     pass
 
 setup(name='bwctl2',
-        version='2.0a1',
+        version='2.0a2',
         description='BWCTL Measurement Daemon',
         author='Aaron Brown',
         author_email='aaron@internet2.edu',
