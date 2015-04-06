@@ -4,7 +4,7 @@ import threading
 import time
 
 from bwctl.ntp import ntp_adjtime
-from bwctl.utils import BwctlProcess, get_logger
+from bwctl.utils import BwctlProcess, get_logger, timedelta_seconds
 from bwctl.protocol.legacy.client import ControlConnection
 from bwctl.protocol.legacy.models import MessageTypes, Tools, Modes, AcceptType, TestRequest
 
@@ -100,11 +100,19 @@ class LegacyEndpointHandler(threading.Thread):
         error = 0.1
         time = datetime.datetime.utcnow()
 
+        s_time = datetime.datetime.now()
         timex = ntp_adjtime()
+        e_time = datetime.datetime.now()
+
         if timex:
             time = time + datetime.timedelta(seconds=timex.offset_sec)
             error = timex.maxerror_sec
             synchronized = timex.synchronized
+
+	# We need to tack on the time to run ntp_adjtime since it can take an
+	# inordinate amount of time on some hosts, and bwctl 1.x expects it to
+	# run in a negligible amount of time.
+        error = error + timedelta_seconds(e_time - s_time)
 
         self.logger.debug("Received TimeRequest, sending TimeResponse")
         self.control_connection.send_time_response(timestamp=time, time_error=error, synchronized=synchronized)
