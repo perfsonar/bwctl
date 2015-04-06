@@ -1,7 +1,7 @@
 import socket
 import datetime
 
-from bwctl.utils import timedelta_seconds
+from bwctl.utils import timedelta_seconds, is_ipv6
 
 from .models import *
 
@@ -196,7 +196,11 @@ class Client(ControlConnection):
         super(Client, self).__init__()
 
     def connect(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        family = socket.AF_INET
+        if is_ipv6(self.server_address):
+            family = socket.AF_INET6
+
+        self.sock = socket.socket(family, socket.SOCK_STREAM)
         if self.source_address:
             self.sock.bind(( self.source_address, 0 ))
 
