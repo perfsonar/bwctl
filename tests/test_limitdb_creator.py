@@ -4,8 +4,6 @@ Created on 23.02.2015
 @author: unrz217
 '''
 import unittest
-from nose.tools import eq_
-from nose.tools import ok_
 
 from os.path import dirname, realpath, sep
 
@@ -24,19 +22,10 @@ test_new_limits_file = tests_path + sep + limits_examples_folder + sep + Limits_
 class LimitsDBTest(unittest.TestCase):
 
 
-    def test_creator_with_v1(self):
-        ldbc = LimitsDBfromFileCreator(test_simple_file)
-        ldbc.create()
-              
-    def test_with_limitsv2(self):
-        lfpv2 = LimitFileParserV2(test_new_limits_file)
-        lfpv2.parse()
-        expected_result = 3 #Num of classes
-        eq_(expected_result, lfpv2.get_limits_counter())
+    
+    def test_creator(self):
+        ldbc = create_limitsdb(test_new_limits_file)
         
-    def test_creator_with_v2(self):
-        ldbc = LimitsDBfromFileCreator(test_new_limits_file)
-        ldbc.create()        
         
         
 
