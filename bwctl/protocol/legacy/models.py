@@ -708,7 +708,7 @@ class TestRequest:
             if self.window_size:
                 tool_parameters["window_size"] = self.window_size
             if self.report_interval:
-                tool_parameters["report_interval"] = self.report_interval
+                tool_parameters["report_interval"] = self.report_interval / 1000.0
             if self.is_udp:
                 tool_parameters["protocol"] = "udp"
         elif self.tool in [ Tools.PING, Tools.OWAMP ]:
@@ -811,7 +811,7 @@ class TestRequest:
                 elif parameter == "window_size" in test.tool_parameters:
                     request.window_size = test.tool_parameters["window_size"]
                 elif parameter == "report_interval" in test.tool_parameters:
-                    request.report_interval = test.tool_parameters["report_interval"]
+                    request.report_interval = test.tool_parameters["report_interval"] * 1000
                 elif parameter == "protocol" in test.tool_parameters:
                     request.is_udp = test.tool_parameters["protocol"] == "udp"
                 else:
