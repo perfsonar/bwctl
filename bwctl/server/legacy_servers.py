@@ -8,7 +8,7 @@ from bwctl.utils import BwctlProcess, get_logger, timedelta_seconds
 from bwctl.protocol.legacy.client import ControlConnection
 from bwctl.protocol.legacy.models import MessageTypes, Tools, Modes, AcceptType, TestRequest
 
-from bwctl.protocol.legacy.utils import gen_sid
+from bwctl.protocol.legacy.utils import gen_sid, datetime_to_bwctl_epoch_time
 
 from bwctl.tools import get_available_tools
 
@@ -380,8 +380,18 @@ class LegacyBWCTLHandler(threading.Thread):
     def convert_results(self, results):
         results_str = ""
 
-        #fprintf(tsess->localfp,"bwctl: start_endpoint: %f\n",
-        #fprintf(tsess->localfp,"bwctl: start_tool: %f\n",
+        if self.test.local_client:
+            start_time = self.test.scheduling_parameters.test_start_time
+        else:
+            start_time = self.test.scheduling_parameters.reservation_start_time
+
+        end_time = self.test.scheduling_parameters.reservation_end_time
+
+        start_time = datetime_to_bwctl_epoch_time(start_time)
+        end_time = datetime_to_bwctl_epoch_time(end_time)
+
+        results_str = results_str + "bwctl: start_endpoint: %s\n" % start_time
+        results_str = results_str + "bwctl: start_tool: %s\n" % start_time
 
         results_str = results_str + "bwctl: run_endpoint: sender: %s\n" % self.test.sender_endpoint.address
         results_str = results_str + "bwctl: run_endpoint: receiver: %s\n" % self.test.receiver_endpoint.address
@@ -397,6 +407,9 @@ class LegacyBWCTLHandler(threading.Thread):
         if results.bwctl_errors:
             for error in results.bwctl_errors:
                 results_str = results_str + "bwctl: error: %s" % error.error_msg
+
+        results_str = results_str + "bwctl: stop_tool: %s\n" % end_time
+        results_str = results_str + "bwctl: stop_endpoint: %s\n" % end_time
 
         #fprintf(tsess->localfp,"bwctl: stop_tool: %f\n",
         #fprintf(tsess->localfp,"bwctl: stop_endpoint: %f\n",
