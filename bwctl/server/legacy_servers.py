@@ -236,6 +236,11 @@ class LegacyBWCTLHandler(threading.Thread):
     def new_test(self, test_request):
         test = test_request.to_internal()
 
+        # XXX: Should probably handle this elsewhere...
+        timex = ntp_adjtime()
+        if timex:
+            test.local_endpoint.ntp_error = timex.maxerror_sec
+
         self.logger.debug("Requesting new test for %s" % self.test_sid)
 
         added_test = self.coordinator.request_test(test=test, requesting_address=self.peername)
