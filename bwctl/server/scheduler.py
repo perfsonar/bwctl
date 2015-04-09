@@ -151,7 +151,7 @@ class Scheduler:
 	    # the test
             if not ts.can_handle_test(test):
                 reservation_start_time = ts.end_time + datetime.timedelta(microseconds=1)
-                reservation_end_time = reservation_start_time + reservation_length
+                reservation_end_time = reservation_start_time + server_time_offset + reservation_length
                 continue
 
 	    # Using the current slot as a starting point, check whether it's
@@ -181,7 +181,7 @@ class Scheduler:
 	    # conflicting time slot.
 	    if conflicting_slot:
 	        reservation_start_time = conflicting_slot.end_time + datetime.timedelta(microseconds=1)
-	        reservation_end_time   = reservation_start_time + reservation_length
+	        reservation_end_time   = reservation_start_time + server_time_offset + reservation_length
 	        continue
 
 	    # From here on out, we're overlapping the slots in overlap slots.
