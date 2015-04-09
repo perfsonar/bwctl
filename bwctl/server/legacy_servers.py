@@ -109,6 +109,12 @@ class LegacyEndpointHandler(threading.Thread):
             error = timex.maxerror_sec
             synchronized = timex.synchronized
 
+            # XXX: hack because we kept getting "time is too far off" errors
+            # that I think had to do with it taking longer for python to answer
+            # the query than the C server.
+            if error < 1.0:
+                error = 1.0
+
 	# We need to tack on the time to run ntp_adjtime since it can take an
 	# inordinate amount of time on some hosts, and bwctl 1.x expects it to
 	# run in a negligible amount of time.
