@@ -286,7 +286,7 @@ methods are described with the \fB\-A\fR argument.
 .RE
 .TP
 \fB\-o, \-\-flip\fR
-By default, the sender will connect to the receiver. The --flip option causes
+By default, the sender will connect to the receiver. The \-\-flip option causes
 the receiver to connect to the sender. This option is not available for all
 test types (e.g. for iperf tests). This is most useful if the receiver is
 behind a firewall.
@@ -712,7 +712,7 @@ Run the default 10 second TCP test. Authenticate using
 the identity \fIsomeuser\fR. \fBbwctl\fR will prompt for a passphrase
 that will be used to create an AES key.
 .LP
-\fBbwping \--no_endpoint \-N 30 \-i 0.5 --ttl 150 \-c somehost.example.com\fR
+\fBbwping \-\-no_endpoint \-N 30 \-i 0.5 \-\-ttl 150 \-c somehost.example.com\fR
 .IP
 Run a ping test that sends 30 pings, one packet per half-second, with a TTL of
 150 to somehost.example.com from \fIlocal\fR. If somehost.example.com does not
