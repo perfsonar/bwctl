@@ -180,7 +180,7 @@ class Test(jsonobject.JsonObject):
             offset = offset + self.sender_endpoint.ntp_error
 
         if self.receiver_endpoint.ntp_error:
-            offset = offset - self.receiver_endpoint.ntp_error
+            offset = offset + self.receiver_endpoint.ntp_error
 
         if offset < 0:
             offset = -offset

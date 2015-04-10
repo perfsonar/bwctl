@@ -678,6 +678,11 @@ class TestRequest:
         else:
             server_endpoint.local = True
 
+        if self.is_client:
+            server_endpoint.ntp_error = self.error_estimate.error
+        else:
+            client_endpoint.ntp_error = self.error_estimate.error
+
         if self.no_endpoint:
             server_endpoint.bwctl_protocol = 0.0
 
@@ -787,6 +792,8 @@ class TestRequest:
 
         if request.is_client and server_endpoint.bwctl_protocol == 0.0:
             request.no_endpoint = True
+
+        request.error_estimate.error = self.remote_endpoint.ntp_error
 
         request.tool = Tools.id_by_name(test.tool)
 
