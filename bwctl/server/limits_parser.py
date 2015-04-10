@@ -5,9 +5,6 @@ Created on 12.02.2015
 '''
 
 import re
-from bwctl.server.limits import *
-from difflib import Match
-from __builtin__ import len
 
 # AB: Long term, the V1 format is going away. I think it'd make more sense to
 # completely separate the V1 and V2 parsing even if there are some happenstance
@@ -35,7 +32,6 @@ class LimitsParser(object):
             raise
 
     def parse(self):
-        print "Start parsing..."
         self.parse_limits()
         self.parse_assign()
     
@@ -115,7 +111,7 @@ class LimitsFileParser(LimitsParser):
         limits = re.findall(self.pattern_get_limits, self.limits_as_string, re.M)
         if len(limits) < 1:
             raise Exception("No Limits defined in format 2.x ")
-        self.limits_counter = len(limits) 
+         
         for limit in limits:
             class_name = self.get_class_names(limit)
             parent = self.get_class_parent(limit)
@@ -178,8 +174,8 @@ class LimitsDBfromFileCreator(object):
     It takes a LimitsFileParser class as a argument:
     It returns a LimitDB which is used by server.
     '''
-    def __init__(self, limits_file_path):
-        self.limits_db = LimitsDB()
+    def __init__(self, limits_file_path,ldb):
+        self.limits_db = ldb
         self.limits_file_path = limits_file_path
         self.limits_classes = {}
     def get_limitsdb(self):
@@ -204,7 +200,6 @@ class LimitsDBfromFileCreator(object):
         for class_name in limit_classes:
             success = True            
             parentname = limit_classes[class_name]['PARENT']  #create first parents
-            print "Creating limit class: %s with parent: %s" % (class_name,parentname)
             try:
                 self.limits_db.create_limit_class(class_name, parent=parentname)
             except Exception:
@@ -219,28 +214,18 @@ class LimitsDBfromFileCreator(object):
         
     def add_all_class_elements(self, limit_classes, class_name):
         limit_types = limit_classes[class_name]['LIMITTYPES']
-<<<<<<< HEAD
-=======
-        if 'net' in limit_classes[class_name]['ASSIGN']:
-            networks = limit_classes[class_name]['ASSIGN']['net'] 
-        if 'network' in limit_classes[class_name]['ASSIGN']:
-            networks = limit_classes[class_name]['ASSIGN']['network'] 
->>>>>>> 1c31329fe5669b3240c0932738ae38bada70f165
         self.add_limits_types_to_limitsdb(class_name, limit_types)
         if 'network' in limit_classes[class_name]['ASSIGN']:
-            print "Adding networks"
             self.add_class_network(class_name, limit_classes[class_name]['ASSIGN']['network'])
         elif 'user' in limit_classes[class_name]['ASSIGN']:
-            print "Adding users"
             self.add_class_user(class_name, limit_classes[class_name]['ASSIGN']['user'])
         
-    def add_limits_types_to_limitsdb(self, class_name, limit_types):
-        limit_type_class = None
-        for limit_type in limit_types:
-            match = re.search(r'(\w+)=(\w+)', limit_type)
-            if match:
-                limit_type_name = match.group(1)
-                limit_type_value = match.group(2)
+    def add_limits_types_to_limitsdb(self, class_name, limits):
+        for limit_tool in limits:
+            limit_type_class = None
+            limit_types = limits[limit_tool]
+            for limit_type_name in limit_types:
+                limit_type_value = limits[limit_tool][limit_type_name]
 		# AB: I added a few more limit objects that aren't handled
 		# here. It'd probably be good to generalize the limit creation
 		# using the the 'type' class attribute should handle the below.
@@ -249,14 +234,22 @@ class LimitsDBfromFileCreator(object):
 		# However, it might make sense to have the parsers themselves
 		# create these limit objects instead of generalizing it.
                 if "bandwidth".__eq__(limit_type_name):
-                    limit_type_class = BandwidthLimit(limit_type_value)
-                elif"duration".__eq__(limit_type_name):
-                    limit_type_class  = DurationLimit(limit_type_value)
+                    limit_type_class = "BandwidthLimit"
+                elif "allow_no_endpoint".__eq__(limit_type_name):
+                    limit_type_class  = "AllowEndpointlessLimit"
+                elif "allow_udp_throughput".__eq__(limit_type_name):
+                    limit_type_class  = "AllowUDPLimit"
+                elif "banned".__eq__(limit_type_name):
+                    limit_type_class  = "BannedLimit"
+                elif "duration".__eq__(limit_type_name):
+                    limit_type_class  = "DurationLimit"
+                elif "event_horizon".__eq__(limit_type_name):
+                    limit_type_class  = "EventHorizonLimit"
                 else:
-                    print "Actually not adding limit tye: %s" % limit_type_name
+                    print "This limit type is not supported in v2: %s" % limit_type_name
                     
             if limit_type_class:
-                self.limits_db.add_limit(class_name, limit_type_class)
+                self.limits_db.add_limit_as_st(class_name, limit_type_class, limit_type_value, limit_tool)
 
     # AB: We'll need an add_class_user option as well
     def add_class_network(self, class_name, networks):
@@ -270,9 +263,7 @@ class LimitsDBfromFileCreator(object):
         return  self.limits_db.get_limits()
     
 
-def create_limitsdb(limits_file_path):
-    ldbc = LimitsDBfromFileCreator(limits_file_path)
-    return ldbc.get_limitsdb()
+
               
 
              

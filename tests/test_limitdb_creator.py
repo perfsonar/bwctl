@@ -7,7 +7,7 @@ import unittest
 
 from os.path import dirname, realpath, sep
 
-from bwctl.server.limits_parser import *
+from bwctl.server.limits import Limit
 
 sep = "/"
 tests_path = dirname(realpath(__file__))
@@ -24,7 +24,9 @@ class LimitsDBTest(unittest.TestCase):
 
     
     def test_creator(self):
-        ldbc = create_limitsdb(test_new_limits_file)
+        ldb = Limit.parse_file(test_new_limits_file)
+        print ldb.get_limit_class_by_name("root_users")
+        
         
         
         

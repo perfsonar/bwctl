@@ -6,6 +6,7 @@ import re
 from bwctl.tools import ToolTypes
 from bwctl.exceptions import LimitViolatedException
 from bwctl.utils import is_loopback, timedelta_seconds
+from bwctl.server.limits_parser import LimitsDBfromFileCreator
 
 # Limit Definitions
 class Limit(object):
@@ -42,6 +43,11 @@ class Limit(object):
             subclasses.extend(subclass.get_subclasses())
 
         return subclasses
+    
+    @staticmethod
+    def parse_file(limits_file_path):
+        ldbc = LimitsDBfromFileCreator(limits_file_path, ldb=LimitsDB())
+        return ldbc.get_limitsdb()
 
 class NumberLimit(Limit):
     def __init__(self, value, default=False):
@@ -85,8 +91,9 @@ class BandwidthLimit(MaximumLimit):
     def __init__(self, value, default=False):
         m = re.match("([0-9]+)([bBmMkKgG]?)", value)
         if m:
-            value  = int(m.group(0))
-            unit   = m.group(1)
+            #HC change becaue 0 holds the complete str.
+            value  = int(m.group(1))
+            unit   = m.group(2)
 
             if unit in [ 'k', 'K' ]:
                 value = value * 1000
@@ -254,6 +261,10 @@ class LimitsDB(object):
 
         return
 
+    def add_limit_as_st(self, limit_class, limit_name, limit_value, tool=""):
+        limit_obj = globals()[limit_name](limit_value)
+        self.add_limit(limit_class, limit_obj, tool)
+        
     def add_limit(self, limit_class, limit, tool=""):
         if not limit_class in self.classes.keys():
             raise Exception("Class %s does not exist" % limit_class)
@@ -367,3 +378,6 @@ class LimitClass(object):
 
     def __str__(self):
         return "%s: %s" % ( self.name, ", ".join([str(i) for i in self.get_limits()]) )
+    
+    
+
