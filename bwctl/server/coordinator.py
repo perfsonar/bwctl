@@ -588,6 +588,9 @@ def validate_endpoint(endpoint=None):
     if endpoint.local and endpoint.legacy_client_endpoint:
         raise ValidationException("Local endpoint isn't a legacy client")
 
+    if endpoint.local and not is_loopback(endpoint.address):
+        raise ValidationException("Local endpoint doesn't have a valid address for this host")
+
 def validate_test_changes(new_test=None, old_test=None):
     if old_test.id != new_test.id:
         raise ValidationException("Can't change the test id")

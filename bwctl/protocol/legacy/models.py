@@ -661,14 +661,10 @@ class TestRequest:
 
     def to_internal(self):
         client_endpoint = Endpoint(address=self.client_address,
-                                   bwctl_protocol=1.0)
+                                   bwctl_protocol=1.0,
+                                   legacy_client_endpoint=True)
         server_endpoint = Endpoint(address=self.server_address,
                                    bwctl_protocol=1.0)
-
-        if self.reverse:
-            server_endpoint.legacy_client_endpoint = True
-        else:
-            client_endpoint.legacy_client_endpoint = True
 
         if self.recv_port:
             server_endpoint.test_port = self.recv_port
@@ -694,6 +690,9 @@ class TestRequest:
             sender_endpoint = client_endpoint
 
         tool_parameters = {}
+        if self.reverse:
+            tool_parameters["receiver_connects"] = True
+
         if self.tool in [ Tools.IPERF, Tools.IPERF3, Tools.NUTTCP ]:
             tool_parameters["duration"] = self.duration
             if self.output_format:

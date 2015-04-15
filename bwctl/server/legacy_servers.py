@@ -264,7 +264,7 @@ class LegacyBWCTLHandler(threading.Thread):
         if added_test.local_endpoint.test_port:
             self.test_port = added_test.local_endpoint.test_port
 
-        if added_test.remote_endpoint.peer_port:
+        if added_test.local_endpoint.peer_port:
             self.peer_port = added_test.local_endpoint.peer_port
 
         self.logger.debug("Requested test was accepted for %s" % self.peername)

@@ -128,7 +128,7 @@ class Base(object):
             client. The default is the sender unless the 'receiver_connects'
             option is available, and selected. """
 
-        if "receiver_connects" in self.known_parameters and "receiver_connects" in test.tool_parameters:
+        if "receiver_connects" in test.tool_parameters:
             return test.tool_parameters["receiver_connects"]
 
         return False

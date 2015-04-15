@@ -24,7 +24,7 @@ class SimpleDB(Base):
         return obj.__class__(obj.to_json())
 
     def lock_test(self, test_id):
-        if not self.test_cvs[test_id]:
+        if not test_id in self.test_cvs:
             return
 
         with self.test_cvs[test_id]:
@@ -34,7 +34,7 @@ class SimpleDB(Base):
             self.locked_tests[test_id] = threading.current_thread().name
 
     def unlock_test(self, test_id):
-        if not self.test_cvs[test_id]:
+        if not test_id in self.test_cvs:
             return
 
         with self.test_cvs[test_id]:
