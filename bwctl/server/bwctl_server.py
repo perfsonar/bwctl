@@ -34,7 +34,7 @@ config_options = {
 
 
 class BwctlServer:
-    def __init__(self, config=None):
+    def __init__(self, config=None, limits_db=None):
         self.config = config
 
         self.logger = get_logger()
@@ -46,7 +46,7 @@ class BwctlServer:
 
         self.scheduler = Scheduler()
         self.tests_db  = SimpleDB()
-        self.limits_db = LimitsDB()
+        self.limits_db = limits_db
 
         # XXX: handle this better...
         if self.config['disable_legacy_server']:
@@ -123,6 +123,7 @@ def bwctld():
     argv = sys.argv
     oparse = optparse.OptionParser()
     oparse.add_option("-c", "--config-file", dest="config_file", default="")
+    oparse.add_option("-l", "--limits-file", dest="limits_file", default="")
     oparse.add_option("-p", "--pid-file", dest="pid_file", default="")
     oparse.add_option("-d", "--daemonize", action="store_true", dest="daemonize", default=False)
     oparse.add_option("-f", "--log-file", dest="log_file", default=None)
@@ -141,10 +142,14 @@ def bwctld():
     config = get_config_from_file(command_config_options=config_options,
                                   config_file=opts.config_file)
 
+    # XXX: parse limits file in opts.limits_file instead of creating an empty
+    # limits database
+    limits_db = LimitsDB()
+
     if opts.daemonize:
         daemonize(pidfile=opts.pid_file)
 
     # Unfortunately, we need to initialize this after we daemonize so that we
     # can create processes using multiprocess.
-    bwctld = BwctlServer(config=config)
+    bwctld = BwctlServer(config=config, limits_db=limits_db)
     bwctld.run()
