@@ -54,6 +54,12 @@ class Base(object):
             raise SystemProblemException("Unknown configuration item requested: %s" % item)
         return self.config[item]
 
+    def pre_test_run(self, test):
+        pass
+
+    def post_test_run(self, test):
+        pass
+
     def build_command_line(self, test):
         raise Exception("build_command_line must be overwritten")
 
@@ -65,6 +71,8 @@ class Base(object):
         timed_out = False
 
         try:
+            self.pre_test_run(test)
+
             cmd_line = self.build_command_line(test)
 
             self.logger.debug("Executing %s" % " ".join(cmd_line))
@@ -102,6 +110,8 @@ class Base(object):
             bwctl_errors.append(SystemProblemException(str(e)).as_bwctl_error())
             return_code = -1
 
+        self.post_test_run(test)
+
         return self.get_results(test=test, timed_out=timed_out, errors=bwctl_errors, exit_status=return_code, stdout=stdout, stderr=stderr)
 
     def get_results(self, test=None, timed_out=False, errors=[], exit_status=0, stdout="", stderr=""):
@@ -132,6 +142,12 @@ class Base(object):
             return test.tool_parameters["receiver_connects"]
 
         return False
+
+    def get_port(self):
+        return self.port_range.get_port()
+
+    def release_port(self, port):
+        return self.port_range.release_port(port)
 
     @property
     def port_range(self):

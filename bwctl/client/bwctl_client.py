@@ -807,7 +807,7 @@ class LocalEndpoint:
 
    def request_test(self, requested_time=None, latest_time=None, tool="", tool_parameters={}):
        if not self.test_port:
-           self.test_port = get_tool(tool).port_range.get_port()
+           self.test_port = get_tool(tool).get_port()
 
        if self.is_sender:
            receiver_endpoint = self.remote_endpoint.endpoint_obj(local=False)
