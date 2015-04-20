@@ -93,7 +93,7 @@ class Coordinator(object):
 
             # Allocate a test port for the test we're the server side
             if not test.local_client:
-                test.local_endpoint.test_port = test.tool_obj.port_range.get_port()
+                test.local_endpoint.test_port = test.tool_obj.get_port()
 
             test.change_state("scheduled")
 
@@ -375,7 +375,7 @@ class Coordinator(object):
         self.scheduler.remove_test(test)
 
         if not test.local_client and test.local_endpoint.test_port:
-            test.tool_obj.port_range.release_port(test.local_endpoint.test_port)
+            test.tool_obj.release_port(test.local_endpoint.test_port)
 
         # Stop the test processes if they're still doing their thing
         with self.lock:
