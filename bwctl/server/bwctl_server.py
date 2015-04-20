@@ -15,6 +15,7 @@ from bwctl.server.legacy_servers import LegacyEndpointServer, LegacyBWCTLServer
 from bwctl.server.scheduler import Scheduler
 from bwctl.server.coordinator import Coordinator
 from bwctl.server.tests_db.simple import SimpleDB
+from bwctl.server.limits_parser import LimitsDBfromFileCreator 
 from bwctl.tools import get_tools, get_available_tools, configure_tools
 from bwctl.utils import get_logger
 
@@ -144,7 +145,7 @@ def bwctld():
 
     # XXX: parse limits file in opts.limits_file instead of creating an empty
     # limits database
-    limits_db = LimitsDB()
+    limits_db = LimitsDBfromFileCreator(opts.limits_file).get_limitsdb() if opts.limits_file else LimitsDB()
 
     if opts.daemonize:
         daemonize(pidfile=opts.pid_file)
