@@ -249,14 +249,16 @@ class LimitsDB(object):
             # By default, external folks can't do endpointless tests, but loopback
             # users can. This gets around an issue where regular testing didn't
             # work by default.
-            limit_class.add_limit(AllowEndpointlessLimit(value=True, default=True))
+            limit_class.add_limit(AllowEndpointlessLimit(value="on", default=True))
 
         self.loopback_limit_class = limit_class
 
         return
 
 
-    def add_limit(self, limit_class, limit, tool=""):
+    def add_limit(self, limit_class, limit, tool="default"):
+        #print "Adding %s to %s/%s" % (limit.type, limit_class, tool)
+
         if not limit_class in self.classes.keys():
             raise Exception("Class %s does not exist" % limit_class)
 
@@ -322,6 +324,18 @@ class LimitsDB(object):
 
         return
 
+    def __str__(self):
+        ret_str = ""
+        for cls_name, cls in self.classes.items():
+            ret_str = ret_str + "Class: %s\n" % cls_name
+            ret_str = ret_str + "- Parent: %s\n" % cls.parent.name
+            ret_str = ret_str + "- Limits: %s\n" % cls.parent.name
+            for tool, limits in cls.limits.items():
+                ret_str = ret_str + "- Tool %s: %s\n" % (tool , ", ".join([str(i) for i in limits]) )
+
+        return ret_str
+
+
 class LimitClass(object):
     """ A class has multiple limits associated with it """
     def __init__(self, name="", parent=None):
@@ -337,13 +351,13 @@ class LimitClass(object):
         if self.parent:
             self.parent.children.append(self)
 
-    def get_limits(self, tool=""):
+    def get_limits(self, tool="default"):
         limits = []
 
         if self.parent:
             limits.extend(self.parent.get_limits(tool=tool))
 
-        for tool_name in [ "", tool ]:
+        for tool_name in [ "default", tool ]:
             if not tool_name in self.limits.keys():
                 continue
 
@@ -354,7 +368,7 @@ class LimitClass(object):
         return limits
 
     # XXX: minimize the limits set
-    def add_limit(self, limit, tool=""):
+    def add_limit(self, limit, tool="default"):
         #print "Adding %s to %s" % (limit, self.name)
 
         # Make a copy of the limit
@@ -369,6 +383,3 @@ class LimitClass(object):
 
     def __str__(self):
         return "%s: %s" % ( self.name, ", ".join([str(i) for i in self.get_limits()]) )
-    
-    
-
