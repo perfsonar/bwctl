@@ -114,6 +114,22 @@ class DurationLimit(MaximumLimit):
        if self.value < test.duration:
            raise LimitViolatedException("Duration exceeds maximum: %s" % self.value)
 
+class MinimumTTLLimit(MinimumLimit):
+    """ The minimum TTL that a traceroute test must have
+    """
+    type = "minimum_ttl"
+    default_value = "0"
+
+    def check(self, test):
+       if self.value < test.packets_per_second:
+           raise LimitViolatedException("Packet-per-second exceeds maximum: %s" % self.value)
+       if test.test_type == ToolTypes.TRACEROUTE:
+           if "first_ttl" in test.tool_parameters:
+               if test.tool_parameters["first_ttl"] < self.value:
+                   raise LimitViolatedException("Traceroute TTL below minimum: %s" % self.value)
+           else:
+               test.tool_parameters["first_ttl"] = self.value
+
 class PacketsPerSecondLimit(MaximumLimit):
     """ The maximum number of packets per second a test may have
     """
@@ -269,6 +285,9 @@ class LimitsDB(object):
         return
 
     def get_limit_class_by_name(self, limit_class):
+        if not limit_class in self.classes:
+            return None
+
         return self.classes[limit_class]
 
     def get_limit_class(self, user=None, address=None, tool=""):
@@ -326,9 +345,14 @@ class LimitsDB(object):
 
     def __str__(self):
         ret_str = ""
+        print "Classes: %s" % self.classes
         for cls_name, cls in self.classes.items():
             ret_str = ret_str + "Class: %s\n" % cls_name
             ret_str = ret_str + "- Parent: %s\n" % cls.parent.name
+            if self.loopback_limit_class == cls:
+                ret_str = ret_str + "- Loopback Class\n"
+            if self.default_limit_class == cls:
+                ret_str = ret_str + "- Default Class\n"
             ret_str = ret_str + "- Limits: %s\n" % cls.parent.name
             for tool, limits in cls.limits.items():
                 ret_str = ret_str + "- Tool %s: %s\n" % (tool , ", ".join([str(i) for i in limits]) )
