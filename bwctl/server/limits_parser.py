@@ -6,7 +6,7 @@ Created on 12.02.2015
 
 import re
 
-from bwctl.server.limits import *
+from bwctl.server.limits import Limit, LimitsDB
 
 # AB: Long term, the V1 format is going away. I think it'd make more sense to
 # completely separate the V1 and V2 parsing even if there are some happenstance
@@ -153,7 +153,8 @@ class LimitsFileParser(LimitsParser):
         else:
             return self.get_limit_name(limit_str)
     def get_default_limit_name(self,limit_str):
-        return self.get_value_by_pattern('(default_limits)', limit_str)
+        return self.get_value_by_pattern('(default)', limit_str)
+
     def get_limit_name(self,limit_str):
         return self.get_value_by_pattern('limits "(\w+)"', limit_str)
         
@@ -235,23 +236,15 @@ class LimitsDBfromFileCreator(object):
 		# the name of a limit in the v1 parsing and the v2 parsing.
 		# However, it might make sense to have the parsers themselves
 		# create these limit objects instead of generalizing it.
-                if "bandwidth".__eq__(limit_type_name):
-                    limit_type_class = BandwidthLimit(limit_type_value)
-                elif "allow_no_endpoint".__eq__(limit_type_name):
-                    limit_type_class  = AllowEndpointlessLimit(limit_type_value)
-                elif "allow_udp_throughput".__eq__(limit_type_name):
-                    limit_type_class  = AllowUDPLimit(limit_type_value)
-                elif "banned".__eq__(limit_type_name):
-                    limit_type_class  = BannedLimit()
-                elif "duration".__eq__(limit_type_name):
-                    limit_type_class  = DurationLimit(limit_type_value)
-                elif "event_horizon".__eq__(limit_type_name):
-                    limit_type_class  = EventHorizonLimit(limit_type_value)
+                for limit_class in Limit.get_subclasses():
+                    if limit_class.type and limit_type_name == limit_class.type:
+                        limit_type_class = limit_class(limit_type_value)
+                        break
+
+                if limit_type_class:
+                    self.limits_db.add_limit(class_name, limit_type_class, limit_tool)
                 else:
-                    print "This limit type is not supported in v2: %s" % limit_type_name
-                    
-            if limit_type_class:
-                self.limits_db.add_limit(class_name, limit_type_class, limit_tool)
+                    raise ValidationException("This limit type is not supported in v2: %s" % limit_type_name)
 
     # AB: We'll need an add_class_user option as well
     def add_class_network(self, class_name, networks):

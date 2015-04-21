@@ -7,13 +7,11 @@ import unittest
 from nose.tools import eq_
 from nose.tools import ok_
 
-<<<<<<< HEAD
-from bwctl.server.limits_parser_v1 import *
-=======
 from os.path import dirname, realpath, sep
 
 from bwctl.server import limits_parser
->>>>>>> 1c31329fe5669b3240c0932738ae38bada70f165
+
+from bwctl.server.limits_parser_v1 import *
 
 
 sep="/"
