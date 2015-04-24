@@ -78,7 +78,7 @@ def parse_limits(limit_classes, limits_v1_as_string=""):
             limit_classes[m.group(1)] = {"LIMITTYPES" : limit_types}
             limit_classes[m.group(1)]["PARENT"] =  class_has_parent(limit_types, limit_classes)
             limit_classes[m.group(1)]["ASSIGN"] = {}
-    #print limit_classes
+    #    print limit_classes
 
             
 def parse_assign(limit_classes, limits_v1_as_string=""):
@@ -109,7 +109,7 @@ limit_types_syntax = { "allow_open_mode" : ["on","off"],
                       "bandwidth": ["int"],
                       "duration": ["int"],
                       "event_horizon" : ["int"],
-                      "max_time_error" : ["int"],
+                      "max_time_error" : ["dep"],
                       "pending" : ["int"],
                       "parent" : ["string"],
                       }
@@ -121,11 +121,18 @@ def limit_types_syntax_check(limit_type):
     '''
     match = re.search(r'(\w+)=(\w+)', limit_type)
     if match:
-        if not match.group(1) in limit_types_syntax:
-            print "OHoh"
+        type = match.group(1)
+        value = match.group(2)
+        value_check = check_limit_type_value(type, value)
+        if not type in limit_types_syntax:
             raise Exception("This limit type: %s is not alloed" % match.group(1))
-        elif not check_limit_type_value(match.group(1), match.group(2)):
+        elif not value_check:
             raise Exception("Syntax check of limit type: %s fails" % limit_type)
+        elif value_check < 0:
+            print "Limit type is deprecated: ", type
+            return -1
+        else:
+            return 1
                    
             
 def check_limit_type_value(limit_type, limit_type_value):
@@ -134,6 +141,8 @@ def check_limit_type_value(limit_type, limit_type_value):
     if "string" in value:
         if type(limit_type_value) == type(""):
             retval = 1
+    elif "dep" in value:
+        retval = -1
     elif "int" in value:
         # We can have values 50m
         #AB: this doesn't seem to handle the "50m" case noted above
@@ -146,9 +155,11 @@ def check_limit_type_value(limit_type, limit_type_value):
     return retval            
             
 def class_has_parent(limit_types, limit_classes):
+    remove_limit = []
     for limit_type in limit_types:
         #check first if limit_type is correct syntax
-        limit_types_syntax_check(limit_type)
+        if limit_types_syntax_check(limit_type) < 0:
+            remove_limit.append(limit_type)
         match =  re.search(r'parent=(\w+)', limit_type)
         if match:
             #Syntax check if aprent exist
@@ -156,6 +167,8 @@ def class_has_parent(limit_types, limit_classes):
                 return match.group(1) #parent class name
             else:
                 raise Exception('Class name: %s does not exist! Please define it parent first.' % match.group(1))
+    for removelt in remove_limit:
+        limit_types.remove(removelt)
 
 def get_v2_as_string(limits_classes):
     v2_as_string = ""
