@@ -10,11 +10,8 @@ from nose.tools import ok_
 from os.path import dirname, realpath, sep
 
 from bwctl.server import limits_parser
-<<<<<<< HEAD
-=======
 
 from bwctl.server.limits_parser_v1 import *
->>>>>>> 08a5529b3b3c967f817bfd6611e142dee1c52836
 
 
 sep="/"
