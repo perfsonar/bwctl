@@ -11,8 +11,6 @@ Module for converting bwctl limits format file into v2 format
 import re
 import sys
 
-default_limits_file_name = "bwctld.v2.limits"
-
 def get_limits_asstring(limits_file=None):
     '''
     Open a limits file and return it as string
@@ -29,9 +27,9 @@ def get_limits_asstring(limits_file=None):
         raise Exception( "Cannot open limits file: " + limits_file)
     return limits_as_string
 
-def write_to_file(limits_as_v2_string=""):
+def write_to_file(filename, limits_as_v2_string=""):
     try:
-        limits_v2_file_object = open(default_limits_file_name, 'w')
+        limits_v2_file_object = open(filename, 'w')
         limits_v2_file_object.write(limits_as_v2_string)
         limits_v2_file_object.close()
     except IOError as e:
@@ -39,27 +37,19 @@ def write_to_file(limits_as_v2_string=""):
               
         
 
-def parse(limits_file_path=None, output="file"):
+def parse(limits_file_path=None):
     '''
     Here starts the parsing of limits file.
     parse(limits_file_path=None)
     limits_file_path :Path to the limits file v1 format.
     '''
-    if len(sys.argv) > 1:
-        print "Start converting limits file to v2..."
-        limits_file_path = sys.argv[1]
     limit_classes = {}
     limits_v1_as_string = get_limits_asstring(limits_file_path)
     parse_limits(limit_classes, limits_v1_as_string)
     parse_assign(limit_classes, limits_v1_as_string)
         
-    if "dict".__eq__(output):
-        return limit_classes
-    else:
-        write_to_file(get_v2_as_string(limit_classes))
-        print "Done.\n"
-    
-    
+    return limit_classes
+
 def parse_limits(limit_classes, limits_v1_as_string=""):
     pattern_get_limits = '^limit \w+ with.*\n(?:\s+\w+.*\n){0,}'
     limits = re.findall(pattern_get_limits, limits_v1_as_string, re.M)
@@ -225,4 +215,6 @@ def get_num_of_limit_types(limit_classes, class_name=None):
         raise Exception('Please define a limit class name!')
 
 if __name__ == '__main__':
-    pass
+    if len(sys.argv) > 1:
+        print "Start converting limits file to v2..."
+        limits_file_path = sys.argv[1]

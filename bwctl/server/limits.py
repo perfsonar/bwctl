@@ -114,6 +114,22 @@ class DurationLimit(MaximumLimit):
        if self.value < test.duration:
            raise LimitViolatedException("Duration exceeds maximum: %s" % self.value)
 
+class MinimumTTLLimit(MinimumLimit):
+    """ The minimum TTL that a traceroute test must have
+    """
+    type = "minimum_ttl"
+    default_value = "0"
+
+    def check(self, test):
+       if self.value < test.packets_per_second:
+           raise LimitViolatedException("Packet-per-second exceeds maximum: %s" % self.value)
+       if test.test_type == ToolTypes.TRACEROUTE:
+           if "first_ttl" in test.tool_parameters:
+               if test.tool_parameters["first_ttl"] < self.value:
+                   raise LimitViolatedException("Traceroute TTL below minimum: %s" % self.value)
+           else:
+               test.tool_parameters["first_ttl"] = self.value
+
 class PacketsPerSecondLimit(MaximumLimit):
     """ The maximum number of packets per second a test may have
     """
@@ -249,14 +265,16 @@ class LimitsDB(object):
             # By default, external folks can't do endpointless tests, but loopback
             # users can. This gets around an issue where regular testing didn't
             # work by default.
-            limit_class.add_limit(AllowEndpointlessLimit(value=True, default=True))
+            limit_class.add_limit(AllowEndpointlessLimit(value="on", default=True))
 
         self.loopback_limit_class = limit_class
 
         return
 
 
-    def add_limit(self, limit_class, limit, tool=""):
+    def add_limit(self, limit_class, limit, tool="default"):
+        #print "Adding %s to %s/%s" % (limit.type, limit_class, tool)
+
         if not limit_class in self.classes.keys():
             raise Exception("Class %s does not exist" % limit_class)
 
@@ -267,6 +285,9 @@ class LimitsDB(object):
         return
 
     def get_limit_class_by_name(self, limit_class):
+        if not limit_class in self.classes:
+            return None
+
         return self.classes[limit_class]
 
     def get_limit_class(self, user=None, address=None, tool=""):
@@ -322,6 +343,23 @@ class LimitsDB(object):
 
         return
 
+    def __str__(self):
+        ret_str = ""
+        print "Classes: %s" % self.classes
+        for cls_name, cls in self.classes.items():
+            ret_str = ret_str + "Class: %s\n" % cls_name
+            ret_str = ret_str + "- Parent: %s\n" % cls.parent.name
+            if self.loopback_limit_class == cls:
+                ret_str = ret_str + "- Loopback Class\n"
+            if self.default_limit_class == cls:
+                ret_str = ret_str + "- Default Class\n"
+            ret_str = ret_str + "- Limits: %s\n" % cls.parent.name
+            for tool, limits in cls.limits.items():
+                ret_str = ret_str + "- Tool %s: %s\n" % (tool , ", ".join([str(i) for i in limits]) )
+
+        return ret_str
+
+
 class LimitClass(object):
     """ A class has multiple limits associated with it """
     def __init__(self, name="", parent=None):
@@ -337,13 +375,13 @@ class LimitClass(object):
         if self.parent:
             self.parent.children.append(self)
 
-    def get_limits(self, tool=""):
+    def get_limits(self, tool="default"):
         limits = []
 
         if self.parent:
             limits.extend(self.parent.get_limits(tool=tool))
 
-        for tool_name in [ "", tool ]:
+        for tool_name in [ "default", tool ]:
             if not tool_name in self.limits.keys():
                 continue
 
@@ -354,7 +392,7 @@ class LimitClass(object):
         return limits
 
     # XXX: minimize the limits set
-    def add_limit(self, limit, tool=""):
+    def add_limit(self, limit, tool="default"):
         #print "Adding %s to %s" % (limit, self.name)
 
         # Make a copy of the limit
@@ -369,6 +407,3 @@ class LimitClass(object):
 
     def __str__(self):
         return "%s: %s" % ( self.name, ", ".join([str(i) for i in self.get_limits()]) )
-    
-    
-

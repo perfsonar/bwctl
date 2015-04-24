@@ -6,7 +6,8 @@ Created on 12.02.2015
 
 import re
 
-from bwctl.server.limits import *
+from bwctl.server.limits import Limit, LimitsDB
+from bwctl.exceptions import ValidationException
 
 # AB: Long term, the V1 format is going away. I think it'd make more sense to
 # completely separate the V1 and V2 parsing even if there are some happenstance
@@ -18,7 +19,7 @@ class LimitsParser(object):
     def __init__(self, limits_file_path):
         self.pattern_get_assigns = 'assign.*\n'
         self.limits_as_string = ""                
-        self.limit_classes = {}
+        self.limits_classes = {}
         self.open_limits_file(limits_file_path)        
         
     def open_limits_file(self, limits_file=None):
@@ -48,11 +49,11 @@ class LimitsParser(object):
                 assign_type = elements[0]
                 assign_value = elements[1] if elements[2] != '' else ""
                 parent = parent.replace('"', '')
-                if parent in self.limit_classes: #found class
-                    if not assign_type in self.limit_classes[parent]['ASSIGN']: # check if assign type exist
-                        self.limit_classes[parent]['ASSIGN'] = { assign_type : [assign_value] } # Make new  assign entry
+                if parent in self.limits_classes: #found class
+                    if not assign_type in self.limits_classes[parent]['ASSIGN']: # check if assign type exist
+                        self.limits_classes[parent]['ASSIGN'] = { assign_type : [assign_value] } # Make new  assign entry
                     else:
-                        self.limit_classes[parent]['ASSIGN'][assign_type].append(assign_value)
+                        self.limits_classes[parent]['ASSIGN'][assign_type].append(assign_value)
                     self.assign_counter = self.assign_counter + 1
                 else:
                     raise Exception("Class name: %s not exist. Please check your limits file." % parent)
@@ -72,7 +73,7 @@ class LimitsParser(object):
                     {ASSIGN} include all assign types. Each type has his values as list
                     {PARENT} if class name is parent it includes None otherwise it includes: parent=CLASSNAME
         '''
-        return self.limit_classes
+        return self.limits_classes
         
 
 class LimitsFileParser(LimitsParser):
@@ -119,11 +120,11 @@ class LimitsFileParser(LimitsParser):
             parent = self.get_class_parent(limit)
             if class_name:
                 all_sub_limits = re.findall(r'<.*limits.*>(?:\s*\w*\s*\w*\s*){0,}.*\s*</.*limits>', limit,re.M)
-                self.limit_classes[class_name] = {}
-                self.limit_classes[class_name]['PARENT'] = parent
-                self.limit_classes[class_name]['LIMITTYPES'] = {}
-                self.limit_classes[class_name]['ASSIGN'] = {}
-                self.limit_classes[class_name]['LIMITTYPES'] = self.get_limits_types(all_sub_limits)
+                self.limits_classes[class_name] = {}
+                self.limits_classes[class_name]['PARENT'] = parent
+                self.limits_classes[class_name]['LIMITTYPES'] = {}
+                self.limits_classes[class_name]['ASSIGN'] = {}
+                self.limits_classes[class_name]['LIMITTYPES'] = self.get_limits_types(all_sub_limits)
         
         
     
@@ -153,7 +154,8 @@ class LimitsFileParser(LimitsParser):
         else:
             return self.get_limit_name(limit_str)
     def get_default_limit_name(self,limit_str):
-        return self.get_value_by_pattern('(default_limits)', limit_str)
+        return self.get_value_by_pattern('(default)', limit_str)
+
     def get_limit_name(self,limit_str):
         return self.get_value_by_pattern('limits "(\w+)"', limit_str)
         
@@ -196,31 +198,46 @@ class LimitsDBfromFileCreator(object):
         self.limits_classes = lfp.get_limits_classes()
         self.create_limitsdb()
         return self.limits_db
+
     def create_limitsdb(self):
-        limit_classes = self.limits_classes
-        success_class_name = []
-        for class_name in limit_classes:
-            success = True            
-            parentname = limit_classes[class_name]['PARENT']  #create first parents
-            try:
-                self.limits_db.create_limit_class(class_name, parent=parentname)
-            except Exception:
-		# AB: why wouldn't it be able to create a limit class? Either
-		# way, should either parse it in full, or bomb out.
-                success = False
-            if success:                
-                self.add_all_class_elements(limit_classes, class_name)
-                success_class_name.append(class_name)
-        for del_class_name in success_class_name:
-            del(limit_classes[del_class_name])              
-        
-    def add_all_class_elements(self, limit_classes, class_name):
-        limit_types = limit_classes[class_name]['LIMITTYPES']
+        for class_name in self.limits_classes:
+            self.create_class(class_name)
+
+            # Add all the elements to the class
+            self.add_all_class_elements(self.limits_classes, class_name)
+
+    def create_class(self, class_name):
+	# Things can get redundant depending on ordering that the classes get
+	# added.
+        if self.limits_db.get_limit_class_by_name(class_name):
+            return
+
+        # Make sure the parent class exists first
+        parentname = self.limits_classes[class_name]['PARENT']
+        if parentname:
+            if not self.limits_db.get_limit_class_by_name(parentname):
+                self.create_class(parentname)
+
+        # Actually create this class
+        try:
+            self.limits_db.create_limit_class(class_name, parent=parentname)
+        except Exception as e:
+            raise ValidationException("Problem adding class %s: %s" % (class_name, e))
+
+    def add_all_class_elements(self, limits_classes, class_name):
+        limit_types = limits_classes[class_name]['LIMITTYPES']
         self.add_limits_types_to_limitsdb(class_name, limit_types)
-        if 'network' in limit_classes[class_name]['ASSIGN']:
-            self.add_class_network(class_name, limit_classes[class_name]['ASSIGN']['network'])
-        elif 'user' in limit_classes[class_name]['ASSIGN']:
-            self.add_class_user(class_name, limit_classes[class_name]['ASSIGN']['user'])
+        for assign_type, value in limits_classes[class_name]['ASSIGN'].items():
+            if assign_type == 'network':
+                self.add_class_network(class_name, value)
+            elif assign_type == 'user':
+                self.add_class_user(class_name, value)
+            elif assign_type == 'default':
+                self.add_class_default(class_name)
+            elif assign_type == 'loopback':
+                self.add_class_loopback(class_name)
+            else:
+                raise ValidationException("Unknown assignment type: %s" % assign_type)
         
     def add_limits_types_to_limitsdb(self, class_name, limits):
         for limit_tool in limits:
@@ -235,23 +252,15 @@ class LimitsDBfromFileCreator(object):
 		# the name of a limit in the v1 parsing and the v2 parsing.
 		# However, it might make sense to have the parsers themselves
 		# create these limit objects instead of generalizing it.
-                if "bandwidth".__eq__(limit_type_name):
-                    limit_type_class = BandwidthLimit(limit_type_value)
-                elif "allow_no_endpoint".__eq__(limit_type_name):
-                    limit_type_class  = AllowEndpointlessLimit(limit_type_value)
-                elif "allow_udp_throughput".__eq__(limit_type_name):
-                    limit_type_class  = AllowUDPLimit(limit_type_value)
-                elif "banned".__eq__(limit_type_name):
-                    limit_type_class  = BannedLimit()
-                elif "duration".__eq__(limit_type_name):
-                    limit_type_class  = DurationLimit(limit_type_value)
-                elif "event_horizon".__eq__(limit_type_name):
-                    limit_type_class  = EventHorizonLimit(limit_type_value)
+                for limit_class in Limit.get_subclasses():
+                    if limit_class.type and limit_type_name == limit_class.type:
+                        limit_type_class = limit_class(limit_type_value)
+                        break
+
+                if limit_type_class:
+                    self.limits_db.add_limit(class_name, limit_type_class, limit_tool)
                 else:
-                    print "This limit type is not supported in v2: %s" % limit_type_name
-                    
-            if limit_type_class:
-                self.limits_db.add_limit(class_name, limit_type_class, limit_tool)
+                    raise ValidationException("This limit type is not supported in v2: %s" % limit_type_name)
 
     # AB: We'll need an add_class_user option as well
     def add_class_network(self, class_name, networks):
@@ -260,7 +269,11 @@ class LimitsDBfromFileCreator(object):
     def add_class_user(self, class_name, users):
         for user in users:
             self.limits_db.add_user(user, class_name)
-            
+    def add_class_default(self, class_name):
+        self.limits_db.set_default_limit_class(class_name)
+    def add_class_loopback(self, class_name):
+        self.limits_db.set_loopback_limit_class(class_name)
+
     def get_limits_classes(self):
         return  self.limits_db.get_limits()
     

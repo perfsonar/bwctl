@@ -66,13 +66,14 @@ class LimitsDBTest(unittest.TestCase):
         '''
         class_name = "root_users"        
         limits = self.ldb.get_limit_class_by_name(class_name).get_limits("throughput")
+
         for limit in limits:
             if "duration".__eq__(limit.type):
                 self.assertEqual(30, limit.value)
             elif "bandwidth".__eq__(limit.type):
-                self.assertEqual(10, limit.value)
+                self.assertEqual(10000000000, limit.value)
             elif "allow_udp_throughput".__eq__(limit.type):
-                self.assertEqual(true   , limit.value)         
+                self.assertTrue(limit.value)         
         
         
         

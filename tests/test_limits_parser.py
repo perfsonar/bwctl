@@ -10,6 +10,11 @@ from nose.tools import ok_
 from os.path import dirname, realpath, sep
 
 from bwctl.server import limits_parser
+<<<<<<< HEAD
+=======
+
+from bwctl.server.limits_parser_v1 import *
+>>>>>>> 08a5529b3b3c967f817bfd6611e142dee1c52836
 
 
 sep="/"
@@ -31,7 +36,7 @@ class LimitsParserV1Test(unittest.TestCase):
         '''
         Check if limit entries parse of
         '''
-        classes = parse(self.test_simple_file, "dict")
+        classes = parse(self.test_simple_file)
         expected_result = 3
         eq_(expected_result, len(classes))
         
@@ -41,7 +46,7 @@ class LimitsParserV1Test(unittest.TestCase):
         In simple limits file class root has 2 assigns
         jail has 1
         '''
-        classes = parse(self.test_simple_file, "dict")
+        classes = parse(self.test_simple_file)
         eq_(2, get_num_of_limit_assigns(classes,  "root"))
         eq_(1, get_num_of_limit_assigns(classes,  "jail"))
         
@@ -52,7 +57,7 @@ class LimitsParserV1Test(unittest.TestCase):
         jail has root
         regular has root
         '''
-        classes = parse(self.test_simple_file, "dict")
+        classes = parse(self.test_simple_file)
         eq_(None, get_class_parent(classes, "root"))
         eq_("root", get_class_parent(classes, "jail"))
         eq_("root", get_class_parent(classes, "regular"))
