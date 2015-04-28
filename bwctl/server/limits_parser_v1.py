@@ -68,6 +68,11 @@ def parse_limits(limit_classes, limits_v1_as_string=""):
             limit_classes[m.group(1)] = {"LIMITTYPES" : limit_types}
             limit_classes[m.group(1)]["PARENT"] =  class_has_parent(limit_types, limit_classes)
             limit_classes[m.group(1)]["ASSIGN"] = {}
+            
+            if not limit_classes[m.group(1)]["PARENT"]:
+                #we have a root class add  a loopback class to it
+                add_loopback_class(limit_classes, m.group(1))
+                
     #    print limit_classes
 
             
@@ -169,7 +174,13 @@ def get_v2_as_string(limits_classes):
         assigns_as_string = assigns_as_string + get_assigns_as_string(assigns, class_name)
         limit_types = limits_classes[class_name]['LIMITTYPES']
         #remove parent 
-        filtered_limits_types = [ v for v in limit_types if not v.startswith('parent') and not v.startswith("max_time_error") ]
+        filtered_limits_types = []
+        for limit_type in limit_types:
+            match = re.search("(\w+)=(\w+)", limit_type)
+            if match and not match.group(1) in "parent":
+                lt_as_str = match.group(1) + "\t" + match.group(2)
+                filtered_limits_types.append(lt_as_str)        
+        
 
         class_name = '"%s"' % class_name
         v2_as_string = v2_as_string +"<class %s>\n" % class_name
@@ -192,9 +203,12 @@ def get_assigns_as_string(assigns, parent):
             assign_str = 'assign %s %s "%s" \n' % (assign_type_as_string, assing_value, parent)
             assigns_as_string = assigns_as_string + assign_str
     return assigns_as_string
-        
-    
-             
+
+def add_loopback_class(limit_classes, root_class):    
+    limit_classes["loopback"] = {"LIMITTYPES" : ["allow_no_endpoint=on"] }
+    limit_classes["loopback"]["PARENT"] = root_class 
+    limit_classes["loopback"]["ASSIGN"] = {}
+                 
 
 #################################
 # Helful methods for testing ####

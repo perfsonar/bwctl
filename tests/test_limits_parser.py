@@ -34,7 +34,7 @@ class LimitsParserV1Test(unittest.TestCase):
         Check if limit entries parse of
         '''
         classes = parse(self.test_simple_file)
-        expected_result = 3
+        expected_result = 4 # parser add now loopbacl class
         eq_(expected_result, len(classes))
         
     def test_check_assigns(self):

@@ -4,10 +4,11 @@ from os.path import dirname, realpath, sep, pardir
 import sys
 sys.path.insert(0, dirname(realpath(__file__)) + sep + pardir)
 
-from bwctl.server.limits_parser_v1 import parse
+from bwctl.server.limits_parser_v1 import *
 
+#TODO:Add command line options
 if len(sys.argv) <  2:
     print "Please define a path to the limits file!"
     print "Usage: ./limits_converter <PATH-TO-LIMITS-FILE-V1>"
     sys.exit(1)
-parse()
+write_to_file("bwctld.v2.limits", get_v2_as_string(parse(sys.argv[1])))
