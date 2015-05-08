@@ -1,3 +1,9 @@
+bwctl (1.5.4-2~bpo70+1) unstable; urgency=low
+
+  * Correcting Debian scripts that had got lost during move to github
+
+ -- Antoine Delvaux <adelvaux@man.poznan.pl>  Fri, 08 May 2015 13:28:59 +0000
+
 bwctl (1.5.4-1~bpo70+1) unstable; urgency=low
 
   * New upstream version
