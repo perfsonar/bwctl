@@ -10,8 +10,10 @@ try:
 except ImportError:
     pass
 
+version = __import__('bwctl').__version__
+
 setup(name='bwctl2',
-        version='2.0a2',
+        version=version,
         description='BWCTL Measurement Daemon',
         author='Aaron Brown',
         author_email='aaron@internet2.edu',

@@ -4,6 +4,7 @@ import sys
 import time
 import uuid
 
+from bwctl import __version__
 from bwctl.utils import init_logging, daemonize
 
 from bwctl.protocol.coordinator.client import Client as CoordinatorClient
@@ -122,7 +123,7 @@ class BwctlServer:
 def bwctld():
     """Entry point for bwctld."""
     argv = sys.argv
-    oparse = optparse.OptionParser()
+    oparse = optparse.OptionParser(version="%prog " + __version__)
     oparse.add_option("-c", "--config-file", dest="config_file", default="")
     oparse.add_option("-l", "--limits-file", dest="limits_file", default="")
     oparse.add_option("-p", "--pid-file", dest="pid_file", default="")

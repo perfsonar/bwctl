@@ -9,6 +9,7 @@ import inspect
 
 from multiprocessing import Queue
 
+from bwctl import __version__
 from bwctl.dependencies.requests.exceptions import HTTPError
 
 #-B|--local_address <address>     Use this as a local address for control connection and tests
@@ -363,7 +364,7 @@ def bwctl_client():
         tool_type = ToolTypes.THROUGHPUT
 
     argv = sys.argv
-    oparse = optparse.OptionParser()
+    oparse = optparse.OptionParser(version="%prog " + __version__)
     oparse.add_option("-4", "--ipv4", action="store_true", dest="require_ipv4", default=False,
                       help="Use IPv4 only")
     oparse.add_option("-6", "--ipv6", action="store_true", dest="require_ipv6", default=False,
@@ -374,7 +375,6 @@ def bwctl_client():
                       help="The host that will act as the receiving side for a test")
     oparse.add_option("-s", "--sender", dest="sender", type="string",
                       help="The host that will act as the sending side for a test")
-
     add_tool_options(oparse, tool_type=tool_type)
 
     if tool_type == ToolTypes.TRACEROUTE:
