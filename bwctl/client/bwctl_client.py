@@ -16,13 +16,6 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #-E|--no_endpoint                 Allow tests to occur when the receiver isn't running bwctl (Default: False)
 #-o|--flip                        Have the receiver connect to the sender (Default: False)
 #
-#Scheduling Arguments
-#-I|--test_interval <seconds>     Time between repeated bwctl tests
-#-n|--num_tests <num>             Number of tests to perform (Default: 1)
-#-R|--randomize <percent>         Randomize the start time within this percentage of the test's interval (Default: 10%)
-#--schedule <schedule>            Specify the specific times when a test should be run (e.g. --schedule 11:00,13:00,15:00)
-#--streaming                      Request the next test as soon as the current test finishes
-#
 #Test Arguments
 #-D|--dscp <dscp>                 RFC 2474-style DSCP value for TOS byte
 #--tester_port <port>             For an endpoint-less test, use this port as the server port (Default: tool specific)
@@ -48,6 +41,7 @@ from bwctl.protocol.legacy.client import Client as LegacyClient
 from bwctl.protocol.legacy.utils import tool_name_by_id
 from bwctl.protocol.legacy.models import AcceptType, Tools, TestRequest, Timestamp, ErrorEstimate
 
+from bwctl.client.scheduler import IntervalScheduler, StreamingScheduler, SingleTestScheduler
 from bwctl.tools import get_tools, get_tool, ToolTypes, configure_tools, get_available_tools
 from bwctl.tool_runner import ToolRunner
 from bwctl.models import Test, Endpoint, SchedulingParameters, ClientSettings, Results
@@ -351,57 +345,26 @@ def add_tool_options(oparse, tool_type=ToolTypes.UNKNOWN):
                       help="The tool to use for the test. Available: %s" % available_tools_str
                      )
 
-def bwctl_client():
-    """Entry point for bwctl client"""
+def init_scheduler(opts):
+    #determine number of tests
+    kwargs = {}
+    if opts.num_tests: 
+        kwargs['max_num_tests']=opts.num_tests
+    
+    if opts.test_interval:
+        kwargs['interval'] = opts.test_interval
+        if opts.rand_start:
+            kwargs['rand_start'] = opts.rand_start
+        scheduler=IntervalScheduler(**kwargs)
+        return scheduler
+    elif opts.streaming:
+        return StreamingScheduler(**kwargs)
+    elif opts.schedule:
+        raise Exception("--schedule not yet implemented")
+        
+    return SingleTestScheduler()
 
-    # Determine the type of test we're running
-    script_name = inspect.stack()[-1][1]
-    if "bwtraceroute" in script_name:
-        tool_type = ToolTypes.TRACEROUTE
-    elif "bwping" in script_name:
-        tool_type = ToolTypes.LATENCY
-    elif "bwctl" in script_name:
-        tool_type = ToolTypes.THROUGHPUT
-
-    argv = sys.argv
-    oparse = optparse.OptionParser(version="%prog " + __version__)
-    oparse.add_option("-4", "--ipv4", action="store_true", dest="require_ipv4", default=False,
-                      help="Use IPv4 only")
-    oparse.add_option("-6", "--ipv6", action="store_true", dest="require_ipv6", default=False,
-                      help="Use IPv6 only")
-    oparse.add_option("-L", "--latest_time", dest="latest_time", default=300, type="int",
-                      help="Latest time into an interval to allow a test to run (seconds) (Default: 300)")
-    oparse.add_option("-c", "--receiver", dest="receiver", type="string",
-                      help="The host that will act as the receiving side for a test")
-    oparse.add_option("-s", "--sender", dest="sender", type="string",
-                      help="The host that will act as the sending side for a test")
-    add_tool_options(oparse, tool_type=tool_type)
-
-    if tool_type == ToolTypes.TRACEROUTE:
-        add_traceroute_test_options(oparse)
-    elif tool_type == ToolTypes.LATENCY:
-        add_latency_test_options(oparse)
-    elif tool_type == ToolTypes.THROUGHPUT:
-        add_throughput_test_options(oparse)
-
-    oparse.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False)
-
-    (opts, args) = oparse.parse_args(args=argv)
-
-    # Initialize the logger
-    init_logging(script_name, debug=opts.verbose)
-
-    # Initialize the configuration
-    config = get_config() # config_file=config_file)
-
-    # Setup the tool configuration
-    configure_tools(config)
-
-    if not opts.receiver and not opts.sender:
-        print "Error: a sender or a receiver must be specified\n"
-        oparse.print_help()
-        sys.exit(1)
-
+def initialize_endpoints(tool_type, opts):
     receiver_address = None
     receiver_ip = None
     if opts.receiver:
@@ -439,13 +402,112 @@ def bwctl_client():
     if (server_endpoint.is_legacy and not client_endpoint.is_remote) or \
        (client_endpoint.is_legacy and not server_endpoint.is_remote):
        print "BWCTL cannot be used against a legacy server without running a local bwctld instance"
-       sys.exit(1)
+       raise Exception()
 
     if client_endpoint.is_legacy and not server_endpoint.is_legacy and \
        not server_endpoint.legacy_endpoint_port:
        print "%s is a legacy server, but %s does not support legacy protocol" % (client_endpoint.address, server_endpoint.address)
-       sys.exit(1)
+       raise Exception()
+    
+    return (server_endpoint, client_endpoint)
 
+def cancel_endpoint_tests(endpoints):
+    for ep in endpoints:
+        try:
+            ep.cancel_test()
+        except Exception as e:
+            #Ignore exceptions since we want to exit regardless
+            pass
+
+def bwctl_client():
+    """Entry point for bwctl client"""
+    
+    # Determine the type of test we're running
+    script_name = inspect.stack()[-1][1]
+    if "bwtraceroute" in script_name:
+        tool_type = ToolTypes.TRACEROUTE
+    elif "bwping" in script_name:
+        tool_type = ToolTypes.LATENCY
+    elif "bwctl" in script_name:
+        tool_type = ToolTypes.THROUGHPUT
+
+    argv = sys.argv
+    oparse = optparse.OptionParser(version="%prog " + __version__)
+    oparse.add_option("-4", "--ipv4", action="store_true", dest="require_ipv4", default=False,
+                      help="Use IPv4 only")
+    oparse.add_option("-6", "--ipv6", action="store_true", dest="require_ipv6", default=False,
+                      help="Use IPv6 only")
+    oparse.add_option("-L", "--latest_time", dest="latest_time", default=300, type="int",
+                      help="Latest time into an interval to allow a test to run (seconds) (Default: 300)")
+    oparse.add_option("-c", "--receiver", dest="receiver", type="string",
+                      help="The host that will act as the receiving side for a test")
+    oparse.add_option("-s", "--sender", dest="sender", type="string",
+                      help="The host that will act as the sending side for a test")
+    #scheduling options
+    oparse.add_option("-n", "--num_tests", dest="num_tests", type="int",
+                      help="Number of times to run a test. Only valid with -I, --streaming, and --schedule. Defaults to infinite number of times. If no scheduling option provided then test only run once.")
+    oparse.add_option("-I", "--test_interval", dest="test_interval", type="int",
+                      help="Time between repeated bwctl tests in seconds")
+    oparse.add_option("-R", "--randomize", dest="rand_start", type="int", default=10,
+                      help=" Randomize the start time within this percentage of the test's interval. Specified as integer between 0 and 50 (inclusive).(Default: 10%)")
+    oparse.add_option("--streaming", action="store_true", dest="streaming", default=False,
+                      help="Request the next test as soon as the current test finishes")
+    oparse.add_option("--schedule", dest="schedule", type="string",
+                      help="Request the next test as soon as the current test finishes")
+    add_tool_options(oparse, tool_type=tool_type)
+
+    if tool_type == ToolTypes.TRACEROUTE:
+        add_traceroute_test_options(oparse)
+    elif tool_type == ToolTypes.LATENCY:
+        add_latency_test_options(oparse)
+    elif tool_type == ToolTypes.THROUGHPUT:
+        add_throughput_test_options(oparse)
+
+    oparse.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False)
+
+    (opts, args) = oparse.parse_args(args=argv)
+
+    # Initialize the logger
+    init_logging(script_name, debug=opts.verbose)
+
+    # Initialize the configuration
+    config = get_config() # config_file=config_file)
+    
+    # Initialize the scheduler
+    scheduler =  init_scheduler(opts)
+    
+    # Setup the tool configuration
+    configure_tools(config)
+    
+    # Make sure we have at least a sender or receiver before proceeding
+    if not opts.receiver and not opts.sender:
+        print "Error: a sender or a receiver must be specified\n"
+        oparse.print_help()
+        sys.exit(1)
+    
+    #run the test
+    while(scheduler.has_next_test()):
+        endpoints = ()
+        try:
+            # Sleep until next test if necessary
+            time.sleep(scheduler.get_next_wait_time())
+            # Initialize the endpoints
+            endpoints = initialize_endpoints(tool_type, opts) 
+            # Try to run the test
+            run_bwctl_test(tool_type, opts, endpoints)
+        except KeyboardInterrupt:
+            cancel_endpoint_tests(endpoints)
+            sys.exit(0)
+        except Exception as e:
+            print e
+        
+        scheduler.mark_test_run()
+        
+def run_bwctl_test(tool_type, opts, endpoints):
+    
+    server_endpoint = endpoints[0]
+    client_endpoint = endpoints[1]
+    
     tool_parameters = {}
 
     if tool_type == ToolTypes.THROUGHPUT:
@@ -466,7 +528,7 @@ def bwctl_client():
     if not selected_tool:
         print "Requested tools not available by both servers."
         print "Available tools that support the requested options: %s" % ",".join(common_tools)
-        sys.exit(1)
+        raise Exception()
 
     requested_time=datetime.datetime.utcnow()+datetime.timedelta(seconds=3)
     latest_time=requested_time+datetime.timedelta(seconds=opts.latest_time)
