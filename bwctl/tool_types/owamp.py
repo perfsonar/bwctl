@@ -15,6 +15,7 @@ class Owamp(LatencyBase):
         ToolParameter(name="maximum_duration", type='float(min=0.1)'),
         ToolParameter(name="receiver_connects", type='boolean'),
         ToolParameter(name="tos_bits", type='integer(min=0,max=255)'),
+        ToolParameter(name="units", type='option("n", "u", "m", "s")'),
     ]
 
     def pre_test_run(self, test):
@@ -117,6 +118,9 @@ class Owamp(LatencyBase):
             
             if "tos_bits" in test.tool_parameters:
                 cmd_line.extend(["-D", str(test.tool_parameters['tos_bits'])])
+            
+            if "units" in test.tool_parameters:
+                cmd_line.extend(["-n", str(test.tool_parameters['units'])])
                 
             if not test.local_receiver:
                 cmd_line.extend(["-t"])

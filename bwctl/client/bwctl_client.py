@@ -17,13 +17,11 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #-o|--flip                        Have the receiver connect to the sender (Default: False)
 #
 #Test Arguments
-#-D|--dscp <dscp>                 RFC 2474-style DSCP value for TOS byte
 #--tester_port <port>             For an endpoint-less test, use this port as the server port (Default: tool specific)
 #
 #Output Arguments
 #-d|--output_dir <directory>      Directory to save session files to (only if -p)
 #-e|--facility <facility>         Syslog facility to log to
-#-f|--units <unit>                Type of measurement units to return (Default: tool specific)
 #-p|--print                       Print results filenames to stdout (Default: False)
 #-q|--quiet                       Silent mode (Default: False)
 #-r|--syslog_to_stderr            Send syslog to stderr (Default: False)
@@ -221,6 +219,9 @@ def add_latency_test_options(oparse):
     oparse.add_option("-S", "--tos", dest="tos", type="int",
                       help="Type-Of-Service for outgoing packets"
                      )
+    oparse.add_option("-f", "--units", dest="units", type="string",
+                      help="Type of measurement units to return (Default: tool specific)"
+                     )
 
 def fill_latency_tool_parameters(opts, tool_parameters):
     if opts.num_packets:
@@ -237,6 +238,9 @@ def fill_latency_tool_parameters(opts, tool_parameters):
     
     if opts.tos:
         tool_parameters["tos_bits"] = opts.tos
+    
+    if opts.units:
+        tool_parameters["units"] = opts.units
         
     duration = opts.packet_interval * opts.num_packets
     finishing_time = 3
@@ -276,6 +280,9 @@ def add_throughput_test_options(oparse):
     oparse.add_option("-S", "--tos", dest="tos", type="int",
                       help="Type-Of-Service for outgoing packets"
                      )
+    oparse.add_option("-f", "--units", dest="units", type="string",
+                      help="Type of measurement units to return (Default: tool specific)"
+                     )
 
 def fill_throughput_tool_parameters(opts, tool_parameters):
     if opts.test_duration:
@@ -304,6 +311,9 @@ def fill_throughput_tool_parameters(opts, tool_parameters):
 
     if opts.tos:
         tool_parameters["tos_bits"] = opts.tos
+    
+    if opts.units:
+        tool_parameters["units"] = opts.units
 
 def valid_tool(tool_name, tool_type=None, tool_parameters={}):
     try:
