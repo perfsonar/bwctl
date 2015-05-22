@@ -15,8 +15,8 @@ class Iperf3(Base):
         ToolParameter(name="report_interval", type='float(min=0)'),
         ToolParameter(name="window_size", type='integer(min=0)'),
         ToolParameter(name="buffer_size", type='integer(min=0)'),
-        #ToolParameter(name="omit_seconds", type='float(min=0)'),
-        ToolParameter(name="tos_bits", type='string'), # XXX: Needs a better validator
+        ToolParameter(name="omit_seconds", type='float(min=0)'),
+        ToolParameter(name="tos_bits", type='integer(min=0,max=255)'), # XXX: Needs a better validator
         ToolParameter(name="units", type='option("k", "m", "g", "K", "M", "G")'),
         ToolParameter(name="output_format", type='option("J")'),
         ToolParameter(name="receiver_connects", type='boolean'),
@@ -103,8 +103,8 @@ class Iperf3(Base):
             if "tos_bits" in test.tool_parameters:
                 cmd_line.extend(["-S", str(test.tool_parameters['tos_bits'])])
 
-            #if "omit_seconds" in test.tool_parameters:
-            #    cmd_line.extend(["-O", str(test.tool_parameters['omit_seconds'])])
+            if "omit_seconds" in test.tool_parameters:
+                cmd_line.extend(["-O", str(test.tool_parameters['omit_seconds'])])
 
             if "window_size" in test.tool_parameters:
                 cmd_line.extend(["-w", str(test.tool_parameters['window_size'])])

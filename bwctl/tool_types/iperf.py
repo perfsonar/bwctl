@@ -15,7 +15,7 @@ class Iperf(Base):
         ToolParameter(name="report_interval", type='integer(min=0)'),
         ToolParameter(name="window_size", type='integer(min=0)'),
         ToolParameter(name="buffer_size", type='integer(min=0)'),
-        ToolParameter(name="tos_bits", type='string'), # XXX: Needs a better validator
+        ToolParameter(name="tos_bits", type='integer(min=0,max=255)'),
         ToolParameter(name="units", type='option("k", "m", "g", "K", "M", "G")'),
         ToolParameter(name="output_format", type='option("c", "C")'),
     ]

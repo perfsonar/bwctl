@@ -31,9 +31,6 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #-x|--both                        Output both sender and receiver results
 #-y|--format <format>             Output format to use (Default: tool specific)
 #--parsable                       Set the output format to the machine parsable version for the select tool, if available
-#
-#Misc Arguments
-#-V|--version                     Show version number
 
 from bwctl.protocol.v2.client import Client
 
@@ -188,6 +185,9 @@ def add_traceroute_test_options(oparse):
     oparse.add_option("-t", "--test_duration", dest="test_duration", default=10, type="int",
                       help="Maximum time to wait for traceroute to finish (seconds) (Default: 10)"
                      )
+    oparse.add_option("-S", "--tos", dest="tos", type="int",
+                      help="Type-Of-Service for outgoing packets"
+                     )
 
 def fill_traceroute_tool_parameters(opts, tool_parameters):
     if opts.first_ttl:
@@ -201,6 +201,9 @@ def fill_traceroute_tool_parameters(opts, tool_parameters):
 
     if opts.test_duration:
         tool_parameters["maximum_duration"] = opts.test_duration
+    
+    if opts.tos:
+        tool_parameters["tos_bits"] = opts.tos
 
 def add_latency_test_options(oparse):
     oparse.add_option("-i", "--packet_interval", dest="packet_interval", default=1.0, type="float",
@@ -215,6 +218,9 @@ def add_latency_test_options(oparse):
     oparse.add_option("-t", "--ttl", dest="ttl", default=0, type="int",
                       help="TTL for packets"
                      )
+    oparse.add_option("-S", "--tos", dest="tos", type="int",
+                      help="Type-Of-Service for outgoing packets"
+                     )
 
 def fill_latency_tool_parameters(opts, tool_parameters):
     if opts.num_packets:
@@ -228,7 +234,10 @@ def fill_latency_tool_parameters(opts, tool_parameters):
 
     if opts.ttl:
         tool_parameters["packet_ttl"] = opts.ttl
-
+    
+    if opts.tos:
+        tool_parameters["tos_bits"] = opts.tos
+        
     duration = opts.packet_interval * opts.num_packets
     finishing_time = 3
     # XXX: need to do this after choosing a tool
@@ -264,6 +273,9 @@ def add_throughput_test_options(oparse):
     oparse.add_option("-u", "--udp", dest="udp", action="store_true", default=False,
                       help="Perform a UDP test"
                      )
+    oparse.add_option("-S", "--tos", dest="tos", type="int",
+                      help="Type-Of-Service for outgoing packets"
+                     )
 
 def fill_throughput_tool_parameters(opts, tool_parameters):
     if opts.test_duration:
@@ -289,6 +301,9 @@ def fill_throughput_tool_parameters(opts, tool_parameters):
 
     if opts.udp:
         tool_parameters["protocol"] = "udp"
+
+    if opts.tos:
+        tool_parameters["tos_bits"] = opts.tos
 
 def valid_tool(tool_name, tool_type=None, tool_parameters={}):
     try:
@@ -453,7 +468,7 @@ def bwctl_client():
     oparse.add_option("--streaming", action="store_true", dest="streaming", default=False,
                       help="Request the next test as soon as the current test finishes")
     oparse.add_option("--schedule", dest="schedule", type="string",
-                      help="Request the next test as soon as the current test finishes")
+                      help="Specify the specific times when a test should be run (e.g. --schedule 11:00,13:00,15:00)")
     add_tool_options(oparse, tool_type=tool_type)
 
     if tool_type == ToolTypes.TRACEROUTE:

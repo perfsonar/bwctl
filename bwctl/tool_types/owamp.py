@@ -14,6 +14,7 @@ class Owamp(LatencyBase):
         ToolParameter(name="packet_size", type='integer(min=0)'),
         ToolParameter(name="maximum_duration", type='float(min=0.1)'),
         ToolParameter(name="receiver_connects", type='boolean'),
+        ToolParameter(name="tos_bits", type='integer(min=0,max=255)'),
     ]
 
     def pre_test_run(self, test):
@@ -113,7 +114,10 @@ class Owamp(LatencyBase):
 
             if "packet_size" in test.tool_parameters:
                 cmd_line.extend(["-s", str(test.tool_parameters['packet_size'])])
-
+            
+            if "tos_bits" in test.tool_parameters:
+                cmd_line.extend(["-D", str(test.tool_parameters['tos_bits'])])
+                
             if not test.local_receiver:
                 cmd_line.extend(["-t"])
 
