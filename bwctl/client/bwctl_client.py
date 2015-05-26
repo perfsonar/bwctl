@@ -27,8 +27,6 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #-r|--syslog_to_stderr            Send syslog to stderr (Default: False)
 #-v|--verbose                     Display verbose output
 #-x|--both                        Output both sender and receiver results
-#-y|--format <format>             Output format to use (Default: tool specific)
-#--parsable                       Set the output format to the machine parsable version for the select tool, if available
 
 from bwctl.protocol.v2.client import Client
 
@@ -203,6 +201,9 @@ def fill_traceroute_tool_parameters(opts, tool_parameters):
     if opts.tos:
         tool_parameters["tos_bits"] = opts.tos
 
+def fill_selected_traceroute_tool_parameters(opts, tool_parameters, tool):
+    pass
+
 def add_latency_test_options(oparse):
     oparse.add_option("-i", "--packet_interval", dest="packet_interval", default=1.0, type="float",
                       help="Delay between packets (seconds) (Default: 1.0)"
@@ -241,15 +242,12 @@ def fill_latency_tool_parameters(opts, tool_parameters):
     
     if opts.units:
         tool_parameters["units"] = opts.units
-        
-    duration = opts.packet_interval * opts.num_packets
-    finishing_time = 3
-    # XXX: need to do this after choosing a tool
-    #if tool == "owamp": # owamp takes longer to 'finish'
-    #    finishing_time = 3
-    #elif tool == "ping": # give a second or so for the ping response to be received.
-    #    finishing_time = 1
 
+def fill_selected_latency_tool_parameters(opts, tool_parameters, tool):
+    duration = opts.packet_interval * opts.num_packets
+    finishing_time = 3 # OWAMP takes longer to finish
+    if tool == "ping": # give a second or so for the ping response to be received.
+        finishing_time = 1
     tool_parameters["maximum_duration"] = duration + finishing_time
 
 def add_throughput_test_options(oparse):
@@ -314,6 +312,15 @@ def fill_throughput_tool_parameters(opts, tool_parameters):
     
     if opts.units:
         tool_parameters["units"] = opts.units
+    
+    if opts.format:
+        tool_parameters["output_format"] = opts.format
+
+def fill_selected_throughput_tool_parameters(opts, tool_parameters, tool):
+    #Set iperf3 output to JSON if parsable. All other tools use default output
+    if tool == "iperf3":
+        if opts.parsable:
+            tool_parameters["output_format"] = "J"
 
 def valid_tool(tool_name, tool_type=None, tool_parameters={}):
     try:
@@ -457,6 +464,7 @@ def bwctl_client():
         tool_type = ToolTypes.THROUGHPUT
 
     argv = sys.argv
+    # Test parameters
     oparse = optparse.OptionParser(version="%prog " + __version__)
     oparse.add_option("-4", "--ipv4", action="store_true", dest="require_ipv4", default=False,
                       help="Use IPv4 only")
@@ -468,7 +476,7 @@ def bwctl_client():
                       help="The host that will act as the receiving side for a test")
     oparse.add_option("-s", "--sender", dest="sender", type="string",
                       help="The host that will act as the sending side for a test")
-    #scheduling options
+    # Scheduling options
     oparse.add_option("-n", "--num_tests", dest="num_tests", type="int",
                       help="Number of times to run a test. Only valid with -I, --streaming, and --schedule. Defaults to infinite number of times. If no scheduling option provided then test only run once.")
     oparse.add_option("-I", "--test_interval", dest="test_interval", type="int",
@@ -479,6 +487,13 @@ def bwctl_client():
                       help="Request the next test as soon as the current test finishes")
     oparse.add_option("--schedule", dest="schedule", type="string",
                       help="Specify the specific times when a test should be run (e.g. --schedule 11:00,13:00,15:00)")
+    # Output parameters
+    oparse.add_option("--parsable", action="store_true", dest="parsable", default=False,
+                      help="Set the output format to the machine parsable version for the select tool, if available")
+    oparse.add_option("-y", "--format", dest="format", type="string",
+                      help="Output format to use (Default: tool specific)")
+
+    # Tool specific parameters
     add_tool_options(oparse, tool_type=tool_type)
 
     if tool_type == ToolTypes.TRACEROUTE:
@@ -534,7 +549,8 @@ def run_bwctl_test(tool_type, opts, endpoints):
     client_endpoint = endpoints[1]
     
     tool_parameters = {}
-
+    
+    #fill specified tool parameters prior to knowing tool
     if tool_type == ToolTypes.THROUGHPUT:
         fill_throughput_tool_parameters(opts, tool_parameters)
     elif tool_type == ToolTypes.LATENCY:
@@ -554,6 +570,14 @@ def run_bwctl_test(tool_type, opts, endpoints):
         print "Requested tools not available by both servers."
         print "Available tools that support the requested options: %s" % ",".join(common_tools)
         raise Exception()
+
+    #fill-in any tool specific parameters
+    if tool_type == ToolTypes.THROUGHPUT:
+        fill_selected_throughput_tool_parameters(opts, tool_parameters, selected_tool)
+    elif tool_type == ToolTypes.LATENCY:
+        fill_selected_latency_tool_parameters(opts, tool_parameters, selected_tool)
+    elif tool_type == ToolTypes.TRACEROUTE:
+        fill_selected_traceroute_tool_parameters(opts, tool_parameters, selected_tool)
 
     requested_time=datetime.datetime.utcnow()+datetime.timedelta(seconds=3)
     latest_time=requested_time+datetime.timedelta(seconds=opts.latest_time)
