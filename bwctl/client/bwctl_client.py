@@ -20,12 +20,8 @@ from bwctl.dependencies.requests.exceptions import HTTPError
 #--tester_port <port>             For an endpoint-less test, use this port as the server port (Default: tool specific)
 #
 #Output Arguments
-#-d|--output_dir <directory>      Directory to save session files to (only if -p)
 #-e|--facility <facility>         Syslog facility to log to
-#-p|--print                       Print results filenames to stdout (Default: False)
-#-q|--quiet                       Silent mode (Default: False)
 #-r|--syslog_to_stderr            Send syslog to stderr (Default: False)
-#-v|--verbose                     Display verbose output
 #-x|--both                        Output both sender and receiver results
 
 from bwctl.protocol.v2.client import Client
@@ -34,6 +30,7 @@ from bwctl.protocol.legacy.client import Client as LegacyClient
 from bwctl.protocol.legacy.utils import tool_name_by_id
 from bwctl.protocol.legacy.models import AcceptType, Tools, TestRequest, Timestamp, ErrorEstimate
 
+from bwctl.client.outputter import DIRECTION_SEND, DIRECTION_RECV, DIRECTION_NONE, LVL_QUIET, LVL_NORMAL, LVL_VERBOSE, ScreenOutputter, BWFileOutputter
 from bwctl.client.scheduler import IntervalScheduler, StreamingScheduler, SingleTestScheduler
 from bwctl.tools import get_tools, get_tool, ToolTypes, configure_tools, get_available_tools
 from bwctl.tool_runner import ToolRunner
@@ -111,7 +108,7 @@ class EndpointAddress(object):
                )
 
 def initialize_endpoint(local_address=None, remote_address=None, tool_type=None,
-                        is_sender=False, is_server=False):
+                        is_sender=False, is_server=False, out=None):
 
     local_endpoint_fallback = False
 
@@ -152,7 +149,7 @@ def initialize_endpoint(local_address=None, remote_address=None, tool_type=None,
             endpoint.initialize()
             ret_endpoint = endpoint
         except Exception as e:
-            print "Couldn't connect to server with %s protocol: %s: %s" % (ep_type, local_address.address, e)
+            out.debug("Couldn't connect to server with %s protocol: %s: %s" % (ep_type, local_address.address, e))
             pass
 
         if ret_endpoint:
@@ -396,7 +393,28 @@ def init_scheduler(opts):
         
     return SingleTestScheduler()
 
-def initialize_endpoints(tool_type, opts):
+def init_outputter(opts):
+    
+    #determine output level
+    output_level=LVL_NORMAL
+    if opts.quiet:
+        output_level=LVL_QUIET
+    elif opts.verbose:
+        output_level=LVL_VERBOSE
+    
+    #build outputter
+    outputter = None
+    if opts.print_fname:
+        if opts.output_dir:
+            outputter = BWFileOutputter(filedir=opts.output_dir, level=output_level)
+        else:
+            outputter = BWFileOutputter(level=output_level)
+    else:
+        outputter = ScreenOutputter(level=output_level)
+    
+    return outputter
+
+def initialize_endpoints(tool_type, opts, out):
     receiver_address = None
     receiver_ip = None
     if opts.receiver:
@@ -416,13 +434,15 @@ def initialize_endpoints(tool_type, opts):
                                             remote_address=receiver_ip,
                                             tool_type=tool_type,
                                             is_sender=True,
-                                            is_server=False)
+                                            is_server=False,
+                                            out=out)
 
     receiver_endpoint = initialize_endpoint(local_address=receiver_ip,
                                             remote_address=sender_ip,
                                             tool_type=tool_type,
                                             is_sender=False,
-                                            is_server=True)
+                                            is_server=True,
+                                            out=out)
 
     sender_endpoint.remote_endpoint = receiver_endpoint
     receiver_endpoint.remote_endpoint = sender_endpoint
@@ -433,13 +453,11 @@ def initialize_endpoints(tool_type, opts):
 
     if (server_endpoint.is_legacy and not client_endpoint.is_remote) or \
        (client_endpoint.is_legacy and not server_endpoint.is_remote):
-       print "BWCTL cannot be used against a legacy server without running a local bwctld instance"
-       raise Exception()
+       raise Exception("BWCTL cannot be used against a legacy server without running a local bwctld instance")
 
     if client_endpoint.is_legacy and not server_endpoint.is_legacy and \
        not server_endpoint.legacy_endpoint_port:
-       print "%s is a legacy server, but %s does not support legacy protocol" % (client_endpoint.address, server_endpoint.address)
-       raise Exception()
+       raise Exception("%s is a legacy server, but %s does not support legacy protocol" % (client_endpoint.address, server_endpoint.address))
     
     return (server_endpoint, client_endpoint)
 
@@ -492,6 +510,10 @@ def bwctl_client():
                       help="Set the output format to the machine parsable version for the select tool, if available")
     oparse.add_option("-y", "--format", dest="format", type="string",
                       help="Output format to use (Default: tool specific)")
+    oparse.add_option("-d", "--output_dir", dest="output_dir", type="string",
+                      help="Directory to save session files to (only if -p)")
+    oparse.add_option("-p", "--print", dest="print_fname", action="store_true", default=False,
+                      help="Print results filenames to stdout (Default: False")
 
     # Tool specific parameters
     add_tool_options(oparse, tool_type=tool_type)
@@ -503,10 +525,14 @@ def bwctl_client():
     elif tool_type == ToolTypes.THROUGHPUT:
         add_throughput_test_options(oparse)
 
-    oparse.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False)
-
+    oparse.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False, help="Display verbose output")
+    oparse.add_option("-q", "--quiet", action="store_true", dest="quiet", default=False, help="Silent mode (Default: False)")
+    
     (opts, args) = oparse.parse_args(args=argv)
-
+    
+    #Initialize outputter
+    out = init_outputter(opts)
+    
     # Initialize the logger
     init_logging(script_name, debug=opts.verbose)
 
@@ -521,7 +547,7 @@ def bwctl_client():
     
     # Make sure we have at least a sender or receiver before proceeding
     if not opts.receiver and not opts.sender:
-        print "Error: a sender or a receiver must be specified\n"
+        out.error("Error: a sender or a receiver must be specified\n")
         oparse.print_help()
         sys.exit(1)
     
@@ -532,18 +558,18 @@ def bwctl_client():
             # Sleep until next test if necessary
             time.sleep(scheduler.get_next_wait_time())
             # Initialize the endpoints
-            endpoints = initialize_endpoints(tool_type, opts) 
+            endpoints = initialize_endpoints(tool_type, opts, out) 
             # Try to run the test
-            run_bwctl_test(tool_type, opts, endpoints)
+            run_bwctl_test(tool_type, opts, endpoints, out)
         except KeyboardInterrupt:
             cancel_endpoint_tests(endpoints)
             sys.exit(0)
         except Exception as e:
-            print e
+            out.error(str(e))
         
         scheduler.mark_test_run()
         
-def run_bwctl_test(tool_type, opts, endpoints):
+def run_bwctl_test(tool_type, opts, endpoints, out):
     
     server_endpoint = endpoints[0]
     client_endpoint = endpoints[1]
@@ -567,9 +593,9 @@ def run_bwctl_test(tool_type, opts, endpoints):
                                               tool_parameters=tool_parameters)
 
     if not selected_tool:
-        print "Requested tools not available by both servers."
-        print "Available tools that support the requested options: %s" % ",".join(common_tools)
-        raise Exception()
+        error_msg = "Requested tools not available by both servers. "
+        error_msg += "Available tools that support the requested options: %s" % ",".join(common_tools)
+        raise Exception(error_msg)
 
     #fill-in any tool specific parameters
     if tool_type == ToolTypes.THROUGHPUT:
@@ -636,7 +662,7 @@ def run_bwctl_test(tool_type, opts, endpoints):
         # Wait until the just after the end of the test for the results to be available
         sleep_time = timedelta_seconds(reservation_end_time - datetime.datetime.utcnow() + datetime.timedelta(seconds=1))
 
-        print "Waiting %s seconds for results" % sleep_time
+        out.info("Waiting %s seconds for results" % sleep_time)
 
         time.sleep(sleep_time)
 
@@ -650,33 +676,27 @@ def run_bwctl_test(tool_type, opts, endpoints):
         sender_results = server_results
         receiver_results = client_results
 
-    print "Sender:"
     if not sender_results:
-        print "No test results found"
+        out.error("No test results found", direction=DIRECTION_SEND, time=reservation_time)
     else:
         if sender_results.results:
             if "command_line" in sender_results.results:
-                print "Command-line: %s" % sender_results.results['command_line']
-            print "Results:\n%s" % sender_results.results['output']
+                out.info("Command-line: %s" % sender_results.results['command_line'])
+            out.results(DIRECTION_SEND, reservation_time, sender_results.results['output'])
 
         if len(sender_results.bwctl_errors) > 0:
-            print "Errors:"
-            for error in sender_results.bwctl_errors:
-                print "%d) %s" % (error.error_code, error.error_msg)
+            out.result_errors(sender_results.bwctl_errors)
 
-    print "Receiver:"
     if not receiver_results:
-        print "No test results found"
+        out.error("No test results found", direction=DIRECTION_RECV, time=reservation_time)
     else:
         if receiver_results.results:
             if "command_line" in receiver_results.results:
-                print "Command-line: %s" % receiver_results.results['command_line']
-            print "Results:\n%s" % receiver_results.results['output']
+                out.info("Command-line: %s" % receiver_results.results['command_line'])
+            out.results(DIRECTION_RECV, reservation_time,receiver_results.results['output'])
 
         if len(receiver_results.bwctl_errors) > 0:
-            print "Errors:"
-            for error in receiver_results.bwctl_errors:
-                print "%d) %s" % (error.error_code, error.error_msg)
+            out.result_errors(receiver_results.bwctl_errors)
 
 class ClientEndpoint:
    def __init__(self, address="", port=None, path=None, is_sender=True, is_server=True):
@@ -1061,7 +1081,6 @@ class LegacyClientEndpoint:
        try:
            self.client.connect()
        except Exception as e:
-           print "Couldn't connect to %s" % self.address
            raise e
 
        server_greeting = self.client.get_server_greeting()
