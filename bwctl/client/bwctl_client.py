@@ -685,7 +685,7 @@ def run_bwctl_test(tool_type, opts, endpoints, out):
             out.results(DIRECTION_SEND, reservation_time, sender_results.results['output'])
 
         if len(sender_results.bwctl_errors) > 0:
-            out.result_errors(sender_results.bwctl_errors)
+            out.result_errors(DIRECTION_SEND, reservation_time,sender_results.bwctl_errors)
 
     if not receiver_results:
         out.error("No test results found", direction=DIRECTION_RECV, time=reservation_time)
@@ -696,7 +696,7 @@ def run_bwctl_test(tool_type, opts, endpoints, out):
             out.results(DIRECTION_RECV, reservation_time,receiver_results.results['output'])
 
         if len(receiver_results.bwctl_errors) > 0:
-            out.result_errors(receiver_results.bwctl_errors)
+            out.result_errors(DIRECTION_RECV, reservation_time,receiver_results.bwctl_errors)
 
 class ClientEndpoint:
    def __init__(self, address="", port=None, path=None, is_sender=True, is_server=True):
