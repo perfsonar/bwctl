@@ -566,6 +566,8 @@ def bwctl_client():
             sys.exit(0)
         except Exception as e:
             out.error(str(e))
+        finally:
+            out.finalize()
         
         scheduler.mark_test_run()
         

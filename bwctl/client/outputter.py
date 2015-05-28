@@ -1,5 +1,6 @@
 import datetime
 import os
+import sys
 
 #Direction Constants
 DIRECTION_SEND="send"
@@ -34,9 +35,13 @@ class Outputter(object):
         pass
     
     def result_errors(self, direction, reservation_time, error_list):
-        """Outputs a list of errors returned by a BWCTL test """
+        """Outputs a list of errors returned by a BWCTL test"""
         pass
-
+    
+    def finalize(self):
+        """Tasks to be done after output is complete (flush output, close files, etc)"""
+        pass
+        
 class ScreenOutputter(Outputter):
     """Outputs BWCTL results to screen"""
     
@@ -59,6 +64,10 @@ class ScreenOutputter(Outputter):
         print "Errors:"
         for error in error_list:
             print "%d) %s" % (error.error_code, error.error_msg)
+    
+    def finalize(self):
+        sys.stdout.flush()
+        sys.stderr.flush()
     
 
 class BWFileOutputter(ScreenOutputter):
