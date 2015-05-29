@@ -131,9 +131,11 @@ def bwctld():
     oparse.add_option("-f", "--log-file", dest="log_file", default=None)
     oparse.add_option("-s", "--syslog-facility", dest="syslog_facility", default=None)
     oparse.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False)
-
+    oparse.add_option("-U", "--user", dest="user", default=None)
+    oparse.add_option("-G", "--group", dest="group", default=None)
+    
     (opts, args) = oparse.parse_args(args=argv)
-
+    
     init_logging("bwctld", syslog_facility=opts.syslog_facility,
                  log_file=opts.log_file, debug=opts.verbose,
                  screen=not opts.daemonize
@@ -149,7 +151,7 @@ def bwctld():
     limits_db = LimitsDBfromFileCreator(opts.limits_file).get_limitsdb() if opts.limits_file else LimitsDB()
 
     if opts.daemonize:
-        daemonize(pidfile=opts.pid_file)
+        daemonize(pidfile=opts.pid_file, user=opts.user, group=opts.group)
 
     # Unfortunately, we need to initialize this after we daemonize so that we
     # can create processes using multiprocess.

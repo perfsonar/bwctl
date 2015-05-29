@@ -56,6 +56,10 @@ Requires: uuid
 %description shared
 Shared components used by the bwctl server and client RPMs
 
+%pre
+/usr/sbin/groupadd bwctl2 2> /dev/null || :
+/usr/sbin/useradd -g bwctl2 -r -s /sbin/nologin -c "BWCTL2 User" -d /tmp bwctl2 2> /dev/null || :
+
 %prep
 %setup -q
 
@@ -92,6 +96,8 @@ install -D -m755 scripts/bwctld.init %{buildroot}/%{_initrddir}/bwctld2
 if [ $1 = 0 ]; then
     /sbin/chkconfig --add bwctld
 fi
+touch /var/log/perfsonar/bwctld.log
+chown bwctl2:bwctl2 /var/log/perfsonar/bwctld.log
 
 %preun server
 if [ $1 = 0 ]; then

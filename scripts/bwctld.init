@@ -24,6 +24,8 @@ executable_file="/usr/bin/bwctld2"
 pidfile="/var/run/bwctld2.pid"
 logfile="/var/log/perfsonar/bwctld.log"
 lockfile="/var/lock/subsys/bwctld"
+user=bwctl2
+group=bwctl2
 #config_file="etc/bwctld.conf"
 #executable_file="scripts/bwctld"
 #pidfile="run/bwctld.pid"
@@ -43,7 +45,7 @@ lockfile="/var/lock/subsys/bwctld"
 RETVAL=0
 prog=bwctld
 
-BWCTLD_OPTIONS="-c ${config_file} -f ${logfile} -p ${pidfile} --daemonize"
+BWCTLD_OPTIONS="-c ${config_file} -f ${logfile} -p ${pidfile} -U ${user} -G ${group} --daemonize"
 
 start () {
     echo -n $"Starting $prog: "

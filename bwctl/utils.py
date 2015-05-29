@@ -1,10 +1,11 @@
 import logging
 from logging.handlers import TimedRotatingFileHandler, SysLogHandler
-
+import grp
 import multiprocessing
 import netifaces
 import os
 import psutil
+import pwd
 import socket
 import sys
 
@@ -200,7 +201,7 @@ class LoggerIO(object):
         for handler in self.logger.handlers:
             handler.flush()
 
-def daemonize(pidfile=None):
+def daemonize(pidfile=None,user=None,group=None):
     '''Forks the current process into a daemon.
         derived from the esmond
     '''
@@ -231,7 +232,7 @@ def daemonize(pidfile=None):
             pass
         else:
             raise Exception("Process still running as pid %d.  aborting." % pid) 
-
+        
     # Do first fork.
     try: 
         pid = os.fork() 
@@ -266,5 +267,13 @@ def daemonize(pidfile=None):
         os.close(fd)
 
     sys.stdout = sys.stderr = LoggerIO()
-
+    
+    #Now that we got the pid setup, drop privileges
+    if group:
+        gid = grp.getgrnam(group)
+        os.setregid(gid.gr_gid, gid.gr_gid)
+    if user:
+        uid = pwd.getpwnam(user)
+        os.setreuid(uid.pw_uid, uid.pw_uid)
+        
     return
