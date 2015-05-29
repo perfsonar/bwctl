@@ -18,6 +18,8 @@ LVL_VERBOSE=2
 INFO_WAITTIME='wait'
 INFO_SEND_CMD='send_cmd'
 INFO_RECV_CMD='recv_cmd'
+INFO_SEND_ADDRESS='send_address'
+INFO_RECV_ADDRESS='recv_address'
 INFO_TOOL='tool'
 INFO_REQUESTED_TIME='req_time'
 INFO_END_TIME='end_time'
@@ -71,6 +73,10 @@ class ScreenOutputter(Outputter):
             print "Sender Command-line: %s" % val
         elif type == INFO_RECV_CMD:
             print "Receiver Command-line: %s" % val
+        elif type == INFO_SEND_ADDRESS:
+            print "Sender Address: %s" % val
+        elif type == INFO_RECV_ADDRESS:
+            print "Receiver Address: %s" % val
         elif type == INFO_TOOL:
             print "Selected tool: %s" % val
         elif type == INFO_REQUESTED_TIME:
@@ -116,11 +122,13 @@ class BufferedOutputter(Outputter):
                 'tool': None
             },
             DIRECTION_SEND: {
+                'address': None,
                 'command': None,
                 'errors': [],
                 'results': None
             },
             DIRECTION_RECV: {
+                'address': None,
                 'command': None,
                 'errors': [],
                 'results': None
@@ -135,6 +143,10 @@ class BufferedOutputter(Outputter):
             self.buffer[DIRECTION_SEND]['command'] = val
         elif type == INFO_RECV_CMD:
             self.buffer[DIRECTION_RECV]['command'] = val
+        elif type == INFO_SEND_ADDRESS:
+            self.buffer[DIRECTION_SEND]['address'] = val
+        elif type == INFO_RECV_ADDRESS:
+            self.buffer[DIRECTION_RECV]['address'] = val
         elif type == INFO_TOOL:
             self.buffer['bwctl']['tool'] = val
         elif type == INFO_REQUESTED_TIME:

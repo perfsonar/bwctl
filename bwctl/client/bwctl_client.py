@@ -448,7 +448,9 @@ def initialize_endpoints(tool_type, opts, out):
 
     sender_endpoint.remote_endpoint = receiver_endpoint
     receiver_endpoint.remote_endpoint = sender_endpoint
-
+    out.info(INFO_SEND_ADDRESS, sender_endpoint.address, level=LVL_VERBOSE)
+    out.info(INFO_RECV_ADDRESS, receiver_endpoint.address, level=LVL_VERBOSE)
+    
     # We need multiple representations depending on what we're doing. 
     server_endpoint = receiver_endpoint
     client_endpoint = sender_endpoint
