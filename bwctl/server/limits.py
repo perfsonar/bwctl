@@ -124,10 +124,12 @@ class MinimumTTLLimit(MinimumLimit):
        if self.value < test.packets_per_second:
            raise LimitViolatedException("Packet-per-second exceeds maximum: %s" % self.value)
        if test.test_type == ToolTypes.TRACEROUTE:
+           #Setting this value will block tools like tracepath that don't allow this option
            if "first_ttl" in test.tool_parameters:
                if test.tool_parameters["first_ttl"] < self.value:
                    raise LimitViolatedException("Traceroute TTL below minimum: %s" % self.value)
-           else:
+           elif self.value > 1 :
+               #Only worry about this option if its actually been limited
                test.tool_parameters["first_ttl"] = self.value
 
 class PacketsPerSecondLimit(MaximumLimit):
