@@ -30,7 +30,7 @@ from bwctl.protocol.legacy.client import Client as LegacyClient
 from bwctl.protocol.legacy.utils import tool_name_by_id
 from bwctl.protocol.legacy.models import AcceptType, Tools, TestRequest, Timestamp, ErrorEstimate
 
-from bwctl.client.outputter import DIRECTION_SEND, DIRECTION_RECV, DIRECTION_NONE, LVL_QUIET, LVL_NORMAL, LVL_VERBOSE, ScreenOutputter, BWFileOutputter
+from bwctl.client.outputter import *
 from bwctl.client.scheduler import IntervalScheduler, StreamingScheduler, SingleTestScheduler
 from bwctl.tools import get_tools, get_tool, ToolTypes, configure_tools, get_available_tools
 from bwctl.tool_runner import ToolRunner
@@ -406,9 +406,11 @@ def init_outputter(opts):
     outputter = None
     if opts.print_fname:
         if opts.output_dir:
-            outputter = BWFileOutputter(filedir=opts.output_dir, level=output_level)
+            outputter = JSONFileOutputter(filedir=opts.output_dir, level=output_level)
         else:
-            outputter = BWFileOutputter(level=output_level)
+            outputter = JSONFileOutputter(level=output_level)
+    elif opts.parsable:
+        outputter = JSONScreenOutputter(level=output_level)
     else:
         outputter = ScreenOutputter(level=output_level)
     
@@ -507,9 +509,9 @@ def bwctl_client():
                       help="Specify the specific times when a test should be run (e.g. --schedule 11:00,13:00,15:00)")
     # Output parameters
     oparse.add_option("--parsable", action="store_true", dest="parsable", default=False,
-                      help="Set the output format to the machine parsable version for the select tool, if available")
+                      help="Set the BWCTL output format to JSON and the tool output to the most machine parsable option.")
     oparse.add_option("-y", "--format", dest="format", type="string",
-                      help="Output format to use (Default: tool specific)")
+                      help="Output format to use for the tool. Does not affect BWCTL output format such as wait time, etc. (Default: tool specific)")
     oparse.add_option("-d", "--output_dir", dest="output_dir", type="string",
                       help="Directory to save session files to (only if -p)")
     oparse.add_option("-p", "--print", dest="print_fname", action="store_true", default=False,
@@ -547,7 +549,7 @@ def bwctl_client():
     
     # Make sure we have at least a sender or receiver before proceeding
     if not opts.receiver and not opts.sender:
-        out.error("Error: a sender or a receiver must be specified\n")
+        out.error("Error: a sender or a receiver must be specified")
         oparse.print_help()
         sys.exit(1)
     
@@ -598,7 +600,8 @@ def run_bwctl_test(tool_type, opts, endpoints, out):
         error_msg = "Requested tools not available by both servers. "
         error_msg += "Available tools that support the requested options: %s" % ",".join(common_tools)
         raise Exception(error_msg)
-
+    out.info(INFO_TOOL, selected_tool, level=LVL_VERBOSE)
+    
     #fill-in any tool specific parameters
     if tool_type == ToolTypes.THROUGHPUT:
         fill_selected_throughput_tool_parameters(opts, tool_parameters, selected_tool)
@@ -616,6 +619,7 @@ def run_bwctl_test(tool_type, opts, endpoints, out):
 
     # Make sure that we request from the server side first since it needs to
     # allocate a test port to connect to.
+    out.info(INFO_REQUESTED_TIME, requested_time, level=LVL_VERBOSE)
     while not reservation_completed:
         for endpoint in [ server_endpoint, client_endpoint ]:
             reservation_time, reservation_end_time = endpoint.request_test(tool=selected_tool,
@@ -626,7 +630,8 @@ def run_bwctl_test(tool_type, opts, endpoints, out):
             if reservation_time == endpoint.remote_endpoint.test_start_time:
                reservation_completed = True
                break
-
+    out.info(INFO_END_TIME, reservation_end_time, level=LVL_VERBOSE)
+    
     # At this point, the tests are in agreement in time and tool parameters. Do
     # a final pass to ensure that the endpoint information is up to date.
     for endpoint in [ server_endpoint, client_endpoint ]:
@@ -664,7 +669,7 @@ def run_bwctl_test(tool_type, opts, endpoints, out):
         # Wait until the just after the end of the test for the results to be available
         sleep_time = timedelta_seconds(reservation_end_time - datetime.datetime.utcnow() + datetime.timedelta(seconds=1))
 
-        out.info("Waiting %s seconds for results" % sleep_time)
+        out.info(INFO_WAITTIME, sleep_time)
 
         time.sleep(sleep_time)
 
@@ -679,26 +684,26 @@ def run_bwctl_test(tool_type, opts, endpoints, out):
         receiver_results = client_results
 
     if not sender_results:
-        out.error("No test results found", direction=DIRECTION_SEND, time=reservation_time)
+        out.error("No test results found for sender")
     else:
         if sender_results.results:
             if "command_line" in sender_results.results:
-                out.info("Command-line: %s" % sender_results.results['command_line'])
-            out.results(DIRECTION_SEND, reservation_time, sender_results.results['output'])
+                out.info(INFO_SEND_CMD, sender_results.results['command_line'])
+            out.results(DIRECTION_SEND, sender_results.results['output'])
 
         if len(sender_results.bwctl_errors) > 0:
-            out.result_errors(DIRECTION_SEND, reservation_time,sender_results.bwctl_errors)
+            out.result_errors(DIRECTION_SEND,sender_results.bwctl_errors)
 
     if not receiver_results:
-        out.error("No test results found", direction=DIRECTION_RECV, time=reservation_time)
+        out.error("No test results found for receiver")
     else:
         if receiver_results.results:
             if "command_line" in receiver_results.results:
-                out.info("Command-line: %s" % receiver_results.results['command_line'])
-            out.results(DIRECTION_RECV, reservation_time,receiver_results.results['output'])
+                out.info(INFO_RECV_CMD, receiver_results.results['command_line'])
+            out.results(DIRECTION_RECV,receiver_results.results['output'])
 
         if len(receiver_results.bwctl_errors) > 0:
-            out.result_errors(DIRECTION_RECV, reservation_time,receiver_results.bwctl_errors)
+            out.result_errors(DIRECTION_RECV,receiver_results.bwctl_errors)
 
 class ClientEndpoint:
    def __init__(self, address="", port=None, path=None, is_sender=True, is_server=True):
