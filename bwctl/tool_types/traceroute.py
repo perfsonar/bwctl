@@ -11,8 +11,8 @@ class Traceroute(Base):
     name = "traceroute"
     type = ToolTypes.TRACEROUTE
     known_parameters = [
-        ToolParameter(name="first_ttl", type='integer(min=0, max=255)'),
-        ToolParameter(name="last_ttl", type='integer(min=0, max=255)'),
+        ToolParameter(name="first_ttl", type='integer(min=1, max=255)'),
+        ToolParameter(name="last_ttl", type='integer(min=1, max=255)'),
         ToolParameter(name="packet_size", type='integer(min=0)'),
         ToolParameter(name="tos_bits", type='integer(min=0,max=255)'),
         ToolParameter(name="maximum_duration", type='float(min=0.1)'),

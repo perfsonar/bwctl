@@ -118,7 +118,7 @@ class MinimumTTLLimit(MinimumLimit):
     """ The minimum TTL that a traceroute test must have
     """
     type = "minimum_ttl"
-    default_value = "0"
+    default_value = "1"
 
     def check(self, test):
        if self.value < test.packets_per_second:
