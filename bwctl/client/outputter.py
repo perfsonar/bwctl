@@ -52,7 +52,13 @@ class Outputter(object):
     def finalize(self):
         """Tasks to be done after output is complete (flush output, close files, etc)"""
         pass
-        
+
+class QuietOutputter(Outputter):
+
+    """Outputter for quiet mode"""
+    def __init__(self):
+        super(QuietOutputter, self).__init__(level=LVL_QUIET)
+
 class ScreenOutputter(Outputter):
     """Outputs BWCTL results to screen"""
     

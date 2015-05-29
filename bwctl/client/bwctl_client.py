@@ -398,7 +398,7 @@ def init_outputter(opts):
     #determine output level
     output_level=LVL_NORMAL
     if opts.quiet:
-        output_level=LVL_QUIET
+        return QuietOutputter()
     elif opts.verbose:
         output_level=LVL_VERBOSE
     
