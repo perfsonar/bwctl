@@ -792,7 +792,7 @@ class TestRequest:
         if request.is_client and server_endpoint.bwctl_protocol == 0.0:
             request.no_endpoint = True
 
-        request.error_estimate.error = self.remote_endpoint.ntp_error
+        request.error_estimate.error = test.remote_endpoint.ntp_error
 
         request.tool = Tools.id_by_name(test.tool)
 
