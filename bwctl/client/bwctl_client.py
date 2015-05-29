@@ -568,6 +568,11 @@ def bwctl_client():
         except KeyboardInterrupt:
             cancel_endpoint_tests(endpoints)
             sys.exit(0)
+        except HTTPError as e:
+            if e.response.json() and all(x in e.response.json() for x in ['error_code', 'error_msg']):
+                out.error("Server returned error %s: %s " % (e.response.json()['error_code'], e.response.json()['error_msg']))
+            else:
+                out.error(str(e))
         except Exception as e:
             out.error(str(e))
         finally:
