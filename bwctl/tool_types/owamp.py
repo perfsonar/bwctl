@@ -33,7 +33,7 @@ class Owamp(LatencyBase):
             "owping_cmd":  "string(default='owping')",
             "owampd_cmd":  "string(default='owampd')",
             "owamp_ports": "port_range(default=None)",
-            "owamp_tmp_dir": "string(default='/tmp/bwctl_owamp')",
+            "owamp_tmp_dir": "string(default='/tmp')",
         })
 
         return options
