@@ -197,6 +197,9 @@ def fill_traceroute_tool_parameters(opts, tool_parameters):
     
     if opts.tos:
         tool_parameters["tos_bits"] = opts.tos
+    
+    if opts.format:
+        tool_parameters["output_format"] = opts.format
 
 def fill_selected_traceroute_tool_parameters(opts, tool_parameters, tool):
     pass
@@ -239,6 +242,9 @@ def fill_latency_tool_parameters(opts, tool_parameters):
     
     if opts.units:
         tool_parameters["units"] = opts.units
+    
+    if opts.format:
+        tool_parameters["output_format"] = opts.format
 
 def fill_selected_latency_tool_parameters(opts, tool_parameters, tool):
     duration = opts.packet_interval * opts.num_packets

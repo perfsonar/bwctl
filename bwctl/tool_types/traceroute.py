@@ -16,6 +16,7 @@ class Traceroute(Base):
         ToolParameter(name="packet_size", type='integer(min=0)'),
         ToolParameter(name="tos_bits", type='integer(min=0,max=255)'),
         ToolParameter(name="maximum_duration", type='float(min=0.1)'),
+        ToolParameter(name="output_format", type='option("a")')
     ]
 
     def config_options(self):
@@ -76,7 +77,10 @@ class Traceroute(Base):
                 cmd_line.append(self.get_config_item('traceroute6_cmd'))
             else:
                 cmd_line.append(self.get_config_item('traceroute_cmd'))
-
+            
+            if "output_format" in test.tool_parameters and test.tool_parameters["output_format"] == "a":
+                cmd_line.extend(["-n"])
+                
             if "first_ttl" in test.tool_parameters:
                 cmd_line.extend(["-f", str(test.tool_parameters['first_ttl'])])
 

@@ -16,6 +16,7 @@ class Owamp(LatencyBase):
         ToolParameter(name="receiver_connects", type='boolean'),
         ToolParameter(name="tos_bits", type='integer(min=0,max=255)'),
         ToolParameter(name="units", type='option("n", "u", "m", "s")'),
+        ToolParameter(name="output_format", type='option("R", "M")')
     ]
 
     def pre_test_run(self, test):
@@ -106,7 +107,13 @@ class Owamp(LatencyBase):
 
         if test.local_client:
             cmd_line.append(self.get_config_item('owping_cmd'))
-
+            
+            if "output_format" in test.tool_parameters:
+                if test.tool_parameters["output_format"] == "R":
+                    cmd_line.extend(["-R"])
+                elif test.tool_parameters["output_format"] == "M":
+                    cmd_line.extend(["-M"])
+                
             if "packet_count" in test.tool_parameters:
                 cmd_line.extend(["-c", str(test.tool_parameters['packet_count'])])
 

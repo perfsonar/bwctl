@@ -13,6 +13,7 @@ class Tracepath(Base):
     known_parameters = [
         ToolParameter(name="packet_size", type='integer(min=0)'),
         ToolParameter(name="maximum_duration", type='float(min=0.1)'),
+        ToolParameter(name="output_format", type='option("a")')
     ]
 
     def config_options(self):
@@ -66,7 +67,10 @@ class Tracepath(Base):
 
         if test.local_sender:
             cmd_line.append(self.get_config_item('tracepath_cmd'))
-
+            
+            if "output_format" in test.tool_parameters and test.tool_parameters["output_format"] == "a":
+                cmd_line.extend(["-n"])
+            
             if "packet_size" in test.tool_parameters:
                 cmd_line.extend(["-l", str(test.tool_parameters['packet_size'])])
 
