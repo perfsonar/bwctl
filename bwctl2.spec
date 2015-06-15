@@ -1,8 +1,8 @@
 %{!?python_sitelib: %define python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()")}
 
 Name: bwctl2
-Version: 2.0a2
-Release: 1%{?dist}
+Version: 2.0
+Release: 0.0.a3%{?dist}
 Summary: Network measurement scheduler
 Group: *Development/Libraries*
 URL: http://software.internet2.edu/bwctl
