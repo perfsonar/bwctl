@@ -2,7 +2,7 @@
 
 Name: bwctl2
 Version: 2.0
-Release: 0.0.a3%{?dist}
+Release: 0.1.a3%{?dist}
 Summary: Network measurement scheduler
 Group: *Development/Libraries*
 URL: http://software.internet2.edu/bwctl
@@ -56,7 +56,7 @@ Requires: uuid
 %description shared
 Shared components used by the bwctl server and client RPMs
 
-%pre
+%pre server
 /usr/sbin/groupadd bwctl2 2> /dev/null || :
 /usr/sbin/useradd -g bwctl2 -r -s /sbin/nologin -c "BWCTL2 User" -d /tmp bwctl2 2> /dev/null || :
 
