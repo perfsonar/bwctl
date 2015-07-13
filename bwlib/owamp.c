@@ -225,6 +225,7 @@ OwampPreRunTest(
             switch((char)tsess->test_spec.outformat){
                 case 'M':
                     OwampArgs[a++] = "-M";
+                    OwampArgs[a++] = "-U";
                     break;
                 case 'R':
                     OwampArgs[a++] = "-R";
