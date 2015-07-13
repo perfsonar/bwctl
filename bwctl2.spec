@@ -2,7 +2,7 @@
 
 Name: bwctl2
 Version: 2.0
-Release: 0.1.a3%{?dist}
+Release: 0.2.b1%{?dist}
 Summary: Network measurement scheduler
 Group: *Development/Libraries*
 URL: http://software.internet2.edu/bwctl
