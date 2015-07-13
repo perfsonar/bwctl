@@ -113,6 +113,7 @@ class Owamp(LatencyBase):
                     cmd_line.extend(["-R"])
                 elif test.tool_parameters["output_format"] == "M":
                     cmd_line.extend(["-M"])
+                    cmd_line.extend(["-U"])
                 
             if "packet_count" in test.tool_parameters:
                 cmd_line.extend(["-c", str(test.tool_parameters['packet_count'])])
