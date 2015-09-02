@@ -1,4 +1,4 @@
-bwctl (1.5.5-1~bpo70+1) UNRELEASED; urgency=low
+bwctl (1.5.6-1~bpo70+1) UNRELEASED; urgency=low
 
   * New upstream version
   * Backport to Wheezy
@@ -6,7 +6,7 @@ bwctl (1.5.5-1~bpo70+1) UNRELEASED; urgency=low
   * Start bwctl-server by default
   * Adding gbp.conf for git-buildpackage
 
- -- Antoine Delvaux <antoine.delvaux@dante.net>  Wed, 25 Mar 2015 14:31:08 +0000
+ -- Antoine Delvaux <antoine.delvaux@dante.net>  Wed, 02 Sep 2015 17:26:03 +0000
 
 bwctl (1.5.2+dfsg1-1) unstable; urgency=medium
 
