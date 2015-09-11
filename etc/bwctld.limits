@@ -5,7 +5,7 @@
     <default_limits>
         duration     60
         bandwidth    100M
-	allow_tests_per_hour	3 # 3600 sec / 3 > allow every  20 min a test
+	tests_per_hour	3 # 3600 sec / 3 > allow every  20 min a test
     </default_limits>
 
     # Applies to all throughput tests (i.e. iperf, iperf3, nuttcp), overriding

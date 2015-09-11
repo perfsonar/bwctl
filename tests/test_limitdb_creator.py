@@ -19,6 +19,7 @@ limits_simple_file = "bwctld-simple.limits"
 Limits_new = "bwctl_new_limits.conf"
 test_new_limits_file = tests_path + sep + limits_examples_folder + sep + Limits_new
 
+#TODO: define for all limits tests
 class LimitsDBTest(unittest.TestCase):
 
     def setUp(self):
@@ -73,10 +74,36 @@ class LimitsDBTest(unittest.TestCase):
             elif "bandwidth".__eq__(limit.type):
                 self.assertEqual(10000000000, limit.value)
             elif "allow_udp_throughput".__eq__(limit.type):
-                self.assertTrue(limit.value)         
-        
-        
-        
+                self.assertTrue(limit.value)
+                
+    def test_allow_local_interface_limit(self):
+        """
+        <limits "throughput">
+            duration      30
+            bandwidth     10G
+            allow_local_interface   11.1.0.1
+            allow_local_interface   fe80::219:99ff:fea0:352c
+            allow_udp_throughput     on
+        </limits>
+        """
+        expected_local_interfaces = ["11.1.0.1", "fe80::219:99ff:fea0:352c"]
+        class_name = "root_users"
+        limits = self.ldb.get_limit_class_by_name(class_name).get_limits("throughput")
+        for limit in limits:
+            #print limit
+            if "allow_local_interface".__eq__(limit.type):
+                #self.assertTrue(limit.value in expected_local_interfaces, "Not defined local interface in limit file")
+                self.assertEqual(limit.value, expected_local_interfaces, "Allow local interface is not correctly set in limit db")
+                
+    #TODO: at the moment  only int values stored            
+    def test_test_frequency_limit(self):
+        expected_test_frequency = 4
+        class_name = "anonymous_users"
+        limit_type = "test_frequency"
+        limits = self.ldb.get_limit_class_by_name(class_name).get_limits("throughput")
+        for limit in limits:
+            if limit_type.__eq__(limit.type):
+                self.assertEqual(expected_test_frequency, limit.value, "Limit: %s is not correct parsed" % limit_type)
         
 
 if __name__ == "__main__":

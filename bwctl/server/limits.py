@@ -65,7 +65,15 @@ class BooleanLimit(Limit):
     def merge(self, other):
         if not other.value:
             self.value = False
-
+            
+class ListLimit(Limit):
+    types = ["allow_local_interface"]
+    def __init__(self, value, default=False):
+        self.value = list(value)
+        
+        super(ListLimit, self).__init__(value, default=default)
+        
+    
 class MinimumLimit(NumberLimit):
     def merge(self, other):
         if other.value > self.value:
@@ -155,6 +163,18 @@ class EventHorizonLimit(MaximumLimit):
            if timedelta_seconds(time_till_test) > self.value:
                raise LimitViolatedException("Test too far in the future. Maximum seconds in future: %s" % self.value)
 
+class TestFrequency(MaximumLimit):
+    """Maximum number of tests the user can trigger parallel inside a
+        time window of one hour.
+    """
+    type = "test_frequency"
+    default_value = ""
+    
+    def check(self, test):
+        if self.value > test.test_frequency:
+           raise LimitViolatedException("The test per hour exceeds maximum: %s" % self.value)
+        
+    
 class AllowUDPLimit(BooleanLimit):
     """ Whether or not UDP throughput tests are allowed
     """
@@ -189,7 +209,19 @@ class BannedLimit(BooleanLimit):
     def check(self, test):
        if self.value:
            raise LimitViolatedException("No tests allowed")
-
+       
+class AllowLocalInterface(ListLimit):
+    """
+    Allow local interface for a test. Empty list
+    allows all local interfaces
+    """
+    type = "allow_local_interface"
+    default_value = []
+     
+    def check(self, test, address):
+        if len(self.value) > 0 and address not in self.value:
+            raise LimitViolatedException("Test local interface: %s is not listed in list of allowed interfaces: %s" % (address,self.value))
+    
 class LimitsDB(object):
     """ A database of limits """
     def __init__(self):
@@ -221,7 +253,7 @@ class LimitsDB(object):
         limits = self.get_limits(user=user, address=address, tool=test.tool)
 
         for limit in limits:
-            limit.check(test)
+            limit.check(test, address=None)
 
         return
 

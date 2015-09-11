@@ -6,7 +6,7 @@ Created on 12.02.2015
 
 import re
 
-from bwctl.server.limits import Limit, LimitsDB
+from bwctl.server.limits import Limit, LimitsDB, ListLimit
 from bwctl.exceptions import ValidationException
 
 # AB: Long term, the V1 format is going away. I think it'd make more sense to
@@ -106,7 +106,10 @@ class LimitsFileParser(LimitsParser):
     The file can have more class entries. If given string has similar definition like above this class will parse the string to a pytho dict data structure.
     '''
     def __init__(self, limits_file_path):
-        self.pattern_get_limits = r'<class \S+>.*\s*(?:parent.*){0,1}\s*.*(?:<.*limits.*>(?:\s*\w*\s*\w*\s*){0,}.*\s*</.*limits>\s*){1,}</class>' 
+        self.pattern_limit_type_value = '[\w+.:]+'
+        #self.pattern_get_limits = r'<class \S+>.*\s*(?:parent.*){0,1}\s*.*(?:<.*limits.*>(?:\s*\w*\s*(?:\w+(?:\.\w){0,3}){1}\s*){0,}.*\s*</.*limits>\s*){1,}</class>'
+        self.pattern_get_limits = r'<class \S+>.*\s*(?:parent.*){0,1}\s*.*(?:<.*limits.*>(?:\s*\w*\s*%s\s*){0,}.*\s*</.*limits>\s*){1,}</class>' % self.pattern_limit_type_value
+
         super(LimitsFileParser, self).__init__(limits_file_path)
           
     def parse_limits(self):
@@ -119,7 +122,7 @@ class LimitsFileParser(LimitsParser):
             class_name = self.get_class_names(limit)
             parent = self.get_class_parent(limit)
             if class_name:
-                all_sub_limits = re.findall(r'<.*limits.*>(?:\s*\w*\s*\w*\s*){0,}.*\s*</.*limits>', limit,re.M)
+                all_sub_limits = re.findall(r'<.*limits.*>(?:\s*\w+\s*%s\s*){0,}.*\s*</.*limits>' % self.pattern_limit_type_value, limit,re.M)
                 self.limits_classes[class_name] = {}
                 self.limits_classes[class_name]['PARENT'] = parent
                 self.limits_classes[class_name]['LIMITTYPES'] = {}
@@ -138,13 +141,21 @@ class LimitsFileParser(LimitsParser):
         for sub_limit in sub_limits:
             limit_id = self.get_limit_id(sub_limit)
             limits[limit_id] = {}
-            match = re.match(r'<.*limits.*>(\s*(?:\w+\s+\w+\s+){1,}\s*.*\s*)</.*limits>',sub_limit,re.M)
+            #match = re.match(r'<.*limits.*>(?:\s*(\w+)\s*(%s)\s*){1,100}.*\s*</.*limits>' % self.pattern_limit_type_value,sub_limit,re.M)
+            match = re.match(r'<.*limits.*>((?:\s*\w+\s*%s\s*){0,}.*\s*)</.*limits>' % self.pattern_limit_type_value,sub_limit,re.M)
             if match:
-                all_limittypes = re.findall('\w+\s+\w+',match.group(1),re.M)
+                all_limittypes = re.findall('\w+\s+%s' % self.pattern_limit_type_value,match.group(1),re.M)
                 for limit_type in all_limittypes:
-                    match = re.match(r'(\w+)\s+(\w+)',limit_type)
+                    match = re.match(r'(\w+)\s+(%s)' % self.pattern_limit_type_value,limit_type)
                     type,value = match.group(1),match.group(2)
-                    limits[limit_id][type] = value
+                    if type in ListLimit.types:
+                        if type not in  limits[limit_id]:
+                             limits[limit_id][type] = list([value])
+                        else:
+                             limits[limit_id][type].append(value)
+                    else:     
+                        limits[limit_id][type] = value
+
         return limits
                     
     def get_limit_id(self,limit_str):
