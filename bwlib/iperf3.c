@@ -269,6 +269,13 @@ Iperf3PreRunTest(
     if(!tsess->conf_server){
         Iperf3Args[a++] = "-Z"; // Set the zerocopy mode by default (for backwards compatibility of results)
 
+        if ( tsess->test_spec.mss > 0 ) {
+	    Iperf3Args[a++] = "-M";
+            if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.mss))){
+                return NULL;
+            }
+	}
+
         if(tsess->test_spec.omit){
             Iperf3Args[a++] = "--omit";
             if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.omit))){
