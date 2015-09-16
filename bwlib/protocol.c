@@ -90,9 +90,8 @@ _BWLWriteServerGreeting(
      */
     memset(buf,0,12);
 
-    /* TODO: Should this be the current version? */
     *((uint32_t *)&buf[12]) = htonl(avail_modes | 
-            BWL_MODE_PROTOCOL_1_5_2_VERSION);
+            BWL_MODE_PROTOCOL_CURRENT_VERSION);
     memcpy(&buf[16],challenge,16);
     if(I2Writeni(cntrl->sockfd,buf,32,retn_on_err) != 32){
         return BWLErrFATAL;
