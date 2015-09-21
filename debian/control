@@ -10,7 +10,7 @@ Build-Depends: debhelper (>= 9),
                python-configobj,
                python-psutil,
                python-simplejson
-Standards-Version: 3.9.5
+Standards-Version: 3.9.6
 Homepage: http://software.internet2.edu/bwctl
 Vcs-Git: git://github.com/perfsonar/bwctl
 Vcs-Browser: https://github.com/perfsonar/bwctl/tree/2.0
