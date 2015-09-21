@@ -1,0 +1,47 @@
+Source: bwctl2
+Section: net
+Priority: optional
+Maintainer: Valentin Vidic <Valentin.Vidic@CARNet.hr>
+Build-Depends: debhelper (>= 9),
+               dh-python,
+               python-all-dev,
+               python-setuptools,
+               python-cherrypy3,
+               python-configobj,
+               python-psutil,
+               python-simplejson
+Standards-Version: 3.9.5
+Homepage: http://software.internet2.edu/bwctl
+Vcs-Git: git://github.com/perfsonar/bwctl
+Vcs-Browser: https://github.com/perfsonar/bwctl/tree/2.0
+
+Package: bwctl2
+Architecture: all
+Depends: bwctl2-client, bwctl2-server, ${misc:Depends}
+Description: Network measurement scheduler metapackage
+ BWCTL is a command line client application and a scheduling and policy daemon
+ that wraps various network measurement tools including iperf, iperf3, owamp
+ ping and traceroute.
+
+Package: bwctl2-shared
+Architecture: all
+Depends: python-cherrypy3, python-configobj, python-psutil, python-simplejson,
+ python-pkg-resources, python-netifaces, python-radix, python-routes,
+ iperf, iperf3, ${misc:Depends}, ${python:Depends}
+Description: bwctl shared components
+ Shared components used by the bwctl server and client packages.
+
+Package: bwctl2-client
+Architecture: all
+Depends: bwctl2-shared, ${misc:Depends}, ${python:Depends}
+Description: bwctl client
+ bwctl command line tool for scheduling bandwidth measurements with a bwctl
+ server.
+
+Package: bwctl2-server
+Architecture: all
+Depends: bwctl2-shared, adduser, ntp, ${misc:Depends}, ${python:Depends}
+Recommends: iputils-ping, iputils-tracepath, traceroute
+Suggests: owamp-server, owamp-client
+Description: bwctl server
+ bwctl server for scheduling bandwidth measurements.
