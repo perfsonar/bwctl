@@ -331,7 +331,7 @@ Iperf3PreRunTest(
             }
         }
 
-	if ( tsess->test_spec.mss >= 0 ) {
+	if ( tsess->test_spec.mss > 0 ) {
 	  Iperf3Args[a++] = "-M";
 	  if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.mss))){
 	    return NULL;
