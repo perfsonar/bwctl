@@ -1914,6 +1914,10 @@ handle_throughput_test_arg(const char arg, const char *long_name, const char *va
             tstr = NULL;
             break;
         case 'm':
+            if( !(tstr = strdup(value))){
+                I2ErrLog(eh, "strdup(): %M");
+                exit(1);
+            }
             app.opt.maxSegmentSize = strtoul(value, &tstr, 10);
 	    /* The minimum MSS is derived from RFC 791's requirement
 	       that the smallest possible IP packet is 68 octets.

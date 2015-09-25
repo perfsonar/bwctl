@@ -260,12 +260,8 @@ Iperf3PreRunTest(
         }
     }
 
-    if ( tsess->test_spec.mss >= 0 ) {
-      Iperf3Args[a++] = "-M";
-      if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.mss))){
-	return NULL;
-      }
-    }
+
+
 
 
     if (tsess->test_spec.verbose) {
@@ -334,6 +330,14 @@ Iperf3PreRunTest(
                 return NULL;
             }
         }
+
+	if ( tsess->test_spec.mss >= 0 ) {
+	  Iperf3Args[a++] = "-M";
+	  if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.mss))){
+	    return NULL;
+	  }
+	}
+
     }
 
     Iperf3Args[a++] = NULL;

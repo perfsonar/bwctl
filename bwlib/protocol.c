@@ -813,7 +813,7 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     100|    Verbose    | Reverse Flow  |  No Endpoint  |               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     104|                            Unused                             |
+ *     104|     Maximum Segment Size      |           Unused              |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     108|    Out Fmt    | bandwidth-exp |   Omit Time   |     Units     |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -1122,7 +1122,7 @@ BWLGenericUnparseThroughputParameters(
     }
 
     if ( mss_available ) {
-        *(uint32_t*)&buf[104] = htons(tspec->mss);
+        *(uint16_t*)&buf[104] = htons(tspec->mss);
     }
     else if ( tspec->mss > 0 ) {
         BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
@@ -1569,6 +1569,7 @@ BWLGenericParseThroughputParameters(
 {
     BWLBoolean	            tool_negotiation;
     BWLBoolean	            omit_available;
+    BWLBoolean	            mss_available;
 
     /*
      * Check if tool negotiation has been requested.
@@ -1579,6 +1580,9 @@ BWLGenericParseThroughputParameters(
     /* Is there support for the -O omit flag in this version? */
     omit_available = protocol_version >=
         BWL_MODE_PROTOCOL_OMIT_VERSION;
+
+    /* Is there support for the -M mss flag in this version? */
+    mss_available = ( protocol_version >= BWL_MODE_PROTOCOL_MSS_VERSION );
 
     tspec->udp = (buf[1]>>4)?True:False;
     tspec->bandwidth = ntohl(*(uint32_t*)&buf[76]);
@@ -1601,6 +1605,11 @@ BWLGenericParseThroughputParameters(
     if(omit_available){
         tspec->verbose = buf[100];
         tspec->omit = buf[110];
+    }
+
+    if (mss_available) {
+      tspec->mss = ntohs(*(uint16_t*)&buf[104]);
+
     }
 
     return BWLErrOK;
