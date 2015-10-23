@@ -260,10 +260,6 @@ Iperf3PreRunTest(
         }
     }
 
-
-
-
-
     if (tsess->test_spec.verbose) {
         Iperf3Args[a++] = "-V";
     }
