@@ -11,4 +11,4 @@ include /usr/share/dpkg/default.mk
 export PYBUILD_DISABLE=test
 
 %:
-	dh $@ --with python2 --buildsystem=pybuild
+	dh $@ --with python2,systemd --buildsystem=pybuild

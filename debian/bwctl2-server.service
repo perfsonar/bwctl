@@ -1,0 +1,12 @@
+[Unit]
+Description=Bandwidth Control Daemon
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/bwctld2.pid
+ExecStart=/usr/bin/bwctld2 -c /etc/bwctld2/bwctld.conf -f /var/log/perfsonar/bwctld.log -p /var/run/bwctld2.pid -U bwctl2 -G bwctl2 --daemonize
+ExecStop=/bin/kill -INT $MAINPID
+
+[Install]
+WantedBy=multi-user.target

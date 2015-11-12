@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: Valentin Vidic <Valentin.Vidic@CARNet.hr>
 Build-Depends: debhelper (>= 9),
                dh-python,
+               dh-systemd,
                python-all-dev,
                python-setuptools,
                python-cherrypy3,
