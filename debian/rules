@@ -3,7 +3,7 @@
 export DH_OPTIONS
 
 %:
-	dh $@ --with autoreconf
+	dh $@ --with autoreconf,systemd
 
 override_dh_auto_configure:
 	dh_auto_configure -- \
