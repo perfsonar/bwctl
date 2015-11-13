@@ -77,8 +77,8 @@ do
     restart)
     	$0 stop; echo "waiting..."; sleep 10; $0 start;
 	;;
-    status)
-    	status -p ${PIDFILE} -b "${BWCTLDBINDIR}/bwctld"
+	status)
+		echo $STATUS
 	;;
 #	if [ $RUNNING -eq 0 ]; then
 #	    echo "$0 $ARG: bwctld not running, trying to start"
@@ -105,6 +105,7 @@ start      - start bwctld
 stop       - stop bwctld
 restart    - restart bwctld if running by sending a SIGHUP or start if 
              not running
+status     - report if bwctld is running
 help       - this screen
 
 EOF

@@ -129,12 +129,6 @@ TracepathValidateTest(
         return False;
     }
 
-    if(test_spec.traceroute_packet_size){
-        BWLError(ctx,BWLErrFATAL,EINVAL,
-                "TracepathValidateTest(): Tracepath does not support setting the packet size");
-        return False;
-    }
-
     if(test_spec.outformat){
         switch((char)test_spec.outformat){
             case 'a':
@@ -231,6 +225,13 @@ TracepathPreRunTest(
                 break;
             default:
                 break;
+        }
+    }
+
+    if(tsess->test_spec.traceroute_packet_size){
+        TracepathArgs[a++] = "-l";
+        if( !(TracepathArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.traceroute_packet_size))){
+            return NULL;
         }
     }
 

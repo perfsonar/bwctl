@@ -41,11 +41,11 @@
 # limitations under the License.
 #
 PACKAGE=bwctl
-VERSION="1.5.4"
+VERSION="1.5.6"
 
-AC_INIT(bwctl, 1.5.4, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.5.6, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.5.4, [no-define])
+AM_INIT_AUTOMAKE(bwctl, 1.5.6, [no-define])
 
 AC_DEFINE(PATCH_LEVEL, 1, "The RPM version number")
 AC_SUBST(PATCH_LEVEL, 1)
@@ -158,12 +158,12 @@ else
     # LDFLAGS/CFLAGS - but ultimately, AC_SEARCH_LIBS and AC_CHECK_HEADERS
     # must succeed.
     if test -n "$with_I2util" -a -d "$with_I2util"; then
-        I2util_dir=`dirname $with_I2util`
+        I2util_dir="$with_I2util"
         case $I2util_dir in
             /*) ;; # already an absolute path
             *) I2util_dir="`pwd`/$I2util_dir" ;;
         esac
-        LDFLAGS="-L$with_I2util/lib $LDFLAGS"
+        LDFLAGS="-L$I2util_dir/lib -L$I2util_dir/lib64 $LDFLAGS"
         CFLAGS="-I$I2util_dir/include $CFLAGS"
     fi
     AC_SEARCH_LIBS([I2AddrByNode],I2util, ,AC_MSG_ERROR([Couldn't find I2util library]))
