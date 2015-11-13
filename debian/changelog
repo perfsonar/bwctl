@@ -1,9 +1,11 @@
-bwctl (1.5.5-1) UNRELEASED; urgency=low
+bwctl (1.5.6-1) UNRELEASED; urgency=low
 
   * New upstream version
   * Disabling I2util during build
+  * Start bwctl-server by default
+  * Adding gbp.conf for git-buildpackage
 
- -- Antoine Delvaux <antoine.delvaux@dante.net>  Wed, 25 Mar 2015 14:43:48 +0000
+ -- Antoine Delvaux <a.delvaux@man.poznan.pl>  Fri, 13 Nov 2015 10:19:27 +0000
 
 bwctl (1.5.3-1) unstable; urgency=low
 
