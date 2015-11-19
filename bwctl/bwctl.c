@@ -320,6 +320,13 @@ struct bwctl_option bwctl_options[] = {
    {
         BWL_TEST_THROUGHPUT,
         OPTION_TEST,
+        { "mss", required_argument, 0, 'm' },
+        "Maximum segment size (for iperf3 and nuttcp)",
+        "octets",
+   },
+   {
+        BWL_TEST_THROUGHPUT,
+        OPTION_TEST,
         { "omit", required_argument, 0, 'O' },
         "Omit time (currently only for iperf3)",
         "seconds",
@@ -1906,6 +1913,30 @@ handle_throughput_test_arg(const char arg, const char *long_name, const char *va
             free(tstr);
             tstr = NULL;
             break;
+        case 'm':
+            if( !(tstr = strdup(value))){
+                I2ErrLog(eh, "strdup(): %M");
+                exit(1);
+            }
+            app.opt.maxSegmentSize = strtoul(value, &tstr, 10);
+	    /* The minimum MSS is derived from RFC 791's requirement
+	       that the smallest possible IP packet is 68 octets.
+	       Iperf only checks for anything greater than 9K. */
+	    /* TODO: Verify that these values are sane for IPv6 */
+#           define MSS_MIN (28)
+#           define MSS_MAX (9 * 1024)
+            if ( (*tstr != '\0')
+                 || (app.opt.maxSegmentSize < MSS_MIN) 
+		 || (app.opt.maxSegmentSize > MSS_MAX) ) {
+	        char message[1024];
+                size_t printed = snprintf(message, sizeof message,
+                         "Invalid value. (-m) integer from %lu to %lu expected",
+                         MSS_MIN, MSS_MAX);
+                assert(printed < sizeof message);
+                usage(message);
+                exit(1);
+            }
+            break;
         case 'O':
             app.opt.timeOmit = strtoul(value,&tstr,10);
             if(*tstr != '\0'){
@@ -2662,6 +2693,7 @@ main(
         }
         test_options.report_interval = app.opt.reportInterval;
         test_options.units = app.opt.units;
+	test_options.mss = app.opt.maxSegmentSize;
         test_options.omit = app.opt.timeOmit;
         test_options.parallel_streams = app.opt.parallel;
     }

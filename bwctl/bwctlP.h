@@ -195,6 +195,7 @@ typedef	struct {
         uint8_t	        units;          /* -f	*/
         uint8_t	        outformat;      /* -y	*/
         BWLBoolean      parsable;       /* --parsable */
+        uint32_t        maxSegmentSize; /* --M (bytes) */
         uint8_t		timeOmit;	/* -O (secs) */
         uint32_t	parallel;	/* -P	*/
         uint32_t	tos;		/* -S	*/

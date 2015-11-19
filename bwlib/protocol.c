@@ -91,7 +91,7 @@ _BWLWriteServerGreeting(
     memset(buf,0,12);
 
     *((uint32_t *)&buf[12]) = htonl(avail_modes | 
-            BWL_MODE_PROTOCOL_1_5_2_VERSION);
+            BWL_MODE_PROTOCOL_CURRENT_VERSION);
     memcpy(&buf[16],challenge,16);
     if(I2Writeni(cntrl->sockfd,buf,32,retn_on_err) != 32){
         return BWLErrFATAL;
@@ -178,8 +178,8 @@ _BWLReadServerGreeting(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *
  *        Note: The high-order byte of 'Mode' is set to the protocol version
- *        cntrl->protocol_version, which is (currently)
- *        BWL_MODE_PROTOCOL_OMIT_VERSION from the server.
+ *        cntrl->protocol_version, which is BWL_MODE_PROTOCOL_CURRENT_VERSION
+ *        from the server.
  */
 BWLErrSeverity
 _BWLWriteClientGreeting(
@@ -813,7 +813,7 @@ _BWLReadTimeResponse(
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     100|    Verbose    | Reverse Flow  |  No Endpoint  |               |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *     104|                            Unused                             |
+ *     104|     Maximum Segment Size      |           Unused              |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *     108|    Out Fmt    | bandwidth-exp |   Omit Time   |     Units     |
  *	  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -1051,6 +1051,7 @@ BWLGenericUnparseThroughputParameters(
         )
 {
     BWLBoolean	    tool_negotiation;
+    BWLBoolean	    mss_available;
     BWLBoolean	    omit_available;
     uint64_t        bandwidth;
     uint8_t         bandwidth_exp = 0;
@@ -1064,6 +1065,9 @@ BWLGenericUnparseThroughputParameters(
     /* Is there support for the -O omit flag in this version? */
     omit_available = protocol_version >=
         BWL_MODE_PROTOCOL_OMIT_VERSION;
+
+    /* Is there support for the -M mss flag in this version? */
+    mss_available = ( protocol_version >= BWL_MODE_PROTOCOL_MSS_VERSION );
 
     if(tspec->udp){	/* udp */
         buf[1] |= 0x10;
@@ -1114,6 +1118,15 @@ BWLGenericUnparseThroughputParameters(
     else if(bandwidth_exp > 0){
         BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
                 "Legacy server does not support -b greater than 4.3g");
+        return BWLErrFATAL;
+    }
+
+    if ( mss_available ) {
+        *(uint16_t*)&buf[104] = htons(tspec->mss);
+    }
+    else if ( tspec->mss > 0 ) {
+        BWLError(ctx,BWLErrFATAL,BWLErrUNSUPPORTED,
+                "Legacy server does not support -M option");
         return BWLErrFATAL;
     }
 
@@ -1556,6 +1569,7 @@ BWLGenericParseThroughputParameters(
 {
     BWLBoolean	            tool_negotiation;
     BWLBoolean	            omit_available;
+    BWLBoolean	            mss_available;
 
     /*
      * Check if tool negotiation has been requested.
@@ -1566,6 +1580,9 @@ BWLGenericParseThroughputParameters(
     /* Is there support for the -O omit flag in this version? */
     omit_available = protocol_version >=
         BWL_MODE_PROTOCOL_OMIT_VERSION;
+
+    /* Is there support for the -M mss flag in this version? */
+    mss_available = ( protocol_version >= BWL_MODE_PROTOCOL_MSS_VERSION );
 
     tspec->udp = (buf[1]>>4)?True:False;
     tspec->bandwidth = ntohl(*(uint32_t*)&buf[76]);
@@ -1588,6 +1605,11 @@ BWLGenericParseThroughputParameters(
     if(omit_available){
         tspec->verbose = buf[100];
         tspec->omit = buf[110];
+    }
+
+    if (mss_available) {
+      tspec->mss = ntohs(*(uint16_t*)&buf[104]);
+
     }
 
     return BWLErrOK;

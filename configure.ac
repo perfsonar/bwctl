@@ -43,9 +43,9 @@
 PACKAGE=bwctl
 VERSION="1.5.6"
 
-AC_INIT(bwctl, 1.5.6, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.5.7, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.5.6, [no-define])
+AM_INIT_AUTOMAKE(bwctl, 1.5.7, [no-define])
 
 AC_DEFINE(PATCH_LEVEL, 1, "The RPM version number")
 AC_SUBST(PATCH_LEVEL, 1)
