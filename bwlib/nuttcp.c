@@ -208,6 +208,13 @@ NuttcpPreRunTest(
                 tsess->test_spec.window_size / 1024);
     }
 
+    if ( tsess->test_spec.mss > 0 ) {
+        NuttcpArgs[a++] = "-M";
+        if( !(NuttcpArgs[a++] = BWLUInt32Dup(ctx,tsess->test_spec.mss))){
+            return NULL;
+        }
+    }
+
     if(tsess->test_spec.report_interval){
         NuttcpArgs[a++] = "-i";
         if( !(NuttcpArgs[a++] =

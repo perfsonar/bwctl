@@ -330,7 +330,14 @@ typedef uint8_t    BWLKey[16];
 #define BWL_MODE_PROTOCOL_OMIT_VERSION                (0x02000000)
 #define BWL_MODE_PROTOCOL_1_5_VERSION                 (0x04000000)
 #define BWL_MODE_PROTOCOL_1_5_2_VERSION               (0x05000000)
+#define BWL_MODE_PROTOCOL_MSS_VERSION                 (0x06000000)
+/* NOTE: Update BWL_MODE_PROTOCOL_CURRENT when a version is added */
+
+#define BWL_MODE_PROTOCOL_CURRENT_VERSION             (BWL_MODE_PROTOCOL_MSS_VERSION)
+
+
 #define BWL_MODE_PROTOCOL_VERSION_MASK                (0xff000000)
+
 #define BWL_MODE_UNDEFINED          (0x0)
 #define BWL_MODE_LEAST_RESTRICTIVE  (0x80)
 #define BWL_MODE_OPEN               (0x1)
@@ -362,6 +369,7 @@ typedef struct{
     uint32_t        window_size;
     uint32_t        len_buffer;
     uint16_t        report_interval;
+    uint16_t        mss;
     uint8_t         omit;
     uint8_t         parallel_streams;
     uint8_t         units;

@@ -28,6 +28,7 @@
  * limitations under the License.
  * 
  */
+
 #include <bwlib/bwlibP.h>
 
 /*
@@ -263,6 +264,7 @@ Iperf3PreRunTest(
         Iperf3Args[a++] = "-V";
     }
 
+
     /*
      * set some client-specific parameters
      */
@@ -324,6 +326,14 @@ Iperf3PreRunTest(
                 return NULL;
             }
         }
+
+	if ( tsess->test_spec.mss > 0 ) {
+	  Iperf3Args[a++] = "-M";
+	  if( !(Iperf3Args[a++] = BWLUInt32Dup(ctx,tsess->test_spec.mss))){
+	    return NULL;
+	  }
+	}
+
     }
 
     Iperf3Args[a++] = NULL;
