@@ -1612,6 +1612,7 @@ BWLDExecPostHookScript(
     fprintf(pipe_fp, "bandwidth: %llu\n", (unsigned long long)test_spec->bandwidth);
     fprintf(pipe_fp, "window: %i\n", test_spec->window_size);
     fprintf(pipe_fp, "len_buffer: %i\n", test_spec->len_buffer);
+    fprintf(pipe_fp, "mss: %lu\n", test_spec->mss);
     fprintf(pipe_fp, "report_interval: %u\n", test_spec->report_interval);
     fprintf(pipe_fp, "parallel_streams: %u\n", test_spec->parallel_streams);
     fprintf(pipe_fp, "units: %c\n", test_spec->units);
