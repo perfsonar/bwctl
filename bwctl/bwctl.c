@@ -2473,7 +2473,7 @@ main(
         }
 
         if (!app.opt.tools) {
-            app.opt.tools = strdup("iperf,iperf3,nuttcp");
+            app.opt.tools = strdup("iperf3,iperf,nuttcp");
         }
     }
 
