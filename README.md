@@ -39,12 +39,12 @@ To check out the most recent code, do:  git clone https://github.com/perfsonar/b
 To run the daemon:
 
 ```bash
-bwctld -c /path/to/directory/with/bwctld.conf
+bwctld -c /path/to/directory/with/bwctl-server.conf
 ```
 
 The daemon will run without a bwctld configuration file if you use enough
 of the command-line flags - but it is much easier to use the config file.
-There is an example configuration file in conf/bwctld.conf.
+There is an example configuration file in conf/bwctl-server.conf.
 
 To get the list of available options use:
 
