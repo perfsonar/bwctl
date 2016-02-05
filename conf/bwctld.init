@@ -5,16 +5,16 @@
 # chkconfig: 2345 60 20
 # description: Bandwidth Control daemon
 #
-# processname: bwctld 
+# processname: bwctld
 #
 
 # Source function library.
 . /etc/init.d/functions
 
 BWCTLDBINDIR=/usr/bin
-CONFDIR=/etc/bwctld
+CONFDIR=/etc/bwctl-server
 BWCTLDVARDIR=/var/run
-PIDFILE=${BWCTLDVARDIR}/bwctld.pid
+PIDFILE=${BWCTLDVARDIR}/bwctl-server.pid
 
 BWCTLD="${BWCTLDBINDIR}/bwctld -c ${CONFDIR} -R ${BWCTLDVARDIR}"
 
@@ -30,30 +30,30 @@ do
     if [ -f $PIDFILE ] ; then
 	PID=`cat $PIDFILE`
 	if [ "x$PID" != "x" ] && kill -0 $PID 2>/dev/null ; then
-	    STATUS="bwctld (pid $PID) running"
+	    STATUS="bwctl-server (pid $PID) running"
 	    RUNNING=1
 	else
-	    STATUS="bwctld (pid $PID?) not running"
+	    STATUS="bwctl-server (pid $PID?) not running"
 	    RUNNING=0
 	fi
     else
-	STATUS="bwctld (no pid file) not running"
+	STATUS="bwctl-server (no pid file) not running"
 	RUNNING=0
     fi
 
     case $ARG in
     start)
 	if [ $RUNNING -eq 1 ]; then
-	    echo "$0 $ARG: bwctld (pid $PID) already running"
+	    echo "$0 $ARG: bwctl-server (pid $PID) already running"
 	    continue
 	fi
 
 	echo $BWCTLD
 
 	if $BWCTLD ; then
-	    echo "$0 $ARG: bwctld started"
+	    echo "$0 $ARG: bwctl-server started"
 	else
-	    echo "$0 $ARG: bwctld could not be started"
+	    echo "$0 $ARG: bwctl-server could not be started"
 	    ERROR=3
 	fi
 	;;
@@ -63,9 +63,9 @@ do
 	    continue
 	fi
 	if kill $PID ; then
-	    echo "$0 $ARG: bwctld stopped"
+	    echo "$0 $ARG: bwctl-server stopped"
 	else
-	    echo "$0 $ARG: bwctld could not be stopped"
+	    echo "$0 $ARG: bwctl-server could not be stopped"
 	    ERROR=4
 	fi
 	;;
@@ -81,18 +81,18 @@ do
 		echo $STATUS
 	;;
 #	if [ $RUNNING -eq 0 ]; then
-#	    echo "$0 $ARG: bwctld not running, trying to start"
+#	    echo "$0 $ARG: bwctl-server not running, trying to start"
 #	    if $BWCTLD ; then
-#		echo "$0 $ARG: bwctld started"
+#		echo "$0 $ARG: bwctl-server started"
 #	    else
-#		echo "$0 $ARG: bwctld could not be started"
+#		echo "$0 $ARG: bwctl-server could not be started"
 #		ERROR=5
 #	    fi
 #	else
 #	    if kill -HUP $PID ; then
-#	       echo "$0 $ARG: bwctld restarted"
+#	       echo "$0 $ARG: bwctl-server restarted"
 #	    else
-#	       echo "$0 $ARG: bwctld could not be restarted"
+#	       echo "$0 $ARG: bwctl-server could not be restarted"
 #	       ERROR=6
 #	    fi
 #	fi
@@ -101,11 +101,11 @@ do
 	echo "usage: $0 (start|stop|restart|help)"
 	cat <<EOF
 
-start      - start bwctld
-stop       - stop bwctld
-restart    - restart bwctld if running by sending a SIGHUP or start if 
+start      - start bwctl-server
+stop       - stop bwctl-server
+restart    - restart bwctl-server if running by sending a SIGHUP or start if 
              not running
-status     - report if bwctld is running
+status     - report if bwctl-server is running
 help       - this screen
 
 EOF
