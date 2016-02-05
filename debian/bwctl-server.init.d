@@ -16,9 +16,9 @@
 # PATH should only include /usr if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="Bandwidth Control Daemon"
-NAME=bwctld
+NAME=bwctl-server
 DAEMON=/usr/sbin/bwctld
-DAEMON_ARGS="-c /etc/bwctl -R /var/run"
+DAEMON_ARGS="-c /etc/bwctl-server -R /var/run"
 PIDFILE=/var/run/bwctld.pid
 INFFILE=/var/run/bwctld.info
 SCRIPTNAME=/etc/init.d/bwctl-server
@@ -70,7 +70,7 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --exec $DAEMON
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
 	# Wait for children to finish too if this is a daemon that forks

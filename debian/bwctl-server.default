@@ -6,7 +6,7 @@
 # This is a POSIX shell fragment
 #
 
-# To start bwctld at boot, set NO_START to 0
+# To start bwctl-server at boot, set NO_START to 0
 ##################################################################
 # Please read /usr/share/doc/bwctl-server/README.Debian before
 # enabling the daemon!
@@ -18,4 +18,4 @@ NO_START=0
 # -c and -R should almost always be supplied
 #
 # the following defaults are set in /etc/init.d/bwctl-server:
-#DAEMON_OPTS="-c /etc/bwctl -R /var/run"
+#DAEMON_OPTS="-c /etc/bwctl-server -R /var/run"
