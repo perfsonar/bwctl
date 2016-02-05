@@ -36,11 +36,11 @@
 #include <bwlib/bwlib.h>
 
 #ifndef	BWL_KEY_FILE
-#define	BWL_KEY_FILE		"bwctld.keys"
+#define	BWL_KEY_FILE		"bwctl-server.keys"
 #endif
 
 #ifndef	BWL_LIMITS_FILE
-#define	BWL_LIMITS_FILE		"bwctld.limits"
+#define	BWL_LIMITS_FILE		"bwctl-server.limits"
 #endif
 
 /*

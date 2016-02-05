@@ -30,7 +30,7 @@
 #define	_BWCTLDP_H_
 
 #ifndef	BWCTLD_CONF_FILE
-#define	BWCTLD_CONF_FILE	"bwctld.conf"
+#define	BWCTLD_CONF_FILE	"bwctl-server.conf"
 #endif
 
 #define	BWCTLD_IPERF_DEF_TESTPORT	(5001)
