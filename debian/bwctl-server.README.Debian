@@ -6,8 +6,8 @@ bwctl for Debian
 
 * To start bwctld at boot edit /etc/default/bwctl-server.
 
-* Please edit /etc/bwctl/bwctld.limits before enabling the
-  daemon. The default bwctld.limits file allows anyone to
+* Please edit /etc/bwctl-server/bwctl-server.limits before enabling the
+  daemon. The default bwctl-server.limits file allows anyone to
   perform TCP tests for up to 30 seconds, you should probably
   not run the daemon that way!
 

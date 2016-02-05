@@ -1,5 +1,5 @@
 #!/bin/sh
-# postinst script for bwctl
+# postinst script for bwctl-server
 #
 # see: dh_installdeb(1)
 
@@ -8,7 +8,7 @@ set -e
 case "$1" in
     configure)
         if ! getent passwd bwctl >/dev/null; then
-            adduser --system --group --home /etc/bwctl \
+            adduser --system --group --home /etc/bwctl-server \
                     --no-create-home --disabled-login bwctl
         fi
     ;;

@@ -14,8 +14,8 @@ override_dh_auto_configure:
 
 override_dh_auto_install:
 	dh_auto_install
-	install -p -m644 -D $(CURDIR)/conf/bwctld.conf   $(CURDIR)/debian/tmp/etc/bwctl/bwctld.conf
-	install -p -m644 -D $(CURDIR)/conf/bwctld.limits $(CURDIR)/debian/tmp/etc/bwctl/bwctld.limits
+	install -p -m644 -D $(CURDIR)/conf/bwctld.conf   $(CURDIR)/debian/tmp/etc/bwctl-server/bwctl-server.conf
+	install -p -m644 -D $(CURDIR)/conf/bwctld.limits $(CURDIR)/debian/tmp/etc/bwctl-server/bwctl-server.limits
 
 override_dh_compress:
 	dh_compress -X.pdf

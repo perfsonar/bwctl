@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=forking
 PIDFile=/var/run/bwctld.pid
-ExecStart=/usr/sbin/bwctld -c /etc/bwctl -R /var/run
+ExecStart=/usr/sbin/bwctld -c /etc/bwctl-server -R /var/run
 ExecStopPost=/bin/rm -f /var/run/bwctld.info
 
 [Install]
