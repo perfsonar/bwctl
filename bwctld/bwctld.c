@@ -2609,7 +2609,7 @@ main(int argc, char *argv[])
         /* Record the start timestamp in the info file. */
         strcpy(info_file, opts.vardir);
         strcat(info_file, BWL_PATH_SEPARATOR);
-        strcat(info_file, "bwctld.info");
+        strcat(info_file, "bwctl-server.info");
         if ((info_fp = fopen(info_file, "w")) == NULL) {
             I2ErrLog(errhand, "fopen(%s): %M", info_file);
             kill(mypid,SIGTERM);
