@@ -2324,7 +2324,7 @@ main(int argc, char *argv[])
     /*  Get exclusive lock for pid file. */
     strcpy(pid_file, opts.vardir);
     strcat(pid_file, BWL_PATH_SEPARATOR);
-    strcat(pid_file, "bwctld.pid");
+    strcat(pid_file, "bwctl-server.pid");
     if ((pid_fd = open(pid_file, O_RDWR|O_CREAT,
                     S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) < 0) {
         I2ErrLog(errhand, "open(%s): %M", pid_file);
