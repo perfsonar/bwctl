@@ -99,11 +99,17 @@ else
         mv /etc/bwctld/bwctld.limits.rpmsave %{_sysconfdir}/bwctl-server/bwctl-server.limits
     fi
     
+    #make sure bwctl-server starts if bwctld was running
     /sbin/service bwctld stop 2> /dev/null
+    chkconfig --list bwctld 2> /dev/null | grep -q on
+    if [ $? -eq 0 ]; then
+        /sbin/chkconfig --add bwctl-server
+        /sbin/service bwctl-server restart
+    else
+        /sbin/service bwctl-server cond-restart
+    fi
     /sbin/chkconfig --del bwctld 2> /dev/null
     
-    /sbin/chkconfig --add bwctl-server
-    /sbin/service bwctl-server cond-restart
 fi
 
 %preun server
