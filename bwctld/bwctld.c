@@ -1856,6 +1856,7 @@ LoadErrConfig(
                 break;
             }
             syslogattr.priority = prio;
+            syslogattr.report_level = syslogattr.priority;
         }
         /* fall-through: unrecognized syntax ignored here */
     }
@@ -1938,6 +1939,7 @@ LoadConfig(
                 break;
             }
             syslogattr.priority = prio;
+            syslogattr.report_level = syslogattr.priority;
         }
         else if(!strncasecmp(key,"rootfolly",10) ||
                 !strncasecmp(key,"root_folly",11)){
@@ -2139,6 +2141,7 @@ main(int argc, char *argv[])
     syslogattr.logopt = LOG_PID;
     syslogattr.facility = LOG_DAEMON;
     syslogattr.priority = LOG_ERR;
+    syslogattr.report_level = syslogattr.priority;
     syslogattr.line_info = (I2MSG);
 
 #ifndef NDEBUG
