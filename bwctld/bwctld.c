@@ -1856,6 +1856,7 @@ LoadErrConfig(
                 break;
             }
             syslogattr.priority = prio;
+            syslogattr.report_level = syslogattr.priority;
         }
         /* fall-through: unrecognized syntax ignored here */
     }
@@ -1938,6 +1939,7 @@ LoadConfig(
                 break;
             }
             syslogattr.priority = prio;
+            syslogattr.report_level = syslogattr.priority;
         }
         else if(!strncasecmp(key,"rootfolly",10) ||
                 !strncasecmp(key,"root_folly",11)){
@@ -2139,6 +2141,7 @@ main(int argc, char *argv[])
     syslogattr.logopt = LOG_PID;
     syslogattr.facility = LOG_DAEMON;
     syslogattr.priority = LOG_ERR;
+    syslogattr.report_level = syslogattr.priority;
     syslogattr.line_info = (I2MSG);
 
 #ifndef NDEBUG
@@ -2324,7 +2327,7 @@ main(int argc, char *argv[])
     /*  Get exclusive lock for pid file. */
     strcpy(pid_file, opts.vardir);
     strcat(pid_file, BWL_PATH_SEPARATOR);
-    strcat(pid_file, "bwctld.pid");
+    strcat(pid_file, "bwctl-server.pid");
     if ((pid_fd = open(pid_file, O_RDWR|O_CREAT,
                     S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH)) < 0) {
         I2ErrLog(errhand, "open(%s): %M", pid_file);
@@ -2609,7 +2612,7 @@ main(int argc, char *argv[])
         /* Record the start timestamp in the info file. */
         strcpy(info_file, opts.vardir);
         strcat(info_file, BWL_PATH_SEPARATOR);
-        strcat(info_file, "bwctld.info");
+        strcat(info_file, "bwctl-server.info");
         if ((info_fp = fopen(info_file, "w")) == NULL) {
             I2ErrLog(errhand, "fopen(%s): %M", info_file);
             kill(mypid,SIGTERM);
