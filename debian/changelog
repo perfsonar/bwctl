@@ -1,4 +1,4 @@
-bwctl (1.5.7~0.a1-1) unstable; urgency=low
+bwctl (1.5.7~1.a1-1) unstable; urgency=low
 
   * Adding -m option to set the MMS size of an iperf3 test.
 
