@@ -2174,6 +2174,7 @@ main(
     syslogattr.logopt = 0;
     syslogattr.facility = LOG_USER;
     syslogattr.priority = LOG_ERR;
+    syslogattr.report_level = syslogattr.priority;
     syslogattr.line_info = I2MSG;
 
     /* Set default options. */
