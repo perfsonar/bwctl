@@ -19,8 +19,8 @@ DESC="Bandwidth Control Daemon"
 NAME=bwctl-server
 DAEMON=/usr/sbin/bwctld
 DAEMON_ARGS="-c /etc/bwctl-server -R /var/run"
-PIDFILE=/var/run/bwctld.pid
-INFFILE=/var/run/bwctld.info
+PIDFILE=/var/run/$NAME.pid
+INFFILE=/var/run/$NAME.info
 SCRIPTNAME=/etc/init.d/bwctl-server
 
 # Exit if the package is not installed
