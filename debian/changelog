@@ -1,3 +1,9 @@
+bwctl (1.6.0~1.rc1-1~bpo70+1) UNRELEASED; urgency=medium
+
+  * New upstream version.
+
+ -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Fri, 12 Feb 2016 11:52:09 +0100
+
 bwctl (1.5.7~1.a1-1~bpo70+1) unstable; urgency=low
 
   * Adding -m option to set the MMS size of an iperf3 test.
