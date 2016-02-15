@@ -1,7 +1,7 @@
 Source: bwctl
 Section: net
 Priority: optional
-Maintainer: Raoul Gunnar Borenius <borenius@dfn.de>
+Maintainer: Valentin Vidic <Valentin.Vidic@CARNet.hr>
 Build-Depends: debhelper (>= 9), dh-autoreconf, libiperf-dev, libi2util-dev
 Standards-Version: 3.9.6
 Homepage: http://www.internet2.edu/performance/bwctl/

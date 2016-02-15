@@ -1,24 +1,32 @@
 bwctl (1.6.0~1.rc1-1~bpo70+1) UNRELEASED; urgency=medium
 
+  * Backport to Wheezy.
+
+ -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Mon, 15 Feb 2016 19:16:22 +0000
+
+bwctl (1.6.0~1.rc1-1) UNRELEASED; urgency=medium
+
   * New upstream version.
-
- -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Fri, 12 Feb 2016 11:52:09 +0100
-
-bwctl (1.5.7~1.a1-1~bpo70+1) unstable; urgency=low
-
   * Adding -m option to set the MMS size of an iperf3 test.
 
- -- Antoine Delvaux <a.delvaux@man.poznan.pl>  Fri, 20 Nov 2015 20:04:28 +0000
+ -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Mon, 15 Feb 2016 19:16:16 +0000
 
-bwctl (1.5.6-1~bpo70+1) unstable; urgency=low
+bwctl (1.5.6-1) unstable; urgency=low
 
   * New upstream version
-  * Backport to Wheezy
-  * Disabling I2util build
+  * Disabling I2util during build
   * Start bwctl-server by default
   * Adding gbp.conf for git-buildpackage
 
- -- Antoine Delvaux <a.delvaux@man.poznan.pl>  Mon, 07 Sep 2015 18:23:31 +0000
+ -- Antoine Delvaux <a.delvaux@man.poznan.pl>  Fri, 13 Nov 2015 10:19:27 +0000
+
+bwctl (1.5.3-1) unstable; urgency=low
+
+  * New upstream version
+  * Start bwctl-server by default
+  * Adding gbp.conf for git-buildpackage usage
+
+ -- Antoine Delvaux <antoine.delvaux@dante.net>  Wed, 11 Mar 2015 12:20:49 +0000
 
 bwctl (1.5.2+dfsg1-1) unstable; urgency=medium
 
