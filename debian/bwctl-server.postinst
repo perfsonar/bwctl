@@ -12,11 +12,11 @@ case "$1" in
             dpkg-maintscript-helper mv_conffile \
                 /etc/bwctl/bwctld.conf \
                 /etc/bwctl-server/bwctl-server.conf \
-                1.5.6-1 -- "$@"
+                1.6.0~1.rc1-2~ -- "$@"
             dpkg-maintscript-helper mv_conffile \
                 /etc/bwctl/bwctld.limits \
                 /etc/bwctl-server/bwctl-server.limits \
-                1.5.6-1 -- "$@"
+                1.6.0~1.rc1-2~ -- "$@"
         fi
         if [ -d /etc/bwctl ]; then
             rmdir --ignore-fail-on-non-empty /etc/bwctl
