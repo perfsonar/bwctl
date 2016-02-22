@@ -7,6 +7,21 @@ set -e
 
 case "$1" in
     configure)
+        # Rename configuration files
+        if dpkg-maintscript-helper supports mv_conffile; then
+            dpkg-maintscript-helper mv_conffile \
+                /etc/bwctl/bwctld.conf \
+                /etc/bwctl-server/bwctl-server.conf \
+                1.5.6-1 -- "$@"
+            dpkg-maintscript-helper mv_conffile \
+                /etc/bwctl/bwctld.limits \
+                /etc/bwctl-server/bwctl-server.limits \
+                1.5.6-1 -- "$@"
+        fi
+        if [ -d /etc/bwctl ]; then
+            rmdir --ignore-fail-on-non-empty /etc/bwctl
+        fi
+
         if ! getent passwd bwctl >/dev/null; then
             adduser --system --group --home /etc/bwctl-server \
                     --no-create-home --disabled-login bwctl
