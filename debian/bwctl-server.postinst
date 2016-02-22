@@ -26,6 +26,14 @@ case "$1" in
             adduser --system --group --home /etc/bwctl-server \
                     --no-create-home --disabled-login bwctl
         fi
+
+        if getent passwd bwctl | grep -q :/etc/bwctl: ; then
+            # attempt to stop potentially running daemon, otherwise usermod will fail
+            invoke-rc.d --quiet bwctl-server stop || true
+
+            # set new homedir
+            usermod --home /etc/bwctl-server bwctl || true
+        fi
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
