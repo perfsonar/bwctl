@@ -1,11 +1,11 @@
-bwctl (1.6.0~1.rc1-2) perfsonar-jessie-staging; urgency=medium
+bwctl (1.6.0-1) perfsonar-jessie-release; urgency=low
 
   * New upstream version.
   * Adding -m option to set the MMS size of an iperf3 test.
   * Moved configuration directory to /etc/bwctl-server
   * Rename configuration file to bwctl-server.conf
 
- -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Mon, 22 Feb 2016 21:39:36 +0000
+ -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Fri, 04 Mar 2016 09:18:01 +0100
 
 bwctl (1.5.6-1) unstable; urgency=low
 
