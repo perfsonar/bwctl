@@ -1,0 +1,12 @@
+[Unit]
+Description=Bandwidth Control Daemon
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/bwctl-server.pid
+ExecStart=/usr/bin/bwctld -c /etc/bwctl-server -R /var/run
+ExecStopPost=/bin/rm -f /var/run/bwctl-server.info
+
+[Install]
+WantedBy=multi-user.target
