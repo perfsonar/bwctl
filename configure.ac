@@ -41,14 +41,14 @@
 # limitations under the License.
 #
 PACKAGE=bwctl
-VERSION="1.6.0"
+VERSION="1.6.1"
 
-AC_INIT(bwctl, 1.6.0, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.6.1, bwctl-users@internet2.edu)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.6.0, [no-define])
+AM_INIT_AUTOMAKE(bwctl, 1.6.1, [no-define])
 
-AC_DEFINE(PATCH_LEVEL, 2, "The RPM version number")
-AC_SUBST(PATCH_LEVEL, 2)
+AC_DEFINE(PATCH_LEVEL, 1, "The RPM version number")
+AC_SUBST(PATCH_LEVEL, 1)
 
 AC_CONFIG_SRCDIR(bwlib/context.c)
 AM_CONFIG_HEADER(bwlib/config.h)
