@@ -3399,9 +3399,7 @@ wait_for_next_test(BWLBoolean prev_test_failed)
      * now, say something.
      */
     if(!app.opt.quiet && sleep_time.tv_sec > 3){
-        BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
-                "%lu seconds until next testing period",
-                sleep_time.tv_sec);
+       I2ErrLog( eh, "%lu seconds until next testing period", sleep_time.tv_sec);
     }
 
     while ((retval = nanosleep(&sleep_time, &remaining_time)) && errno == EINTR) {
@@ -3482,9 +3480,7 @@ wait_for_results()
     BWLNum64ToTimeval(&reltime,
             BWLNum64Sub(endtime,currtime.tstamp));
     if(!app.opt.quiet){
-        BWLError(ctx,BWLErrINFO,BWLErrUNKNOWN,
-                "%lu seconds until test results available",
-                reltime.tv_sec);
+        I2ErrLog( eh, "%lu seconds until test results available", reltime.tv_sec );
     }
 
     while(1){
