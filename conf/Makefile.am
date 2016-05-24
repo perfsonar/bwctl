@@ -19,7 +19,7 @@
 #	Description:	constructing owamp conf files from templates
 #		This doesn't really do this yet - it just provides
 #		examples.
-noinst_DATA	= README bwctld.conf bwctld.limits bwctld.sh bwctld.init
+noinst_DATA	= README bwctld.conf bwctld.limits bwctld.sh bwctld.init bwctld.service
 EXTRA_DIST	= $(noinst_DATA)
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");

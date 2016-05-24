@@ -8,6 +8,9 @@ URL: http://e2epi.internet2.edu/bwctl/
 Source: %{name}-%{version}.tar.gz
 Packager: Aaron Brown <aaron@internet2.edu>
 BuildRequires:  libtool, I2util
+%if 0%{?el7}
+BuildRequires: systemd
+%endif
 Requires: bwctl-client, bwctl-server, iperf3 >= 3.0.11
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
@@ -29,8 +32,13 @@ server.
 %package server
 Summary: bwctl server
 Group: Applications/Network
-Requires: I2util, chkconfig, initscripts, shadow-utils, coreutils
-Requires:   iperf, iperf3 >= 3.0.11
+%if 0%{?el7}
+%{?systemd_requires: %systemd_requires}
+%else
+Requires: chkconfig, initscripts
+%endif
+Requires: I2util, shadow-utils, coreutils
+Requires: iperf, iperf3 >= 3.0.11
 %description server
 bwctl server
 
@@ -67,6 +75,7 @@ make
 
 %install
 %makeinstall
+%{__install} -D -p -m 0644 conf/bwctld.service %{buildroot}%{_unitdir}/bwctl-server.service
 %{__install} -D -p -m 0755 conf/bwctld.init %{buildroot}%{_sysconfdir}/rc.d/init.d/bwctl-server
 %{__install} -D -p -m 0755 conf/bwctld.limits %{buildroot}%{_sysconfdir}/bwctl-server/bwctl-server.limits
 %{__install} -D -p -m 0755 conf/bwctld.limits %{buildroot}%{_sysconfdir}/bwctl-server/bwctl-server.limits.default
@@ -77,6 +86,12 @@ make
 rm -rf $RPM_BUILD_ROOT 
 
 %post server
+%if 0%{?el7}
+if [ "$1" = "1" ]; then
+	/usr/sbin/useradd -r -s /bin/nologin -d /tmp bwctl || :
+fi
+%systemd_post bwctl-server.service
+%else
 if [ "$1" = "1" ]; then
     # If this is a first time install, add the users and enable it by default
 	/sbin/chkconfig --add bwctl-server
@@ -99,6 +114,13 @@ else
         mv /etc/bwctld/bwctld.limits.rpmsave %{_sysconfdir}/bwctl-server/bwctl-server.limits
     fi
     
+    if [ -e "/etc/bwctld/bwctld.keys" ]; then
+        if [ -e "%{_sysconfdir}/bwctl-server/bwctl-server.keys" ]; then
+            mv %{_sysconfdir}/bwctl-server/bwctl-server.keys %{_sysconfdir}/bwctl-server/bwctl-server.keys.bak
+        fi
+        mv /etc/bwctld/bwctld.keys %{_sysconfdir}/bwctl-server/bwctl-server.keys
+    fi
+    
     #make sure bwctl-server starts if bwctld was running
     /sbin/service bwctld stop 2> /dev/null  || :
     chkconfig --list bwctld 2> /dev/null | grep -q on
@@ -111,15 +133,23 @@ else
     /sbin/chkconfig --del bwctld 2> /dev/null  || :
     
 fi
+%endif
 
 %preun server
+%if 0%{?el7}
+%systemd_preun bwctl-server.service
+%else
 if [ "$1" = "0" ]; then
     # If this is an actual uninstall, stop the service and remove its links
     /sbin/chkconfig --del bwctl-server
     /sbin/service bwctl-server stop
 fi
+%endif
 
 %postun server
+%if 0%{?el7}
+%systemd_postun_with_restart bwctl-server.service
+%endif
 if [ "$1" = "0" ]; then
     # If this is an actual uninstall, delete the user after the software has been removed
 	/usr/sbin/userdel bwctl || :
@@ -141,8 +171,12 @@ fi
 %{_bindir}/bwctld
 %{_mandir}/man5/*
 %{_mandir}/man8/*
-%{_sysconfdir}/rc.d/init.d/bwctl-server
 %config(noreplace) %{_sysconfdir}/bwctl-server/*
+%if 0%{?el7}
+%{_unitdir}/bwctl-server.service
+%else
+%{_sysconfdir}/rc.d/init.d/bwctl-server
+%endif
 
 %files devel
 %defattr(-,root,root,0755)
