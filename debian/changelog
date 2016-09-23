@@ -1,8 +1,8 @@
-bwctl (1.6.1.0j-1) UNRELEASED; urgency=low
+bwctl (1.6.2-1) perfsonar-jessie-release; urgency=low
 
-  * TO BE FILLED IN...
+  * New upstream version.
 
- -- Antoine Delvaux <a.delvaux@man.poznan.pl>  Tue, 24 May 2016 19:10:09 +0000
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Fri, 23 Sep 2016 17:22:54 +0000
 
 bwctl (1.6.1-1) perfsonar-jessie-release; urgency=low
 
