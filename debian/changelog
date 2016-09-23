@@ -1,14 +1,14 @@
-bwctl (1.6.1.0w-1~bpo70+1) UNRELEASED; urgency=low
+bwctl (1.6.2-1~bpo70+1) perfsonar-wheezy-release; urgency=low
 
-  * TO BE FILLED IN...
+  * Backport to Wheezy.
 
- -- Antoine Delvaux <a.delvaux@man.poznan.pl>  Tue, 24 May 2016 19:11:37 +0000
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Fri, 23 Sep 2016 17:27:03 +0000
 
-bwctl (1.6.1-1~bpo70+1) perfsonar-wheezy-release; urgency=low
+bwctl (1.6.2-1) perfsonar-jessie-release; urgency=low
 
-  * Backporting to Wheezy.
+  * New upstream version.
 
- -- Antoine Delvaux <a.delvaux@man.poznan.pl>  Tue, 24 May 2016 19:07:22 +0000
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Fri, 23 Sep 2016 17:22:54 +0000
 
 bwctl (1.6.1-1) perfsonar-jessie-release; urgency=low
 
