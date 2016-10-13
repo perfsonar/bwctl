@@ -40,12 +40,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-PACKAGE=bwctl
-VERSION="1.6.2"
 
-AC_INIT(bwctl, 1.6.2, bwctl-users@internet2.edu)
+AC_INIT(bwctl, 1.6.2, bwctl-users@internet2.edu, BWCTL, https://github.com/perfsonar/bwctl/)
 AC_CONFIG_AUX_DIR(config)
-AM_INIT_AUTOMAKE(bwctl, 1.6.2, [no-define])
+AM_INIT_AUTOMAKE([no-define])
 
 AC_DEFINE(PATCH_LEVEL, 1, "The RPM version number")
 AC_SUBST(PATCH_LEVEL, 1)
