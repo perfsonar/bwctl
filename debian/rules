@@ -17,18 +17,3 @@ override_dh_auto_install:
 	install -p -m644 -D $(CURDIR)/conf/bwctld.conf   $(CURDIR)/debian/tmp/etc/bwctl-server/bwctl-server.conf
 	install -p -m644 -D $(CURDIR)/conf/bwctld.limits $(CURDIR)/debian/tmp/etc/bwctl-server/bwctl-server.limits
 
-override_dh_compress:
-	dh_compress -X.pdf
-
-get-orig-source:
-	rm -rf ../bwctl_1.5.2.*
-	uscan --verbose --force-download
-	mv ../bwctl-1.5.2.tar.gz debian/
-	cd debian && tar -xzf bwctl-1.5.2.tar.gz
-	rm debian/bwctl-1.5.2.tar.gz
-	rm debian/bwctl-1.5.2/doc/*.pdf
-	mv debian/bwctl-1.5.2 debian/bwctl_1.5.2+dfsg1.orig
-	cd debian && tar -czf bwctl_1.5.2+dfsg1.orig.tar.gz bwctl_1.5.2+dfsg1.orig
-	rm -r debian/bwctl_1.5.2+dfsg1.orig
-	mv debian/bwctl_1.5.2+dfsg1.orig.tar.gz ..
-
