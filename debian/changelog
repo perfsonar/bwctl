@@ -1,40 +1,14 @@
-bwctl (1.6.2-1) perfsonar-jessie-release; urgency=low
+bwctl (1.6.2-1) unstable; urgency=medium
 
   * New upstream version.
-
- -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Fri, 23 Sep 2016 17:22:54 +0000
-
-bwctl (1.6.1-1) perfsonar-jessie-release; urgency=low
-
-  * New upstream version.
-
- -- Antoine Delvaux <a.delvaux@man.poznan.pl>  Tue, 24 May 2016 19:01:43 +0000
-
-bwctl (1.6.0-1) perfsonar-jessie-release; urgency=low
-
-  * New upstream version.
-  * Adding -m option to set the MMS size of an iperf3 test.
+  * Bumped Standards-Version to 3.9.8
   * Moved configuration directory to /etc/bwctl-server
   * Rename configuration file to bwctl-server.conf
-
- -- Valentin Vidic <Valentin.Vidic@CARNet.hr>  Fri, 04 Mar 2016 09:18:01 +0100
-
-bwctl (1.5.6-1) unstable; urgency=low
-
-  * New upstream version
   * Disabling I2util during build
   * Start bwctl-server by default
   * Adding gbp.conf for git-buildpackage
 
- -- Antoine Delvaux <a.delvaux@man.poznan.pl>  Fri, 13 Nov 2015 10:19:27 +0000
-
-bwctl (1.5.3-1) unstable; urgency=low
-
-  * New upstream version
-  * Start bwctl-server by default
-  * Adding gbp.conf for git-buildpackage usage
-
- -- Antoine Delvaux <antoine.delvaux@dante.net>  Wed, 11 Mar 2015 12:20:49 +0000
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Thu, 13 Oct 2016 21:52:57 +0000
 
 bwctl (1.5.2+dfsg1-1) unstable; urgency=medium
 

@@ -1,9 +1,9 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: bwctl
-Source: http://www.internet2.edu/performance/bwctl/
+Source: https://github.com/perfsonar/bwctl
 
 Files: *
-Copyright: 2003-2014 Internet2
+Copyright: 2003-2016 Internet2
 License: Apache-2.0
 
 Files: bwlib/rijndael-*
@@ -13,40 +13,8 @@ License: public-domain
  statement included in the source files:
  "This code is hereby placed in the public domain."
 
-Files: *aclocal.m4 *Makefile.in */config.guess */config.sub */depcomp */ltmain.sh */missing *configure
-Copyright: 1994-2009 Free Software Foundation
-License: GPL-2+
-
-Files: */install-sh
-Copyright: 1994, X Consortium
-License: MIT
- Permission is hereby granted, free of charge, to any person obtaining a copy
- of this software and associated documentation files (the "Software"), to
- deal in the Software without restriction, including without limitation the
- rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
- sell copies of the Software, and to permit persons to whom the Software is
- furnished to do so, subject to the following conditions:
- .
- The above copyright notice and this permission notice shall be included in
- all copies or substantial portions of the Software.
- .
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
- X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
- AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNEC-
- TION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- .
- Except as contained in this notice, the name of the X Consortium shall not
- be used in advertising or otherwise to promote the sale, use or other deal-
- ings in this Software without prior written authorization from the X Consor-
- tium.
- .
- .
- FSF changes to this file are in the public domain.
-
 Files: debian/*
-Copyright: 2012-2014, Raoul Gunnar Borenius <borenius@dfn.de>
+Copyright: 2012-2016, Raoul Gunnar Borenius <borenius@dfn.de>
 License: BSD-2-clause
 
 License: Apache-2.0
