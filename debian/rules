@@ -1,6 +1,7 @@
 #!/usr/bin/make -f
 
 export DH_OPTIONS
+export DEB_LDFLAGS_MAINT_APPEND = -Wl,--allow-multiple-definition
 
 %:
 	dh $@ --with autoreconf,systemd
