@@ -33,7 +33,7 @@
 #define	BWCTLD_CONF_FILE	"bwctl-server.conf"
 #endif
 
-#define	BWCTLD_IPERF_DEF_TESTPORT	(5001)
+#define	BWCTLD_IPERF_DEF_TESTPORT	(5202)
 #define	BWCTLD_THRULAYD_DEF_TESTPORT	(5003)
 
 #if defined(HAVE_SYS_QUEUE_H)

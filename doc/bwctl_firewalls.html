@@ -57,17 +57,17 @@
         appropriate configuration option.
 
         <p>If you specified <em>iperf_port</em> as
-        5001-5004, you would then need to enable this range in your
+        5202-5205, you would then need to enable this range in your
         firewall configuration. If you allow UDP tests (in your
         <a href="bwctld.limits.man.html">bwctld.limits</a> file),
         you will need to open up the UDP ports. Likewise for TCP.
-        The default is 5001 for TCP and UDP tests, and you will only be
+        The default is 5202 for TCP and UDP tests, and you will only be
         able to test if you open the ports specified.</p>
         <p>On a typical Red Hat Enterprise Linux system,
         you would need to add the following lines to /etc/sysconfig/iptables
         given this range:</p>
-<pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 5001:5004 -j ACCEPT
--A RH-Firewall-1-INPUT -m udp -p ucp --dport 5001:5004 -j ACCEPT
+<pre>-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 5202:5205 -j ACCEPT
+-A RH-Firewall-1-INPUT -m udp -p ucp --dport 5202:5205 -j ACCEPT
 </pre>
         <p>
         This should be added somewhere <b>after</b> the line that allows
@@ -99,8 +99,8 @@
 # bwctld peer_ports
 -A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 9910:9950 -j ACCEPT
 # bwctl/iperf_port
--A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 5001 -j ACCEPT
--A RH-Firewall-1-INPUT -m udp -p ucp --dport 5001 -j ACCEPT
+-A RH-Firewall-1-INPUT -m state --state NEW -m tcp -p tcp --dport 5202 -j ACCEPT
+-A RH-Firewall-1-INPUT -m udp -p ucp --dport 5202 -j ACCEPT
 # reject anything that has not matched
 -A RH-Firewall-1-INPUT -j REJECT --reject-with icmp-host-prohibited
 COMMIT

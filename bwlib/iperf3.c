@@ -387,7 +387,7 @@ BWLToolDefinitionRec    BWLToolIperf3 = {
     "iperf3",                /* name             */
     "iperf3",                /* def_cmd          */
     "iperf3",               /* def_server_cmd   */
-    5001,                   /* def_port         */
+    5202,                   /* def_port         */
     _BWLToolGenericParse,    /* parse            */
     BWLGenericParseThroughputParameters,    /* parse_request */
     BWLGenericUnparseThroughputParameters,  /* unparse_request */
