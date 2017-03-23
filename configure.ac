@@ -41,7 +41,7 @@
 # limitations under the License.
 #
 
-AC_INIT(bwctl, 1.6.2, bwctl-users@internet2.edu, BWCTL, https://github.com/perfsonar/bwctl/)
+AC_INIT(bwctl, 1.6.3, bwctl-users@internet2.edu, BWCTL, https://github.com/perfsonar/bwctl/)
 AC_CONFIG_AUX_DIR(config)
 AM_INIT_AUTOMAKE([no-define])
 
