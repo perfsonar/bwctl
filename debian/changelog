@@ -1,14 +1,15 @@
-bwctl (1.6.2-1~bpo70+1) perfsonar-wheezy-release; urgency=low
+bwctl (1.6.3-1~bpo70+1) perfsonar-wheezy-release; urgency=low
 
   * Backport to Wheezy.
 
- -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Fri, 23 Sep 2016 17:27:03 +0000
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Thu, 23 Mar 2017 15:45:06 +0000
 
-bwctl (1.6.2-1) perfsonar-jessie-release; urgency=low
+bwctl (1.6.3-1) perfsonar-jessie-release; urgency=low
 
   * New upstream version.
+  * Changing default port range to 5202-5900
 
- -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Fri, 23 Sep 2016 17:22:54 +0000
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Thu, 23 Mar 2017 15:43:00 +0000
 
 bwctl (1.6.1-1) perfsonar-jessie-release; urgency=low
 

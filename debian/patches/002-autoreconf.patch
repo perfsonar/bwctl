@@ -685,7 +685,7 @@
 +Placeholder
 --- a/configure.ac
 +++ b/configure.ac
-@@ -81,7 +81,6 @@
+@@ -79,7 +79,6 @@
  AC_CHECK_HEADERS([errno.h getopt.h netdb.h stdlib.h tgmath.h sys/param.h sys/socket.h sys/time.h sys/timex.h])
  
  # Checks for typedefs, structures, and compiler characteristics.
