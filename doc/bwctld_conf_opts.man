@@ -202,8 +202,8 @@ Currently, \fBbwctld\fR simply cycles through this range linearly.
 \fIiperf_port\fR can be specified as a single valid port number or as
 a range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid
 port numbers with the '\-' character separating them. Whitespace is
-not allowed within the \fIiperf_port\fR. For example, \fB"5001\-5004"\fR would
-be valid, but \fB"5001 \- 5004"\fR would be invalid.
+not allowed within the \fIiperf_port\fR. For example, \fB"5202\-5205"\fR would
+be valid, but \fB"5202 \- 5205"\fR would be invalid.
 .RS
 .PP
 This value should be set to a range because it can take a few minutes for a
@@ -223,8 +223,8 @@ Currently, \fBbwctld\fR simply cycles through this range linearly.
 \fIiperf3_port\fR can be specified as a single valid port number or as
 a range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid
 port numbers with the '\-' character separating them. Whitespace is
-not allowed within the \fIiperf3_port\fR. For example, \fB"5001\-5004"\fR would
-be valid, but \fB"5001 \- 5004"\fR would be invalid.
+not allowed within the \fIiperf3_port\fR. For example, \fB"5202\-5205"\fR would
+be valid, but \fB"5202 \- 5205"\fR would be invalid.
 .RS
 .PP
 This value should be set to a range because it can take a few minutes for a
@@ -262,8 +262,8 @@ Currently, \fBbwctld\fR simply cycles through this range linearly.
 \fInuttcp_port\fR can be specified as a single valid port number or as
 a range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid
 port numbers with the '\-' character separating them. Whitespace is
-not allowed within the \fInuttcp_port\fR. For example, \fB"5001\-5004"\fR would
-be valid, but \fB"5001 \- 5004"\fR would be invalid.
+not allowed within the \fInuttcp_port\fR. For example, \fB"5202\-5205"\fR would
+be valid, but \fB"5202 \- 5205"\fR would be invalid.
 .RS
 .PP
 This value should be set to a range because it can take a few minutes for a
@@ -301,7 +301,7 @@ Currently, \fBbwctld\fR simply cycles through this range linearly.
 \fIowamp_port\fR must be specified as a range as \fIlow\fR\-\fIhigh\fR. The
 range must be specified as two valid port numbers with the '\-' character
 separating them. Whitespace is not allowed within the \fIowamp_port\fR. For
-example, \fB"5001\-5004"\fR would be valid, but \fB"5001 \- 5004"\fR would be
+example, \fB"5202\-5205"\fR would be valid, but \fB"5202 \- 5205"\fR would be
 invalid.
 .RS
 .PP
@@ -414,15 +414,15 @@ set using one of the other port variables.  Currently, \fBbwctld\fR simply
 cycles through this range linearly.  \fItest_port\fR must be specified as a
 range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid port
 numbers with the '\-' character separating them. Whitespace is not allowed
-within the \fItest_port\fR. For example, \fB"5001\-5004"\fR would be valid, but
-\fB"5001 \- 5004"\fR would be invalid.
+within the \fItest_port\fR. For example, \fB"5202\-5205"\fR would be valid, but
+\fB"5202 \- 5205"\fR would be invalid.
 .RS
 .PP
 This value must be set to a range because it is used for both the \fBOwamp\fR
 communication and test ports.
 .PP
 .IP Default:
-5001-5900
+5202-5900
 .RE
 .TP
 .BI thrulay_port " thrulayport"
@@ -431,8 +431,8 @@ Currently, \fBbwctld\fR simply cycles through this range linearly.
 \fIthrulay_port\fR can be specified as a single valid port number or as
 a range as \fIlow\fR\-\fIhigh\fR. The range must be specified as two valid
 port numbers with the '\-' character separating them. Whitespace is
-not allowed within the \fIthrulay_port\fR. For example, \fB"5001\-5004"\fR would
-be valid, but \fB"5001 \- 5004"\fR would be invalid.
+not allowed within the \fIthrulay_port\fR. For example, \fB"5202\-5205"\fR would
+be valid, but \fB"5202 \- 5205"\fR would be invalid.
 .RS
 .PP
 This value should be set to a range because it can take a few minutes for a

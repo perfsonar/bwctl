@@ -787,9 +787,9 @@ _BWLToolGenericInitTest(
     if( !prange ) {
         prange = calloc(1,sizeof(BWLPortRangeRec));
         if(prange) {
-            prange->low  = 5001;
+            prange->low  = 5202;
             prange->high = 5900;
-            BWLPortsSetI(ctx,prange,5001);
+            BWLPortsSetI(ctx,prange,5202);
             BWLContextConfigSet(ctx,"V.test_port",prange);
         }
     }

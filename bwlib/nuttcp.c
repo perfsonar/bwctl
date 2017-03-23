@@ -311,7 +311,7 @@ BWLToolDefinitionRec    BWLToolNuttcp = {
     "nuttcp",                /* name             */
     "nuttcp",                /* def_cmd          */
     NULL,                   /* def_server_cmd   */
-    5001,                   /* def_port         */
+    5202,                   /* def_port         */
     _BWLToolGenericParse,    /* parse            */
     BWLGenericParseThroughputParameters,    /* parse_request */
     BWLGenericUnparseThroughputParameters,  /* unparse_request */
@@ -325,6 +325,6 @@ BWLToolDefinitionRec    BWLToolNuttcp = {
     BWLToolClientSideData,      /* results_side     */
     True,                   /* supports_server_sends */
     True,                    /* supports_endpointless */
-    5001,                    /* The server port to use in endpointless tests */
+    5202,                    /* The server port to use in endpointless tests */
     0,                       /* parsable format */
 };
