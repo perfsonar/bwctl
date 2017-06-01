@@ -36,7 +36,7 @@ case "$1" in
         fi
 
         # select correct traceroute6 or bwctl startup will fail (Debian bug #863824)
-        if [ -L /usr/bin/traceroute6 ]; then
+        if [ -L /usr/bin/traceroute6  -a -e /usr/bin/traceroute6.db ]; then
             update-alternatives --set traceroute6 /usr/bin/traceroute6.db
         fi
     ;;
