@@ -1,3 +1,9 @@
+bwctl (1.6.3-2) perfsonar-jessie-release; urgency=low
+
+  * Select correct traceroute6 (fixes Debian bug #863824)
+
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Wed, 14 Jun 2017 14:34:08 +0000
+
 bwctl (1.6.3-1) perfsonar-jessie-release; urgency=low
 
   * New upstream version.
