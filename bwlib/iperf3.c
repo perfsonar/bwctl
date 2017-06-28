@@ -53,7 +53,7 @@ Iperf3Available(
 {
     int             len;
     char            *cmd;
-    char            *patterns[] = { "iperf 3.0.11", "iperf 3.1" }; /* Expected begin of stdout */
+    char            *patterns[] = { "iperf 3.0.11", "iperf 3.1", "iperf 3.2", "iperf 3-CURRENT" }; /* Expected begin of stdout */
                     /* We expect 'iperf3 -v' to print to stderr something like
                     'iperf 3.0.11' or 'iperf 3.1*' */
     char            buf[1024];
