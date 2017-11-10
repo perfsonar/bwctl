@@ -1,3 +1,9 @@
+bwctl (1.6.5-1) perfsonar-jessie-release; urgency=low
+
+  * New upstream version.
+
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Sat, 11 Nov 2017 00:18:54 +0100
+
 bwctl (1.6.4-1) perfsonar-jessie-release; urgency=low
 
   * New upstream version.
