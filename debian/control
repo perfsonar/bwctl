@@ -20,8 +20,8 @@ Description: bandwidth test controller (client)
 
 Package: bwctl-server
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, iperf, nuttcp, ntp, traceroute
-Recommends: iputils-ping, iputils-tracepath
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, iperf, nuttcp, traceroute
+Recommends: iputils-ping, iputils-tracepath, ntp | time-daemon
 Suggests: i2util-tools, iperf3, owamp-server, owamp-client, paris-traceroute
 Description: bandwidth test controller (server)
  The Bwctl suite works with nuttcp and iperf to test bandwidth without
