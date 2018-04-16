@@ -1,8 +1,14 @@
-bwctl (1.6.6-1~bpo70+1) perfsonar-wheezy-release; urgency=low
+bwctl (1.6.6-2~bpo70+1) perfsonar-wheezy-release; urgency=low
 
   * Backport to Wheezy.
 
- -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Fri, 16 Mar 2018 15:25:00 +0000
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Mon, 16 Apr 2018 17:12:20 +0000
+
+bwctl (1.6.6-2) perfsonar-jessie-release; urgency=low
+
+  * Moving ntp dependency to Recommends:
+
+ -- Antoine Delvaux <antoine.delvaux@man.poznan.pl>  Mon, 16 Apr 2018 17:04:10 +0000
 
 bwctl (1.6.6-1) perfsonar-jessie-release; urgency=low
 
