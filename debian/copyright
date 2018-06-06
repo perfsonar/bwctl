@@ -3,7 +3,7 @@ Upstream-Name: bwctl
 Source: http://www.internet2.edu/performance/bwctl/
 
 Files: *
-Copyright: 2003-2014 Internet2
+Copyright: 2003-2018 perfSONAR project
 License: Apache-2.0
 
 Files: bwlib/rijndael-*
@@ -48,6 +48,10 @@ License: MIT
 Files: debian/*
 Copyright: 2012-2014, Raoul Gunnar Borenius <borenius@dfn.de>
 License: BSD-2-clause
+
+Files: debian/*
+Copyright: 2015-2018, GÉANT
+License: Apache-2.0
 
 License: Apache-2.0
  Licensed under the Apache License, Version 2.0 (the "License");
