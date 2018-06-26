@@ -2,7 +2,7 @@ Name: bwctl
 Summary: bwctl - network throughput tester
 Version: @VERSION@
 Release: @PATCH_LEVEL@%{?dist}
-License: Apache License v2.0
+License: ASL 2.0 
 Group: *Development/Libraries*
 URL: http://e2epi.internet2.edu/bwctl/
 Source: %{name}-%{version}.tar.gz
@@ -159,6 +159,7 @@ fi
 
 %files client
 %defattr(-,root,root,0755)
+%license LICENSE
 %doc README
 %{_bindir}/bwctl
 %{_bindir}/bwping
@@ -169,6 +170,7 @@ fi
 
 %files server
 %defattr(-,root,root,0755)
+%license LICENSE
 %doc README contrib/sample_hook.pl
 %{_bindir}/bwctld
 %{_mandir}/man5/*
@@ -182,6 +184,7 @@ fi
 
 %files devel
 %defattr(-,root,root,0755)
+%license LICENSE
 %{_libdir}/libbwlib.a
 %{_includedir}/bwctl/*
 
