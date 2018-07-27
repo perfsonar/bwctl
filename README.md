@@ -1,4 +1,7 @@
-#bwctl
+### Notes from August 2018
+The code from this repository will not be further developed by the perfSONAR development team.  Only security issues will still be considered and corrected from now on.  See https://docs.perfsonar.net/release_candidates/4.1b1/manage_update.html#special-upgrade-notes for more information.
+
+# bwctl
 
 bwctl is a scheduling and policy daemon that wraps iperf, traceroute, owamp and
 a few other measurement tools. It works by contacting a bwctld process on the
@@ -14,13 +17,13 @@ when a test should take place as the peer system the test is being done with.)
 Therefore bwctl requires ntp be installed and used to synchronize the system
 clock.
 
-##Building bwctl
+## Building bwctl
 
-###Prerequisites
+### Prerequisites
 * I2util: You can install it via RPM, or download the source from http://software.internet2.edu/sources/I2util/
 * iperf3 (optional): You can install it via RPM, or download the source from https://github.com/esnet/iperf/
 
-###Building
+### Building
 
 ```bash
 ./configure; make; make install
@@ -28,13 +31,13 @@ clock.
 
 (Note: If configure fails, try running ./bootstrap.sh first)
 
-##Latest version
+## Latest version
 
 To check out the most recent code, do:  git clone https://github.com/perfsonar/bwctl.git
 
-##Running
+## Running
 
-###Daemon
+### Daemon
 
 To run the daemon:
 
@@ -54,7 +57,7 @@ bwctld -h
 
 bwctld -h will give you the list of options. Specifically, if you have problems you may want to use the -Z flag to run it in the foreground and have error messages come to the console in addition to syslog.
 
-###Client
+### Client
 
 To run the client:
 
@@ -77,7 +80,7 @@ The bwctl program will allow you to run bandwidth tests like iperf, iperf3 and
 nuttcp. To run traceroute/tracepath, use the 'bwtraceroute' program, and to use
 ping/owamp, use the 'bwping' program.
 
-##Bug Reports
+## Bug Reports
 
 Before submitting a bug report, try checking out the latest version of
 the code, and confirm that its not already fixed. Then submit to:
